@@ -1,3 +1,4 @@
+Code được OpenSoure lại từ Phạm Trung Dũng
 # Hệ thống quản lý phòng trọ
 
 Hệ thống quản lý phòng trọ hiện đại và toàn diện được xây dựng với Next.js 15, TypeScript và MongoDB.
