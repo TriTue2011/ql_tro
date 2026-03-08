@@ -248,11 +248,11 @@ const createColumns = (props: HopDongTableProps): ColumnDef<HopDong>[] => [
     ),
   },
   {
-    accessorKey: "khachThueId",
+    accessorKey: "khachThueIds",
     header: "Khách thuê",
     cell: ({ row }) => {
-      const khachThue = row.original.khachThueId[0]
-      const count = row.original.khachThueId.length
+      const khachThue = row.original.khachThueIds[0]
+      const count = row.original.khachThueIds.length
       return (
         <div className="min-w-32">
           <div className="font-medium">

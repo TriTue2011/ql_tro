@@ -3,6 +3,8 @@
  *   cloudinary  → Cloudinary (online)
  *   minio       → MinIO Docker (offline, phục vụ qua /api/files/)
  *   local       → public/uploads/ (mặc định nếu không set)
+ *   both        → Upload lên MinIO (primary/offline) + Cloudinary (secondary/online, fire-and-forget)
+ *                 Trả về URL MinIO để dùng offline, Cloudinary backup chạy nền
  */
 
 export type UploadResult = {
@@ -18,9 +20,24 @@ export async function uploadFile(file: File): Promise<UploadResult> {
       return uploadToCloudinary(file);
     case 'minio':
       return uploadToMinio(file);
+    case 'both':
+      return uploadToBoth(file);
     default:
       return uploadToLocal(file);
   }
+}
+
+// ─── Both (MinIO primary + Cloudinary secondary) ─────────────────────────────
+async function uploadToBoth(file: File): Promise<UploadResult> {
+  // Upload lên MinIO trước (primary/offline), chờ kết quả
+  const result = await uploadToMinio(file);
+
+  // Upload lên Cloudinary sau (secondary/online), fire-and-forget
+  uploadToCloudinary(file).catch((err: Error) => {
+    console.error('[DualStorage] Cloudinary backup failed:', err.message);
+  });
+
+  return result;
 }
 
 // ─── Cloudinary ───────────────────────────────────────────────────────────────
