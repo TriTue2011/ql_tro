@@ -3,10 +3,10 @@ import { getHoaDonRepo, getThanhToanRepo } from '@/lib/repositories';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const hoaDonId = params.id;
+    const { id: hoaDonId } = await params;
 
     if (!hoaDonId) {
       return NextResponse.json(

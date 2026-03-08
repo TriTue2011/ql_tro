@@ -88,6 +88,7 @@ import {
 
 interface User {
   _id: string
+  id?: string
   name?: string
   ten?: string
   email: string

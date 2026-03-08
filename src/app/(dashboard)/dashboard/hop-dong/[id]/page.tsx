@@ -96,9 +96,9 @@ export default function ChinhSuaHopDongPage() {
           
           setFormData({
             maHopDong: hopDongItem.maHopDong || '',
-            phong: typeof hopDongItem.phong === 'object' ? (hopDongItem.phong as {_id: string})?.id || '' : hopDongItem.phong || '',
-            khachThueId: hopDongItem.khachThueIds?.map((kt: string | { id: string }) => typeof kt === 'object' ? kt.id : kt) || [],
-            nguoiDaiDien: typeof hopDongItem.nguoiDaiDien === 'object' ? (hopDongItem.nguoiDaiDien as {_id: string})?.id || '' : hopDongItem.nguoiDaiDien || '',
+            phong: typeof hopDongItem.phong === 'object' ? (hopDongItem.phong as {id?: string; _id?: string})?.id || (hopDongItem.phong as {id?: string; _id?: string})?._id || '' : hopDongItem.phong || '',
+            khachThueId: hopDongItem.khachThueIds?.map((kt: string | { id?: string; _id?: string }) => typeof kt === 'object' ? (kt.id || kt._id || '') : kt) || [],
+            nguoiDaiDien: typeof hopDongItem.nguoiDaiDien === 'object' ? (hopDongItem.nguoiDaiDien as {id?: string; _id?: string})?.id || (hopDongItem.nguoiDaiDien as {id?: string; _id?: string})?._id || '' : hopDongItem.nguoiDaiDien || '',
             ngayBatDau: hopDongItem.ngayBatDau ? hopDongItem.ngayBatDau.toString().split('T')[0] : new Date().toISOString().split('T')[0],
             ngayKetThuc: hopDongItem.ngayKetThuc ? hopDongItem.ngayKetThuc.toString().split('T')[0] : '',
             giaThue: hopDongItem.giaThue || 0,

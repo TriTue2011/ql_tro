@@ -198,7 +198,7 @@ const getPhongName = (phong: string | { maPhong: string }, phongList: Phong[]) =
   return phong?.maPhong || 'N/A'
 }
 
-const getKhachThueName = (khachThue: string | { hoTen: string }, khachThueList: KhachThue[]) => {
+const getKhachThueName = (khachThue: string | { hoTen?: string; [key: string]: unknown }, khachThueList: KhachThue[]) => {
   if (typeof khachThue === 'string') {
     const khachThueObj = khachThueList.find(k => k.id === khachThue)
     return khachThueObj?.hoTen || 'N/A'
