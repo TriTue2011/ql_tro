@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getKhachThueRepo, getHopDongRepo } from '@/lib/repositories';
 import { z } from 'zod';
+import { hash } from 'bcryptjs';
 
 const khachThueSchema = z.object({
   hoTen: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
@@ -105,6 +106,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const hashedPassword = validatedData.matKhau
+      ? await hash(validatedData.matKhau, 12)
+      : undefined;
+
     const newKhachThue = await repo.create({
       hoTen: validatedData.hoTen,
       soDienThoai: validatedData.soDienThoai,
@@ -115,7 +120,7 @@ export async function POST(request: NextRequest) {
       queQuan: validatedData.queQuan,
       anhCCCD: validatedData.anhCCCD || { matTruoc: '', matSau: '' },
       ngheNghiep: validatedData.ngheNghiep,
-      matKhau: validatedData.matKhau,
+      matKhau: hashedPassword,
     });
 
     return NextResponse.json({

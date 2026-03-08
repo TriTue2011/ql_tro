@@ -112,16 +112,16 @@ const NguoiDungSchema = new Schema<INguoiDung>({
   }
 });
 
-// Hash password trước khi lưu
+// Hash password trước khi lưu (bỏ qua nếu đã là bcrypt hash)
 NguoiDungSchema.pre('save', async function(next) {
   if (!this.isModified('matKhau') && !this.isModified('password')) return next();
-  
+
   try {
     const salt = await bcrypt.genSalt(12);
-    if (this.isModified('matKhau')) {
+    if (this.isModified('matKhau') && this.matKhau && !this.matKhau.startsWith('$2')) {
       this.matKhau = await bcrypt.hash(this.matKhau, salt);
     }
-    if (this.isModified('password')) {
+    if (this.isModified('password') && this.password && !this.password.startsWith('$2')) {
       this.password = await bcrypt.hash(this.password, salt);
     }
     next();

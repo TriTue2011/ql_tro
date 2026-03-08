@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNguoiDungRepo } from '@/lib/repositories';
 import { z } from 'zod';
+import { hash } from 'bcryptjs';
 
 const registerSchema = z.object({
   ten: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
@@ -40,11 +41,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Hash password before storing (applies to all DB providers)
+    const hashedPassword = await hash(validatedData.matKhau, 12);
+
     // Create new user
     await repo.create({
       ten: validatedData.ten,
       email: validatedData.email.toLowerCase(),
-      matKhau: validatedData.matKhau,
+      matKhau: hashedPassword,
       soDienThoai: validatedData.soDienThoai,
       vaiTro: validatedData.vaiTro,
     });
