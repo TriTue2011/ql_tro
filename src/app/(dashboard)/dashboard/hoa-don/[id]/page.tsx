@@ -119,9 +119,9 @@ export default function ChinhSuaHoaDonPage() {
           
           setFormData({
             maHoaDon: hoaDonItem.maHoaDon || '',
-            hopDong: typeof hoaDonItem.hopDong === 'object' ? (hoaDonItem.hopDong as {_id: string})?.id || '' : hoaDonItem.hopDong || '',
-            phong: typeof hoaDonItem.phong === 'object' ? (hoaDonItem.phong as {_id: string})?.id || '' : hoaDonItem.phong || '',
-            khachThue: typeof hoaDonItem.khachThue === 'object' ? (hoaDonItem.khachThue as {_id: string})?.id || '' : hoaDonItem.khachThue || '',
+            hopDong: typeof hoaDonItem.hopDong === 'object' ? (hoaDonItem.hopDong as {id?: string; _id?: string})?.id || (hoaDonItem.hopDong as {id?: string; _id?: string})?._id || '' : hoaDonItem.hopDong || '',
+            phong: typeof hoaDonItem.phong === 'object' ? (hoaDonItem.phong as {id?: string; _id?: string})?.id || (hoaDonItem.phong as {id?: string; _id?: string})?._id || '' : hoaDonItem.phong || '',
+            khachThue: typeof hoaDonItem.khachThue === 'object' ? (hoaDonItem.khachThue as {id?: string; _id?: string})?.id || (hoaDonItem.khachThue as {id?: string; _id?: string})?._id || '' : hoaDonItem.khachThue || '',
             thang: hoaDonItem.thang || new Date().getMonth() + 1,
             nam: hoaDonItem.nam || new Date().getFullYear(),
             tienPhong: hoaDonItem.tienPhong || 0,

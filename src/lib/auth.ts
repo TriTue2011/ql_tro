@@ -11,7 +11,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         matKhau: { label: 'Mật khẩu', type: 'password' }
       },
-      async authorize(credentials) {
+      async authorize(credentials, _req) {
         if (!credentials?.email || !credentials?.matKhau) {
           return null;
         }
@@ -41,8 +41,8 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             name: user.ten,
             role: user.vaiTro,
-            phone: user.soDienThoai,
-            avatar: user.anhDaiDien,
+            phone: user.soDienThoai ?? '',
+            avatar: user.anhDaiDien ?? undefined,
           };
         } catch (error) {
           console.error('[AUTH] Error:', error);

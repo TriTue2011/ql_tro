@@ -17,7 +17,7 @@ const updateSuCoSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -29,8 +29,9 @@ export async function GET(
       );
     }
 
+    const { id } = await params;
     const repo = await getSuCoRepo();
-    const suCo = await repo.findById(params.id);
+    const suCo = await repo.findById(id);
 
     if (!suCo) {
       return NextResponse.json(
@@ -55,7 +56,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -67,12 +68,13 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
     const body = await request.json();
     const validatedData = updateSuCoSchema.parse(body);
 
     const repo = await getSuCoRepo();
 
-    const suCo = await repo.update(params.id, {
+    const suCo = await repo.update(id, {
       trangThai: validatedData.trangThai,
       nguoiXuLyId: validatedData.nguoiXuLy,
       ghiChuXuLy: validatedData.ghiChuXuLy,
@@ -95,7 +97,7 @@ export async function PUT(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { message: error.errors[0].message },
+        { message: error.issues[0].message },
         { status: 400 }
       );
     }
@@ -110,7 +112,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -122,9 +124,10 @@ export async function DELETE(
       );
     }
 
+    const { id } = await params;
     const repo = await getSuCoRepo();
 
-    const suCo = await repo.findById(params.id);
+    const suCo = await repo.findById(id);
     if (!suCo) {
       return NextResponse.json(
         { message: 'Sự cố không tồn tại' },
@@ -132,7 +135,7 @@ export async function DELETE(
       );
     }
 
-    await repo.delete(params.id);
+    await repo.delete(id);
 
     return NextResponse.json({
       success: true,

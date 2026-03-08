@@ -51,6 +51,7 @@ import { UserDataTable } from './table';
 
 interface User {
   _id: string;
+  id?: string;
   name?: string;
   ten?: string;
   email: string;
@@ -560,7 +561,7 @@ export default function AccountManagementPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteUser(user.id)}
+                        onClick={() => handleDeleteUser(user.id ?? user._id)}
                         className="flex-1 text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="h-3.5 w-3.5 mr-1" />
