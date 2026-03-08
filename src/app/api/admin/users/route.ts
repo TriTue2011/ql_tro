@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getNguoiDungRepo } from '@/lib/repositories';
+import { hash } from 'bcryptjs';
 
 export async function GET() {
   try {
@@ -45,11 +46,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email đã được sử dụng' }, { status: 400 });
     }
 
+    // Hash password before storing
+    const hashedPassword = await hash(password, 12);
+
     // Create user
     const newUser = await repo.create({
       ten: name,
       email,
-      matKhau: password,
+      matKhau: hashedPassword,
       soDienThoai: phone,
       vaiTro: role,
     });

@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       search: search || undefined,
-      trangThai: trangThai as any || undefined,
+      trangThai: ['hoatDong','hetHan','daHuy'].includes(trangThai) ? trangThai as import('@/lib/repositories/types').TrangThaiHopDong : undefined,
     });
 
     return NextResponse.json({

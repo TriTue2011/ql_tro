@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       search: search || undefined,
-      loai: loai as any || undefined,
+      loai: ['chung','hoaDon','suCo','hopDong','khac'].includes(loai) ? loai as import('@/lib/repositories/types').LoaiThongBao : undefined,
     });
 
     return NextResponse.json({

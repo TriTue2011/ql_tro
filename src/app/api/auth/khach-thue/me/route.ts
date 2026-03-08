@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     let decoded: any;
     try {
-      decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'secret');
+      decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET!);
     } catch {
       return NextResponse.json(
         { success: false, message: 'Token không hợp lệ' },

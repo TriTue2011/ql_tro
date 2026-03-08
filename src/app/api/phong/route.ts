@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getPhongRepo, getToaNhaRepo, getHopDongRepo } from '@/lib/repositories';
+import { getPhongRepo, getToaNhaRepo } from '@/lib/repositories';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
+import prisma from '@/lib/prisma';
+import type { TrangThaiPhong } from '@/lib/repositories/types';
+
+const TRANG_THAI_PHONG: readonly string[] = ['trong', 'daDat', 'dangThue', 'baoTri'];
 
 const phongSchema = z.object({
   maPhong: z.string().min(1, 'Mã phòng là bắt buộc'),
@@ -36,30 +41,32 @@ export async function GET(request: NextRequest) {
     const trangThai = searchParams.get('trangThai') || '';
 
     const repo = await getPhongRepo();
-    const hopDongRepo = await getHopDongRepo();
 
     const result = await repo.findMany({
       page,
       limit,
       search: search || undefined,
       toaNhaId: toaNhaId || undefined,
-      trangThai: trangThai as any || undefined,
+      trangThai: TRANG_THAI_PHONG.includes(trangThai)
+        ? trangThai as TrangThaiPhong : undefined,
     });
 
-    // Thêm thông tin hợp đồng hiện tại cho mỗi phòng
-    const phongListWithContracts = await Promise.all(
-      result.data.map(async (phong) => {
-        const hopDongResult = await hopDongRepo.findMany({
-          phongId: phong.id,
-          trangThai: 'hoatDong',
-          limit: 1,
-        });
-        return {
-          ...phong,
-          hopDongHienTai: hopDongResult.data[0] || null,
-        };
-      })
-    );
+    // Batch-fetch hợp đồng đang hoạt động (tránh N+1)
+    const phongIds = result.data.map(p => p.id).filter(Boolean) as string[];
+    const hopDongBatch = await prisma.hopDong.findMany({
+      where: { phongId: { in: phongIds }, trangThai: 'hoatDong' },
+      select: {
+        id: true,
+        phongId: true,
+        nguoiDaiDien: { select: { id: true, hoTen: true, soDienThoai: true } },
+        khachThue: { select: { id: true, hoTen: true, soDienThoai: true } },
+      },
+    });
+    const hopDongByPhong = new Map(hopDongBatch.map(hd => [hd.phongId, hd]));
+    const phongListWithContracts = result.data.map(phong => ({
+      ...phong,
+      hopDongHienTai: hopDongByPhong.get(phong.id ?? '') ?? null,
+    }));
 
     return NextResponse.json({
       success: true,
@@ -125,6 +132,13 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { message: error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return NextResponse.json(
+        { message: 'Mã phòng đã tồn tại' },
         { status: 400 }
       );
     }
