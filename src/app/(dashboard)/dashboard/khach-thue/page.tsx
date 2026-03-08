@@ -142,7 +142,7 @@ export default function KhachThuePage() {
           const result = await response.json();
           if (result.success) {
             cache.clearCache();
-            setKhachThueList(prev => prev.filter(khachThue => khachThue._id !== id));
+            setKhachThueList(prev => prev.filter(khachThue => khachThue.id !== id));
             toast.success('Xóa khách thuê thành công!');
           } else {
             toast.error(result.message || 'Có lỗi xảy ra');
@@ -220,7 +220,7 @@ export default function KhachThuePage() {
                   if (editingKhachThue) {
                     // Cập nhật khách thuê hiện có
                     setKhachThueList(prev => prev.map(kt => 
-                      kt._id === editingKhachThue._id ? newKhachThue : kt
+                      kt.id === editingKhachThue.id ? newKhachThue : kt
                     ));
                   } else {
                     // Thêm khách thuê mới
@@ -345,7 +345,7 @@ export default function KhachThuePage() {
         {/* Mobile Card List */}
         <div className="space-y-3">
           {filteredKhachThue.map((khachThue) => (
-            <Card key={khachThue._id} className="p-4">
+            <Card key={khachThue.id} className="p-4">
               <div className="space-y-3">
                 {/* Header with name and status */}
                 <div className="flex justify-between items-start">
@@ -440,7 +440,7 @@ export default function KhachThuePage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleEdit(khachThue)}
-                      disabled={actionLoading === `edit-${khachThue._id}`}
+                      disabled={actionLoading === `edit-${khachThue.id}`}
                     >
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
@@ -448,8 +448,8 @@ export default function KhachThuePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDelete(khachThue._id!)}
-                    disabled={actionLoading === `delete-${khachThue._id}`}
+                    onClick={() => handleDelete(khachThue.id!)}
+                    disabled={actionLoading === `delete-${khachThue.id}`}
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -509,7 +509,7 @@ function KhachThueForm({
     setIsSubmitting(true);
     
     try {
-      const url = khachThue ? `/api/khach-thue/${khachThue._id}` : '/api/khach-thue';
+      const url = khachThue ? `/api/khach-thue/${khachThue.id}` : '/api/khach-thue';
       const method = khachThue ? 'PUT' : 'POST';
 
       // Chỉ gửi matKhau khi nó được nhập

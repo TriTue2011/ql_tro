@@ -186,7 +186,7 @@ export default function PhongPage() {
         const result = await response.json();
         if (result.success) {
           cache.clearCache();
-          setPhongList(prev => prev.filter(phong => phong._id !== id));
+          setPhongList(prev => prev.filter(phong => phong.id !== id));
           toast.success('Xóa phòng thành công!');
         } else {
           toast.error(result.message || 'Có lỗi xảy ra khi xóa phòng');
@@ -391,7 +391,7 @@ export default function PhongPage() {
               <SelectContent>
                 <SelectItem value="all" className="text-sm">Tất cả tòa nhà</SelectItem>
                 {toaNhaList.map((toaNha) => (
-                  <SelectItem key={toaNha._id} value={toaNha._id!} className="text-sm">
+                  <SelectItem key={toaNha.id} value={toaNha.id!} className="text-sm">
                     {toaNha.tenToaNha}
                   </SelectItem>
                 ))}
@@ -442,7 +442,7 @@ export default function PhongPage() {
               };
 
               return (
-                <Card key={phong._id} className="hover:shadow-md transition-shadow">
+                <Card key={phong.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-3">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
@@ -566,7 +566,7 @@ export default function PhongPage() {
                           Sửa
                         </Button>
                         <DeleteConfirmPopover
-                          onConfirm={() => handleDelete(phong._id!)}
+                          onConfirm={() => handleDelete(phong.id!)}
                           title="Xóa phòng"
                           description="Bạn có chắc chắn muốn xóa phòng này?"
                           className="text-black hover:text-red-700 hover:bg-red-50"
@@ -640,7 +640,7 @@ export default function PhongPage() {
           
           <div className="space-y-3 md:space-y-4 py-2 md:py-4">
             {viewingTenants.map((tenant, index) => (
-              <Card key={tenant._id || index} className="overflow-hidden">
+              <Card key={tenant.id || index} className="overflow-hidden">
                 <CardContent className="p-3 md:p-4">
                   <div className="flex items-start gap-3 md:gap-4">
                     <div className="flex-shrink-0">
@@ -695,9 +695,9 @@ function PhongForm({
   onSuccess: () => void;
 }) {
   // Helper function để lấy toaNha ID
-  const getToaNhaId = (toaNha: string | { _id: string }) => {
+  const getToaNhaId = (toaNha: string | { id: string }) => {
     if (typeof toaNha === 'object' && toaNha !== null) {
-      return toaNha._id || '';
+      return toaNha.id || '';
     } else if (typeof toaNha === 'string') {
       return toaNha;
     }
@@ -786,7 +786,7 @@ function PhongForm({
     e.preventDefault();
     
     try {
-      const url = phong ? `/api/phong/${phong._id}` : '/api/phong';
+      const url = phong ? `/api/phong/${phong.id}` : '/api/phong';
       const method = phong ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -859,7 +859,7 @@ function PhongForm({
                 </SelectTrigger>
                 <SelectContent>
                   {toaNhaList.map((toaNha) => (
-                    <SelectItem key={toaNha._id} value={toaNha._id!} className="text-sm">
+                    <SelectItem key={toaNha.id} value={toaNha.id!} className="text-sm">
                       {toaNha.tenToaNha}
                     </SelectItem>
                   ))}

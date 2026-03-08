@@ -145,10 +145,10 @@ export default function HopDongPage() {
     // Filter by toa nha
     let matchesToaNha = true;
     if (toaNhaFilter !== 'all') {
-      if (typeof hopDong.phong === 'object' && (hopDong.phong as { toaNha: { _id: string } })?.toaNha) {
-        matchesToaNha = ((hopDong.phong as { toaNha: { _id: string } }).toaNha)._id === toaNhaFilter;
+      if (typeof hopDong.phong === 'object' && (hopDong.phong as { toaNha: { id: string } })?.toaNha) {
+        matchesToaNha = ((hopDong.phong as { toaNha: { id: string } }).toaNha).id === toaNhaFilter;
       } else {
-        const phong = phongList.find(p => p._id === hopDong.phong);
+        const phong = phongList.find(p => p.id === hopDong.phong);
         matchesToaNha = phong?.toaNha === toaNhaFilter;
       }
     }
@@ -173,7 +173,7 @@ export default function HopDongPage() {
     if (typeof phong === 'object' && phong?.maPhong) {
       return phong.maPhong;
     }
-    const phongObj = phongList.find(p => p._id === phong);
+    const phongObj = phongList.find(p => p.id === phong);
     return phongObj?.maPhong || 'Không xác định';
   };
 
@@ -181,7 +181,7 @@ export default function HopDongPage() {
     if (typeof toaNha === 'object' && toaNha?.tenToaNha) {
       return toaNha.tenToaNha;
     }
-    const toaNhaObj = toaNhaList.find(t => t._id === toaNha);
+    const toaNhaObj = toaNhaList.find(t => t.id === toaNha);
     return toaNhaObj?.tenToaNha || 'Không xác định';
   };
 
@@ -193,10 +193,10 @@ export default function HopDongPage() {
       };
     }
     
-    const phongObj = phongList.find(p => p._id === phong);
+    const phongObj = phongList.find(p => p.id === phong);
     if (!phongObj) return { maPhong: 'Không xác định', toaNha: 'Không xác định' };
     
-    const toaNha = toaNhaList.find(t => t._id === phongObj.toaNha);
+    const toaNha = toaNhaList.find(t => t.id === phongObj.toaNha);
     return {
       maPhong: phongObj.maPhong,
       toaNha: toaNha?.tenToaNha || 'Không xác định'
@@ -207,7 +207,7 @@ export default function HopDongPage() {
     if (typeof khachThue === 'object' && khachThue?.hoTen) {
       return khachThue.hoTen;
     }
-    const khachThueObj = khachThueList.find(k => k._id === khachThue);
+    const khachThueObj = khachThueList.find(k => k.id === khachThue);
     return khachThueObj?.hoTen || 'Không xác định';
   };
 
@@ -233,7 +233,7 @@ export default function HopDongPage() {
   };
 
   const handleEdit = (hopDong: HopDong) => {
-    router.push(`/dashboard/hop-dong/${hopDong._id}`);
+    router.push(`/dashboard/hop-dong/${hopDong.id}`);
   };
 
   const handleView = (hopDong: HopDong) => {
@@ -249,7 +249,7 @@ export default function HopDongPage() {
       if (response.ok) {
         // Xóa cache
         cache.clearCache();
-        setHopDongList(prev => prev.filter(hopDong => hopDong._id !== id));
+        setHopDongList(prev => prev.filter(hopDong => hopDong.id !== id));
         toast.success('Đã xóa hợp đồng thành công');
       } else {
         toast.error('Có lỗi xảy ra khi xóa hợp đồng');
@@ -268,8 +268,8 @@ export default function HopDongPage() {
     
       // Lấy thông tin chi tiết của người đại diện
       const nguoiDaiDienObj = khachThueList.find(kt => {
-        const ktId = typeof kt._id === 'object' ? (kt._id as { _id: string })._id : kt._id;
-        const daiDienId = typeof hopDong.nguoiDaiDien === 'object' ? (hopDong.nguoiDaiDien as { _id: string })._id : hopDong.nguoiDaiDien;
+        const ktId = typeof kt.id === 'object' ? (kt.id as { id: string }).id : kt.id;
+        const daiDienId = typeof hopDong.nguoiDaiDien === 'object' ? (hopDong.nguoiDaiDien as { id: string }).id : hopDong.nguoiDaiDien;
         return ktId === daiDienId;
       });
       
@@ -816,9 +816,9 @@ export default function HopDongPage() {
   const handleGiaHan = async (hopDong: HopDong) => {
     const newEndDate = prompt('Nhập ngày kết thúc mới (YYYY-MM-DD):');
     if (newEndDate) {
-      setActionLoading(`giahan-${hopDong._id}`);
+      setActionLoading(`giahan-${hopDong.id}`);
       try {
-        const response = await fetch(`/api/hop-dong/${hopDong._id}`, {
+        const response = await fetch(`/api/hop-dong/${hopDong.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -834,7 +834,7 @@ export default function HopDongPage() {
           cache.clearCache();
           // Cập nhật state trực tiếp thay vì reload
           setHopDongList(prev => prev.map(hd => 
-            hd._id === hopDong._id ? result.data : hd
+            hd.id === hopDong.id ? result.data : hd
           ));
           toast.success('Đã gia hạn hợp đồng thành công');
         } else {
@@ -851,9 +851,9 @@ export default function HopDongPage() {
 
   const handleHuy = async (hopDong: HopDong) => {
     if (confirm('Bạn có chắc chắn muốn hủy hợp đồng này?')) {
-      setActionLoading(`huy-${hopDong._id}`);
+      setActionLoading(`huy-${hopDong.id}`);
       try {
-        const response = await fetch(`/api/hop-dong/${hopDong._id}`, {
+        const response = await fetch(`/api/hop-dong/${hopDong.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -869,7 +869,7 @@ export default function HopDongPage() {
           cache.clearCache();
           // Cập nhật state trực tiếp thay vì reload
           setHopDongList(prev => prev.map(hd => 
-            hd._id === hopDong._id ? result.data : hd
+            hd.id === hopDong.id ? result.data : hd
           ));
           toast.success('Đã hủy hợp đồng thành công');
         } else {
@@ -981,8 +981,8 @@ export default function HopDongPage() {
                   <Label className="text-sm font-medium text-gray-500">Khách thuê</Label>
                   <div className="mt-2 space-y-1">
                     {viewingHopDong.khachThueId.map((khachThue, index) => {
-                      const khachThueId = typeof khachThue === 'object' ? (khachThue as { _id: string })._id : khachThue;
-                      const nguoiDaiDienId = typeof viewingHopDong.nguoiDaiDien === 'object' ? (viewingHopDong.nguoiDaiDien as { _id: string })._id : viewingHopDong.nguoiDaiDien;
+                      const khachThueId = typeof khachThue === 'object' ? (khachThue as { id: string }).id : khachThue;
+                      const nguoiDaiDienId = typeof viewingHopDong.nguoiDaiDien === 'object' ? (viewingHopDong.nguoiDaiDien as { id: string }).id : viewingHopDong.nguoiDaiDien;
                       return (
                         <div key={khachThueId} className="flex items-center gap-2">
                           <span className="text-sm">
@@ -1218,7 +1218,7 @@ export default function HopDongPage() {
               <SelectContent>
                 <SelectItem value="all" className="text-sm">Tất cả</SelectItem>
                 {toaNhaList.map((toaNha) => (
-                  <SelectItem key={toaNha._id} value={toaNha._id!} className="text-sm">
+                  <SelectItem key={toaNha.id} value={toaNha.id!} className="text-sm">
                     {toaNha.tenToaNha}
                   </SelectItem>
                 ))}
@@ -1236,7 +1236,7 @@ export default function HopDongPage() {
             const isExpiredNow = isExpired(hopDong.ngayKetThuc);
 
             return (
-              <Card key={hopDong._id} className="p-4">
+              <Card key={hopDong.id} className="p-4">
                 <div className="space-y-3">
                   {/* Header with contract code and status */}
                   <div className="flex justify-between items-start">

@@ -34,7 +34,7 @@ const getPhongName = (phongId: string | Phong, phongList: Phong[]) => {
     return phongId.maPhong;
   }
   if (typeof phongId === 'string') {
-    const phong = phongList.find(p => p._id === phongId);
+    const phong = phongList.find(p => p.id === phongId);
     return phong?.maPhong || 'N/A';
   }
   return 'N/A';
@@ -46,7 +46,7 @@ const getKhachThueName = (khachThueId: string | KhachThue, khachThueList: KhachT
     return khachThueId.hoTen;
   }
   if (typeof khachThueId === 'string') {
-    const khachThue = khachThueList.find(k => k._id === khachThueId);
+    const khachThue = khachThueList.find(k => k.id === khachThueId);
     return khachThue?.hoTen || 'N/A';
   }
   return 'N/A';
@@ -152,7 +152,7 @@ export default function ThemMoiHoaDonPage() {
   // Auto-fill form data when contract is selected
   useEffect(() => {
     if (formData.hopDong) {
-      const selectedHopDong = hopDongList.find(hd => hd._id === formData.hopDong);
+      const selectedHopDong = hopDongList.find(hd => hd.id === formData.hopDong);
       if (selectedHopDong) {
         console.log('Auto-filling form data from contract:', selectedHopDong);
         
@@ -184,7 +184,7 @@ export default function ThemMoiHoaDonPage() {
     const soDien = formData.chiSoDienCuoiKy - formData.chiSoDienBanDau;
     const soNuoc = formData.chiSoNuocCuoiKy - formData.chiSoNuocBanDau;
     
-    const selectedHopDong = hopDongList.find(hd => hd._id === formData.hopDong);
+    const selectedHopDong = hopDongList.find(hd => hd.id === formData.hopDong);
     const giaDien = selectedHopDong?.giaDien || 0;
     const giaNuoc = selectedHopDong?.giaNuoc || 0;
     
@@ -423,8 +423,8 @@ export default function ThemMoiHoaDonPage() {
                               
                               return (
                                 <SelectItem 
-                                  key={hopDong._id} 
-                                  value={hopDong._id!}
+                                  key={hopDong.id} 
+                                  value={hopDong.id!}
                                   className="cursor-pointer"
                                 >
                                   <div className="flex flex-col gap-1 py-1">
@@ -639,7 +639,7 @@ export default function ThemMoiHoaDonPage() {
                         <td className="border border-gray-200 px-4 py-3">
                           <div className="flex items-center gap-1">
                             <span className="font-medium">
-                              {hopDongList.find(hd => hd._id === formData.hopDong)?.giaDien || 0}
+                              {hopDongList.find(hd => hd.id === formData.hopDong)?.giaDien || 0}
                             </span>
                             <span className="text-xs text-gray-500">VNĐ/kWh</span>
                           </div>
@@ -719,7 +719,7 @@ export default function ThemMoiHoaDonPage() {
                         <td className="border border-gray-200 px-4 py-3">
                           <div className="flex items-center gap-1">
                             <span className="font-medium">
-                              {hopDongList.find(hd => hd._id === formData.hopDong)?.giaNuoc || 0}
+                              {hopDongList.find(hd => hd.id === formData.hopDong)?.giaNuoc || 0}
                             </span>
                             <span className="text-xs text-gray-500">VNĐ/m³</span>
                           </div>

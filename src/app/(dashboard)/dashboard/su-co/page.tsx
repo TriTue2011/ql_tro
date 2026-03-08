@@ -205,7 +205,7 @@ export default function SuCoPage() {
 
   const getPhongName = (phong: string | { maPhong: string }) => {
     if (typeof phong === 'string') {
-      const phongObj = phongList.find(p => p._id === phong);
+      const phongObj = phongList.find(p => p.id === phong);
       return phongObj?.maPhong || 'Không xác định';
     }
     return phong?.maPhong || 'Không xác định';
@@ -213,7 +213,7 @@ export default function SuCoPage() {
 
   const getKhachThueName = (khachThue: string | { hoTen: string }) => {
     if (typeof khachThue === 'string') {
-      const khachThueObj = khachThueList.find(k => k._id === khachThue);
+      const khachThueObj = khachThueList.find(k => k.id === khachThue);
       return khachThueObj?.hoTen || 'Không xác định';
     }
     return khachThue?.hoTen || 'Không xác định';
@@ -234,7 +234,7 @@ export default function SuCoPage() {
 
       if (result.success) {
         cache.clearCache();
-        setSuCoList(prev => prev.filter(suCo => suCo._id !== id));
+        setSuCoList(prev => prev.filter(suCo => suCo.id !== id));
         toast.success('Xóa sự cố thành công');
       } else {
         console.error('Error deleting su co:', result.message);
@@ -262,7 +262,7 @@ export default function SuCoPage() {
 
       if (result.success) {
         setSuCoList(prev => prev.map(suCo => {
-          if (suCo._id === id) {
+          if (suCo.id === id) {
             return result.data;
           }
           return suCo;
@@ -484,11 +484,11 @@ export default function SuCoPage() {
         {/* Mobile Card List */}
         <div className="space-y-3">
           {filteredSuCo.map((suCo) => {
-            const phongInfo = typeof suCo.phong === 'object' ? suCo.phong : phongList.find(p => p._id === suCo.phong);
-            const khachThueInfo = typeof suCo.nguoiBaoCao === 'object' ? suCo.nguoiBaoCao : khachThueList.find(k => k._id === suCo.nguoiBaoCao);
+            const phongInfo = typeof suCo.phong === 'object' ? suCo.phong : phongList.find(p => p.id === suCo.phong);
+            const khachThueInfo = typeof suCo.nguoiBaoCao === 'object' ? suCo.nguoiBaoCao : khachThueList.find(k => k.id === suCo.nguoiBaoCao);
             
             return (
-              <Card key={suCo._id} className="p-4">
+              <Card key={suCo.id} className="p-4">
                 <div className="space-y-3">
                   {/* Header with title and status */}
                   <div className="flex justify-between items-start gap-2">
@@ -544,7 +544,7 @@ export default function SuCoPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDelete(suCo._id!)}
+                      onClick={() => handleDelete(suCo.id!)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -624,7 +624,7 @@ function SuCoForm({
         ngayBaoCao: suCo ? suCo.ngayBaoCao : new Date().toISOString(),
       };
 
-      const url = suCo ? `/api/su-co/${suCo._id}` : '/api/su-co';
+      const url = suCo ? `/api/su-co/${suCo.id}` : '/api/su-co';
       const method = suCo ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -657,18 +657,18 @@ function SuCoForm({
     setFormData(prev => ({ ...prev, phong: phongId }));
     
     // Tìm thông tin phòng được chọn
-    const phong = phongList.find(p => p._id === phongId);
+    const phong = phongList.find(p => p.id === phongId);
     setSelectedPhong(phong);
     
     if (phong) {
       // Tìm hợp đồng đang hoạt động cho phòng này
       const hopDongHoatDong = hopDongList.find(hd => 
-        hd.phong._id === phongId && hd.trangThai === 'hoatDong'
+        hd.phong.id === phongId && hd.trangThai === 'hoatDong'
       );
       
       if (hopDongHoatDong && hopDongHoatDong.nguoiDaiDien) {
         // Lấy người đại diện làm khách thuê chính
-        setFormData(prev => ({ ...prev, khachThue: hopDongHoatDong.nguoiDaiDien._id || hopDongHoatDong.nguoiDaiDien }));
+        setFormData(prev => ({ ...prev, khachThue: hopDongHoatDong.nguoiDaiDien.id || hopDongHoatDong.nguoiDaiDien }));
       } else {
         // Nếu không tìm thấy hợp đồng hoạt động, reset khách thuê
         setFormData(prev => ({ ...prev, khachThue: '' }));
@@ -687,7 +687,7 @@ function SuCoForm({
             </SelectTrigger>
             <SelectContent>
               {phongList.map((phong) => (
-                <SelectItem key={phong._id} value={phong._id!} className="text-sm">
+                <SelectItem key={phong.id} value={phong.id!} className="text-sm">
                   {phong.maPhong}
                 </SelectItem>
               ))}

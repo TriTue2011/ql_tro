@@ -167,14 +167,14 @@ export default function ThongBaoPage() {
 
   const getToaNhaName = (toaNhaId?: string) => {
     if (!toaNhaId) return 'Tất cả tòa nhà';
-    const toaNha = toaNhaList.find(tn => tn._id === toaNhaId);
+    const toaNha = toaNhaList.find(tn => tn.id === toaNhaId);
     return toaNha?.tenToaNha || 'Không xác định';
   };
 
   const getPhongNames = (phongIds: string[]) => {
     if (phongIds.length === 0) return 'Tất cả phòng';
     const phongNames = phongIds.map(id => {
-      const phong = phongList.find(p => p._id === id);
+      const phong = phongList.find(p => p.id === id);
       return phong?.maPhong || 'Không xác định';
     });
     return phongNames.join(', ');
@@ -183,7 +183,7 @@ export default function ThongBaoPage() {
   const getKhachThueNames = (khachThueIds: string[]) => {
     if (khachThueIds.length === 0) return 'Tất cả khách thuê';
     const khachThueNames = khachThueIds.map(id => {
-      const khachThue = khachThueList.find(k => k._id === id);
+      const khachThue = khachThueList.find(k => k.id === id);
       return khachThue?.hoTen || 'Không xác định';
     });
     return khachThueNames.join(', ');
@@ -203,7 +203,7 @@ export default function ThongBaoPage() {
 
         if (response.ok) {
           cache.clearCache();
-          setThongBaoList(prev => prev.filter(thongBao => thongBao._id !== id));
+          setThongBaoList(prev => prev.filter(thongBao => thongBao.id !== id));
           toast.success('Xóa thông báo thành công');
         } else {
           toast.error('Có lỗi xảy ra khi xóa thông báo');
@@ -217,7 +217,7 @@ export default function ThongBaoPage() {
 
   const handleSend = (thongBao: ThongBao) => {
     // Implement send logic
-    console.log('Sending notification:', thongBao._id);
+    console.log('Sending notification:', thongBao.id);
   };
 
   if (loading) {
@@ -390,7 +390,7 @@ export default function ThongBaoPage() {
               </TableHeader>
               <TableBody>
                 {filteredThongBao.map((thongBao) => (
-                  <TableRow key={thongBao._id}>
+                  <TableRow key={thongBao.id}>
                     <TableCell className="font-medium">
                       <div>
                         <div className="font-medium">{thongBao.tieuDe}</div>
@@ -453,7 +453,7 @@ export default function ThongBaoPage() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleDelete(thongBao._id!)}
+                          onClick={() => handleDelete(thongBao.id!)}
                           className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -505,7 +505,7 @@ export default function ThongBaoPage() {
         <div className="space-y-3">
           {filteredThongBao.map((thongBao) => {
             return (
-              <Card key={thongBao._id} className="p-4">
+              <Card key={thongBao.id} className="p-4">
                 <div className="space-y-3">
                   {/* Header with title and type */}
                   <div className="flex justify-between items-start gap-2">
@@ -576,7 +576,7 @@ export default function ThongBaoPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDelete(thongBao._id!)}
+                      onClick={() => handleDelete(thongBao.id!)}
                       className="flex-1 text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1" />
@@ -630,7 +630,7 @@ function ThongBaoForm({
     
     try {
       const url = thongBao 
-        ? `/api/thong-bao?id=${thongBao._id}` 
+        ? `/api/thong-bao?id=${thongBao.id}` 
         : '/api/thong-bao';
       const method = thongBao ? 'PUT' : 'POST';
 
@@ -726,7 +726,7 @@ function ThongBaoForm({
           <SelectContent>
             <SelectItem value="all" className="text-sm">Tất cả tòa nhà</SelectItem>
             {toaNhaList.map((toaNha) => (
-              <SelectItem key={toaNha._id} value={toaNha._id!} className="text-sm">
+              <SelectItem key={toaNha.id} value={toaNha.id!} className="text-sm">
                 {toaNha.tenToaNha}
               </SelectItem>
             ))}
@@ -738,15 +738,15 @@ function ThongBaoForm({
         <Label className="text-xs md:text-sm">Phòng (tùy chọn)</Label>
         <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
           {phongList.map((phong) => (
-            <div key={phong._id} className="flex items-center space-x-2">
+            <div key={phong.id} className="flex items-center space-x-2">
               <input
                 type="checkbox"
-                id={phong._id}
-                checked={formData.phong.includes(phong._id!)}
-                onChange={(e) => handlePhongChange(phong._id!, e.target.checked)}
+                id={phong.id}
+                checked={formData.phong.includes(phong.id!)}
+                onChange={(e) => handlePhongChange(phong.id!, e.target.checked)}
                 className="rounded border-gray-300"
               />
-              <Label htmlFor={phong._id} className="text-xs cursor-pointer">
+              <Label htmlFor={phong.id} className="text-xs cursor-pointer">
                 {phong.maPhong}
               </Label>
             </div>
@@ -758,15 +758,15 @@ function ThongBaoForm({
         <Label className="text-xs md:text-sm">Người nhận</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
           {khachThueList.map((khachThue) => (
-            <div key={khachThue._id} className="flex items-center space-x-2">
+            <div key={khachThue.id} className="flex items-center space-x-2">
               <input
                 type="checkbox"
-                id={khachThue._id}
-                checked={formData.nguoiNhan.includes(khachThue._id!)}
-                onChange={(e) => handleNguoiNhanChange(khachThue._id!, e.target.checked)}
+                id={khachThue.id}
+                checked={formData.nguoiNhan.includes(khachThue.id!)}
+                onChange={(e) => handleNguoiNhanChange(khachThue.id!, e.target.checked)}
                 className="rounded border-gray-300"
               />
-              <Label htmlFor={khachThue._id} className="text-xs cursor-pointer truncate">
+              <Label htmlFor={khachThue.id} className="text-xs cursor-pointer truncate">
                 {khachThue.hoTen}
               </Label>
             </div>

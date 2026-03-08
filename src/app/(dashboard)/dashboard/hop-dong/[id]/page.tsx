@@ -96,9 +96,9 @@ export default function ChinhSuaHopDongPage() {
           
           setFormData({
             maHopDong: hopDongItem.maHopDong || '',
-            phong: typeof hopDongItem.phong === 'object' ? (hopDongItem.phong as {_id: string})?._id || '' : hopDongItem.phong || '',
-            khachThueId: hopDongItem.khachThueId?.map((kt: string | { _id: string }) => typeof kt === 'object' ? kt._id : kt) || [],
-            nguoiDaiDien: typeof hopDongItem.nguoiDaiDien === 'object' ? (hopDongItem.nguoiDaiDien as {_id: string})?._id || '' : hopDongItem.nguoiDaiDien || '',
+            phong: typeof hopDongItem.phong === 'object' ? (hopDongItem.phong as {_id: string})?.id || '' : hopDongItem.phong || '',
+            khachThueId: hopDongItem.khachThueId?.map((kt: string | { id: string }) => typeof kt === 'object' ? kt.id : kt) || [],
+            nguoiDaiDien: typeof hopDongItem.nguoiDaiDien === 'object' ? (hopDongItem.nguoiDaiDien as {_id: string})?.id || '' : hopDongItem.nguoiDaiDien || '',
             ngayBatDau: hopDongItem.ngayBatDau ? hopDongItem.ngayBatDau.toString().split('T')[0] : new Date().toISOString().split('T')[0],
             ngayKetThuc: hopDongItem.ngayKetThuc ? hopDongItem.ngayKetThuc.toString().split('T')[0] : '',
             giaThue: hopDongItem.giaThue || 0,
@@ -153,7 +153,7 @@ export default function ChinhSuaHopDongPage() {
   };
 
   const handlePhongChange = (phongId: string) => {
-    const selectedPhong = phongList.find(p => p._id === phongId);
+    const selectedPhong = phongList.find(p => p.id === phongId);
     if (selectedPhong) {
       setFormData(prev => ({
         ...prev,
@@ -332,7 +332,7 @@ export default function ChinhSuaHopDongPage() {
                       size="sm"
                     >
                       {formData.phong
-                        ? phongList.find((phong) => phong._id === formData.phong)?.maPhong
+                        ? phongList.find((phong) => phong.id === formData.phong)?.maPhong
                         : "Chọn phòng..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -344,14 +344,14 @@ export default function ChinhSuaHopDongPage() {
                       <CommandGroup className="max-h-64 overflow-auto">
                         {phongList.map((phong) => (
                           <CommandItem
-                            key={phong._id}
+                            key={phong.id}
                             value={`${phong.maPhong} ${phong.dienTich} ${phong.giaThue}`}
-                            onSelect={() => handlePhongChange(phong._id!)}
+                            onSelect={() => handlePhongChange(phong.id!)}
                           >
                             <Check
                               className={cn(
                                 "mr-2 h-4 w-4",
-                                formData.phong === phong._id ? "opacity-100" : "opacity-0"
+                                formData.phong === phong.id ? "opacity-100" : "opacity-0"
                               )}
                             />
                             <div className="flex flex-col">
@@ -381,7 +381,7 @@ export default function ChinhSuaHopDongPage() {
                       disabled={formData.khachThueId.length === 0}
                     >
                       {formData.nguoiDaiDien
-                        ? khachThueList.find((k) => k._id === formData.nguoiDaiDien)?.hoTen
+                        ? khachThueList.find((k) => k.id === formData.nguoiDaiDien)?.hoTen
                         : "Chọn người đại diện..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -392,20 +392,20 @@ export default function ChinhSuaHopDongPage() {
                       <CommandEmpty>Không tìm thấy.</CommandEmpty>
                       <CommandGroup className="max-h-64 overflow-auto">
                         {khachThueList
-                          .filter(k => formData.khachThueId.includes(k._id!))
+                          .filter(k => formData.khachThueId.includes(k.id!))
                           .map((khachThue) => (
                             <CommandItem
-                              key={khachThue._id}
+                              key={khachThue.id}
                               value={khachThue.hoTen}
                               onSelect={() => {
-                                setFormData(prev => ({ ...prev, nguoiDaiDien: khachThue._id! }));
+                                setFormData(prev => ({ ...prev, nguoiDaiDien: khachThue.id! }));
                                 setOpenNguoiDaiDien(false);
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  formData.nguoiDaiDien === khachThue._id ? "opacity-100" : "opacity-0"
+                                  formData.nguoiDaiDien === khachThue.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
                               {khachThue.hoTen}
@@ -434,7 +434,7 @@ export default function ChinhSuaHopDongPage() {
                         <span className="text-muted-foreground">Chọn khách thuê...</span>
                       ) : (
                         formData.khachThueId.map((id) => {
-                          const khachThue = khachThueList.find(k => k._id === id);
+                          const khachThue = khachThueList.find(k => k.id === id);
                           return (
                             <Badge key={id} variant="secondary" className="mr-1">
                               {khachThue?.hoTen}
@@ -453,14 +453,14 @@ export default function ChinhSuaHopDongPage() {
                     <CommandGroup className="max-h-64 overflow-auto">
                       {khachThueList.map((khachThue) => (
                         <CommandItem
-                          key={khachThue._id}
+                          key={khachThue.id}
                           value={khachThue.hoTen}
-                          onSelect={() => toggleKhachThue(khachThue._id!)}
+                          onSelect={() => toggleKhachThue(khachThue.id!)}
                         >
                           <div className="flex items-center space-x-2 w-full">
                             <div className={cn(
                               "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                              formData.khachThueId.includes(khachThue._id!)
+                              formData.khachThueId.includes(khachThue.id!)
                                 ? "bg-primary text-primary-foreground"
                                 : "opacity-50 [&_svg]:invisible"
                             )}>

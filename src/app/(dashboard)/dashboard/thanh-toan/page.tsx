@@ -175,7 +175,7 @@ export default function ThanhToanPage() {
     
     // Nếu hoaDon là string (ID), tìm trong hoaDonList
     if (typeof hoaDon === 'string') {
-      const hoaDonItem = hoaDonList.find(h => h._id === hoaDon);
+      const hoaDonItem = hoaDonList.find(h => h.id === hoaDon);
       console.log('Found hoaDon in list:', hoaDonItem?.maHoaDon);
       return hoaDonItem?.maHoaDon || 'Không xác định';
     }
@@ -220,7 +220,7 @@ export default function ThanhToanPage() {
 
       if (response.ok) {
         cache.clearCache();
-        setThanhToanList(prev => prev.filter(thanhToan => thanhToan._id !== id));
+        setThanhToanList(prev => prev.filter(thanhToan => thanhToan.id !== id));
         toast.success('Xóa thanh toán thành công');
       } else{
         const errorData = await response.json();
@@ -234,7 +234,7 @@ export default function ThanhToanPage() {
 
   const handleDownload = (thanhToan: ThanhToanPopulated) => {
     // Implement download logic
-    console.log('Downloading receipt:', thanhToan._id);
+    console.log('Downloading receipt:', thanhToan.id);
   };
 
   if (loading) {
@@ -427,7 +427,7 @@ export default function ThanhToanPage() {
             const khachThueInfo = hoaDonInfo && typeof hoaDonInfo.khachThue === 'object' ? (hoaDonInfo.khachThue as any) : null;
             
             return (
-              <Card key={thanhToan._id} className="p-4">
+              <Card key={thanhToan.id} className="p-4">
                 <div className="space-y-3">
                   {/* Header with invoice code and method */}
                   <div className="flex justify-between items-start">
@@ -510,7 +510,7 @@ export default function ThanhToanPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDelete(thanhToan._id!)}
+                      onClick={() => handleDelete(thanhToan.id!)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -547,7 +547,7 @@ function ThanhToanForm({
 }) {
   const [formData, setFormData] = useState({
     hoaDon: thanhToan?.hoaDon ? 
-      (typeof thanhToan.hoaDon === 'string' ? thanhToan.hoaDon : (thanhToan.hoaDon as HoaDon)._id || '') : '',
+      (typeof thanhToan.hoaDon === 'string' ? thanhToan.hoaDon : (thanhToan.hoaDon as HoaDon).id || '') : '',
     soTien: thanhToan?.soTien || 0,
     phuongThuc: thanhToan?.phuongThuc || 'tienMat',
     nganHang: thanhToan?.thongTinChuyenKhoan?.nganHang || '',
@@ -561,7 +561,7 @@ function ThanhToanForm({
   useEffect(() => {
     if (thanhToan) {
       setFormData({
-        hoaDon: typeof thanhToan.hoaDon === 'string' ? thanhToan.hoaDon : (thanhToan.hoaDon as HoaDon)._id || '',
+        hoaDon: typeof thanhToan.hoaDon === 'string' ? thanhToan.hoaDon : (thanhToan.hoaDon as HoaDon).id || '',
         soTien: thanhToan.soTien,
         phuongThuc: thanhToan.phuongThuc,
         nganHang: thanhToan.thongTinChuyenKhoan?.nganHang || '',
@@ -604,7 +604,7 @@ function ThanhToanForm({
       
       console.log('Submitting:', requestData);
       
-      const url = thanhToan ? `/api/thanh-toan/${thanhToan._id}` : '/api/thanh-toan';
+      const url = thanhToan ? `/api/thanh-toan/${thanhToan.id}` : '/api/thanh-toan';
       const method = thanhToan ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -640,7 +640,7 @@ function ThanhToanForm({
           </SelectTrigger>
           <SelectContent>
             {hoaDonList.map((hoaDon) => (
-              <SelectItem key={hoaDon._id} value={hoaDon._id!} className="text-sm">
+              <SelectItem key={hoaDon.id} value={hoaDon.id!} className="text-sm">
                 {hoaDon.maHoaDon} - {hoaDon.conLai.toLocaleString('vi-VN')} VNĐ còn lại
               </SelectItem>
             ))}

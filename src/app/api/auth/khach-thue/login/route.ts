@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongodb';
-import KhachThue from '@/models/KhachThue';
+import { getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 const loginSchema = z.object({
   soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ'),
@@ -14,12 +14,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = loginSchema.parse(body);
 
-    await dbConnect();
-
-    // Tìm khách thuê theo số điện thoại và lấy cả mật khẩu
-    const khachThue = await KhachThue.findOne({ 
-      soDienThoai: validatedData.soDienThoai 
-    }).select('+matKhau');
+    const repo = await getKhachThueRepo();
+    const khachThue = await repo.findBySoDienThoai(validatedData.soDienThoai);
 
     if (!khachThue) {
       return NextResponse.json(
@@ -28,7 +24,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Kiểm tra xem khách thuê đã có mật khẩu chưa
     if (!khachThue.matKhau) {
       return NextResponse.json(
         { success: false, message: 'Tài khoản chưa được kích hoạt. Vui lòng liên hệ quản lý để tạo mật khẩu.' },
@@ -36,8 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // So sánh mật khẩu
-    const isPasswordValid = await khachThue.comparePassword(validatedData.matKhau);
+    const isPasswordValid = await bcrypt.compare(validatedData.matKhau, khachThue.matKhau);
 
     if (!isPasswordValid) {
       return NextResponse.json(
@@ -46,10 +40,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Tạo JWT token
     const token = jwt.sign(
-      { 
-        id: khachThue._id,
+      {
+        id: khachThue.id,
         soDienThoai: khachThue.soDienThoai,
         hoTen: khachThue.hoTen,
         role: 'khachThue'
@@ -58,9 +51,8 @@ export async function POST(request: NextRequest) {
       { expiresIn: '7d' }
     );
 
-    // Trả về thông tin khách thuê (không bao gồm mật khẩu)
     const khachThueData = {
-      _id: khachThue._id,
+      id: khachThue.id,
       hoTen: khachThue.hoTen,
       soDienThoai: khachThue.soDienThoai,
       email: khachThue.email,
@@ -92,4 +84,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

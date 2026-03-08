@@ -168,7 +168,7 @@ const getPhongName = (phong: string | { maPhong: string }, phongList: Phong[]) =
   if (typeof phong === 'object' && phong?.maPhong) {
     return phong.maPhong
   }
-  const phongObj = phongList.find(p => p._id === phong)
+  const phongObj = phongList.find(p => p.id === phong)
   return phongObj?.maPhong || 'N/A'
 }
 
@@ -176,7 +176,7 @@ const getKhachThueName = (khachThue: string | { hoTen: string }, khachThueList: 
   if (typeof khachThue === 'object' && khachThue?.hoTen) {
     return khachThue.hoTen
   }
-  const khachThueObj = khachThueList.find(k => k._id === khachThue)
+  const khachThueObj = khachThueList.find(k => k.id === khachThue)
   return khachThueObj?.hoTen || 'N/A'
 }
 
@@ -185,12 +185,12 @@ const getToaNhaName = (phong: string | { toaNha?: { tenToaNha: string } | string
     if (typeof phong.toaNha === 'object') {
       return phong.toaNha.tenToaNha
     }
-    const toaNhaObj = toaNhaList.find(t => t._id === phong.toaNha)
+    const toaNhaObj = toaNhaList.find(t => t.id === phong.toaNha)
     return toaNhaObj?.tenToaNha || 'N/A'
   }
-  const phongObj = phongList.find(p => p._id === phong)
+  const phongObj = phongList.find(p => p.id === phong)
   if (!phongObj) return 'N/A'
-  const toaNhaObj = toaNhaList.find(t => t._id === phongObj.toaNha)
+  const toaNhaObj = toaNhaList.find(t => t.id === phongObj.toaNha)
   return toaNhaObj?.tenToaNha || 'N/A'
 }
 
@@ -198,7 +198,7 @@ const createColumns = (props: HopDongTableProps): ColumnDef<HopDong>[] => [
   {
     id: "drag",
     header: () => null,
-    cell: ({ row }) => <DragHandle id={row.original._id!} />,
+    cell: ({ row }) => <DragHandle id={row.original.id!} />,
     enableHiding: false,
   },
   {
@@ -350,7 +350,7 @@ const createColumns = (props: HopDongTableProps): ColumnDef<HopDong>[] => [
           <DropdownMenuSeparator />
           <DropdownMenuItem 
             className="text-destructive"
-            onClick={() => props.onDelete(row.original._id!)}
+            onClick={() => props.onDelete(row.original.id!)}
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Xóa
@@ -364,7 +364,7 @@ const createColumns = (props: HopDongTableProps): ColumnDef<HopDong>[] => [
 
 function DraggableRow({ row }: { row: Row<HopDong> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
-    id: row.original._id!,
+    id: row.original.id!,
   })
 
   return (
@@ -442,7 +442,7 @@ export function HopDongDataTable(props: HopDongDataTableProps) {
       columnFilters,
       pagination,
     },
-    getRowId: (row) => row._id!,
+    getRowId: (row) => row.id!,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
@@ -502,7 +502,7 @@ export function HopDongDataTable(props: HopDongDataTableProps) {
             <SelectContent>
               <SelectItem value="all">Tất cả</SelectItem>
               {allToaNhaList?.map((toaNha) => (
-                <SelectItem key={toaNha._id} value={toaNha._id!}>
+                <SelectItem key={toaNha.id} value={toaNha.id!}>
                   {toaNha.tenToaNha}
                 </SelectItem>
               ))}

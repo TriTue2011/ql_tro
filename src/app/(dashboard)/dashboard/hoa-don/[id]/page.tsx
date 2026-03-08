@@ -34,7 +34,7 @@ const getPhongName = (phongId: string | Phong, phongList: Phong[]) => {
     return phongId.maPhong;
   }
   if (typeof phongId === 'string') {
-    const phong = phongList.find(p => p._id === phongId);
+    const phong = phongList.find(p => p.id === phongId);
     return phong?.maPhong || 'N/A';
   }
   return 'N/A';
@@ -46,7 +46,7 @@ const getKhachThueName = (khachThueId: string | KhachThue, khachThueList: KhachT
     return khachThueId.hoTen;
   }
   if (typeof khachThueId === 'string') {
-    const khachThue = khachThueList.find(k => k._id === khachThueId);
+    const khachThue = khachThueList.find(k => k.id === khachThueId);
     return khachThue?.hoTen || 'N/A';
   }
   return 'N/A';
@@ -119,9 +119,9 @@ export default function ChinhSuaHoaDonPage() {
           
           setFormData({
             maHoaDon: hoaDonItem.maHoaDon || '',
-            hopDong: typeof hoaDonItem.hopDong === 'object' ? (hoaDonItem.hopDong as {_id: string})?._id || '' : hoaDonItem.hopDong || '',
-            phong: typeof hoaDonItem.phong === 'object' ? (hoaDonItem.phong as {_id: string})?._id || '' : hoaDonItem.phong || '',
-            khachThue: typeof hoaDonItem.khachThue === 'object' ? (hoaDonItem.khachThue as {_id: string})?._id || '' : hoaDonItem.khachThue || '',
+            hopDong: typeof hoaDonItem.hopDong === 'object' ? (hoaDonItem.hopDong as {_id: string})?.id || '' : hoaDonItem.hopDong || '',
+            phong: typeof hoaDonItem.phong === 'object' ? (hoaDonItem.phong as {_id: string})?.id || '' : hoaDonItem.phong || '',
+            khachThue: typeof hoaDonItem.khachThue === 'object' ? (hoaDonItem.khachThue as {_id: string})?.id || '' : hoaDonItem.khachThue || '',
             thang: hoaDonItem.thang || new Date().getMonth() + 1,
             nam: hoaDonItem.nam || new Date().getFullYear(),
             tienPhong: hoaDonItem.tienPhong || 0,
@@ -181,7 +181,7 @@ export default function ChinhSuaHoaDonPage() {
     const soNuoc = formData.chiSoNuocCuoiKy - formData.chiSoNuocBanDau;
     
     // Lấy giá điện nước từ hợp đồng
-    const selectedHopDong = hopDongList.find(hd => hd._id === formData.hopDong);
+    const selectedHopDong = hopDongList.find(hd => hd.id === formData.hopDong);
     const giaDien = selectedHopDong?.giaDien || 0;
     const giaNuoc = selectedHopDong?.giaNuoc || 0;
     
@@ -383,7 +383,7 @@ export default function ChinhSuaHoaDonPage() {
                                 ? (hopDong.phong as Phong).maPhong 
                                 : getPhongName(hopDong.phong as string, phongList);
                               return (
-                                <SelectItem key={hopDong._id} value={hopDong._id!}>
+                                <SelectItem key={hopDong.id} value={hopDong.id!}>
                                   {hopDong.maHopDong} - {phongName}
                                 </SelectItem>
                               );

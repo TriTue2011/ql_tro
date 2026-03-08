@@ -149,7 +149,7 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
   {
     id: "drag",
     header: () => null,
-    cell: ({ row }) => <DragHandle id={row.original._id!} />,
+    cell: ({ row }) => <DragHandle id={row.original.id!} />,
     enableHiding: false,
   },
   {
@@ -343,11 +343,11 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
           <DropdownMenuSeparator />
           <DropdownMenuItem 
             className="text-destructive"
-            onClick={() => props.onDelete(row.original._id!)}
-            disabled={props.actionLoading === `delete-${row.original._id}`}
+            onClick={() => props.onDelete(row.original.id!)}
+            disabled={props.actionLoading === `delete-${row.original.id}`}
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            {props.actionLoading === `delete-${row.original._id}` ? 'Đang xóa...' : 'Xóa'}
+            {props.actionLoading === `delete-${row.original.id}` ? 'Đang xóa...' : 'Xóa'}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -358,7 +358,7 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
 
 function DraggableRow({ row }: { row: Row<KhachThue> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
-    id: row.original._id!,
+    id: row.original.id!,
   })
 
   return (
@@ -433,7 +433,7 @@ export function KhachThueDataTable(props: KhachThueDataTableProps) {
       columnFilters,
       pagination,
     },
-    getRowId: (row) => row._id!,
+    getRowId: (row) => row.id!,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,

@@ -183,7 +183,7 @@ export default function AccountManagementPage() {
     if (!selectedUser) return;
 
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser._id}`, {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -497,10 +497,10 @@ export default function AccountManagementPage() {
         {/* Mobile Card List */}
         <div className="space-y-3">
           {filteredUsers.map((user) => {
-            const isCurrentUser = session?.user?.id === user._id;
+            const isCurrentUser = session?.user?.id === user.id;
             
             return (
-              <Card key={user._id} className="p-4">
+              <Card key={user.id} className="p-4">
                 <div className="space-y-3">
                   {/* Header with avatar and info */}
                   <div className="flex items-start gap-3">
@@ -560,7 +560,7 @@ export default function AccountManagementPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteUser(user._id)}
+                        onClick={() => handleDeleteUser(user.id)}
                         className="flex-1 text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="h-3.5 w-3.5 mr-1" />

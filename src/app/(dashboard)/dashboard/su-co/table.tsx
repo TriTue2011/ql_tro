@@ -192,7 +192,7 @@ type SuCoTableProps = {
 
 const getPhongName = (phong: string | { maPhong: string }, phongList: Phong[]) => {
   if (typeof phong === 'string') {
-    const phongObj = phongList.find(p => p._id === phong)
+    const phongObj = phongList.find(p => p.id === phong)
     return phongObj?.maPhong || 'N/A'
   }
   return phong?.maPhong || 'N/A'
@@ -200,7 +200,7 @@ const getPhongName = (phong: string | { maPhong: string }, phongList: Phong[]) =
 
 const getKhachThueName = (khachThue: string | { hoTen: string }, khachThueList: KhachThue[]) => {
   if (typeof khachThue === 'string') {
-    const khachThueObj = khachThueList.find(k => k._id === khachThue)
+    const khachThueObj = khachThueList.find(k => k.id === khachThue)
     return khachThueObj?.hoTen || 'N/A'
   }
   return khachThue?.hoTen || 'N/A'
@@ -210,7 +210,7 @@ const createColumns = (props: SuCoTableProps): ColumnDef<SuCo>[] => [
   {
     id: "drag",
     header: () => null,
-    cell: ({ row }) => <DragHandle id={row.original._id!} />,
+    cell: ({ row }) => <DragHandle id={row.original.id!} />,
     enableHiding: false,
   },
   {
@@ -304,7 +304,7 @@ const createColumns = (props: SuCoTableProps): ColumnDef<SuCo>[] => [
           {suCo.trangThai === 'moi' && (
             <Select
               value={suCo.trangThai}
-              onValueChange={(value) => props.onStatusChange(suCo._id!, value)}
+              onValueChange={(value) => props.onStatusChange(suCo.id!, value)}
             >
               <SelectTrigger className="w-32 h-8">
                 <SelectValue />
@@ -318,7 +318,7 @@ const createColumns = (props: SuCoTableProps): ColumnDef<SuCo>[] => [
           {suCo.trangThai === 'dangXuLy' && (
             <Select
               value={suCo.trangThai}
-              onValueChange={(value) => props.onStatusChange(suCo._id!, value)}
+              onValueChange={(value) => props.onStatusChange(suCo.id!, value)}
             >
               <SelectTrigger className="w-32 h-8">
                 <SelectValue />
@@ -373,7 +373,7 @@ const createColumns = (props: SuCoTableProps): ColumnDef<SuCo>[] => [
           <DropdownMenuSeparator />
           <DropdownMenuItem 
             className="text-destructive"
-            onClick={() => props.onDelete(row.original._id!)}
+            onClick={() => props.onDelete(row.original.id!)}
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Xóa
@@ -387,7 +387,7 @@ const createColumns = (props: SuCoTableProps): ColumnDef<SuCo>[] => [
 
 function DraggableRow({ row }: { row: Row<SuCo> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
-    id: row.original._id!,
+    id: row.original.id!,
   })
 
   return (
@@ -466,7 +466,7 @@ export function SuCoDataTable(props: SuCoDataTableProps) {
       columnFilters,
       pagination,
     },
-    getRowId: (row) => row._id!,
+    getRowId: (row) => row.id!,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,

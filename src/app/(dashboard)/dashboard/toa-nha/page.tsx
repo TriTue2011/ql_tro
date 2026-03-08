@@ -122,7 +122,7 @@ export default function ToaNhaPage() {
         const result = await response.json();
         if (result.success) {
           cache.clearCache();
-          setToaNhaList(prev => prev.filter(toaNha => toaNha._id !== id));
+          setToaNhaList(prev => prev.filter(toaNha => toaNha.id !== id));
           toast.success('Xóa tòa nhà thành công!');
         } else {
           toast.error(result.message || 'Có lỗi xảy ra khi xóa tòa nhà');
@@ -305,7 +305,7 @@ export default function ToaNhaPage() {
               const tongPhong = toaNha.tongSoPhong;
               
               return (
-                <Card key={toaNha._id} className="hover:shadow-md transition-shadow">
+                <Card key={toaNha.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-3">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
@@ -378,7 +378,7 @@ export default function ToaNhaPage() {
                           Sửa
                         </Button>
                         <DeleteConfirmPopover
-                          onConfirm={() => handleDelete(toaNha._id!)}
+                          onConfirm={() => handleDelete(toaNha.id!)}
                           title="Xóa tòa nhà"
                           description="Bạn có chắc chắn muốn xóa tòa nhà này?"
                           className="text-black hover:text-red-700 hover:bg-red-50"
@@ -445,7 +445,7 @@ function ToaNhaForm({
         tienNghiChung: formData.tienNghiChung,
       };
 
-      const url = toaNha ? `/api/toa-nha/${toaNha._id}` : '/api/toa-nha';
+      const url = toaNha ? `/api/toa-nha/${toaNha.id}` : '/api/toa-nha';
       const method = toaNha ? 'PUT' : 'POST';
 
       const response = await fetch(url, {

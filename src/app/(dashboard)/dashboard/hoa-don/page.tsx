@@ -56,7 +56,7 @@ const getPhongName = (phongId: string | Phong, phongList: Phong[]) => {
     return phongId.maPhong;
   }
   if (typeof phongId === 'string') {
-    const phong = phongList.find(p => p._id === phongId);
+    const phong = phongList.find(p => p.id === phongId);
     return phong?.maPhong || 'N/A';
   }
   return 'N/A';
@@ -68,7 +68,7 @@ const getKhachThueName = (khachThueId: string | KhachThue, khachThueList: KhachT
     return khachThueId.hoTen;
   }
   if (typeof khachThueId === 'string') {
-    const khachThue = khachThueList.find(k => k._id === khachThueId);
+    const khachThue = khachThueList.find(k => k.id === khachThueId);
     return khachThue?.hoTen || 'N/A';
   }
   return 'N/A';
@@ -215,7 +215,7 @@ export default function HoaDonPage() {
 
   const handleEdit = (hoaDon: HoaDon) => {
     console.log('Editing hoa don:', hoaDon);
-    router.push(`/dashboard/hoa-don/${hoaDon._id}`);
+    router.push(`/dashboard/hoa-don/${hoaDon.id}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -226,7 +226,7 @@ export default function HoaDonPage() {
 
       if (response.ok) {
         cache.clearCache();
-        setHoaDonList(prev => prev.filter(hoaDon => hoaDon._id !== id));
+        setHoaDonList(prev => prev.filter(hoaDon => hoaDon.id !== id));
         toast.success('Hóa đơn đã được xóa thành công');
       } else {
         const errorData = await response.json();
@@ -252,7 +252,7 @@ export default function HoaDonPage() {
       
       if (failedDeletes.length === 0) {
         cache.clearCache();
-        setHoaDonList(prev => prev.filter(hoaDon => !ids.includes(hoaDon._id!)));
+        setHoaDonList(prev => prev.filter(hoaDon => !ids.includes(hoaDon.id!)));
         toast.success(`Đã xóa thành công ${ids.length} hóa đơn`);
       } else {
         toast.error(`Có ${failedDeletes.length} hóa đơn không thể xóa`);
@@ -274,7 +274,7 @@ export default function HoaDonPage() {
   };
 
   const handleCopyLink = (hoaDon: HoaDon) => {
-    const publicUrl = `${window.location.origin}/hoa-don/${hoaDon._id}`;
+    const publicUrl = `${window.location.origin}/hoa-don/${hoaDon.id}`;
     
     navigator.clipboard.writeText(publicUrl).then(() => {
       toast.success('Đã sao chép link hóa đơn vào clipboard!');
@@ -757,7 +757,7 @@ export default function HoaDonPage() {
             const isOverdue = new Date(hoaDon.hanThanhToan) < new Date() && hoaDon.trangThai !== 'daThanhToan';
             
             return (
-              <Card key={hoaDon._id} className="p-4">
+              <Card key={hoaDon.id} className="p-4">
                 <div className="space-y-3">
                   {/* Header with invoice code and status */}
                   <div className="flex justify-between items-start">
@@ -881,7 +881,7 @@ export default function HoaDonPage() {
                   <p className="text-xs md:text-sm"><strong>Phòng:</strong> {getPhongName(viewingHoaDon.phong, phongList)}</p>
                   <p className="text-xs md:text-sm"><strong>Khách thuê:</strong> {getKhachThueName(viewingHoaDon.khachThue, khachThueList)}</p>
                   <p className="text-xs md:text-sm"><strong>Hợp đồng:</strong> {
-                    hopDongList.find(hd => hd._id === viewingHoaDon.hopDong)?.maHopDong || 'N/A'
+                    hopDongList.find(hd => hd.id === viewingHoaDon.hopDong)?.maHopDong || 'N/A'
                   }</p>
                 </div>
                 <div>
@@ -1026,7 +1026,7 @@ export default function HoaDonPage() {
                 // Chỉ update dòng hóa đơn đó thay vì load lại toàn bộ
                 if (updatedHoaDon) {
                   setHoaDonList(prev => prev.map(hd => 
-                    hd._id === updatedHoaDon._id ? updatedHoaDon : hd
+                    hd.id === updatedHoaDon.id ? updatedHoaDon : hd
                   ));
                   cache.clearCache(); // Xóa cache để lần sau load mới
                 }
@@ -1066,7 +1066,7 @@ function PaymentForm({
     
     try {
       const requestData = {
-        hoaDonId: hoaDon._id,
+        hoaDonId: hoaDon.id,
         soTien: formData.soTien,
         phuongThuc: formData.phuongThuc,
         thongTinChuyenKhoan: formData.phuongThuc === 'chuyenKhoan' ? {

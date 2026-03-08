@@ -511,7 +511,7 @@ export default function PublicInvoicePage() {
                 {thanhToanList.length > 0 ? (
                   <div className="space-y-4">
                     {thanhToanList.map((thanhToan) => (
-                      <div key={thanhToan._id} className="border rounded-lg p-3">
+                      <div key={thanhToan.id} className="border rounded-lg p-3">
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex items-center gap-2">
                             {getMethodBadge(thanhToan.phuongThuc)}

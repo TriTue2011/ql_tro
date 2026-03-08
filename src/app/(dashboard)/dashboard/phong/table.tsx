@@ -164,7 +164,7 @@ const getToaNhaName = (toaNha: string | { tenToaNha: string }, toaNhaList: ToaNh
   if (typeof toaNha === 'object' && toaNha?.tenToaNha) {
     return toaNha.tenToaNha
   }
-  const toaNhaObj = toaNhaList.find(t => t._id === toaNha)
+  const toaNhaObj = toaNhaList.find(t => t.id === toaNha)
   return toaNhaObj?.tenToaNha || 'N/A'
 }
 
@@ -172,7 +172,7 @@ const createColumns = (props: PhongTableProps): ColumnDef<Phong>[] => [
   {
     id: "drag",
     header: () => null,
-    cell: ({ row }) => <DragHandle id={row.original._id!} />,
+    cell: ({ row }) => <DragHandle id={row.original.id!} />,
     enableHiding: false,
   },
   {
@@ -371,7 +371,7 @@ const createColumns = (props: PhongTableProps): ColumnDef<Phong>[] => [
           <DropdownMenuSeparator />
           <DropdownMenuItem 
             className="text-destructive"
-            onClick={() => props.onDelete(row.original._id!)}
+            onClick={() => props.onDelete(row.original.id!)}
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Xóa
@@ -385,7 +385,7 @@ const createColumns = (props: PhongTableProps): ColumnDef<Phong>[] => [
 
 function DraggableRow({ row }: { row: Row<Phong> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
-    id: row.original._id!,
+    id: row.original.id!,
   })
 
   return (
@@ -463,7 +463,7 @@ export function PhongDataTable(props: PhongDataTableProps) {
       columnFilters,
       pagination,
     },
-    getRowId: (row) => row._id!,
+    getRowId: (row) => row.id!,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
@@ -514,7 +514,7 @@ export function PhongDataTable(props: PhongDataTableProps) {
             <SelectContent>
               <SelectItem value="all">Tất cả tòa nhà</SelectItem>
               {allToaNhaList?.map((toaNha) => (
-                <SelectItem key={toaNha._id} value={toaNha._id!}>
+                <SelectItem key={toaNha.id} value={toaNha.id!}>
                   {toaNha.tenToaNha}
                 </SelectItem>
               ))}

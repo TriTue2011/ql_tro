@@ -162,7 +162,7 @@ const getHoaDonInfo = (hoaDon: string | HoaDon, hoaDonList: HoaDon[]) => {
     return hoaDon.maHoaDon
   }
   if (typeof hoaDon === 'string') {
-    const hoaDonItem = hoaDonList.find(h => h._id === hoaDon)
+    const hoaDonItem = hoaDonList.find(h => h.id === hoaDon)
     return hoaDonItem?.maHoaDon || 'N/A'
   }
   return 'N/A'
@@ -172,7 +172,7 @@ const createColumns = (props: ThanhToanTableProps): ColumnDef<ThanhToanPopulated
   {
     id: "drag",
     header: () => null,
-    cell: ({ row }) => <DragHandle id={row.original._id!} />,
+    cell: ({ row }) => <DragHandle id={row.original.id!} />,
     enableHiding: false,
   },
   {
@@ -339,7 +339,7 @@ const createColumns = (props: ThanhToanTableProps): ColumnDef<ThanhToanPopulated
           <DropdownMenuSeparator />
           <DropdownMenuItem 
             className="text-destructive"
-            onClick={() => props.onDelete(row.original._id!)}
+            onClick={() => props.onDelete(row.original.id!)}
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Xóa
@@ -353,7 +353,7 @@ const createColumns = (props: ThanhToanTableProps): ColumnDef<ThanhToanPopulated
 
 function DraggableRow({ row }: { row: Row<ThanhToanPopulated> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
-    id: row.original._id!,
+    id: row.original.id!,
   })
 
   return (
@@ -430,7 +430,7 @@ export function ThanhToanDataTable(props: ThanhToanDataTableProps) {
       columnFilters,
       pagination,
     },
-    getRowId: (row) => row._id!,
+    getRowId: (row) => row.id!,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,

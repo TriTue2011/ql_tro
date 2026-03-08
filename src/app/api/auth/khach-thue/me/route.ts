@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongodb';
-import KhachThue from '@/models/KhachThue';
-import HopDong from '@/models/HopDong';
-import HoaDon from '@/models/HoaDon';
+import { getKhachThueRepo } from '@/lib/repositories';
+import prisma from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
 
 export async function GET(request: NextRequest) {
   try {
-    // Lấy token từ header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
@@ -17,12 +14,11 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    
-    // Verify token
+
     let decoded: any;
     try {
       decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'secret');
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { success: false, message: 'Token không hợp lệ' },
         { status: 401 }
@@ -36,11 +32,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await dbConnect();
+    const repo = await getKhachThueRepo();
+    const khachThue = await repo.findById(decoded.id);
 
-    // Lấy thông tin khách thuê
-    const khachThue = await KhachThue.findById(decoded.id);
-    
     if (!khachThue) {
       return NextResponse.json(
         { success: false, message: 'Khách thuê không tồn tại' },
@@ -48,40 +42,40 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Lấy hợp đồng hiện tại
-    const hopDongHienTai = await HopDong.findOne({
-      khachThueId: khachThue._id,
-      trangThai: 'hoatDong',
-      ngayBatDau: { $lte: new Date() },
-      ngayKetThuc: { $gte: new Date() }
-    })
-    .populate('phong', 'maPhong dienTich giaThue tienCoc toaNha')
-    .populate({
-      path: 'phong',
-      populate: {
-        path: 'toaNha',
-        select: 'tenToaNha diaChi'
-      }
+    const now = new Date();
+
+    const hopDongHienTai = await prisma.hopDong.findFirst({
+      where: {
+        khachThue: { some: { id: khachThue.id } },
+        trangThai: 'hoatDong',
+        ngayBatDau: { lte: now },
+        ngayKetThuc: { gte: now },
+      },
+      include: {
+        phong: {
+          include: { toaNha: { select: { tenToaNha: true, diaChi: true } } },
+        },
+      },
     });
 
-    // Đếm số hóa đơn chưa thanh toán
-    const soHoaDonChuaThanhToan = await HoaDon.countDocuments({
-      khachThue: khachThue._id,
-      trangThai: { $in: ['chuaThanhToan', 'daThanhToanMotPhan', 'quaHan'] }
+    const soHoaDonChuaThanhToan = await prisma.hoaDon.count({
+      where: {
+        khachThueId: khachThue.id,
+        trangThai: { in: ['chuaThanhToan', 'daThanhToanMotPhan', 'quaHan'] },
+      },
     });
 
-    // Lấy hóa đơn gần nhất
-    const hoaDonGanNhat = await HoaDon.findOne({
-      khachThue: khachThue._id
-    })
-    .sort({ ngayTao: -1 })
-    .populate('phong', 'maPhong');
+    const hoaDonGanNhat = await prisma.hoaDon.findFirst({
+      where: { khachThueId: khachThue.id },
+      orderBy: { ngayTao: 'desc' },
+      include: { phong: { select: { maPhong: true } } },
+    });
 
     return NextResponse.json({
       success: true,
       data: {
         khachThue: {
-          _id: khachThue._id,
+          id: khachThue.id,
           hoTen: khachThue.hoTen,
           soDienThoai: khachThue.soDienThoai,
           email: khachThue.email,
@@ -94,7 +88,7 @@ export async function GET(request: NextRequest) {
         },
         hopDongHienTai,
         soHoaDonChuaThanhToan,
-        hoaDonGanNhat
+        hoaDonGanNhat,
       }
     });
 
@@ -106,4 +100,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
