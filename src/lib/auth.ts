@@ -17,17 +17,20 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
+          console.log('[AUTH] Attempting login for:', credentials.email);
           const user = await prisma.nguoiDung.findUnique({
             where: {
               email: credentials.email.toLowerCase(),
             }
           });
 
+          console.log('[AUTH] User found:', !!user, 'trangThai:', user?.trangThai);
           if (!user || user.trangThai !== 'hoatDong') {
             return null;
           }
 
           const isPasswordValid = await compare(credentials.matKhau, user.matKhau);
+          console.log('[AUTH] Password valid:', isPasswordValid);
 
           if (!isPasswordValid) {
             return null;
@@ -42,7 +45,7 @@ export const authOptions: NextAuthOptions = {
             avatar: user.anhDaiDien,
           };
         } catch (error) {
-          console.error('Auth error:', error);
+          console.error('[AUTH] Error:', error);
           return null;
         }
       }
