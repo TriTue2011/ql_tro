@@ -97,7 +97,7 @@ export default function ChinhSuaHopDongPage() {
           setFormData({
             maHopDong: hopDongItem.maHopDong || '',
             phong: typeof hopDongItem.phong === 'object' ? (hopDongItem.phong as {_id: string})?.id || '' : hopDongItem.phong || '',
-            khachThueId: hopDongItem.khachThueId?.map((kt: string | { id: string }) => typeof kt === 'object' ? kt.id : kt) || [],
+            khachThueId: hopDongItem.khachThueIds?.map((kt: string | { id: string }) => typeof kt === 'object' ? kt.id : kt) || [],
             nguoiDaiDien: typeof hopDongItem.nguoiDaiDien === 'object' ? (hopDongItem.nguoiDaiDien as {_id: string})?.id || '' : hopDongItem.nguoiDaiDien || '',
             ngayBatDau: hopDongItem.ngayBatDau ? hopDongItem.ngayBatDau.toString().split('T')[0] : new Date().toISOString().split('T')[0],
             ngayKetThuc: hopDongItem.ngayKetThuc ? hopDongItem.ngayKetThuc.toString().split('T')[0] : '',

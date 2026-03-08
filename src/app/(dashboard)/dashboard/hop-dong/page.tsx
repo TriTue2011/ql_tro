@@ -980,7 +980,7 @@ export default function HopDongPage() {
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Khách thuê</Label>
                   <div className="mt-2 space-y-1">
-                    {viewingHopDong.khachThueId.map((khachThue, index) => {
+                    {viewingHopDong.khachThueIds.map((khachThue, index) => {
                       const khachThueId = typeof khachThue === 'object' ? (khachThue as { id: string }).id : khachThue;
                       const nguoiDaiDienId = typeof viewingHopDong.nguoiDaiDien === 'object' ? (viewingHopDong.nguoiDaiDien as { id: string }).id : viewingHopDong.nguoiDaiDien;
                       return (
@@ -1277,9 +1277,9 @@ export default function HopDongPage() {
                     <div className="flex items-center gap-2">
                       <Users className="h-3 w-3 text-gray-400" />
                       <span className="text-gray-600">{nguoiDaiDien}</span>
-                      {hopDong.khachThueId.length > 1 && (
+                      {hopDong.khachThueIds?.length > 1 && (
                         <Badge variant="secondary" className="text-[10px]">
-                          +{hopDong.khachThueId.length - 1}
+                          +{hopDong.khachThueIds?.length - 1}
                         </Badge>
                       )}
                     </div>
