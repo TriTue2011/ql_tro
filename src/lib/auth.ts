@@ -1,9 +1,7 @@
-import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { NextAuthOptions } from 'next-auth';
-import dbConnect from './mongodb';
-import NguoiDung from '@/models/NguoiDung';
 import { compare } from 'bcryptjs';
+import prisma from './prisma';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -19,25 +17,27 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          await dbConnect();
-          
-          const user = await NguoiDung.findOne({ 
-            email: credentials.email.toLowerCase(),
-            trangThai: 'hoatDong'
-          }).select('+matKhau');
+          console.log('[AUTH] Attempting login for:', credentials.email);
+          const user = await prisma.nguoiDung.findUnique({
+            where: {
+              email: credentials.email.toLowerCase(),
+            }
+          });
 
-          if (!user) {
+          console.log('[AUTH] User found:', !!user, 'trangThai:', user?.trangThai);
+          if (!user || user.trangThai !== 'hoatDong') {
             return null;
           }
 
-          const isPasswordValid = await user.comparePassword(credentials.matKhau);
+          const isPasswordValid = await compare(credentials.matKhau, user.matKhau);
+          console.log('[AUTH] Password valid:', isPasswordValid);
 
           if (!isPasswordValid) {
             return null;
           }
 
           return {
-            id: user._id.toString(),
+            id: user.id,
             email: user.email,
             name: user.ten,
             role: user.vaiTro,
@@ -45,7 +45,7 @@ export const authOptions: NextAuthOptions = {
             avatar: user.anhDaiDien,
           };
         } catch (error) {
-          console.error('Auth error:', error);
+          console.error('[AUTH] Error:', error);
           return null;
         }
       }
@@ -80,6 +80,3 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
