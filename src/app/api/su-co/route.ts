@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import SuCo from '@/models/SuCo';
-import Phong from '@/models/Phong';
-import KhachThue from '@/models/KhachThue';
+import { getSuCoRepo, getPhongRepo, getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const suCoSchema = z.object({
@@ -21,15 +18,13 @@ const suCoSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    await dbConnect();
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -39,46 +34,21 @@ export async function GET(request: NextRequest) {
     const mucDoUuTien = searchParams.get('mucDoUuTien') || '';
     const trangThai = searchParams.get('trangThai') || '';
 
-    const query: any = {};
-    
-    if (search) {
-      query.$or = [
-        { tieuDe: { $regex: search, $options: 'i' } },
-        { moTa: { $regex: search, $options: 'i' } },
-      ];
-    }
-    
-    if (loaiSuCo) {
-      query.loaiSuCo = loaiSuCo;
-    }
-    
-    if (mucDoUuTien) {
-      query.mucDoUuTien = mucDoUuTien;
-    }
-    
-    if (trangThai) {
-      query.trangThai = trangThai;
-    }
+    const repo = await getSuCoRepo();
 
-    const suCoList = await SuCo.find(query)
-      .populate('phong', 'maPhong toaNha')
-      .populate('khachThue', 'hoTen soDienThoai')
-      .populate('nguoiXuLy', 'ten email')
-      .sort({ ngayBaoCao: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    const total = await SuCo.countDocuments(query);
+    const result = await repo.findMany({
+      page,
+      limit,
+      search: search || undefined,
+      loaiSuCo: loaiSuCo as any || undefined,
+      mucDoUuTien: mucDoUuTien as any || undefined,
+      trangThai: trangThai as any || undefined,
+    });
 
     return NextResponse.json({
       success: true,
-      data: suCoList,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      data: result.data,
+      pagination: result.pagination,
     });
 
   } catch (error) {
@@ -93,7 +63,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -104,10 +74,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = suCoSchema.parse(body);
 
-    await dbConnect();
+    const phongRepo = await getPhongRepo();
+    const khachThueRepo = await getKhachThueRepo();
+    const suCoRepo = await getSuCoRepo();
 
     // Check if phong exists
-    const phong = await Phong.findById(validatedData.phong);
+    const phong = await phongRepo.findById(validatedData.phong);
     if (!phong) {
       return NextResponse.json(
         { message: 'Phòng không tồn tại' },
@@ -116,7 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if khach thue exists
-    const khachThue = await KhachThue.findById(validatedData.khachThue);
+    const khachThue = await khachThueRepo.findById(validatedData.khachThue);
     if (!khachThue) {
       return NextResponse.json(
         { message: 'Khách thuê không tồn tại' },
@@ -124,14 +96,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newSuCo = new SuCo({
-      ...validatedData,
+    const newSuCo = await suCoRepo.create({
+      phongId: validatedData.phong,
+      khachThueId: validatedData.khachThue,
+      tieuDe: validatedData.tieuDe,
+      moTa: validatedData.moTa,
       anhSuCo: validatedData.anhSuCo || [],
+      loaiSuCo: validatedData.loaiSuCo,
       mucDoUuTien: validatedData.mucDoUuTien || 'trungBinh',
-      trangThai: validatedData.trangThai || 'moi',
     });
-
-    await newSuCo.save();
 
     return NextResponse.json({
       success: true,

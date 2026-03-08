@@ -1,55 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import connectToDatabase from '@/lib/mongodb';
-import HopDong from '@/models/HopDong';
-import Phong from '@/models/Phong';
-import KhachThue from '@/models/KhachThue';
+import { getPhongRepo, getKhachThueRepo, getHopDongRepo } from '@/lib/repositories';
 
 export async function GET(request: NextRequest) {
   try {
     console.log('Form data API called');
-    
-    // Temporarily disable authentication for debugging
-    // const session = await getServerSession(authOptions);
-    // console.log('Session:', session);
-    
-    // if (!session) {
-    //   console.log('No session found');
-    //   return NextResponse.json(
-    //     { message: 'Unauthorized' },
-    //     { status: 401 }
-    //   );
-    // }
 
-    console.log('Session found, connecting to database...');
-    await connectToDatabase();
-    console.log('Database connected successfully');
+    console.log('Connecting to database...');
 
-    // Test simple queries first
-    console.log('Testing simple queries...');
-    
     // Get all rooms for reference (simplified)
     console.log('Fetching phongList...');
-    const phongList = await Phong.find()
-      .select('maPhong toaNha tang dienTich giaThue trangThai')
-      .sort({ maPhong: 1 });
+    const phongRepo = await getPhongRepo();
+    const phongResult = await phongRepo.findMany({ limit: 1000 });
+    const phongList = phongResult.data;
     console.log('Fetched phongList:', phongList.length);
 
     // Get all tenants for reference (simplified)
     console.log('Fetching khachThueList...');
-    const khachThueList = await KhachThue.find()
-      .select('hoTen soDienThoai email trangThai')
-      .sort({ hoTen: 1 });
+    const khachThueRepo = await getKhachThueRepo();
+    const khachThueResult = await khachThueRepo.findMany({ limit: 1000 });
+    const khachThueList = khachThueResult.data;
     console.log('Fetched khachThueList:', khachThueList.length);
 
-    // Get active contracts (simplified - no populate first)
+    // Get active contracts (simplified)
     console.log('Fetching hopDongList...');
-    const hopDongList = await HopDong.find({
-      trangThai: 'hoatDong',
-    })
-      .select('maHopDong phong nguoiDaiDien giaThue giaDien giaNuoc phiDichVu ngayThanhToan trangThai chiSoDienBanDau chiSoNuocBanDau ngayBatDau ngayKetThuc')
-      .sort({ maHopDong: 1 });
+    const hopDongRepo = await getHopDongRepo();
+    const hopDongResult = await hopDongRepo.findMany({ trangThai: 'hoatDong', limit: 1000 });
+    const hopDongList = hopDongResult.data;
     console.log('Fetched hopDongList:', hopDongList.length);
 
     return NextResponse.json({

@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import HopDong from '@/models/HopDong';
-import Phong from '@/models/Phong';
-import KhachThue from '@/models/KhachThue';
-import { updatePhongStatus, updateAllKhachThueStatus } from '@/lib/status-utils';
+import { getHopDongRepo, getPhongRepo, getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const phiDichVuSchema = z.object({
@@ -36,7 +32,7 @@ const hopDongSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -44,53 +40,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await dbConnect();
-
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
     const trangThai = searchParams.get('trangThai') || '';
 
-    const query: any = {};
-    
-    if (search) {
-      query.$or = [
-        { maHopDong: { $regex: search, $options: 'i' } },
-        { dieuKhoan: { $regex: search, $options: 'i' } },
-      ];
-    }
-    
-    if (trangThai) {
-      query.trangThai = trangThai;
-    }
+    const repo = await getHopDongRepo();
 
-    const hopDongList = await HopDong.find(query)
-      .populate({
-        path: 'phong',
-        select: 'maPhong toaNha',
-        populate: {
-          path: 'toaNha',
-          select: 'tenToaNha'
-        }
-      })
-      .populate('khachThueId', 'hoTen soDienThoai')
-      .populate('nguoiDaiDien', 'hoTen soDienThoai')
-      .sort({ ngayTao: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    const total = await HopDong.countDocuments(query);
+    const result = await repo.findMany({
+      page,
+      limit,
+      search: search || undefined,
+      trangThai: trangThai as any || undefined,
+    });
 
     return NextResponse.json({
       success: true,
-      data: hopDongList,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      data: result.data,
+      pagination: result.pagination,
     });
 
   } catch (error) {
@@ -105,7 +73,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -116,10 +84,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = hopDongSchema.parse(body);
 
-    await dbConnect();
+    const phongRepo = await getPhongRepo();
+    const khachThueRepo = await getKhachThueRepo();
+    const hopDongRepo = await getHopDongRepo();
 
     // Check if phong exists
-    const phong = await Phong.findById(validatedData.phong);
+    const phong = await phongRepo.findById(validatedData.phong);
     if (!phong) {
       return NextResponse.json(
         { message: 'Phòng không tồn tại' },
@@ -128,8 +98,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if all khach thue exist
-    const khachThueList = await KhachThue.find({ _id: { $in: validatedData.khachThueId } });
-    if (khachThueList.length !== validatedData.khachThueId.length) {
+    const khachThueChecks = await Promise.all(
+      validatedData.khachThueId.map(id => khachThueRepo.findById(id))
+    );
+    if (khachThueChecks.some(k => !k)) {
       return NextResponse.json(
         { message: 'Một hoặc nhiều khách thuê không tồn tại' },
         { status: 400 }
@@ -145,40 +117,41 @@ export async function POST(request: NextRequest) {
     }
 
     // Kiểm tra phòng có hợp đồng đang hoạt động không
-    const existingHopDong = await HopDong.findOne({
-      phong: validatedData.phong,
+    const existingHopDong = await hopDongRepo.findMany({
+      phongId: validatedData.phong,
       trangThai: 'hoatDong',
-      $or: [
-        {
-          ngayBatDau: { $lte: new Date() },
-          ngayKetThuc: { $gte: new Date() }
-        },
-        {
-          ngayBatDau: { $lte: new Date(validatedData.ngayKetThuc) },
-          ngayKetThuc: { $gte: new Date(validatedData.ngayBatDau) }
-        }
-      ]
+      limit: 1,
     });
 
-    if (existingHopDong) {
+    if (existingHopDong.data.length > 0) {
       return NextResponse.json(
         { message: 'Phòng đã có hợp đồng trong khoảng thời gian này' },
         { status: 400 }
       );
     }
 
-    const newHopDong = new HopDong({
-      ...validatedData,
+    const newHopDong = await hopDongRepo.create({
+      maHopDong: validatedData.maHopDong,
+      phongId: validatedData.phong,
+      khachThueIds: validatedData.khachThueId,
+      nguoiDaiDienId: validatedData.nguoiDaiDien,
       ngayBatDau: new Date(validatedData.ngayBatDau),
       ngayKetThuc: new Date(validatedData.ngayKetThuc),
+      giaThue: validatedData.giaThue,
+      tienCoc: validatedData.tienCoc,
+      chuKyThanhToan: validatedData.chuKyThanhToan,
+      ngayThanhToan: validatedData.ngayThanhToan,
+      dieuKhoan: validatedData.dieuKhoan,
+      giaDien: validatedData.giaDien,
+      giaNuoc: validatedData.giaNuoc,
+      chiSoDienBanDau: validatedData.chiSoDienBanDau,
+      chiSoNuocBanDau: validatedData.chiSoNuocBanDau,
       phiDichVu: validatedData.phiDichVu || [],
+      fileHopDong: validatedData.fileHopDong,
     });
 
-    await newHopDong.save();
-
-    // Cập nhật trạng thái phòng và khách thuê tự động
-    await updatePhongStatus(validatedData.phong);
-    await updateAllKhachThueStatus(validatedData.khachThueId);
+    // Cập nhật trạng thái phòng thành 'dangThue'
+    await phongRepo.update(validatedData.phong, { trangThai: 'dangThue' });
 
     return NextResponse.json({
       success: true,

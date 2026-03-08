@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import ThongBao from '@/models/ThongBao';
-import HoaDon from '@/models/HoaDon';
-import SuCo from '@/models/SuCo';
-import HopDong from '@/models/HopDong';
-import KhachThue from '@/models/KhachThue';
+import { getHoaDonRepo, getHopDongRepo, getSuCoRepo, getThongBaoRepo } from '@/lib/repositories';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -19,14 +14,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await dbConnect();
-
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'all';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    let notifications = [];
+    let notifications: any[] = [];
 
     switch (type) {
       case 'overdue_invoices':
@@ -71,25 +64,26 @@ export async function GET(request: NextRequest) {
 }
 
 async function getOverdueInvoices() {
-  const overdueInvoices = await HoaDon.find({
-    hanThanhToan: { $lt: new Date() },
-    trangThai: { $in: ['chuaThanhToan', 'daThanhToanMotPhan'] },
-  })
-    .populate('hopDong', 'maHopDong phong')
-    .populate('phong', 'maPhong toaNha')
-    .populate('khachThue', 'hoTen soDienThoai')
-    .sort({ hanThanhToan: 1 });
+  const hoaDonRepo = await getHoaDonRepo();
+  const now = new Date();
+
+  const result = await hoaDonRepo.findMany({ limit: 1000 });
+  const overdueInvoices = result.data.filter(
+    invoice =>
+      new Date(invoice.hanThanhToan) < now &&
+      (invoice.trangThai === 'chuaThanhToan' || invoice.trangThai === 'daThanhToanMotPhan')
+  );
 
   return overdueInvoices.map(invoice => ({
-    id: `overdue_invoice_${invoice._id}`,
+    id: `overdue_invoice_${invoice.id}`,
     type: 'overdue_invoice',
     title: 'Hóa đơn quá hạn thanh toán',
-    message: `Hóa đơn ${invoice.maHoaDon} của phòng ${invoice.phong.maPhong} đã quá hạn thanh toán`,
+    message: `Hóa đơn ${invoice.maHoaDon} của phòng ${invoice.phong?.maPhong || invoice.phongId} đã quá hạn thanh toán`,
     data: {
-      invoiceId: invoice._id,
+      invoiceId: invoice.id,
       maHoaDon: invoice.maHoaDon,
-      phong: invoice.phong.maPhong,
-      khachThue: invoice.khachThue.hoTen,
+      phong: invoice.phong?.maPhong || invoice.phongId,
+      khachThue: invoice.khachThue?.hoTen || invoice.khachThueId,
       hanThanhToan: invoice.hanThanhToan,
       conLai: invoice.conLai,
     },
@@ -99,30 +93,28 @@ async function getOverdueInvoices() {
 }
 
 async function getExpiringContracts() {
+  const hopDongRepo = await getHopDongRepo();
   const nextMonth = new Date();
   nextMonth.setDate(nextMonth.getDate() + 30);
 
-  const expiringContracts = await HopDong.find({
-    ngayKetThuc: { $lte: nextMonth },
-    trangThai: 'hoatDong',
-  })
-    .populate('phong', 'maPhong toaNha')
-    .populate('nguoiDaiDien', 'hoTen soDienThoai')
-    .sort({ ngayKetThuc: 1 });
+  const result = await hopDongRepo.findMany({ trangThai: 'hoatDong', limit: 1000 });
+  const expiringContracts = result.data.filter(
+    contract => new Date(contract.ngayKetThuc) <= nextMonth
+  );
 
   return expiringContracts.map(contract => {
-    const daysLeft = Math.ceil((contract.ngayKetThuc.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    
+    const daysLeft = Math.ceil((new Date(contract.ngayKetThuc).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
     return {
-      id: `expiring_contract_${contract._id}`,
+      id: `expiring_contract_${contract.id}`,
       type: 'expiring_contract',
       title: 'Hợp đồng sắp hết hạn',
-      message: `Hợp đồng ${contract.maHopDong} của phòng ${contract.phong.maPhong} sẽ hết hạn trong ${daysLeft} ngày`,
+      message: `Hợp đồng ${contract.maHopDong} của phòng ${contract.phong?.maPhong || contract.phongId} sẽ hết hạn trong ${daysLeft} ngày`,
       data: {
-        contractId: contract._id,
+        contractId: contract.id,
         maHopDong: contract.maHopDong,
-        phong: contract.phong.maPhong,
-        khachThue: contract.nguoiDaiDien.hoTen,
+        phong: contract.phong?.maPhong || contract.phongId,
+        khachThue: contract.nguoiDaiDien?.hoTen || contract.nguoiDaiDienId,
         ngayKetThuc: contract.ngayKetThuc,
         daysLeft,
       },
@@ -133,36 +125,36 @@ async function getExpiringContracts() {
 }
 
 async function getPendingIssues() {
-  const pendingIssues = await SuCo.find({
-    trangThai: { $in: ['moi', 'dangXuLy'] },
-  })
-    .populate('phong', 'maPhong toaNha')
-    .populate('khachThue', 'hoTen soDienThoai')
-    .sort({ mucDoUuTien: -1, ngayBaoCao: -1 });
+  const suCoRepo = await getSuCoRepo();
+
+  const result = await suCoRepo.findMany({ limit: 1000 });
+  const pendingIssues = result.data.filter(
+    issue => issue.trangThai === 'moi' || issue.trangThai === 'dangXuLy'
+  );
 
   return pendingIssues.map(issue => {
-    const priorityMap = {
+    const priorityMap: Record<string, string> = {
       'khancap': 'critical',
       'cao': 'high',
       'trungBinh': 'medium',
       'thap': 'low',
     };
 
-    const statusMap = {
+    const statusMap: Record<string, string> = {
       'moi': 'Mới',
       'dangXuLy': 'Đang xử lý',
     };
 
     return {
-      id: `pending_issue_${issue._id}`,
+      id: `pending_issue_${issue.id}`,
       type: 'pending_issue',
       title: 'Sự cố cần xử lý',
-      message: `Sự cố "${issue.tieuDe}" tại phòng ${issue.phong.maPhong} - ${statusMap[issue.trangThai]}`,
+      message: `Sự cố "${issue.tieuDe}" tại phòng ${issue.phong?.maPhong || issue.phongId} - ${statusMap[issue.trangThai] || issue.trangThai}`,
       data: {
-        issueId: issue._id,
+        issueId: issue.id,
         tieuDe: issue.tieuDe,
-        phong: issue.phong.maPhong,
-        khachThue: issue.khachThue.hoTen,
+        phong: issue.phong?.maPhong || issue.phongId,
+        khachThue: issue.khachThue?.hoTen || issue.khachThueId,
         loaiSuCo: issue.loaiSuCo,
         mucDoUuTien: issue.mucDoUuTien,
         trangThai: issue.trangThai,
@@ -175,22 +167,18 @@ async function getPendingIssues() {
 }
 
 async function getSystemNotifications() {
-  // Get system-wide notifications (like maintenance, updates, etc.)
-  const systemNotifications = await ThongBao.find({
-    loai: 'chung',
-  })
-    .populate('nguoiGui', 'ten email')
-    .sort({ ngayGui: -1 })
-    .limit(10);
+  const thongBaoRepo = await getThongBaoRepo();
 
-  return systemNotifications.map(notification => ({
-    id: `system_${notification._id}`,
+  const result = await thongBaoRepo.findMany({ loai: 'chung', limit: 10 });
+
+  return result.data.map(notification => ({
+    id: `system_${notification.id}`,
     type: 'system',
     title: notification.tieuDe,
     message: notification.noiDung,
     data: {
-      notificationId: notification._id,
-      nguoiGui: notification.nguoiGui.ten,
+      notificationId: notification.id,
+      nguoiGui: notification.nguoiGui?.ten || notification.nguoiGuiId,
     },
     priority: 'medium',
     createdAt: notification.ngayGui,
@@ -214,8 +202,8 @@ async function getAllNotifications() {
   ];
 
   // Sort by priority (critical > high > medium > low) and then by date
-  const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-  
+  const priorityOrder: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+
   return allNotifications.sort((a, b) => {
     const priorityDiff = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
     if (priorityDiff !== 0) return priorityDiff;
@@ -227,7 +215,7 @@ async function getAllNotifications() {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -238,13 +226,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { notificationId, type } = body;
 
-    await dbConnect();
-
     // For system notifications, mark as read
     if (type === 'system' && notificationId) {
-      await ThongBao.findByIdAndUpdate(notificationId, {
-        $addToSet: { daDoc: session.user.id },
-      });
+      const thongBaoRepo = await getThongBaoRepo();
+      await thongBaoRepo.markAsRead(notificationId, session.user.id);
     }
 
     return NextResponse.json({

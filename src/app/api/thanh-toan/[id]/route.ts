@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
-import ThanhToan from '@/models/ThanhToan';
-import HoaDon from '@/models/HoaDon';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getThanhToanRepo, getHoaDonRepo } from '@/lib/repositories';
+import prisma from '@/lib/prisma';
 
 // PUT - Cập nhật thanh toán
 export async function PUT(
@@ -15,8 +14,6 @@ export async function PUT(
     if (!session?.user?.id) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-
-    await connectToDatabase();
 
     const { id } = params;
     const body = await request.json();
@@ -38,8 +35,11 @@ export async function PUT(
       );
     }
 
+    const thanhToanRepo = await getThanhToanRepo();
+    const hoaDonRepo = await getHoaDonRepo();
+
     // Tìm thanh toán hiện tại
-    const thanhToanHienTai = await ThanhToan.findById(id);
+    const thanhToanHienTai = await thanhToanRepo.findById(id);
     if (!thanhToanHienTai) {
       return NextResponse.json(
         { message: 'Thanh toán không tồn tại' },
@@ -48,7 +48,7 @@ export async function PUT(
     }
 
     // Kiểm tra hóa đơn tồn tại
-    const hoaDon = await HoaDon.findById(hoaDonId);
+    const hoaDon = await hoaDonRepo.findById(hoaDonId);
     if (!hoaDon) {
       return NextResponse.json(
         { message: 'Hóa đơn không tồn tại' },
@@ -56,26 +56,31 @@ export async function PUT(
       );
     }
 
-    // Tính toán lại số tiền còn lại của hóa đơn
-    // Trước tiên, hoàn lại số tiền cũ
-    const hoaDonCu = await HoaDon.findById(thanhToanHienTai.hoaDon);
+    // Trước tiên, hoàn lại số tiền cũ cho hóa đơn gốc
+    const hoaDonCuId = thanhToanHienTai.hoaDonId;
+    const hoaDonCu = await hoaDonRepo.findById(hoaDonCuId);
     if (hoaDonCu) {
-      hoaDonCu.daThanhToan -= thanhToanHienTai.soTien;
-      hoaDonCu.conLai = hoaDonCu.tongTien - hoaDonCu.daThanhToan;
-      
-      if (hoaDonCu.conLai <= 0) {
-        hoaDonCu.trangThai = 'daThanhToan';
-      } else if (hoaDonCu.daThanhToan > 0) {
-        hoaDonCu.trangThai = 'daThanhToanMotPhan';
+      const newDaThanhToan = Math.max(0, hoaDonCu.daThanhToan - thanhToanHienTai.soTien);
+      const newConLai = hoaDonCu.tongTien - newDaThanhToan;
+      let newTrangThai: 'chuaThanhToan' | 'daThanhToanMotPhan' | 'daThanhToan' | 'quaHan';
+      if (newConLai <= 0) {
+        newTrangThai = 'daThanhToan';
+      } else if (newDaThanhToan > 0) {
+        newTrangThai = 'daThanhToanMotPhan';
       } else {
-        hoaDonCu.trangThai = 'chuaThanhToan';
+        newTrangThai = 'chuaThanhToan';
       }
-      
-      await hoaDonCu.save();
+
+      await prisma.hoaDon.update({
+        where: { id: hoaDonCuId },
+        data: { daThanhToan: newDaThanhToan, conLai: newConLai, trangThai: newTrangThai },
+      });
     }
 
     // Kiểm tra số tiền thanh toán mới không vượt quá số tiền còn lại
-    if (soTien > hoaDon.conLai) {
+    // Lấy lại hóa đơn sau khi hoàn tiền
+    const hoaDonRefreshed = await hoaDonRepo.findById(hoaDonId);
+    if (hoaDonRefreshed && soTien > hoaDonRefreshed.conLai) {
       return NextResponse.json(
         { message: 'Số tiền thanh toán không được vượt quá số tiền còn lại' },
         { status: 400 }
@@ -90,38 +95,30 @@ export async function PUT(
       );
     }
 
-    // Cập nhật thanh toán
-    thanhToanHienTai.hoaDon = hoaDonId;
-    thanhToanHienTai.soTien = soTien;
-    thanhToanHienTai.phuongThuc = phuongThuc;
-    thanhToanHienTai.thongTinChuyenKhoan = phuongThuc === 'chuyenKhoan' ? thongTinChuyenKhoan : undefined;
-    thanhToanHienTai.ngayThanhToan = ngayThanhToan ? new Date(ngayThanhToan) : new Date();
-    thanhToanHienTai.ghiChu = ghiChu;
-    thanhToanHienTai.anhBienLai = anhBienLai;
-
-    await thanhToanHienTai.save();
+    // Cập nhật thanh toán trực tiếp qua prisma
+    const updatedThanhToan = await prisma.thanhToan.update({
+      where: { id },
+      data: {
+        hoaDonId,
+        soTien,
+        phuongThuc,
+        thongTinChuyenKhoan: phuongThuc === 'chuyenKhoan' ? thongTinChuyenKhoan : undefined,
+        ngayThanhToan: ngayThanhToan ? new Date(ngayThanhToan) : new Date(),
+        ghiChu,
+        anhBienLai,
+      },
+      include: {
+        hoaDon: { select: { id: true, maHoaDon: true, thang: true, nam: true, tongTien: true } },
+        nguoiNhan: { select: { id: true, ten: true, email: true } },
+      },
+    });
 
     // Cập nhật hóa đơn mới
-    hoaDon.daThanhToan += soTien;
-    hoaDon.conLai = hoaDon.tongTien - hoaDon.daThanhToan;
-    
-    if (hoaDon.conLai <= 0) {
-      hoaDon.trangThai = 'daThanhToan';
-    } else if (hoaDon.daThanhToan > 0) {
-      hoaDon.trangThai = 'daThanhToanMotPhan';
-    }
-
-    await hoaDon.save();
-
-    // Populate để trả về dữ liệu đầy đủ
-    await thanhToanHienTai.populate([
-      { path: 'hoaDon', select: 'maHoaDon thang nam tongTien' },
-      { path: 'nguoiNhan', select: 'hoTen email' }
-    ]);
+    await hoaDonRepo.addPayment(hoaDonId, soTien);
 
     return NextResponse.json({
       success: true,
-      data: thanhToanHienTai,
+      data: updatedThanhToan,
       message: 'Cập nhật thanh toán thành công'
     });
   } catch (error) {
@@ -144,12 +141,12 @@ export async function DELETE(
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectToDatabase();
-
     const { id } = params;
+    const thanhToanRepo = await getThanhToanRepo();
+    const hoaDonRepo = await getHoaDonRepo();
 
     // Tìm thanh toán
-    const thanhToan = await ThanhToan.findById(id);
+    const thanhToan = await thanhToanRepo.findById(id);
     if (!thanhToan) {
       return NextResponse.json(
         { message: 'Thanh toán không tồn tại' },
@@ -158,24 +155,27 @@ export async function DELETE(
     }
 
     // Cập nhật lại hóa đơn (hoàn lại số tiền)
-    const hoaDon = await HoaDon.findById(thanhToan.hoaDon);
+    const hoaDon = await hoaDonRepo.findById(thanhToan.hoaDonId);
     if (hoaDon) {
-      hoaDon.daThanhToan -= thanhToan.soTien;
-      hoaDon.conLai = hoaDon.tongTien - hoaDon.daThanhToan;
-      
-      if (hoaDon.conLai <= 0) {
-        hoaDon.trangThai = 'daThanhToan';
-      } else if (hoaDon.daThanhToan > 0) {
-        hoaDon.trangThai = 'daThanhToanMotPhan';
+      const newDaThanhToan = Math.max(0, hoaDon.daThanhToan - thanhToan.soTien);
+      const newConLai = hoaDon.tongTien - newDaThanhToan;
+      let newTrangThai: 'chuaThanhToan' | 'daThanhToanMotPhan' | 'daThanhToan' | 'quaHan';
+      if (newConLai <= 0) {
+        newTrangThai = 'daThanhToan';
+      } else if (newDaThanhToan > 0) {
+        newTrangThai = 'daThanhToanMotPhan';
       } else {
-        hoaDon.trangThai = 'chuaThanhToan';
+        newTrangThai = 'chuaThanhToan';
       }
-      
-      await hoaDon.save();
+
+      await prisma.hoaDon.update({
+        where: { id: thanhToan.hoaDonId },
+        data: { daThanhToan: newDaThanhToan, conLai: newConLai, trangThai: newTrangThai },
+      });
     }
 
     // Xóa thanh toán
-    await ThanhToan.findByIdAndDelete(id);
+    await thanhToanRepo.delete(id);
 
     return NextResponse.json({
       success: true,

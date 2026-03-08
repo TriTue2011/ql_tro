@@ -1,35 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import NguoiDung from '@/models/NguoiDung';
+import { getNguoiDungRepo } from '@/lib/repositories';
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await dbConnect();
-    
-    const user = await NguoiDung.findOne({ email: session.user.email });
-    
+    const repo = await getNguoiDungRepo();
+    const user = await repo.findByEmail(session.user.email);
+
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     return NextResponse.json({
-      _id: user._id,
-      name: user.name,
+      id: user.id,
+      ten: user.ten,
       email: user.email,
-      phone: user.phone,
-      address: user.address,
-      avatar: user.avatar,
-      role: user.role,
-      createdAt: user.createdAt,
-      lastLogin: user.lastLogin
+      soDienThoai: user.soDienThoai,
+      vaiTro: user.vaiTro,
+      anhDaiDien: user.anhDaiDien,
+      trangThai: user.trangThai,
+      ngayTao: user.ngayTao,
+      ngayCapNhat: user.ngayCapNhat,
     });
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -40,42 +38,42 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { name, phone, address, avatar } = body;
+    const { ten, soDienThoai, anhDaiDien } = body;
 
-    await dbConnect();
-    
-    const updatedUser = await NguoiDung.findOneAndUpdate(
-      { email: session.user.email },
-      { 
-        name,
-        phone,
-        address,
-        avatar,
-        updatedAt: new Date()
-      },
-      { new: true }
-    );
-    
+    const repo = await getNguoiDungRepo();
+
+    // Find user by email first to get id
+    const existingUser = await repo.findByEmail(session.user.email);
+    if (!existingUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const updatedUser = await repo.update(existingUser.id, {
+      ten,
+      soDienThoai,
+      anhDaiDien,
+    });
+
     if (!updatedUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     return NextResponse.json({
-      _id: updatedUser._id,
-      name: updatedUser.name,
+      id: updatedUser.id,
+      ten: updatedUser.ten,
       email: updatedUser.email,
-      phone: updatedUser.phone,
-      address: updatedUser.address,
-      avatar: updatedUser.avatar,
-      role: updatedUser.role,
-      createdAt: updatedUser.createdAt,
-      lastLogin: updatedUser.lastLogin
+      soDienThoai: updatedUser.soDienThoai,
+      vaiTro: updatedUser.vaiTro,
+      anhDaiDien: updatedUser.anhDaiDien,
+      trangThai: updatedUser.trangThai,
+      ngayTao: updatedUser.ngayTao,
+      ngayCapNhat: updatedUser.ngayCapNhat,
     });
   } catch (error) {
     console.error('Error updating user profile:', error);

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import ChiSoDienNuoc from '@/models/ChiSoDienNuoc';
+import { getChiSoRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const updateChiSoSchema = z.object({
@@ -24,7 +23,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -32,12 +31,9 @@ export async function GET(
       );
     }
 
-    await dbConnect();
     const { id } = await params;
-
-    const chiSo = await ChiSoDienNuoc.findById(id)
-      .populate('phong', 'maPhong toaNha')
-      .populate('nguoiGhi', 'ten email');
+    const repo = await getChiSoRepo();
+    const chiSo = await repo.findById(id);
 
     if (!chiSo) {
       return NextResponse.json(
@@ -66,7 +62,7 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -78,9 +74,9 @@ export async function PUT(
     const validatedData = updateChiSoSchema.parse(body);
     const { id } = await params;
 
-    await dbConnect();
+    const repo = await getChiSoRepo();
 
-    const chiSo = await ChiSoDienNuoc.findById(id);
+    const chiSo = await repo.findById(id);
     if (!chiSo) {
       return NextResponse.json(
         { message: 'Chỉ số điện nước không tồn tại' },
@@ -89,7 +85,7 @@ export async function PUT(
     }
 
     // Check if user has permission to update (only admin or the person who recorded it)
-    if (chiSo.nguoiGhi.toString() !== session.user.id && session.user.role !== 'admin') {
+    if (chiSo.nguoiGhiId !== session.user.id && session.user.role !== 'admin') {
       return NextResponse.json(
         { message: 'Bạn không có quyền cập nhật chỉ số này' },
         { status: 403 }
@@ -115,16 +111,17 @@ export async function PUT(
       }
     }
 
-    const updateData: any = { ...validatedData };
-    if (validatedData.ngayGhi) {
-      updateData.ngayGhi = new Date(validatedData.ngayGhi);
-    }
-
-    const updatedChiSo = await ChiSoDienNuoc.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    ).populate('phong', 'maPhong toaNha').populate('nguoiGhi', 'ten email');
+    const updatedChiSo = await repo.update(id, {
+      thang: validatedData.thang,
+      nam: validatedData.nam,
+      chiSoDienCu: validatedData.chiSoDienCu,
+      chiSoDienMoi: validatedData.chiSoDienMoi,
+      chiSoNuocCu: validatedData.chiSoNuocCu,
+      chiSoNuocMoi: validatedData.chiSoNuocMoi,
+      anhChiSoDien: validatedData.anhChiSoDien,
+      anhChiSoNuoc: validatedData.anhChiSoNuoc,
+      ngayGhi: validatedData.ngayGhi ? new Date(validatedData.ngayGhi) : undefined,
+    });
 
     return NextResponse.json({
       success: true,
@@ -154,7 +151,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -162,10 +159,10 @@ export async function DELETE(
       );
     }
 
-    await dbConnect();
     const { id } = await params;
+    const repo = await getChiSoRepo();
 
-    const chiSo = await ChiSoDienNuoc.findById(id);
+    const chiSo = await repo.findById(id);
     if (!chiSo) {
       return NextResponse.json(
         { message: 'Chỉ số điện nước không tồn tại' },
@@ -174,14 +171,14 @@ export async function DELETE(
     }
 
     // Check if user has permission to delete (only admin or the person who recorded it)
-    if (chiSo.nguoiGhi.toString() !== session.user.id && session.user.role !== 'admin') {
+    if (chiSo.nguoiGhiId !== session.user.id && session.user.role !== 'admin') {
       return NextResponse.json(
         { message: 'Bạn không có quyền xóa chỉ số này' },
         { status: 403 }
       );
     }
 
-    await ChiSoDienNuoc.findByIdAndDelete(id);
+    await repo.delete(id);
 
     return NextResponse.json({
       success: true,

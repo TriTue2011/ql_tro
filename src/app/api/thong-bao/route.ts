@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import ThongBao from '@/models/ThongBao';
+import { getThongBaoRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const thongBaoSchema = z.object({
@@ -17,7 +16,7 @@ const thongBaoSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -25,46 +24,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await dbConnect();
-
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
     const loai = searchParams.get('loai') || '';
 
-    const query: any = {};
-    
-    if (search) {
-      query.$or = [
-        { tieuDe: { $regex: search, $options: 'i' } },
-        { noiDung: { $regex: search, $options: 'i' } },
-      ];
-    }
-    
-    if (loai) {
-      query.loai = loai;
-    }
+    const repo = await getThongBaoRepo();
 
-    const thongBaoList = await ThongBao.find(query)
-      .populate('nguoiGui', 'ten email')
-      .populate('phong', 'maPhong')
-      .populate('toaNha', 'tenToaNha')
-      .sort({ ngayGui: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    const total = await ThongBao.countDocuments(query);
+    const result = await repo.findMany({
+      page,
+      limit,
+      search: search || undefined,
+      loai: loai as any || undefined,
+    });
 
     return NextResponse.json({
       success: true,
-      data: thongBaoList,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      data: result.data,
+      pagination: result.pagination,
     });
 
   } catch (error) {
@@ -79,7 +57,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -90,17 +68,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = thongBaoSchema.parse(body);
 
-    await dbConnect();
+    const repo = await getThongBaoRepo();
 
-    const newThongBao = new ThongBao({
-      ...validatedData,
-      nguoiGui: session.user.id,
+    const newThongBao = await repo.create({
+      tieuDe: validatedData.tieuDe,
+      noiDung: validatedData.noiDung,
       loai: validatedData.loai || 'chung',
-      phong: validatedData.phong || [],
-      daDoc: [],
+      nguoiGuiId: session.user.id,
+      nguoiNhan: validatedData.nguoiNhan,
+      phongIds: validatedData.phong || [],
+      toaNhaId: validatedData.toaNha,
     });
-
-    await newThongBao.save();
 
     return NextResponse.json({
       success: true,
@@ -127,7 +105,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -148,24 +126,30 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const validatedData = thongBaoSchema.parse(body);
 
-    await dbConnect();
+    const repo = await getThongBaoRepo();
 
-    const updatedThongBao = await ThongBao.findByIdAndUpdate(
-      id,
-      {
-        ...validatedData,
-        loai: validatedData.loai || 'chung',
-        phong: validatedData.phong || [],
-      },
-      { new: true }
-    );
-
-    if (!updatedThongBao) {
+    // Mark as read or use prisma for update (thong-bao repo doesn't have generic update)
+    // We'll use markAsRead for the common case, but for full update we use prisma directly
+    const existing = await repo.findById(id);
+    if (!existing) {
       return NextResponse.json(
         { message: 'Không tìm thấy thông báo' },
         { status: 404 }
       );
     }
+
+    // Use prisma for full update since repo doesn't expose generic update
+    const { default: prisma } = await import('@/lib/prisma');
+    const updatedThongBao = await prisma.thongBao.update({
+      where: { id },
+      data: {
+        tieuDe: validatedData.tieuDe,
+        noiDung: validatedData.noiDung,
+        loai: validatedData.loai || 'chung',
+        nguoiNhan: validatedData.nguoiNhan,
+        toaNhaId: validatedData.toaNha,
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -192,7 +176,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -210,11 +194,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await dbConnect();
+    const repo = await getThongBaoRepo();
+    const deleted = await repo.delete(id);
 
-    const deletedThongBao = await ThongBao.findByIdAndDelete(id);
-
-    if (!deletedThongBao) {
+    if (!deleted) {
       return NextResponse.json(
         { message: 'Không tìm thấy thông báo' },
         { status: 404 }

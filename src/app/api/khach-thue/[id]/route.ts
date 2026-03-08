@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import KhachThue from '@/models/KhachThue';
+import { getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const khachThueSchema = z.object({
@@ -27,7 +26,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -35,10 +34,9 @@ export async function GET(
       );
     }
 
-    await dbConnect();
     const { id } = await params;
-
-    const khachThue = await KhachThue.findById(id);
+    const repo = await getKhachThueRepo();
+    const khachThue = await repo.findById(id);
 
     if (!khachThue) {
       return NextResponse.json(
@@ -67,7 +65,7 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -78,62 +76,36 @@ export async function PUT(
     const body = await request.json();
     const validatedData = khachThueSchema.parse(body);
 
-    await dbConnect();
     const { id } = await params;
+    const repo = await getKhachThueRepo();
 
     // Check if phone or CCCD already exists (excluding current record)
-    const existingKhachThue = await KhachThue.findOne({
-      _id: { $ne: id },
-      $or: [
-        { soDienThoai: validatedData.soDienThoai },
-        { cccd: validatedData.cccd }
-      ]
-    });
+    const existingBySdt = await repo.findMany({ search: validatedData.soDienThoai, limit: 10 });
+    const existingByCCCD = await repo.findMany({ search: validatedData.cccd, limit: 10 });
 
-    if (existingKhachThue) {
+    const sdtExists = existingBySdt.data.some(k => k.soDienThoai === validatedData.soDienThoai && k.id !== id);
+    const cccdExists = existingByCCCD.data.some(k => k.cccd === validatedData.cccd && k.id !== id);
+
+    if (sdtExists || cccdExists) {
       return NextResponse.json(
         { message: 'Số điện thoại hoặc CCCD đã được sử dụng' },
         { status: 400 }
       );
     }
 
-    // Prepare update data
-    const updateData: any = {
-      ...validatedData,
-      ngaySinh: new Date(validatedData.ngaySinh),
+    const updateData: Parameters<typeof repo.update>[1] = {
+      hoTen: validatedData.hoTen,
+      soDienThoai: validatedData.soDienThoai,
+      email: validatedData.email,
+      ngheNghiep: validatedData.ngheNghiep,
       anhCCCD: validatedData.anhCCCD || { matTruoc: '', matSau: '' },
     };
 
-    // Nếu có mật khẩu mới, cập nhật
-    // Mật khẩu sẽ tự động hash qua pre-save middleware
     if (validatedData.matKhau) {
-      const khachThue = await KhachThue.findById(id);
-      if (!khachThue) {
-        return NextResponse.json(
-          { message: 'Khách thuê không tồn tại' },
-          { status: 404 }
-        );
-      }
-      
-      // Set mật khẩu mới và save để trigger middleware
-      Object.assign(khachThue, updateData);
-      khachThue.matKhau = validatedData.matKhau;
-      await khachThue.save();
-      
-      return NextResponse.json({
-        success: true,
-        data: khachThue,
-        message: 'Khách thuê đã được cập nhật thành công',
-      });
+      updateData.matKhau = validatedData.matKhau;
     }
 
-    // Nếu không có mật khẩu mới, update bình thường
-    delete updateData.matKhau;
-    const khachThue = await KhachThue.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    );
+    const khachThue = await repo.update(id, updateData);
 
     if (!khachThue) {
       return NextResponse.json(
@@ -170,7 +142,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -178,10 +150,10 @@ export async function DELETE(
       );
     }
 
-    await dbConnect();
     const { id } = await params;
+    const repo = await getKhachThueRepo();
 
-    const khachThue = await KhachThue.findById(id);
+    const khachThue = await repo.findById(id);
     if (!khachThue) {
       return NextResponse.json(
         { message: 'Khách thuê không tồn tại' },
@@ -189,7 +161,7 @@ export async function DELETE(
       );
     }
 
-    await KhachThue.findByIdAndDelete(id);
+    await repo.delete(id);
 
     return NextResponse.json({
       success: true,

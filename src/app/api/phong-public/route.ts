@@ -1,59 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongodb';
-import Phong from '@/models/Phong';
-import ToaNha from '@/models/ToaNha';
+import { getPhongRepo } from '@/lib/repositories';
 
 export async function GET(request: NextRequest) {
   try {
-    await dbConnect();
-
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
-    const toaNha = searchParams.get('toaNha') || '';
+    const toaNhaId = searchParams.get('toaNha') || '';
     const trangThai = searchParams.get('trangThai') || '';
 
-    const query: any = {};
-    
-    if (search) {
-      query.$or = [
-        { maPhong: { $regex: search, $options: 'i' } },
-        { moTa: { $regex: search, $options: 'i' } },
-      ];
-    }
-    
-    if (toaNha && toaNha !== 'all') {
-      query.toaNha = toaNha;
-    }
-    
-    if (trangThai && trangThai !== 'all') {
-      query.trangThai = trangThai;
-    }
+    const repo = await getPhongRepo();
 
-    // Chỉ lấy phòng có ảnh hoặc phòng trống
-    query.$or = [
-      { anhPhong: { $exists: true, $not: { $size: 0 } } },
-      { trangThai: 'trong' }
-    ];
-
-    const phongList = await Phong.find(query)
-      .populate('toaNha', 'tenToaNha diaChi')
-      .sort({ maPhong: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    const total = await Phong.countDocuments(query);
+    const result = await repo.findMany({
+      page,
+      limit,
+      search: search || undefined,
+      toaNhaId: (toaNhaId && toaNhaId !== 'all') ? toaNhaId : undefined,
+      trangThai: (trangThai && trangThai !== 'all') ? trangThai as any : undefined,
+    });
 
     return NextResponse.json({
       success: true,
-      data: phongList,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      data: result.data,
+      pagination: result.pagination,
     });
 
   } catch (error) {

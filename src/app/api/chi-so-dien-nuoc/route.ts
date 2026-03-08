@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import ChiSoDienNuoc from '@/models/ChiSoDienNuoc';
-import Phong from '@/models/Phong';
+import { getChiSoRepo, getPhongRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const chiSoSchema = z.object({
@@ -22,7 +20,7 @@ const chiSoSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -30,47 +28,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await dbConnect();
-
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
-    const phong = searchParams.get('phong') || '';
+    const phongId = searchParams.get('phong') || '';
     const thang = searchParams.get('thang') || '';
     const nam = searchParams.get('nam') || '';
 
-    const query: any = {};
-    
-    if (phong) {
-      query.phong = phong;
-    }
-    
-    if (thang) {
-      query.thang = parseInt(thang);
-    }
-    
-    if (nam) {
-      query.nam = parseInt(nam);
-    }
+    const repo = await getChiSoRepo();
 
-    const chiSoList = await ChiSoDienNuoc.find(query)
-      .populate('phong', 'maPhong toaNha')
-      .populate('nguoiGhi', 'ten email')
-      .sort({ nam: -1, thang: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    const total = await ChiSoDienNuoc.countDocuments(query);
+    const result = await repo.findMany({
+      page,
+      limit,
+      phongId: phongId || undefined,
+      thang: thang ? parseInt(thang) : undefined,
+      nam: nam ? parseInt(nam) : undefined,
+    });
 
     return NextResponse.json({
       success: true,
-      data: chiSoList,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      data: result.data,
+      pagination: result.pagination,
     });
 
   } catch (error) {
@@ -85,7 +63,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -96,10 +74,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = chiSoSchema.parse(body);
 
-    await dbConnect();
+    const phongRepo = await getPhongRepo();
+    const chiSoRepo = await getChiSoRepo();
 
     // Check if phong exists
-    const phong = await Phong.findById(validatedData.phong);
+    const phong = await phongRepo.findById(validatedData.phong);
     if (!phong) {
       return NextResponse.json(
         { message: 'Phòng không tồn tại' },
@@ -108,11 +87,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if chi so already exists for this phong, thang, nam
-    const existingChiSo = await ChiSoDienNuoc.findOne({
-      phong: validatedData.phong,
-      thang: validatedData.thang,
-      nam: validatedData.nam,
-    });
+    const existingChiSo = await chiSoRepo.findByPhongThangNam(
+      validatedData.phong,
+      validatedData.thang,
+      validatedData.nam
+    );
 
     if (existingChiSo) {
       return NextResponse.json(
@@ -136,13 +115,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newChiSo = new ChiSoDienNuoc({
-      ...validatedData,
-      nguoiGhi: session.user.id,
+    const newChiSo = await chiSoRepo.create({
+      phongId: validatedData.phong,
+      thang: validatedData.thang,
+      nam: validatedData.nam,
+      chiSoDienCu: validatedData.chiSoDienCu,
+      chiSoDienMoi: validatedData.chiSoDienMoi,
+      chiSoNuocCu: validatedData.chiSoNuocCu,
+      chiSoNuocMoi: validatedData.chiSoNuocMoi,
+      anhChiSoDien: validatedData.anhChiSoDien,
+      anhChiSoNuoc: validatedData.anhChiSoNuoc,
+      nguoiGhiId: session.user.id,
       ngayGhi: validatedData.ngayGhi ? new Date(validatedData.ngayGhi) : new Date(),
     });
-
-    await newChiSo.save();
 
     return NextResponse.json({
       success: true,
@@ -169,15 +154,13 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    await dbConnect();
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -189,7 +172,9 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const chiSo = await ChiSoDienNuoc.findById(id);
+    const repo = await getChiSoRepo();
+    const chiSo = await repo.findById(id);
+
     if (!chiSo) {
       return NextResponse.json(
         { message: 'Chỉ số điện nước không tồn tại' },
@@ -198,14 +183,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check if user has permission to delete (only admin or the person who recorded it)
-    if (chiSo.nguoiGhi.toString() !== session.user.id && session.user.role !== 'admin') {
+    if (chiSo.nguoiGhiId !== session.user.id && session.user.role !== 'admin') {
       return NextResponse.json(
         { message: 'Bạn không có quyền xóa chỉ số này' },
         { status: 403 }
       );
     }
 
-    await ChiSoDienNuoc.findByIdAndDelete(id);
+    await repo.delete(id);
 
     return NextResponse.json({
       success: true,

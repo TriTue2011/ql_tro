@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import HopDong from '@/models/HopDong';
-import HoaDon from '@/models/HoaDon';
-import ChiSoDienNuoc from '@/models/ChiSoDienNuoc';
-import Phong from '@/models/Phong';
+import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -18,29 +14,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await dbConnect();
-
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
 
     // Get all active contracts
-    const activeContracts = await HopDong.find({
-      trangThai: 'hoatDong',
-      ngayBatDau: { $lte: currentDate },
-      ngayKetThuc: { $gte: currentDate },
-    }).populate('phong').populate('nguoiDaiDien');
+    const activeContracts = await prisma.hopDong.findMany({
+      where: {
+        trangThai: 'hoatDong',
+        ngayBatDau: { lte: currentDate },
+        ngayKetThuc: { gte: currentDate },
+      },
+      include: {
+        phong: true,
+        nguoiDaiDien: true,
+      },
+    });
 
     let createdInvoices = 0;
-    let errors = [];
+    const errors: string[] = [];
 
     for (const contract of activeContracts) {
       try {
         // Check if invoice already exists for this contract and month
-        const existingInvoice = await HoaDon.findOne({
-          hopDong: contract._id,
-          thang: currentMonth,
-          nam: currentYear,
+        const existingInvoice = await prisma.hoaDon.findFirst({
+          where: {
+            hopDongId: contract.id,
+            thang: currentMonth,
+            nam: currentYear,
+          },
         });
 
         if (existingInvoice) {
@@ -48,10 +50,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Get utility readings for this month
-        const chiSo = await ChiSoDienNuoc.findOne({
-          phong: contract.phong._id,
-          thang: currentMonth,
-          nam: currentYear,
+        const chiSo = await prisma.chiSoDienNuoc.findFirst({
+          where: {
+            phongId: contract.phongId,
+            thang: currentMonth,
+            nam: currentYear,
+          },
         });
 
         if (!chiSo) {
@@ -59,16 +63,15 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Tính toán số điện nước tiêu thụ dựa trên chỉ số ban đầu từ hợp đồng
+        // Tính toán số điện nước tiêu thụ
         let soDienTieuThu = chiSo.soDienTieuThu;
         let soNuocTieuThu = chiSo.soNuocTieuThu;
-        
+
         // Nếu đây là tháng đầu tiên của hợp đồng, tính từ chỉ số ban đầu
         const thangBatDau = new Date(contract.ngayBatDau).getMonth() + 1;
         const namBatDau = new Date(contract.ngayBatDau).getFullYear();
-        
+
         if (currentMonth === thangBatDau && currentYear === namBatDau) {
-          // Tháng đầu tiên: tính từ chỉ số ban đầu đến chỉ số hiện tại
           soDienTieuThu = Math.max(0, chiSo.chiSoDienMoi - contract.chiSoDienBanDau);
           soNuocTieuThu = Math.max(0, chiSo.chiSoNuocMoi - contract.chiSoNuocBanDau);
         }
@@ -76,7 +79,8 @@ export async function POST(request: NextRequest) {
         // Calculate costs
         const tienDien = soDienTieuThu * contract.giaDien;
         const tienNuoc = soNuocTieuThu * contract.giaNuoc;
-        const tongTienDichVu = contract.phiDichVu.reduce((sum: number, dv: { gia: number }) => sum + dv.gia, 0);
+        const phiDichVuList = contract.phiDichVu as Array<{ ten: string; gia: number }>;
+        const tongTienDichVu = phiDichVuList.reduce((sum, dv) => sum + dv.gia, 0);
         const tongTien = contract.giaThue + tienDien + tienNuoc + tongTienDichVu;
 
         // Generate invoice number
@@ -89,27 +93,32 @@ export async function POST(request: NextRequest) {
         }
 
         // Create invoice
-        const newInvoice = new HoaDon({
-          maHoaDon: invoiceNumber,
-          hopDong: contract._id,
-          phong: contract.phong._id,
-          khachThue: contract.nguoiDaiDien._id,
-          thang: currentMonth,
-          nam: currentYear,
-          tienPhong: contract.giaThue,
-          tienDien,
-          soDien: soDienTieuThu,
-          tienNuoc,
-          soNuoc: soNuocTieuThu,
-          phiDichVu: contract.phiDichVu,
-          tongTien,
-          daThanhToan: 0,
-          conLai: tongTien,
-          hanThanhToan: dueDate,
-          trangThai: 'chuaThanhToan',
+        await prisma.hoaDon.create({
+          data: {
+            maHoaDon: invoiceNumber,
+            hopDongId: contract.id,
+            phongId: contract.phongId,
+            khachThueId: contract.nguoiDaiDienId,
+            thang: currentMonth,
+            nam: currentYear,
+            tienPhong: contract.giaThue,
+            tienDien,
+            soDien: soDienTieuThu,
+            chiSoDienBanDau: chiSo.chiSoDienCu,
+            chiSoDienCuoiKy: chiSo.chiSoDienMoi,
+            tienNuoc,
+            soNuoc: soNuocTieuThu,
+            chiSoNuocBanDau: chiSo.chiSoNuocCu,
+            chiSoNuocCuoiKy: chiSo.chiSoNuocMoi,
+            phiDichVu: contract.phiDichVu as object[],
+            tongTien,
+            daThanhToan: 0,
+            conLai: tongTien,
+            hanThanhToan: dueDate,
+            trangThai: 'chuaThanhToan',
+          },
         });
 
-        await newInvoice.save();
         createdInvoices++;
 
       } catch (error) {
@@ -141,7 +150,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -149,65 +158,47 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await dbConnect();
-
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
 
     // Count active contracts
-    const activeContractsCount = await HopDong.countDocuments({
-      trangThai: 'hoatDong',
-      ngayBatDau: { $lte: currentDate },
-      ngayKetThuc: { $gte: currentDate },
+    const activeContractsCount = await prisma.hopDong.count({
+      where: {
+        trangThai: 'hoatDong',
+        ngayBatDau: { lte: currentDate },
+        ngayKetThuc: { gte: currentDate },
+      },
     });
 
     // Count existing invoices for this month
-    const existingInvoicesCount = await HoaDon.countDocuments({
-      thang: currentMonth,
-      nam: currentYear,
+    const existingInvoicesCount = await prisma.hoaDon.count({
+      where: {
+        thang: currentMonth,
+        nam: currentYear,
+      },
     });
 
-    // Count contracts without utility readings
-    const contractsWithoutReadings = await HopDong.aggregate([
-      {
-        $match: {
-          trangThai: 'hoatDong',
-          ngayBatDau: { $lte: currentDate },
-          ngayKetThuc: { $gte: currentDate },
-        }
+    // Count contracts without utility readings for this month
+    const activeContracts = await prisma.hopDong.findMany({
+      where: {
+        trangThai: 'hoatDong',
+        ngayBatDau: { lte: currentDate },
+        ngayKetThuc: { gte: currentDate },
       },
-      {
-        $lookup: {
-          from: 'chisodiennuocs',
-          let: { phongId: '$phong' },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$phong', '$$phongId'] },
-                    { $eq: ['$thang', currentMonth] },
-                    { $eq: ['$nam', currentYear] },
-                  ]
-                }
-              }
-            }
-          ],
-          as: 'readings'
-        }
-      },
-      {
-        $match: {
-          readings: { $size: 0 }
-        }
-      },
-      {
-        $count: 'count'
-      }
-    ]);
+      select: { phongId: true },
+    });
 
-    const contractsWithoutReadingsCount = contractsWithoutReadings[0]?.count || 0;
+    const phongIds = activeContracts.map(c => c.phongId);
+    const readingsCount = await prisma.chiSoDienNuoc.count({
+      where: {
+        phongId: { in: phongIds },
+        thang: currentMonth,
+        nam: currentYear,
+      },
+    });
+
+    const contractsWithoutReadingsCount = activeContractsCount - readingsCount;
 
     return NextResponse.json({
       success: true,
@@ -216,8 +207,8 @@ export async function GET(request: NextRequest) {
         currentYear,
         activeContractsCount,
         existingInvoicesCount,
-        contractsWithoutReadingsCount,
-        canRun: activeContractsCount > 0 && contractsWithoutReadingsCount === 0,
+        contractsWithoutReadingsCount: Math.max(0, contractsWithoutReadingsCount),
+        canRun: activeContractsCount > 0 && contractsWithoutReadingsCount <= 0,
       },
     });
 

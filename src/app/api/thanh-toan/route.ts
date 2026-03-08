@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
-import ThanhToan from '@/models/ThanhToan';
-import HoaDon from '@/models/HoaDon';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getThanhToanRepo, getHoaDonRepo } from '@/lib/repositories';
 
 // GET - Lấy danh sách thanh toán
 export async function GET(request: NextRequest) {
@@ -13,50 +11,57 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectToDatabase();
-
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const hopDongId = searchParams.get('hopDongId');
     const hoaDonId = searchParams.get('hoaDonId');
 
-    const query: any = {};
+    const hoaDonRepo = await getHoaDonRepo();
+    const thanhToanRepo = await getThanhToanRepo();
+
     if (hopDongId) {
-      // Tìm hóa đơn theo hợp đồng
-      const hoaDons = await HoaDon.find({ hopDong: hopDongId }).select('_id');
-      query.hoaDon = { $in: hoaDons.map(hd => hd._id) };
+      // Tìm hóa đơn theo hợp đồng, rồi lấy thanh toán của từng hóa đơn
+      const hoaDonResult = await hoaDonRepo.findMany({ hopDongId, limit: 1000 });
+      const allThanhToan: any[] = [];
+
+      for (const hd of hoaDonResult.data) {
+        const ttList = await thanhToanRepo.findByHoaDon(hd.id);
+        allThanhToan.push(...ttList);
+      }
+
+      // Sort by ngayThanhToan desc and paginate
+      allThanhToan.sort((a, b) => new Date(b.ngayThanhToan).getTime() - new Date(a.ngayThanhToan).getTime());
+      const total = allThanhToan.length;
+      const skip = (page - 1) * limit;
+      const paginated = allThanhToan.slice(skip, skip + limit);
+
+      return NextResponse.json({
+        success: true,
+        data: paginated,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      });
     }
-    if (hoaDonId) {
-      query.hoaDon = hoaDonId;
-    }
 
-    const skip = (page - 1) * limit;
-
-    const thanhToans = await ThanhToan.find(query)
-      .populate({
-        path: 'hoaDon',
-        select: 'maHoaDon thang nam tongTien phong khachThue',
-        populate: [
-          { path: 'phong', select: 'maPhong' },
-          { path: 'khachThue', select: 'hoTen' }
-        ]
-      })
-      .populate('nguoiNhan', 'hoTen email')   
-      .sort({ ngayThanhToan: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await ThanhToan.countDocuments(query);
+    const result = await thanhToanRepo.findMany({
+      page,
+      limit,
+      hoaDonId: hoaDonId || undefined,
+    });
 
     return NextResponse.json({
       success: true,
-      data: thanhToans,
+      data: result.data,
       pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
+        page: result.pagination.page,
+        limit: result.pagination.limit,
+        total: result.pagination.total,
+        pages: result.pagination.totalPages
       }
     });
   } catch (error) {
@@ -75,8 +80,6 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-
-    await connectToDatabase();
 
     const body = await request.json();
     const {
@@ -97,8 +100,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const hoaDonRepo = await getHoaDonRepo();
+    const thanhToanRepo = await getThanhToanRepo();
+
     // Kiểm tra hóa đơn tồn tại
-    const hoaDon = await HoaDon.findById(hoaDonId);
+    const hoaDon = await hoaDonRepo.findById(hoaDonId);
     if (!hoaDon) {
       return NextResponse.json(
         { message: 'Hóa đơn không tồn tại' },
@@ -123,42 +129,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Tạo thanh toán mới
-    const thanhToan = new ThanhToan({
-      hoaDon: hoaDonId,
+    const thanhToan = await thanhToanRepo.create({
+      hoaDonId,
       soTien,
       phuongThuc,
       thongTinChuyenKhoan: phuongThuc === 'chuyenKhoan' ? thongTinChuyenKhoan : undefined,
       ngayThanhToan: ngayThanhToan ? new Date(ngayThanhToan) : new Date(),
-      nguoiNhan: session.user.id,
+      nguoiNhanId: session.user.id,
       ghiChu,
       anhBienLai
     });
 
-    await thanhToan.save();
-
-    // Cập nhật hóa đơn
-    hoaDon.daThanhToan += soTien;
-    hoaDon.conLai = hoaDon.tongTien - hoaDon.daThanhToan;
-    
-    if (hoaDon.conLai <= 0) {
-      hoaDon.trangThai = 'daThanhToan';
-    } else if (hoaDon.daThanhToan > 0) {
-      hoaDon.trangThai = 'daThanhToanMotPhan';
-    }
-
-    await hoaDon.save();
-
-    // Populate để trả về dữ liệu đầy đủ
-    await thanhToan.populate([
-      { path: 'hoaDon', select: 'maHoaDon thang nam tongTien' },
-      { path: 'nguoiNhan', select: 'hoTen email' }
-    ]);
-
-    // Lấy lại hóa đơn đã cập nhật với đầy đủ thông tin
-    const updatedHoaDon = await HoaDon.findById(hoaDonId)
-      .populate('phong', 'maPhong')
-      .populate('khachThue', 'hoTen')
-      .populate('hopDong', 'maHopDong');
+    // Cập nhật hóa đơn (cộng thêm số tiền đã thanh toán)
+    const updatedHoaDon = await hoaDonRepo.addPayment(hoaDonId, soTien);
 
     return NextResponse.json({
       success: true,

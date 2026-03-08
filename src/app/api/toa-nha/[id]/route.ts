@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import ToaNha from '@/models/ToaNha';
-import Phong from '@/models/Phong';
+import { getToaNhaRepo, getPhongRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const toaNhaSchema = z.object({
@@ -25,7 +23,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -33,11 +31,11 @@ export async function GET(
       );
     }
 
-    await dbConnect();
     const { id } = await params;
+    const repo = await getToaNhaRepo();
+    const phongRepo = await getPhongRepo();
 
-    const toaNha = await ToaNha.findById(id)
-      .populate('chuSoHuu', 'ten email');
+    const toaNha = await repo.findById(id);
 
     if (!toaNha) {
       return NextResponse.json(
@@ -47,10 +45,10 @@ export async function GET(
     }
 
     // Tính tổng số phòng thực tế
-    const phongCount = await Phong.countDocuments({ toaNha: id });
+    const phongResult = await phongRepo.findMany({ toaNhaId: id, limit: 1 });
     const toaNhaWithPhongCount = {
-      ...toaNha.toObject(),
-      tongSoPhong: phongCount
+      ...toaNha,
+      tongSoPhong: phongResult.pagination.total,
     };
 
     return NextResponse.json({
@@ -73,7 +71,7 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -84,10 +82,11 @@ export async function PUT(
     const body = await request.json();
     const validatedData = toaNhaSchema.parse(body);
 
-    await dbConnect();
     const { id } = await params;
+    const repo = await getToaNhaRepo();
+    const phongRepo = await getPhongRepo();
 
-    const toaNha = await ToaNha.findById(id);
+    const toaNha = await repo.findById(id);
 
     if (!toaNha) {
       return NextResponse.json(
@@ -97,28 +96,23 @@ export async function PUT(
     }
 
     // Check if user has permission to update this toa nha
-    if (toaNha.chuSoHuu.toString() !== session.user.id && session.user.role !== 'admin') {
+    if (toaNha.chuSoHuuId !== session.user.id && session.user.role !== 'admin') {
       return NextResponse.json(
         { message: 'Bạn không có quyền chỉnh sửa tòa nhà này' },
         { status: 403 }
       );
     }
 
-    const updatedToaNha = await ToaNha.findByIdAndUpdate(
-      id,
-      {
-        ...validatedData,
-        tienNghiChung: validatedData.tienNghiChung || [],
-        // Không cập nhật tongSoPhong vì sẽ được tính tự động
-      },
-      { new: true, runValidators: true }
-    ).populate('chuSoHuu', 'ten email');
+    const updatedToaNha = await repo.update(id, {
+      ...validatedData,
+      tienNghiChung: validatedData.tienNghiChung || [],
+    });
 
     // Tính tổng số phòng thực tế
-    const phongCount = await Phong.countDocuments({ toaNha: id });
+    const phongResult = await phongRepo.findMany({ toaNhaId: id, limit: 1 });
     const toaNhaWithPhongCount = {
-      ...updatedToaNha!.toObject(),
-      tongSoPhong: phongCount
+      ...updatedToaNha,
+      tongSoPhong: phongResult.pagination.total,
     };
 
     return NextResponse.json({
@@ -149,7 +143,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -157,10 +151,11 @@ export async function DELETE(
       );
     }
 
-    await dbConnect();
     const { id } = await params;
+    const repo = await getToaNhaRepo();
+    const phongRepo = await getPhongRepo();
 
-    const toaNha = await ToaNha.findById(id);
+    const toaNha = await repo.findById(id);
 
     if (!toaNha) {
       return NextResponse.json(
@@ -170,7 +165,7 @@ export async function DELETE(
     }
 
     // Check if user has permission to delete this toa nha
-    if (toaNha.chuSoHuu.toString() !== session.user.id && session.user.role !== 'admin') {
+    if (toaNha.chuSoHuuId !== session.user.id && session.user.role !== 'admin') {
       return NextResponse.json(
         { message: 'Bạn không có quyền xóa tòa nhà này' },
         { status: 403 }
@@ -178,17 +173,15 @@ export async function DELETE(
     }
 
     // Check if toa nha has rooms
-    const Phong = (await import('@/models/Phong')).default;
-    const roomCount = await Phong.countDocuments({ toaNha: id });
-
-    if (roomCount > 0) {
+    const phongResult = await phongRepo.findMany({ toaNhaId: id, limit: 1 });
+    if (phongResult.pagination.total > 0) {
       return NextResponse.json(
         { message: 'Không thể xóa tòa nhà có phòng. Vui lòng xóa tất cả phòng trước.' },
         { status: 400 }
       );
     }
 
-    await ToaNha.findByIdAndDelete(id);
+    await repo.delete(id);
 
     return NextResponse.json({
       success: true,

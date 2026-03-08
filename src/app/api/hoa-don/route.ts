@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
-import HoaDon from '@/models/HoaDon';
-import HopDong from '@/models/HopDong';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getHoaDonRepo, getHopDongRepo } from '@/lib/repositories';
 import { PhiDichVu } from '@/types';
 
 // GET - Lấy danh sách hóa đơn
@@ -14,8 +12,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectToDatabase();
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const page = parseInt(searchParams.get('page') || '1');
@@ -23,13 +19,12 @@ export async function GET(request: NextRequest) {
     const hopDongId = searchParams.get('hopDongId');
     const trangThai = searchParams.get('trangThai');
 
+    const repo = await getHoaDonRepo();
+
     // Nếu có ID, lấy hóa đơn cụ thể
     if (id) {
-      const hoaDon = await HoaDon.findById(id)
-        .populate('hopDong', 'maHopDong')
-        .populate('phong', 'maPhong')
-        .populate('khachThue', 'hoTen soDienThoai');
-      
+      const hoaDon = await repo.findById(id);
+
       if (!hoaDon) {
         return NextResponse.json(
           { message: 'Hóa đơn không tồn tại' },
@@ -37,9 +32,8 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const hoaDonObj = hoaDon.toObject();
-      
       // Xử lý dữ liệu cũ không có chỉ số điện nước
+      const hoaDonObj = { ...hoaDon };
       if (hoaDonObj.chiSoDienBanDau === undefined) {
         hoaDonObj.chiSoDienBanDau = 0;
       }
@@ -59,29 +53,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const query: Record<string, unknown> = {};
-    if (hopDongId) {
-      query.hopDong = hopDongId;
-    }
-    if (trangThai) {
-      query.trangThai = trangThai;
-    }
-
-    const skip = (page - 1) * limit;
-
-    const hoaDons = await HoaDon.find(query)
-      .populate('hopDong', 'maHopDong')
-      .populate('phong', 'maPhong')
-      .populate('khachThue', 'hoTen soDienThoai')
-      .sort({ nam: -1, thang: -1 })
-      .skip(skip)
-      .limit(limit);
+    const result = await repo.findMany({
+      page,
+      limit,
+      hopDongId: hopDongId || undefined,
+      trangThai: trangThai as any || undefined,
+    });
 
     // Xử lý dữ liệu cũ không có chỉ số điện nước
-    const processedHoaDons = hoaDons.map(hoaDon => {
-      const hoaDonObj = hoaDon.toObject();
-      
-      // Nếu không có chỉ số điện nước, tạo giá trị mặc định
+    const processedHoaDons = result.data.map(hoaDon => {
+      const hoaDonObj = { ...hoaDon };
       if (hoaDonObj.chiSoDienBanDau === undefined) {
         hoaDonObj.chiSoDienBanDau = 0;
       }
@@ -94,20 +75,17 @@ export async function GET(request: NextRequest) {
       if (hoaDonObj.chiSoNuocCuoiKy === undefined) {
         hoaDonObj.chiSoNuocCuoiKy = hoaDonObj.chiSoNuocBanDau;
       }
-      
       return hoaDonObj;
     });
-
-    const total = await HoaDon.countDocuments(query);
 
     return NextResponse.json({
       success: true,
       data: processedHoaDons,
       pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
+        page: result.pagination.page,
+        limit: result.pagination.limit,
+        total: result.pagination.total,
+        pages: result.pagination.totalPages
       }
     });
   } catch (error) {
@@ -126,8 +104,6 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-
-    await connectToDatabase();
 
     const body = await request.json();
     const {
@@ -152,11 +128,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const hopDongRepo = await getHopDongRepo();
+    const hoaDonRepo = await getHoaDonRepo();
+
     // Kiểm tra hợp đồng tồn tại
-    const hopDongData = await HopDong.findById(hopDong)
-      .populate('phong')
-      .populate('khachThueId');
-    
+    const hopDongData = await hopDongRepo.findById(hopDong);
+
     if (!hopDongData) {
       return NextResponse.json(
         { message: 'Hợp đồng không tồn tại' },
@@ -166,37 +143,29 @@ export async function POST(request: NextRequest) {
 
     // Tạo mã hóa đơn (sử dụng mã từ frontend hoặc tự sinh)
     let finalMaHoaDon = maHoaDon;
-    
+
     if (!finalMaHoaDon || finalMaHoaDon.trim() === '') {
       const currentDate = new Date();
       const year = currentDate.getFullYear();
       const month = String(currentDate.getMonth() + 1).padStart(2, '0');
       const day = String(currentDate.getDate()).padStart(2, '0');
       const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      
+
       finalMaHoaDon = `HD${year}${month}${day}${randomNum}`;
     }
 
     // Kiểm tra mã hóa đơn đã tồn tại chưa
-    const existingHoaDon = await HoaDon.findOne({ maHoaDon: finalMaHoaDon });
-    if (existingHoaDon) {
+    const existingResult = await hoaDonRepo.findMany({ search: finalMaHoaDon, limit: 1 });
+    if (existingResult.data.some(hd => hd.maHoaDon === finalMaHoaDon)) {
       // Nếu mã từ frontend bị trùng, tự sinh mã mới
       const currentDate = new Date();
       const year = currentDate.getFullYear();
       const month = String(currentDate.getMonth() + 1).padStart(2, '0');
       const day = String(currentDate.getDate()).padStart(2, '0');
       const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      
+
       finalMaHoaDon = `HD${year}${month}${day}${randomNum}`;
     }
-
-    let hoaDonData: Record<string, unknown> = {
-      maHoaDon: finalMaHoaDon,
-      hopDong: hopDong,
-      phong: hopDongData.phong,
-      khachThue: hopDongData.nguoiDaiDien,
-      ghiChu
-    };
 
     // Hóa đơn hàng tháng
     if (!thang || !nam || tienPhong === undefined) {
@@ -207,13 +176,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Kiểm tra hóa đơn tháng này đã tồn tại chưa
-    const existingMonthlyHoaDon = await HoaDon.findOne({
-      hopDong: hopDong,
+    const existingMonthly = await hoaDonRepo.findMany({
+      hopDongId: hopDong,
       thang,
-      nam
+      nam,
+      limit: 1,
     });
-    
-    if (existingMonthlyHoaDon) {
+
+    if (existingMonthly.data.length > 0) {
       return NextResponse.json(
         { message: `Hóa đơn tháng ${thang}/${nam} đã tồn tại` },
         { status: 400 }
@@ -227,25 +197,23 @@ export async function POST(request: NextRequest) {
     let chiSoNuocCuoiKyValue = chiSoNuocCuoiKy;
 
     // Tìm hóa đơn gần nhất để lấy chỉ số cuối kỳ
-    const lastHoaDon = await HoaDon.findOne({
-      hopDong: hopDong,
-      $or: [
-        { nam: { $lt: nam } },
-        { nam: nam, thang: { $lt: thang } }
-      ]
-    }).sort({ nam: -1, thang: -1 });
+    const prevResult = await hoaDonRepo.findMany({
+      hopDongId: hopDong,
+      limit: 100,
+    });
+
+    const lastHoaDon = prevResult.data
+      .filter(hd => hd.nam < nam || (hd.nam === nam && hd.thang < thang))
+      .sort((a, b) => b.nam !== a.nam ? b.nam - a.nam : b.thang - a.thang)[0];
 
     if (lastHoaDon) {
-      // Hóa đơn tiếp theo: lấy chỉ số cuối kỳ từ hóa đơn trước
       chiSoDienBanDauValue = lastHoaDon.chiSoDienCuoiKy;
       chiSoNuocBanDauValue = lastHoaDon.chiSoNuocCuoiKy;
     } else {
-      // Hóa đơn đầu tiên: lấy chỉ số ban đầu từ hợp đồng
       chiSoDienBanDauValue = hopDongData.chiSoDienBanDau;
       chiSoNuocBanDauValue = hopDongData.chiSoNuocBanDau;
     }
 
-    // Nếu không có chỉ số cuối kỳ từ form, sử dụng chỉ số ban đầu
     if (!chiSoDienCuoiKyValue) {
       chiSoDienCuoiKyValue = chiSoDienBanDauValue;
     }
@@ -263,36 +231,25 @@ export async function POST(request: NextRequest) {
 
     const tongTien = tienPhong + tienDienTinh + tienNuocTinh + (phiDichVu?.reduce((sum: number, phi: PhiDichVu) => sum + phi.gia, 0) || 0);
 
-    hoaDonData = {
-      ...hoaDonData,
+    const hoaDon = await hoaDonRepo.create({
+      maHoaDon: finalMaHoaDon,
+      hopDongId: hopDong,
+      phongId: hopDongData.phongId,
+      khachThueId: hopDongData.nguoiDaiDienId,
       thang,
       nam,
       tienPhong,
       tienDien: tienDienTinh,
-      soDien,
       chiSoDienBanDau: chiSoDienBanDauValue,
       chiSoDienCuoiKy: chiSoDienCuoiKyValue,
       tienNuoc: tienNuocTinh,
-      soNuoc,
       chiSoNuocBanDau: chiSoNuocBanDauValue,
       chiSoNuocCuoiKy: chiSoNuocCuoiKyValue,
       phiDichVu: phiDichVu || [],
       tongTien,
-      daThanhToan: 0,
-      conLai: tongTien,
-      trangThai: 'chuaThanhToan',
-      hanThanhToan: new Date(nam, thang - 1, hopDongData.ngayThanhToan) // Hạn thanh toán theo ngày quy định trong hợp đồng
-    };
-
-    const hoaDon = new HoaDon(hoaDonData);
-    await hoaDon.save();
-
-    // Populate để trả về dữ liệu đầy đủ
-    await hoaDon.populate([
-      { path: 'hopDong', select: 'maHopDong' },
-      { path: 'phong', select: 'maPhong' },
-      { path: 'khachThue', select: 'hoTen soDienThoai' }
-    ]);
+      hanThanhToan: new Date(nam, thang - 1, hopDongData.ngayThanhToan),
+      ghiChu,
+    });
 
     return NextResponse.json({
       success: true,
@@ -312,15 +269,12 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     console.log('PUT request received for hoa-don');
-    
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       console.log('Unauthorized request');
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-
-    await connectToDatabase();
-    console.log('Database connected');
 
     const body = await request.json();
     console.log('Request body:', body);
@@ -351,9 +305,12 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const hoaDonRepo = await getHoaDonRepo();
+    const hopDongRepo = await getHopDongRepo();
+
     // Kiểm tra hóa đơn tồn tại
     console.log('Looking for hoa don with ID:', id);
-    const existingHoaDon = await HoaDon.findById(id);
+    const existingHoaDon = await hoaDonRepo.findById(id);
     if (!existingHoaDon) {
       console.log('Hoa don not found');
       return NextResponse.json(
@@ -364,7 +321,7 @@ export async function PUT(request: NextRequest) {
 
     // Kiểm tra hợp đồng tồn tại
     console.log('Looking for hop dong with ID:', hopDong);
-    const hopDongData = await HopDong.findById(hopDong);
+    const hopDongData = await hopDongRepo.findById(hopDong);
     if (!hopDongData) {
       console.log('Hop dong not found');
       return NextResponse.json(
@@ -385,36 +342,18 @@ export async function PUT(request: NextRequest) {
     const conLai = tongTien - daThanhToan;
 
     // Cập nhật hóa đơn
-    const updatedHoaDon = await HoaDon.findByIdAndUpdate(
-      id,
-      {
-        maHoaDon,
-        hopDong,
-        thang,
-        nam,
-        tienPhong,
-        tienDien: tienDienTinh,
-        soDien,
-        chiSoDienBanDau,
-        chiSoDienCuoiKy,
-        tienNuoc: tienNuocTinh,
-        soNuoc,
-        chiSoNuocBanDau,
-        chiSoNuocCuoiKy,
-        phiDichVu: phiDichVu || [],
-        tongTien,
-        daThanhToan,
-        conLai,
-        trangThai,
-        hanThanhToan: new Date(hanThanhToan),
-        ghiChu
-      },
-      { new: true }
-    ).populate([
-      { path: 'hopDong', select: 'maHopDong' },
-      { path: 'phong', select: 'maPhong' },
-      { path: 'khachThue', select: 'hoTen soDienThoai' }
-    ]);
+    const updatedHoaDon = await hoaDonRepo.update(id, {
+      tienPhong,
+      tienDien: tienDienTinh,
+      tienNuoc: tienNuocTinh,
+      phiDichVu: phiDichVu || [],
+      tongTien,
+      daThanhToan,
+      conLai,
+      trangThai,
+      hanThanhToan: new Date(hanThanhToan),
+      ghiChu,
+    });
 
     return NextResponse.json({
       success: true,
@@ -442,8 +381,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectToDatabase();
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -454,13 +391,16 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const deletedHoaDon = await HoaDon.findByIdAndDelete(id);
-    if (!deletedHoaDon) {
+    const repo = await getHoaDonRepo();
+    const hoaDon = await repo.findById(id);
+    if (!hoaDon) {
       return NextResponse.json(
         { message: 'Hóa đơn không tồn tại' },
         { status: 404 }
       );
     }
+
+    await repo.delete(id);
 
     return NextResponse.json({
       success: true,

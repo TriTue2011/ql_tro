@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import Phong from '@/models/Phong';
-import ToaNha from '@/models/ToaNha';
-import { updatePhongStatus } from '@/lib/status-utils';
+import { getPhongRepo, getToaNhaRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const phongSchema = z.object({
@@ -26,7 +23,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -34,14 +31,9 @@ export async function GET(
       );
     }
 
-    await dbConnect();
     const { id } = await params;
-
-    // Cập nhật trạng thái phòng trước khi trả về
-    await updatePhongStatus(id);
-
-    const phong = await Phong.findById(id)
-      .populate('toaNha', 'tenToaNha diaChi');
+    const repo = await getPhongRepo();
+    const phong = await repo.findById(id);
 
     if (!phong) {
       return NextResponse.json(
@@ -70,7 +62,7 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -81,11 +73,12 @@ export async function PUT(
     const body = await request.json();
     const validatedData = phongSchema.parse(body);
 
-    await dbConnect();
     const { id } = await params;
+    const toaNhaRepo = await getToaNhaRepo();
+    const phongRepo = await getPhongRepo();
 
     // Check if toa nha exists
-    const toaNha = await ToaNha.findById(validatedData.toaNha);
+    const toaNha = await toaNhaRepo.findById(validatedData.toaNha);
     if (!toaNha) {
       return NextResponse.json(
         { message: 'Tòa nhà không tồn tại' },
@@ -93,30 +86,23 @@ export async function PUT(
       );
     }
 
-    const phong = await Phong.findByIdAndUpdate(
-      id,
-      {
-        ...validatedData,
-        anhPhong: validatedData.anhPhong || [],
-        tienNghi: validatedData.tienNghi || [],
-        // Trạng thái sẽ được cập nhật tự động dựa trên hợp đồng
-      },
-      { new: true, runValidators: true }
-    ).populate('toaNha', 'tenToaNha diaChi');
+    const updatedPhong = await phongRepo.update(id, {
+      tang: validatedData.tang,
+      dienTich: validatedData.dienTich,
+      giaThue: validatedData.giaThue,
+      tienCoc: validatedData.tienCoc,
+      moTa: validatedData.moTa,
+      anhPhong: validatedData.anhPhong || [],
+      tienNghi: validatedData.tienNghi || [],
+      soNguoiToiDa: validatedData.soNguoiToiDa,
+    });
 
-    if (!phong) {
+    if (!updatedPhong) {
       return NextResponse.json(
         { message: 'Phòng không tồn tại' },
         { status: 404 }
       );
     }
-
-    // Cập nhật trạng thái dựa trên hợp đồng sau khi cập nhật phòng
-    await updatePhongStatus(id);
-
-    // Lấy lại dữ liệu với trạng thái đã cập nhật
-    const updatedPhong = await Phong.findById(id)
-      .populate('toaNha', 'tenToaNha diaChi');
 
     return NextResponse.json({
       success: true,
@@ -146,7 +132,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -154,10 +140,10 @@ export async function DELETE(
       );
     }
 
-    await dbConnect();
     const { id } = await params;
+    const repo = await getPhongRepo();
 
-    const phong = await Phong.findById(id);
+    const phong = await repo.findById(id);
     if (!phong) {
       return NextResponse.json(
         { message: 'Phòng không tồn tại' },
@@ -165,7 +151,7 @@ export async function DELETE(
       );
     }
 
-    await Phong.findByIdAndDelete(id);
+    await repo.delete(id);
 
     return NextResponse.json({
       success: true,

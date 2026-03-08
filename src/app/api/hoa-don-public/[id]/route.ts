@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
-import HoaDon from '@/models/HoaDon';
-import ThanhToan from '@/models/ThanhToan';
+import { getHoaDonRepo, getThanhToanRepo } from '@/lib/repositories';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectToDatabase();
-    
     const hoaDonId = params.id;
-    
+
     if (!hoaDonId) {
       return NextResponse.json(
         { success: false, message: 'ID hóa đơn không hợp lệ' },
@@ -19,12 +15,11 @@ export async function GET(
       );
     }
 
-    // Lấy thông tin hóa đơn với populate
-    const hoaDon = await HoaDon.findById(hoaDonId)
-      .populate('hopDong')
-      .populate('phong')
-      .populate('khachThue')
-      .lean();
+    const hoaDonRepo = await getHoaDonRepo();
+    const thanhToanRepo = await getThanhToanRepo();
+
+    // Lấy thông tin hóa đơn
+    const hoaDon = await hoaDonRepo.findById(hoaDonId);
 
     if (!hoaDon) {
       return NextResponse.json(
@@ -34,9 +29,7 @@ export async function GET(
     }
 
     // Lấy lịch sử thanh toán của hóa đơn này
-    const thanhToanList = await ThanhToan.find({ hoaDon: hoaDonId })
-      .sort({ ngayThanhToan: -1 })
-      .lean();
+    const thanhToanList = await thanhToanRepo.findByHoaDon(hoaDonId);
 
     return NextResponse.json({
       success: true,

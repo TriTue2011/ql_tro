@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import HopDong from '@/models/HopDong';
-import Phong from '@/models/Phong';
-import KhachThue from '@/models/KhachThue';
-import { updatePhongStatus, updateAllKhachThueStatus } from '@/lib/status-utils';
+import { getHopDongRepo, getPhongRepo, getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const phiDichVuSchema = z.object({
@@ -43,7 +39,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -51,13 +47,9 @@ export async function GET(
       );
     }
 
-    await dbConnect();
     const { id } = await params;
-
-    const hopDong = await HopDong.findById(id)
-      .populate('phong', 'maPhong toaNha')
-      .populate('khachThueId', 'hoTen soDienThoai')
-      .populate('nguoiDaiDien', 'hoTen soDienThoai');
+    const repo = await getHopDongRepo();
+    const hopDong = await repo.findById(id);
 
     if (!hopDong) {
       return NextResponse.json(
@@ -86,7 +78,7 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -97,11 +89,13 @@ export async function PUT(
     const body = await request.json();
     const validatedData = hopDongPartialSchema.parse(body);
 
-    await dbConnect();
     const { id } = await params;
+    const hopDongRepo = await getHopDongRepo();
+    const phongRepo = await getPhongRepo();
+    const khachThueRepo = await getKhachThueRepo();
 
     // Lấy hợp đồng hiện tại để kiểm tra
-    const existingHopDong = await HopDong.findById(id);
+    const existingHopDong = await hopDongRepo.findById(id);
     if (!existingHopDong) {
       return NextResponse.json(
         { message: 'Hợp đồng không tồn tại' },
@@ -111,7 +105,7 @@ export async function PUT(
 
     // Nếu có cập nhật phòng, kiểm tra phòng tồn tại
     if (validatedData.phong) {
-      const phong = await Phong.findById(validatedData.phong);
+      const phong = await phongRepo.findById(validatedData.phong);
       if (!phong) {
         return NextResponse.json(
           { message: 'Phòng không tồn tại' },
@@ -122,8 +116,10 @@ export async function PUT(
 
     // Nếu có cập nhật khách thuê, kiểm tra khách thuê tồn tại
     if (validatedData.khachThueId) {
-      const khachThueList = await KhachThue.find({ _id: { $in: validatedData.khachThueId } });
-      if (khachThueList.length !== validatedData.khachThueId.length) {
+      const khachThueChecks = await Promise.all(
+        validatedData.khachThueId.map(ktId => khachThueRepo.findById(ktId))
+      );
+      if (khachThueChecks.some(k => !k)) {
         return NextResponse.json(
           { message: 'Một hoặc nhiều khách thuê không tồn tại' },
           { status: 400 }
@@ -141,24 +137,22 @@ export async function PUT(
       }
     }
 
-    // Chuẩn bị dữ liệu cập nhật
-    const updateData: any = { ...validatedData };
-    
-    // Xử lý ngày tháng
-    if (validatedData.ngayBatDau) {
-      updateData.ngayBatDau = new Date(validatedData.ngayBatDau);
-    }
-    if (validatedData.ngayKetThuc) {
-      updateData.ngayKetThuc = new Date(validatedData.ngayKetThuc);
-    }
+    // Chuẩn bị dữ liệu cập nhật (repo.update chỉ hỗ trợ UpdateHopDongInput)
+    const updateData: Parameters<typeof hopDongRepo.update>[1] = {};
 
-    const hopDong = await HopDong.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    ).populate('phong', 'maPhong toaNha')
-     .populate('khachThueId', 'hoTen soDienThoai')
-     .populate('nguoiDaiDien', 'hoTen soDienThoai');
+    if (validatedData.ngayKetThuc) updateData.ngayKetThuc = new Date(validatedData.ngayKetThuc);
+    if (validatedData.giaThue !== undefined) updateData.giaThue = validatedData.giaThue;
+    if (validatedData.tienCoc !== undefined) updateData.tienCoc = validatedData.tienCoc;
+    if (validatedData.chuKyThanhToan) updateData.chuKyThanhToan = validatedData.chuKyThanhToan;
+    if (validatedData.ngayThanhToan !== undefined) updateData.ngayThanhToan = validatedData.ngayThanhToan;
+    if (validatedData.dieuKhoan) updateData.dieuKhoan = validatedData.dieuKhoan;
+    if (validatedData.giaDien !== undefined) updateData.giaDien = validatedData.giaDien;
+    if (validatedData.giaNuoc !== undefined) updateData.giaNuoc = validatedData.giaNuoc;
+    if (validatedData.phiDichVu) updateData.phiDichVu = validatedData.phiDichVu;
+    if (validatedData.trangThai) updateData.trangThai = validatedData.trangThai;
+    if (validatedData.fileHopDong) updateData.fileHopDong = validatedData.fileHopDong;
+
+    const hopDong = await hopDongRepo.update(id, updateData);
 
     if (!hopDong) {
       return NextResponse.json(
@@ -167,12 +161,10 @@ export async function PUT(
       );
     }
 
-    // Cập nhật trạng thái phòng và khách thuê tự động
-    await updatePhongStatus(hopDong.phong._id.toString());
-    if (validatedData.khachThueId) {
-      await updateAllKhachThueStatus(validatedData.khachThueId);
-    } else {
-      await updateAllKhachThueStatus(existingHopDong.khachThueId.map((id: any) => id.toString()));
+    // Cập nhật trạng thái phòng nếu hợp đồng bị hủy hoặc hết hạn
+    if (validatedData.trangThai && validatedData.trangThai !== 'hoatDong') {
+      const phongId = hopDong.phongId;
+      await phongRepo.update(phongId, { trangThai: 'trong' });
     }
 
     return NextResponse.json({
@@ -203,7 +195,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -211,10 +203,11 @@ export async function DELETE(
       );
     }
 
-    await dbConnect();
     const { id } = await params;
+    const hopDongRepo = await getHopDongRepo();
+    const phongRepo = await getPhongRepo();
 
-    const hopDong = await HopDong.findById(id);
+    const hopDong = await hopDongRepo.findById(id);
     if (!hopDong) {
       return NextResponse.json(
         { message: 'Hợp đồng không tồn tại' },
@@ -222,15 +215,13 @@ export async function DELETE(
       );
     }
 
-    // Lưu thông tin phòng và khách thuê trước khi xóa
-    const phongId = hopDong.phong.toString();
-    const khachThueIds = hopDong.khachThueId.map((id: any) => id.toString());
+    // Lưu thông tin phòng trước khi xóa
+    const phongId = hopDong.phongId;
 
-    await HopDong.findByIdAndDelete(id);
+    await hopDongRepo.delete(id);
 
-    // Cập nhật trạng thái phòng và khách thuê sau khi xóa hợp đồng
-    await updatePhongStatus(phongId);
-    await updateAllKhachThueStatus(khachThueIds);
+    // Cập nhật trạng thái phòng sau khi xóa hợp đồng
+    await phongRepo.update(phongId, { trangThai: 'trong' });
 
     return NextResponse.json({
       success: true,

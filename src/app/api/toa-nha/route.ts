@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import ToaNha from '@/models/ToaNha';
-import Phong from '@/models/Phong';
-import HopDong from '@/models/HopDong';
+import { getToaNhaRepo, getPhongRepo } from '@/lib/repositories';
 import { z } from 'zod';
-import mongoose from 'mongoose';
 
 const toaNghiEnum = z.enum(['wifi', 'camera', 'baoVe', 'giuXe', 'thangMay', 'sanPhoi', 'nhaVeSinhChung', 'khuBepChung']);
 
@@ -26,7 +22,7 @@ const toaNhaSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -34,92 +30,50 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await dbConnect();
-
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
 
-    const query = search 
-      ? {
-          $or: [
-            { tenToaNha: { $regex: search, $options: 'i' } },
-            { 'diaChi.duong': { $regex: search, $options: 'i' } },
-            { 'diaChi.phuong': { $regex: search, $options: 'i' } },
-          ]
-        }
-      : {};
+    const repo = await getToaNhaRepo();
+    const phongRepo = await getPhongRepo();
 
-    const toaNhaList = await ToaNha.find(query)
-      .populate('chuSoHuu', 'ten email')
-      .sort({ ngayTao: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    const result = await repo.findMany({ page, limit, search: search || undefined });
 
-    // Tính tổng số phòng và thống kê trạng thái cho mỗi tòa nhà
+    // Tính thống kê trạng thái phòng cho mỗi tòa nhà
     const toaNhaWithStats = await Promise.all(
-      toaNhaList.map(async (toaNha) => {
-        // Đếm tổng số phòng
-        const tongSoPhong = await Phong.countDocuments({ toaNha: toaNha._id });
-        
-        // Đếm số phòng trống
-        const phongTrong = await Phong.countDocuments({ 
-          toaNha: toaNha._id, 
-          trangThai: 'trong' 
-        });
-        
-        // Đếm số phòng đang thuê
-        const phongDangThue = await Phong.countDocuments({ 
-          toaNha: toaNha._id, 
-          trangThai: 'dangThue' 
-        });
-        
-        // Đếm số phòng đã đặt
-        const phongDaDat = await Phong.countDocuments({ 
-          toaNha: toaNha._id, 
-          trangThai: 'daDat' 
-        });
-        
-        // Đếm số phòng bảo trì
-        const phongBaoTri = await Phong.countDocuments({ 
-          toaNha: toaNha._id, 
-          trangThai: 'baoTri' 
-        });
-        
+      result.data.map(async (toaNha) => {
+        const phongTrongResult = await phongRepo.findMany({ toaNhaId: toaNha.id, trangThai: 'trong', limit: 1 });
+        const phongDangThueResult = await phongRepo.findMany({ toaNhaId: toaNha.id, trangThai: 'dangThue', limit: 1 });
+        const phongDaDatResult = await phongRepo.findMany({ toaNhaId: toaNha.id, trangThai: 'daDat', limit: 1 });
+        const phongBaoTriResult = await phongRepo.findMany({ toaNhaId: toaNha.id, trangThai: 'baoTri', limit: 1 });
+        const tongSoPhongResult = await phongRepo.findMany({ toaNhaId: toaNha.id, limit: 1 });
+
         return {
-          ...toaNha.toObject(),
-          tongSoPhong,
-          phongTrong,
-          phongDangThue,
-          phongDaDat,
-          phongBaoTri
+          ...toaNha,
+          tongSoPhong: tongSoPhongResult.pagination.total,
+          phongTrong: phongTrongResult.pagination.total,
+          phongDangThue: phongDangThueResult.pagination.total,
+          phongDaDat: phongDaDatResult.pagination.total,
+          phongBaoTri: phongBaoTriResult.pagination.total,
         };
       })
     );
 
-    const total = await ToaNha.countDocuments(query);
-
     return NextResponse.json({
       success: true,
       data: toaNhaWithStats,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      pagination: result.pagination,
     });
 
   } catch (error) {
     console.error('Error fetching toa nha:', error);
-    
-    // Hiển thị chi tiết lỗi trong development
-    const errorMessage = process.env.NODE_ENV === 'development' 
+
+    const errorMessage = process.env.NODE_ENV === 'development'
       ? error instanceof Error ? error.message : String(error)
       : 'Internal server error';
-    
-    const errorDetails = process.env.NODE_ENV === 'development' 
+
+    const errorDetails = process.env.NODE_ENV === 'development'
       ? {
           name: error instanceof Error ? error.name : 'Unknown',
           stack: error instanceof Error ? error.stack : undefined,
@@ -128,7 +82,7 @@ export async function GET(request: NextRequest) {
       : undefined;
 
     return NextResponse.json(
-      { 
+      {
         message: errorMessage,
         details: errorDetails,
         error: 'SERVER_ERROR'
@@ -141,10 +95,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     console.log('=== POST /api/toa-nha started ===');
-    
+
     const session = await getServerSession(authOptions);
     console.log('Session:', session ? 'Found' : 'Not found');
-    
+
     if (!session) {
       console.log('No session found, returning 401');
       return NextResponse.json(
@@ -158,27 +112,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     console.log('Request body:', body);
-    
+
     const validatedData = toaNhaSchema.parse(body);
     console.log('Validated data:', validatedData);
 
-    console.log('Connecting to database...');
-    await dbConnect();
-    console.log('Database connected successfully');
+    const repo = await getToaNhaRepo();
 
-    const chuSoHuuId = new mongoose.Types.ObjectId(session.user.id);
-    console.log('Chu so huu ObjectId:', chuSoHuuId);
-
-    const newToaNha = new ToaNha({
+    const newToaNha = await repo.create({
       ...validatedData,
-      chuSoHuu: chuSoHuuId,
+      chuSoHuuId: session.user.id,
       tienNghiChung: validatedData.tienNghiChung || [],
-      // tongSoPhong sẽ được set mặc định là 0 từ model
     });
 
-    console.log('New toa nha object:', newToaNha);
-    console.log('Saving toa nha...');
-    await newToaNha.save();
     console.log('Toa nha saved successfully');
 
     return NextResponse.json({
@@ -191,7 +136,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       console.error('Validation error:', error.issues);
       return NextResponse.json(
-        { 
+        {
           message: 'Validation error',
           details: error.issues,
           error: 'VALIDATION_ERROR'
@@ -201,13 +146,12 @@ export async function POST(request: NextRequest) {
     }
 
     console.error('Error creating toa nha:', error);
-    
-    // Hiển thị chi tiết lỗi trong development
-    const errorMessage = process.env.NODE_ENV === 'development' 
+
+    const errorMessage = process.env.NODE_ENV === 'development'
       ? error instanceof Error ? error.message : String(error)
       : 'Internal server error';
-    
-    const errorDetails = process.env.NODE_ENV === 'development' 
+
+    const errorDetails = process.env.NODE_ENV === 'development'
       ? {
           name: error instanceof Error ? error.name : 'Unknown',
           stack: error instanceof Error ? error.stack : undefined,
@@ -216,7 +160,7 @@ export async function POST(request: NextRequest) {
       : undefined;
 
     return NextResponse.json(
-      { 
+      {
         message: errorMessage,
         details: errorDetails,
         error: 'SERVER_ERROR'

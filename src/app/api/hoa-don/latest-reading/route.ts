@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
-import HoaDon from '@/models/HoaDon';
-import HopDong from '@/models/HopDong';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getHoaDonRepo, getHopDongRepo } from '@/lib/repositories';
 
 // GET - Lấy chỉ số điện nước mới nhất cho hợp đồng
 export async function GET(request: NextRequest) {
@@ -13,12 +11,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectToDatabase();
-
     const { searchParams } = new URL(request.url);
     const hopDongId = searchParams.get('hopDong');
     const thang = parseInt(searchParams.get('thang') || '1');
-    const nam = parseInt(searchParams.get('nam') || new Date().getFullYear());
+    const nam = parseInt(searchParams.get('nam') || new Date().getFullYear().toString());
 
     if (!hopDongId) {
       return NextResponse.json(
@@ -27,8 +23,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const hopDongRepo = await getHopDongRepo();
+    const hoaDonRepo = await getHoaDonRepo();
+
     // Kiểm tra hợp đồng tồn tại
-    const hopDongData = await HopDong.findById(hopDongId);
+    const hopDongData = await hopDongRepo.findById(hopDongId);
     if (!hopDongData) {
       return NextResponse.json(
         { message: 'Hợp đồng không tồn tại' },
@@ -37,23 +36,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Tìm hóa đơn gần nhất để lấy chỉ số cuối kỳ
-    const lastHoaDon = await HoaDon.findOne({
-      hopDong: hopDongId,
-      $or: [
-        { nam: { $lt: nam } },
-        { nam: nam, thang: { $lt: thang } }
-      ]
-    }).sort({ nam: -1, thang: -1 });
+    const prevResult = await hoaDonRepo.findMany({
+      hopDongId,
+      limit: 100,
+    });
+
+    const lastHoaDon = prevResult.data
+      .filter(hd => hd.nam < nam || (hd.nam === nam && hd.thang < thang))
+      .sort((a, b) => b.nam !== a.nam ? b.nam - a.nam : b.thang - a.thang)[0];
 
     let chiSoDienBanDau = 0;
     let chiSoNuocBanDau = 0;
 
     if (lastHoaDon) {
-      // Hóa đơn tiếp theo: lấy chỉ số cuối kỳ từ hóa đơn trước
       chiSoDienBanDau = lastHoaDon.chiSoDienCuoiKy || 0;
       chiSoNuocBanDau = lastHoaDon.chiSoNuocCuoiKy || 0;
     } else {
-      // Hóa đơn đầu tiên: lấy chỉ số ban đầu từ hợp đồng
       chiSoDienBanDau = hopDongData.chiSoDienBanDau || 0;
       chiSoNuocBanDau = hopDongData.chiSoNuocBanDau || 0;
     }
@@ -66,8 +64,8 @@ export async function GET(request: NextRequest) {
         isFirstInvoice: !lastHoaDon,
         lastInvoiceMonth: lastHoaDon ? `${lastHoaDon.thang}/${lastHoaDon.nam}` : null
       },
-      message: lastHoaDon 
-        ? `Lấy chỉ số từ hóa đơn ${lastHoaDon.thang}/${lastHoaDon.nam}` 
+      message: lastHoaDon
+        ? `Lấy chỉ số từ hóa đơn ${lastHoaDon.thang}/${lastHoaDon.nam}`
         : 'Lấy chỉ số ban đầu từ hợp đồng'
     });
   } catch (error) {

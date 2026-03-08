@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import Phong from '@/models/Phong';
-import ToaNha from '@/models/ToaNha';
-import HopDong from '@/models/HopDong';
-import { updatePhongStatus } from '@/lib/status-utils';
+import { getPhongRepo, getToaNhaRepo, getHopDongRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const phongSchema = z.object({
@@ -24,7 +20,7 @@ const phongSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -32,84 +28,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await dbConnect();
-
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
-    const toaNha = searchParams.get('toaNha') || '';
+    const toaNhaId = searchParams.get('toaNha') || '';
     const trangThai = searchParams.get('trangThai') || '';
 
-    const query: any = {};
-    
-    if (search) {
-      query.$or = [
-        { maPhong: { $regex: search, $options: 'i' } },
-        { moTa: { $regex: search, $options: 'i' } },
-      ];
-    }
-    
-    if (toaNha) {
-      query.toaNha = toaNha;
-    }
-    
-    if (trangThai) {
-      query.trangThai = trangThai;
-    }
+    const repo = await getPhongRepo();
+    const hopDongRepo = await getHopDongRepo();
 
-    const phongList = await Phong.find(query)
-      .populate('toaNha', 'tenToaNha diaChi')
-      .sort({ maPhong: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    const result = await repo.findMany({
+      page,
+      limit,
+      search: search || undefined,
+      toaNhaId: toaNhaId || undefined,
+      trangThai: trangThai as any || undefined,
+    });
 
-    // Cập nhật trạng thái phòng dựa trên hợp đồng
-    await Promise.all(
-      phongList.map(phong => updatePhongStatus(phong._id.toString()))
-    );
-
-    // Lấy lại dữ liệu với trạng thái đã cập nhật và thông tin hợp đồng
-    const updatedPhongList = await Phong.find(query)
-      .populate('toaNha', 'tenToaNha diaChi')
-      .sort({ maPhong: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    // Thêm thông tin hợp đồng và khách thuê cho mỗi phòng
+    // Thêm thông tin hợp đồng hiện tại cho mỗi phòng
     const phongListWithContracts = await Promise.all(
-      updatedPhongList.map(async (phong) => {
-        const hopDong = await HopDong.findOne({
-          phong: phong._id,
+      result.data.map(async (phong) => {
+        const hopDongResult = await hopDongRepo.findMany({
+          phongId: phong.id,
           trangThai: 'hoatDong',
-          $or: [
-            {
-              ngayBatDau: { $lte: new Date() },
-              ngayKetThuc: { $gte: new Date() }
-            }
-          ]
-        })
-        .populate('khachThueId', 'hoTen soDienThoai')
-        .populate('nguoiDaiDien', 'hoTen soDienThoai');
-        
+          limit: 1,
+        });
         return {
-          ...phong.toObject(),
-          hopDongHienTai: hopDong
+          ...phong,
+          hopDongHienTai: hopDongResult.data[0] || null,
         };
       })
     );
 
-    const total = await Phong.countDocuments(query);
-
     return NextResponse.json({
       success: true,
       data: phongListWithContracts,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      pagination: result.pagination,
     });
 
   } catch (error) {
@@ -124,7 +79,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -135,10 +90,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = phongSchema.parse(body);
 
-    await dbConnect();
+    const toaNhaRepo = await getToaNhaRepo();
+    const phongRepo = await getPhongRepo();
 
     // Check if toa nha exists
-    const toaNha = await ToaNha.findById(validatedData.toaNha);
+    const toaNha = await toaNhaRepo.findById(validatedData.toaNha);
     if (!toaNha) {
       return NextResponse.json(
         { message: 'Tòa nhà không tồn tại' },
@@ -146,17 +102,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newPhong = new Phong({
-      ...validatedData,
+    const newPhong = await phongRepo.create({
+      maPhong: validatedData.maPhong,
+      toaNhaId: validatedData.toaNha,
+      tang: validatedData.tang,
+      dienTich: validatedData.dienTich,
+      giaThue: validatedData.giaThue,
+      tienCoc: validatedData.tienCoc,
+      moTa: validatedData.moTa,
       anhPhong: validatedData.anhPhong || [],
       tienNghi: validatedData.tienNghi || [],
-      trangThai: 'trong', // Mặc định là trống, sẽ được cập nhật tự động
+      soNguoiToiDa: validatedData.soNguoiToiDa,
     });
-
-    await newPhong.save();
-
-    // Cập nhật trạng thái dựa trên hợp đồng
-    await updatePhongStatus(newPhong._id.toString());
 
     return NextResponse.json({
       success: true,

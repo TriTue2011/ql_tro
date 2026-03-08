@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
-import SuCo from '@/models/SuCo';
+import { getSuCoRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
 const updateSuCoSchema = z.object({
@@ -22,7 +21,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -30,12 +29,8 @@ export async function GET(
       );
     }
 
-    await dbConnect();
-
-    const suCo = await SuCo.findById(params.id)
-      .populate('phong', 'maPhong toaNha')
-      .populate('khachThue', 'hoTen soDienThoai')
-      .populate('nguoiXuLy', 'ten email');
+    const repo = await getSuCoRepo();
+    const suCo = await repo.findById(params.id);
 
     if (!suCo) {
       return NextResponse.json(
@@ -64,7 +59,7 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -75,15 +70,14 @@ export async function PUT(
     const body = await request.json();
     const validatedData = updateSuCoSchema.parse(body);
 
-    await dbConnect();
+    const repo = await getSuCoRepo();
 
-    const suCo = await SuCo.findByIdAndUpdate(
-      params.id,
-      validatedData,
-      { new: true, runValidators: true }
-    ).populate('phong', 'maPhong toaNha')
-     .populate('khachThue', 'hoTen soDienThoai')
-     .populate('nguoiXuLy', 'ten email');
+    const suCo = await repo.update(params.id, {
+      trangThai: validatedData.trangThai,
+      nguoiXuLyId: validatedData.nguoiXuLy,
+      ghiChuXuLy: validatedData.ghiChuXuLy,
+      anhSuCo: validatedData.anhSuCo,
+    });
 
     if (!suCo) {
       return NextResponse.json(
@@ -120,7 +114,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -128,9 +122,9 @@ export async function DELETE(
       );
     }
 
-    await dbConnect();
+    const repo = await getSuCoRepo();
 
-    const suCo = await SuCo.findById(params.id);
+    const suCo = await repo.findById(params.id);
     if (!suCo) {
       return NextResponse.json(
         { message: 'Sự cố không tồn tại' },
@@ -138,7 +132,7 @@ export async function DELETE(
       );
     }
 
-    await SuCo.findByIdAndDelete(params.id);
+    await repo.delete(params.id);
 
     return NextResponse.json({
       success: true,
