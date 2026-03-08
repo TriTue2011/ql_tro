@@ -96,15 +96,17 @@ const KhachThueSchema = new Schema<IKhachThue>({
   timestamps: { createdAt: 'ngayTao', updatedAt: 'ngayCapNhat' }
 });
 
-// Middleware để hash mật khẩu trước khi lưu
+// Middleware để hash mật khẩu trước khi lưu (bỏ qua nếu đã là bcrypt hash)
 KhachThueSchema.pre('save', async function(next) {
-  // Chỉ hash mật khẩu nếu nó được modified (hoặc new)
   if (!this.isModified('matKhau') || !this.matKhau) {
     return next();
   }
-  
+  // Skip if already hashed (pre-hashed at API layer)
+  if (this.matKhau.startsWith('$2')) {
+    return next();
+  }
   try {
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     this.matKhau = await bcrypt.hash(this.matKhau, salt);
     next();
   } catch (error: any) {

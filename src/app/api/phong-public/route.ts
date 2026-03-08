@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPhongRepo } from '@/lib/repositories';
+import type { TrangThaiPhong } from '@/lib/repositories/types';
+
+const TRANG_THAI_PHONG: readonly string[] = ['trong', 'daDat', 'dangThue', 'baoTri'];
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +20,8 @@ export async function GET(request: NextRequest) {
       limit,
       search: search || undefined,
       toaNhaId: (toaNhaId && toaNhaId !== 'all') ? toaNhaId : undefined,
-      trangThai: (trangThai && trangThai !== 'all') ? trangThai as any : undefined,
+      trangThai: (trangThai && trangThai !== 'all' && TRANG_THAI_PHONG.includes(trangThai))
+        ? trangThai as TrangThaiPhong : undefined,
     });
 
     return NextResponse.json({

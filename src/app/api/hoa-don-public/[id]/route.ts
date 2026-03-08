@@ -1,3 +1,5 @@
+// Endpoint công khai — dùng cho link chia sẻ hóa đơn gửi khách thuê.
+// ID hóa đơn (cuid) đóng vai trò access token ngầm; không cần session.
 import { NextRequest, NextResponse } from 'next/server';
 import { getHoaDonRepo, getThanhToanRepo } from '@/lib/repositories';
 

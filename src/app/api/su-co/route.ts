@@ -40,9 +40,9 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       search: search || undefined,
-      loaiSuCo: loaiSuCo as any || undefined,
-      mucDoUuTien: mucDoUuTien as any || undefined,
-      trangThai: trangThai as any || undefined,
+      loaiSuCo: ['dienNuoc','noiThat','vesinh','anNinh','khac'].includes(loaiSuCo) ? loaiSuCo as import('@/lib/repositories/types').LoaiSuCo : undefined,
+      mucDoUuTien: ['thap','trungBinh','cao','khancap'].includes(mucDoUuTien) ? mucDoUuTien as import('@/lib/repositories/types').MucDoUuTien : undefined,
+      trangThai: ['moi','dangXuLy','daXong','daHuy'].includes(trangThai) ? trangThai as import('@/lib/repositories/types').TrangThaiSuCo : undefined,
     });
 
     return NextResponse.json({

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getKhachThueRepo, getHopDongRepo } from '@/lib/repositories';
+import { getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
+import { hash } from 'bcryptjs';
+import { Prisma } from '@prisma/client';
+import prisma from '@/lib/prisma';
 
 const khachThueSchema = z.object({
   hoTen: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
@@ -37,7 +40,6 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
 
     const repo = await getKhachThueRepo();
-    const hopDongRepo = await getHopDongRepo();
 
     const result = await repo.findMany({
       page,
@@ -45,20 +47,28 @@ export async function GET(request: NextRequest) {
       search: search || undefined,
     });
 
-    // Thêm thông tin hợp đồng hiện tại cho mỗi khách thuê
-    const khachThueListWithContracts = await Promise.all(
-      result.data.map(async (khachThue) => {
-        const hopDongResult = await hopDongRepo.findMany({
-          khachThueId: khachThue.id,
-          trangThai: 'hoatDong',
-          limit: 1,
-        });
-        return {
-          ...khachThue,
-          hopDongHienTai: hopDongResult.data[0] || null,
-        };
-      })
-    );
+    // Batch-fetch hợp đồng đang hoạt động (tránh N+1)
+    const ktIds = result.data.map(kt => kt.id).filter(Boolean) as string[];
+    const hopDongBatch = await prisma.hopDong.findMany({
+      where: {
+        khachThue: { some: { id: { in: ktIds } } },
+        trangThai: 'hoatDong',
+      },
+      select: {
+        id: true,
+        khachThue: { select: { id: true } },
+      },
+    });
+    const hopDongByKT = new Map<string, (typeof hopDongBatch)[0]>();
+    for (const hd of hopDongBatch) {
+      for (const kt of hd.khachThue) {
+        if (!hopDongByKT.has(kt.id)) hopDongByKT.set(kt.id, hd);
+      }
+    }
+    const khachThueListWithContracts = result.data.map(kt => ({
+      ...kt,
+      hopDongHienTai: hopDongByKT.get(kt.id ?? '') ?? null,
+    }));
 
     return NextResponse.json({
       success: true,
@@ -105,6 +115,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const hashedPassword = validatedData.matKhau
+      ? await hash(validatedData.matKhau, 12)
+      : undefined;
+
     const newKhachThue = await repo.create({
       hoTen: validatedData.hoTen,
       soDienThoai: validatedData.soDienThoai,
@@ -115,7 +129,7 @@ export async function POST(request: NextRequest) {
       queQuan: validatedData.queQuan,
       anhCCCD: validatedData.anhCCCD || { matTruoc: '', matSau: '' },
       ngheNghiep: validatedData.ngheNghiep,
-      matKhau: validatedData.matKhau,
+      matKhau: hashedPassword,
     });
 
     return NextResponse.json({
@@ -128,6 +142,13 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { message: error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return NextResponse.json(
+        { message: 'Số điện thoại hoặc CCCD đã được sử dụng' },
         { status: 400 }
       );
     }

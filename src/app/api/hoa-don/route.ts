@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       hopDongId: hopDongId || undefined,
-      trangThai: trangThai as any || undefined,
+      trangThai: ['chuaThanhToan','daThanhToanMotPhan','daThanhToan','quaHan'].includes(trangThai ?? '') ? trangThai as import('@/lib/repositories/types').TrangThaiHoaDon : undefined,
     });
 
     // Xử lý dữ liệu cũ không có chỉ số điện nước

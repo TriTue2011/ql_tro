@@ -12,6 +12,11 @@
 
 const WRITE_METHODS = new Set(['create', 'update', 'delete']);
 
+// Track secondary failure count for observability
+let _secondaryFailureCount = 0;
+export function getSecondaryFailureCount() { return _secondaryFailureCount; }
+export function resetSecondaryFailureCount() { _secondaryFailureCount = 0; }
+
 export function createDualWriteRepo<T extends object>(primary: T, secondary: T): T {
   return new Proxy(primary, {
     get(target, prop: string) {
@@ -30,7 +35,11 @@ export function createDualWriteRepo<T extends object>(primary: T, secondary: T):
         const secondaryMethod = (secondary as any)[prop];
         if (typeof secondaryMethod === 'function') {
           secondaryMethod.apply(secondary, args).catch((err: Error) => {
-            console.error(`[DualWrite] Secondary "${prop}" failed:`, err.message);
+            _secondaryFailureCount++;
+            console.error(
+              `[DualWrite] Secondary "${prop}" failed (total failures: ${_secondaryFailureCount}):`,
+              err.message
+            );
           });
         }
 
