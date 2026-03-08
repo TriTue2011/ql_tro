@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { uploadFile } from '@/lib/storage';
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    
+
     if (!file) {
       return NextResponse.json(
         { message: 'Không có file được chọn' },
@@ -23,7 +24,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Kiểm tra loại file
     if (!file.type.startsWith('image/')) {
       return NextResponse.json(
         { message: 'Chỉ được upload file ảnh' },
@@ -31,7 +31,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Kiểm tra kích thước file (tối đa 10MB)
     if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
         { message: 'Kích thước file không được vượt quá 10MB' },
@@ -39,32 +38,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload lên Cloudinary
-    const cloudinaryFormData = new FormData();
-    cloudinaryFormData.append('file', file);
-    cloudinaryFormData.append('upload_preset', process.env.NEXT_PUBLIC_UPLOAD_PRESET || 'poalupload');
-
-    const cloudinaryResponse = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUD_NAME || 'duv9pccwi'}/image/upload`,
-      {
-        method: 'POST',
-        body: cloudinaryFormData,
-      }
-    );
-
-    if (!cloudinaryResponse.ok) {
-      throw new Error('Lỗi khi upload lên Cloudinary');
-    }
-
-    const cloudinaryResult = await cloudinaryResponse.json();
+    // Tự động chọn provider: cloudinary | minio | local (theo STORAGE_PROVIDER)
+    const result = await uploadFile(file);
 
     return NextResponse.json({
       success: true,
       data: {
-        public_id: cloudinaryResult.public_id,
-        secure_url: cloudinaryResult.secure_url,
-        width: cloudinaryResult.width,
-        height: cloudinaryResult.height,
+        public_id: result.public_id,
+        secure_url: result.secure_url,
+        width: 0,
+        height: 0,
       },
       message: 'Upload ảnh thành công',
     });

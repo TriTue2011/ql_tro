@@ -1,0 +1,238 @@
+// Prisma schema cho PostgreSQL (chế độ offline)
+// Chạy: npx prisma migrate dev --name init
+// Xem DB: npx prisma studio
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRESQL_URI")
+}
+
+model NguoiDung {
+  id            String    @id @default(cuid())
+  ten           String
+  email         String    @unique
+  matKhau       String
+  soDienThoai   String?
+  vaiTro        String    @default("nhanVien") // admin | chuNha | nhanVien
+  anhDaiDien    String?
+  trangThai     String    @default("hoatDong") // hoatDong | khoa
+  ngayTao       DateTime  @default(now())
+  ngayCapNhat   DateTime  @updatedAt
+
+  // Relations
+  toaNha        ToaNha[]
+  chiSo         ChiSoDienNuoc[]
+  thanhToan     ThanhToan[]
+  suCoXuLy      SuCo[]    @relation("NguoiXuLy")
+  thongBaoGui   ThongBao[]
+}
+
+model ToaNha {
+  id            String    @id @default(cuid())
+  tenToaNha     String
+  diaChi        Json      // { soNha, duong, phuong, quan, thanhPho }
+  moTa          String?
+  anhToaNha     String[]
+  chuSoHuuId    String
+  chuSoHuu      NguoiDung @relation(fields: [chuSoHuuId], references: [id])
+  tongSoPhong   Int       @default(0)
+  tienNghiChung String[]
+  ngayTao       DateTime  @default(now())
+  ngayCapNhat   DateTime  @updatedAt
+
+  phong         Phong[]
+}
+
+model Phong {
+  id            String    @id @default(cuid())
+  maPhong       String    @unique
+  toaNhaId      String
+  toaNha        ToaNha    @relation(fields: [toaNhaId], references: [id])
+  tang          Int
+  dienTich      Float
+  giaThue       Float
+  tienCoc       Float
+  moTa          String?
+  anhPhong      String[]
+  tienNghi      String[]
+  trangThai     String    @default("trong") // trong | daDat | dangThue | baoTri
+  soNguoiToiDa  Int
+  ngayTao       DateTime  @default(now())
+  ngayCapNhat   DateTime  @updatedAt
+
+  hopDong       HopDong[]
+  chiSo         ChiSoDienNuoc[]
+  hoaDon        HoaDon[]
+  suCo          SuCo[]
+  thongBao      ThongBaoPhong[]
+}
+
+model KhachThue {
+  id            String    @id @default(cuid())
+  hoTen         String
+  soDienThoai   String    @unique
+  email         String?
+  cccd          String    @unique
+  ngaySinh      DateTime
+  gioiTinh      String    // nam | nu | khac
+  queQuan       String
+  anhCCCD       Json?     // { matTruoc, matSau }
+  ngheNghiep    String?
+  matKhau       String?
+  trangThai     String    @default("chuaThue") // dangThue | daTraPhong | chuaThue
+  ngayTao       DateTime  @default(now())
+  ngayCapNhat   DateTime  @updatedAt
+
+  hopDong         HopDong[]
+  daiDienHopDong  HopDong[] @relation("NguoiDaiDien")
+  hoaDon          HoaDon[]
+  suCo            SuCo[]
+}
+
+model HopDong {
+  id                String    @id @default(cuid())
+  maHopDong         String    @unique
+  phongId           String
+  phong             Phong     @relation(fields: [phongId], references: [id])
+  nguoiDaiDienId    String
+  nguoiDaiDien      KhachThue @relation("NguoiDaiDien", fields: [nguoiDaiDienId], references: [id])
+  ngayBatDau        DateTime
+  ngayKetThuc       DateTime
+  giaThue           Float
+  tienCoc           Float
+  chuKyThanhToan    String    @default("thang") // thang | quy | nam
+  ngayThanhToan     Int
+  dieuKhoan         String
+  giaDien           Float
+  giaNuoc           Float
+  chiSoDienBanDau   Float     @default(0)
+  chiSoNuocBanDau   Float     @default(0)
+  phiDichVu         Json      @default("[]") // [{ ten, gia }]
+  trangThai         String    @default("hoatDong") // hoatDong | hetHan | daHuy
+  fileHopDong       String?
+  ngayTao           DateTime  @default(now())
+  ngayCapNhat       DateTime  @updatedAt
+
+  khachThue         KhachThue[]
+  hoaDon            HoaDon[]
+}
+
+model ChiSoDienNuoc {
+  id                String    @id @default(cuid())
+  phongId           String
+  phong             Phong     @relation(fields: [phongId], references: [id])
+  thang             Int
+  nam               Int
+  chiSoDienCu       Float
+  chiSoDienMoi      Float
+  soDienTieuThu     Float     @default(0)
+  chiSoNuocCu       Float
+  chiSoNuocMoi      Float
+  soNuocTieuThu     Float     @default(0)
+  anhChiSoDien      String?
+  anhChiSoNuoc      String?
+  nguoiGhiId        String
+  nguoiGhi          NguoiDung @relation(fields: [nguoiGhiId], references: [id])
+  ngayGhi           DateTime  @default(now())
+  ngayTao           DateTime  @default(now())
+
+  @@unique([phongId, thang, nam])
+}
+
+model HoaDon {
+  id                String    @id @default(cuid())
+  maHoaDon          String    @unique
+  hopDongId         String
+  hopDong           HopDong   @relation(fields: [hopDongId], references: [id])
+  phongId           String
+  phong             Phong     @relation(fields: [phongId], references: [id])
+  khachThueId       String
+  khachThue         KhachThue @relation(fields: [khachThueId], references: [id])
+  thang             Int
+  nam               Int
+  tienPhong         Float
+  tienDien          Float
+  soDien            Float     @default(0)
+  chiSoDienBanDau   Float     @default(0)
+  chiSoDienCuoiKy   Float     @default(0)
+  tienNuoc          Float
+  soNuoc            Float     @default(0)
+  chiSoNuocBanDau   Float     @default(0)
+  chiSoNuocCuoiKy   Float     @default(0)
+  phiDichVu         Json      @default("[]")
+  tongTien          Float
+  daThanhToan       Float     @default(0)
+  conLai            Float
+  trangThai         String    @default("chuaThanhToan") // chuaThanhToan | daThanhToanMotPhan | daThanhToan | quaHan
+  hanThanhToan      DateTime
+  ghiChu            String?
+  ngayTao           DateTime  @default(now())
+  ngayCapNhat       DateTime  @updatedAt
+
+  thanhToan         ThanhToan[]
+}
+
+model ThanhToan {
+  id                    String    @id @default(cuid())
+  hoaDonId              String
+  hoaDon                HoaDon    @relation(fields: [hoaDonId], references: [id])
+  soTien                Float
+  phuongThuc            String    // tienMat | chuyenKhoan | viDienTu
+  thongTinChuyenKhoan   Json?     // { nganHang, soGiaoDich }
+  ngayThanhToan         DateTime  @default(now())
+  nguoiNhanId           String
+  nguoiNhan             NguoiDung @relation(fields: [nguoiNhanId], references: [id])
+  ghiChu                String?
+  anhBienLai            String?
+  ngayTao               DateTime  @default(now())
+}
+
+model SuCo {
+  id              String    @id @default(cuid())
+  phongId         String
+  phong           Phong     @relation(fields: [phongId], references: [id])
+  khachThueId     String
+  khachThue       KhachThue @relation(fields: [khachThueId], references: [id])
+  tieuDe          String
+  moTa            String
+  anhSuCo         String[]
+  loaiSuCo        String    // dienNuoc | noiThat | vesinh | anNinh | khac
+  mucDoUuTien     String    @default("trungBinh")
+  trangThai       String    @default("moi") // moi | dangXuLy | daXong | daHuy
+  nguoiXuLyId     String?
+  nguoiXuLy       NguoiDung? @relation("NguoiXuLy", fields: [nguoiXuLyId], references: [id])
+  ghiChuXuLy      String?
+  ngayBaoCao      DateTime  @default(now())
+  ngayXuLy        DateTime?
+  ngayHoanThanh   DateTime?
+  ngayTao         DateTime  @default(now())
+  ngayCapNhat     DateTime  @updatedAt
+}
+
+model ThongBao {
+  id          String    @id @default(cuid())
+  tieuDe      String
+  noiDung     String
+  loai        String    @default("chung") // chung | hoaDon | suCo | hopDong | khac
+  nguoiGuiId  String
+  nguoiGui    NguoiDung @relation(fields: [nguoiGuiId], references: [id])
+  nguoiNhan   String[]  // array of NguoiDung/KhachThue IDs
+  daDoc       String[]  // array of IDs đã đọc
+  ngayGui     DateTime  @default(now())
+  ngayTao     DateTime  @default(now())
+  toaNhaId    String?
+  phong       ThongBaoPhong[]
+}
+
+model ThongBaoPhong {
+  thongBaoId  String
+  phongId     String
+  thongBao    ThongBao  @relation(fields: [thongBaoId], references: [id])
+  phong       Phong     @relation(fields: [phongId], references: [id])
+
+  @@id([thongBaoId, phongId])
+}
