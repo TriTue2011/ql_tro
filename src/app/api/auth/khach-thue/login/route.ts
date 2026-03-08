@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         hoTen: khachThue.hoTen,
         role: 'khachThue'
       },
-      process.env.NEXTAUTH_SECRET || 'secret',
+      process.env.NEXTAUTH_SECRET!,
       { expiresIn: '7d' }
     );
 
