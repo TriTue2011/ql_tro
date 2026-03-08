@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getNguoiDungRepo } from '@/lib/repositories';
 import { z } from 'zod';
 import { hash } from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 
 const registerSchema = z.object({
   ten: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
@@ -62,6 +63,13 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { message: error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return NextResponse.json(
+        { message: 'Email hoặc số điện thoại đã được sử dụng' },
         { status: 400 }
       );
     }
