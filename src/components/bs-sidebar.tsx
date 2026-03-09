@@ -102,8 +102,7 @@ export function BsSidebar({
         break;
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, navGroups]);
 
   const userName = session?.user?.name ?? 'User';
   const userEmail = session?.user?.email ?? '';

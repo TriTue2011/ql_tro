@@ -46,6 +46,17 @@ function getInitials(name: string) {
   return name.split(' ').map((w) => w[0]).slice(-2).join('').toUpperCase();
 }
 
+// ─── Notification types ────────────────────────────────────────────────────────
+
+interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  priority: string;
+  createdAt: string;
+}
+
 // ─── Notification helpers ──────────────────────────────────────────────────────
 
 function getNotifIcon(type: string): string {
@@ -85,7 +96,7 @@ function TopBar({
 
   // Notification state
   const [showNotif, setShowNotif] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loadingNotif, setLoadingNotif] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -199,7 +210,7 @@ function TopBar({
                     <p style={{ margin: 0 }}>Không có thông báo mới</p>
                   </div>
                 ) : (
-                  notifications.map((n: any) => (
+                  notifications.map((n) => (
                     <div key={n.id} className={`notif-item priority-${n.priority}`}>
                       <div className="notif-icon">
                         <i className={`bi ${getNotifIcon(n.type)}`} />

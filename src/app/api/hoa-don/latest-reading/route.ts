@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getHoaDonRepo, getHopDongRepo } from '@/lib/repositories';
+import { parseIntParam } from '@/lib/parse-query';
 
 // GET - Lấy chỉ số điện nước mới nhất cho hợp đồng
 export async function GET(request: NextRequest) {
@@ -13,8 +14,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const hopDongId = searchParams.get('hopDong');
-    const thang = parseInt(searchParams.get('thang') || '1');
-    const nam = parseInt(searchParams.get('nam') || new Date().getFullYear().toString());
+    const thang = parseIntParam(searchParams.get('thang'), 1);
+    const nam = parseIntParam(searchParams.get('nam'), new Date().getFullYear());
 
     if (!hopDongId) {
       return NextResponse.json(

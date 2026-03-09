@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPhongRepo } from '@/lib/repositories';
+import { parsePage, parseLimit } from '@/lib/parse-query';
 import type { TrangThaiPhong } from '@/lib/repositories/types';
 
 const TRANG_THAI_PHONG: readonly string[] = ['trong', 'daDat', 'dangThue', 'baoTri'];
@@ -7,8 +8,8 @@ const TRANG_THAI_PHONG: readonly string[] = ['trong', 'daDat', 'dangThue', 'baoT
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = parsePage(searchParams.get('page'));
+    const limit = parseLimit(searchParams.get('limit'), 20);
     const search = searchParams.get('search') || '';
     const toaNhaId = searchParams.get('toaNha') || '';
     const trangThai = searchParams.get('trangThai') || '';

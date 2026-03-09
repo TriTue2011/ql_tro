@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getThanhToanRepo, getHoaDonRepo } from '@/lib/repositories';
+import { parsePage, parseLimit } from '@/lib/parse-query';
 import prisma from '@/lib/prisma';
 
 // GET - Lấy danh sách thanh toán
@@ -13,8 +14,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const page = parsePage(searchParams.get('page'));
+    const limit = parseLimit(searchParams.get('limit'));
     const hopDongId = searchParams.get('hopDongId');
     const hoaDonId = searchParams.get('hoaDonId');
 

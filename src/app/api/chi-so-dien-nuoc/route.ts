@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getChiSoRepo, getPhongRepo } from '@/lib/repositories';
+import { parsePage, parseLimit, parseIntParam } from '@/lib/parse-query';
 import { z } from 'zod';
 
 const chiSoSchema = z.object({
@@ -29,8 +30,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const page = parsePage(searchParams.get('page'));
+    const limit = parseLimit(searchParams.get('limit'));
     const phongId = searchParams.get('phong') || '';
     const thang = searchParams.get('thang') || '';
     const nam = searchParams.get('nam') || '';
@@ -41,8 +42,8 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       phongId: phongId || undefined,
-      thang: thang ? parseInt(thang) : undefined,
-      nam: nam ? parseInt(nam) : undefined,
+      thang: thang ? parseIntParam(thang, 0) || undefined : undefined,
+      nam: nam ? parseIntParam(nam, 0) || undefined : undefined,
     });
 
     return NextResponse.json({

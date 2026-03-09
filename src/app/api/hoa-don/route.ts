@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getHoaDonRepo, getHopDongRepo } from '@/lib/repositories';
+import { parsePage, parseLimit } from '@/lib/parse-query';
 import { PhiDichVu } from '@/types';
 
 // GET - Lấy danh sách hóa đơn
@@ -14,8 +15,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const page = parsePage(searchParams.get('page'));
+    const limit = parseLimit(searchParams.get('limit'));
     const hopDongId = searchParams.get('hopDongId');
     const trangThai = searchParams.get('trangThai');
 
@@ -249,7 +250,12 @@ export async function POST(request: NextRequest) {
       chiSoNuocCuoiKy: chiSoNuocCuoiKyValue,
       phiDichVu: phiDichVu || [],
       tongTien,
-      hanThanhToan: new Date(nam, thang - 1, hopDongData.ngayThanhToan),
+      hanThanhToan: (() => {
+        // Clamp ngayThanhToan to the last valid day of the month
+        // (e.g. day 31 in Feb → Feb 28/29)
+        const lastDay = new Date(nam, thang, 0).getDate();
+        return new Date(nam, thang - 1, Math.min(hopDongData.ngayThanhToan, lastDay));
+      })(),
       ghiChu,
       anhChiSoDien: anhChiSoDien || undefined,
       anhChiSoNuoc: anhChiSoNuoc || undefined,
