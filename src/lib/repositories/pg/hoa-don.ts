@@ -47,6 +47,8 @@ function normalize(raw: any): HoaDonData {
     trangThai: raw.trangThai as TrangThaiHoaDon,
     hanThanhToan: raw.hanThanhToan,
     ghiChu: raw.ghiChu ?? undefined,
+    anhChiSoDien: (raw as any).anhChiSoDien ?? undefined,
+    anhChiSoNuoc: (raw as any).anhChiSoNuoc ?? undefined,
     ngayTao: raw.ngayTao,
     ngayCapNhat: raw.ngayCapNhat,
   };
@@ -133,6 +135,8 @@ export default class HoaDonRepository {
         trangThai,
         hanThanhToan,
         ghiChu: data.ghiChu,
+        ...(data.anhChiSoDien !== undefined && { anhChiSoDien: data.anhChiSoDien }),
+        ...(data.anhChiSoNuoc !== undefined && { anhChiSoNuoc: data.anhChiSoNuoc }),
       },
       include: includeRelations,
     });
@@ -160,6 +164,8 @@ export default class HoaDonRepository {
           ...(data.tienNuoc !== undefined && { tienNuoc: data.tienNuoc }),
           ...(data.phiDichVu !== undefined && { phiDichVu: data.phiDichVu as object[] }),
           ...(data.ghiChu !== undefined && { ghiChu: data.ghiChu }),
+          ...(data.anhChiSoDien !== undefined && { anhChiSoDien: data.anhChiSoDien }),
+          ...(data.anhChiSoNuoc !== undefined && { anhChiSoNuoc: data.anhChiSoNuoc }),
           tongTien,
           daThanhToan,
           conLai,

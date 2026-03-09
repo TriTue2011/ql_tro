@@ -117,7 +117,9 @@ export async function POST(request: NextRequest) {
       chiSoNuocBanDau,
       chiSoNuocCuoiKy,
       phiDichVu,
-      ghiChu
+      ghiChu,
+      anhChiSoDien,
+      anhChiSoNuoc,
     } = body;
 
     // Validate required fields
@@ -249,6 +251,8 @@ export async function POST(request: NextRequest) {
       tongTien,
       hanThanhToan: new Date(nam, thang - 1, hopDongData.ngayThanhToan),
       ghiChu,
+      anhChiSoDien: anhChiSoDien || undefined,
+      anhChiSoNuoc: anhChiSoNuoc || undefined,
     });
 
     return NextResponse.json({
@@ -293,7 +297,9 @@ export async function PUT(request: NextRequest) {
       daThanhToan,
       trangThai,
       hanThanhToan,
-      ghiChu
+      ghiChu,
+      anhChiSoDien,
+      anhChiSoNuoc,
     } = body;
 
     // Validate required fields
@@ -353,6 +359,8 @@ export async function PUT(request: NextRequest) {
       trangThai,
       hanThanhToan: new Date(hanThanhToan),
       ghiChu,
+      anhChiSoDien: anhChiSoDien || undefined,
+      anhChiSoNuoc: anhChiSoNuoc || undefined,
     });
 
     return NextResponse.json({

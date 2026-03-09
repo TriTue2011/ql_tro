@@ -136,6 +136,8 @@ export default class HoaDonRepository {
       conLai: data.tongTien,
       hanThanhToan: new Date(data.hanThanhToan),
       ghiChu: data.ghiChu,
+      ...(data.anhChiSoDien !== undefined && { anhChiSoDien: data.anhChiSoDien }),
+      ...(data.anhChiSoNuoc !== undefined && { anhChiSoNuoc: data.anhChiSoNuoc }),
     });
     await doc.populate([
       { path: 'hopDong', select: 'maHopDong giaThue giaDien giaNuoc' },
@@ -154,6 +156,7 @@ export default class HoaDonRepository {
       'thang', 'nam', 'tienPhong', 'tienDien', 'chiSoDienBanDau', 'chiSoDienCuoiKy',
       'tienNuoc', 'chiSoNuocBanDau', 'chiSoNuocCuoiKy', 'phiDichVu', 'tongTien',
       'daThanhToan', 'hanThanhToan', 'ghiChu', 'trangThai',
+      'anhChiSoDien', 'anhChiSoNuoc',
     ];
     for (const field of allowedFields) {
       if ((data as any)[field] !== undefined) {
