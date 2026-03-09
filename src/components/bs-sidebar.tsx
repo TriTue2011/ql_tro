@@ -79,7 +79,6 @@ export function BsSidebar({
             icon: 'bi-shield-lock',
             items: [
               { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
-              { label: 'Cài đặt hệ thống', href: '/dashboard/cai-dat' },
             ],
           },
         ]
