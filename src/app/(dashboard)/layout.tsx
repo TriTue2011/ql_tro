@@ -8,6 +8,24 @@ import Link from 'next/link';
 import { BsSidebar } from '@/components/bs-sidebar';
 import '@/styles/bs-admin.css';
 
+// Bootstrap 5 + Bootstrap Icons — CDN
+function BootstrapCDN() {
+  return (
+    <>
+      <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+        crossOrigin="anonymous"
+      />
+      <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      />
+    </>
+  );
+}
+
 const breadcrumbMap: Record<string, string> = {
   'toa-nha': 'Tòa nhà',
   'phong': 'Phòng',
@@ -133,7 +151,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   if (!session) return null;
 
   return (
-    <div className="bs-admin-shell">
+    <>
+      <BootstrapCDN />
+      <div className="bs-admin-shell">
       <BsSidebar
         collapsed={collapsed}
         onToggle={() => setCollapsed((p) => !p)}
@@ -149,6 +169,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         <main className="bs-page">{children}</main>
       </div>
     </div>
+    </>
   );
 }
 

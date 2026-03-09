@@ -2,9 +2,7 @@
    AquaSpace Admin 2026 — Bootstrap Custom Theme
    ========================================================= */
 
-/* Bootstrap core */
-@import 'bootstrap/dist/css/bootstrap.min.css';
-@import 'bootstrap-icons/font/bootstrap-icons.css';
+/* Bootstrap core loaded via CDN in layout.tsx */
 
 /* ---- CSS Variables ---- */
 :root {
