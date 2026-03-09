@@ -26,6 +26,8 @@ export interface IHoaDon extends Document {
   trangThai: 'chuaThanhToan' | 'daThanhToanMotPhan' | 'daThanhToan' | 'quaHan';
   hanThanhToan: Date;
   ghiChu?: string;
+  anhChiSoDien?: string;
+  anhChiSoNuoc?: string;
   ngayTao: Date;
   ngayCapNhat: Date;
 }
@@ -152,6 +154,14 @@ const HoaDonSchema = new Schema<IHoaDon>({
     type: String,
     trim: true,
     maxlength: [500, 'Ghi chú không được quá 500 ký tự']
+  },
+  anhChiSoDien: {
+    type: String,
+    trim: true
+  },
+  anhChiSoNuoc: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: { createdAt: 'ngayTao', updatedAt: 'ngayCapNhat' }

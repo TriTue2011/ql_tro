@@ -349,6 +349,8 @@ export interface HoaDonData {
   trangThai: TrangThaiHoaDon;
   hanThanhToan: Date;
   ghiChu?: string;
+  anhChiSoDien?: string;
+  anhChiSoNuoc?: string;
   ngayTao: Date;
   ngayCapNhat: Date;
 }
@@ -371,6 +373,8 @@ export interface CreateHoaDonInput {
   tongTien: number;
   hanThanhToan: Date | string;
   ghiChu?: string;
+  anhChiSoDien?: string;
+  anhChiSoNuoc?: string;
 }
 
 export interface HoaDonQueryOptions extends QueryOptions {

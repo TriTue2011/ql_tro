@@ -169,6 +169,8 @@ model HoaDon {
   trangThai         String    @default("chuaThanhToan") // chuaThanhToan | daThanhToanMotPhan | daThanhToan | quaHan
   hanThanhToan      DateTime
   ghiChu            String?
+  anhChiSoDien      String?
+  anhChiSoNuoc      String?
   ngayTao           DateTime  @default(now())
   ngayCapNhat       DateTime  @updatedAt
 
