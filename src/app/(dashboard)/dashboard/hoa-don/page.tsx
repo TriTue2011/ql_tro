@@ -109,6 +109,7 @@ export default function HoaDonPage() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [sendingHoaDon, setSendingHoaDon] = useState<HoaDon | null>(null);
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
+  const [isSendingZalo, setIsSendingZalo] = useState(false);
 
   useEffect(() => {
     document.title = 'Quản lý Hóa đơn';
@@ -1079,52 +1080,85 @@ Vui lòng thanh toán đúng hạn.`;
             const phone = getKhachThuePhone(sendingHoaDon);
             const message = generateBillingMessage(sendingHoaDon);
             const encodedMessage = encodeURIComponent(message);
+
+            const handleSendViaZaloBot = async () => {
+              if (!phone) {
+                toast.error('Không tìm thấy số điện thoại khách thuê');
+                return;
+              }
+              setIsSendingZalo(true);
+              try {
+                const res = await fetch('/api/gui-zalo', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ phone, message }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                  toast.success('Đã gửi tin nhắn Zalo thành công!');
+                  setIsSendDialogOpen(false);
+                } else {
+                  toast.error(data.message || 'Gửi Zalo thất bại');
+                }
+              } catch {
+                toast.error('Không kết nối được Zalo Bot server');
+              } finally {
+                setIsSendingZalo(false);
+              }
+            };
+
             return (
               <div className="space-y-4">
                 {/* Preview message */}
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Nội dung tin nhắn</label>
-                  <pre className="text-xs bg-gray-50 border rounded p-3 whitespace-pre-wrap font-mono leading-relaxed max-h-52 overflow-y-auto">
+                  <pre className="text-xs bg-gray-50 border rounded p-3 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
                     {message}
                   </pre>
                 </div>
 
-                {phone && (
+                {phone ? (
                   <div className="text-sm text-gray-600">
-                    Số điện thoại: <span className="font-semibold text-gray-900">{phone}</span>
+                    Gửi đến: <span className="font-semibold text-gray-900">{phone}</span>
                   </div>
-                )}
-                {!phone && (
+                ) : (
                   <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded">
                     Không tìm thấy số điện thoại khách thuê
                   </div>
                 )}
 
-                {/* Action buttons */}
-                <div className="grid grid-cols-2 gap-2">
+                {/* Zalo Bot auto send - nổi bật nhất */}
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={!phone || isSendingZalo}
+                  onClick={handleSendViaZaloBot}
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  {isSendingZalo ? 'Đang gửi...' : 'Gửi Zalo tự động (Zalo Bot)'}
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-gray-400">hoặc thủ công</span>
+                  </div>
+                </div>
+
+                {/* Manual fallback buttons */}
+                <div className="grid grid-cols-3 gap-2">
                   <Button
                     variant="outline"
                     onClick={() => {
                       navigator.clipboard.writeText(message).then(() => {
-                        toast.success('Đã sao chép tin nhắn vào clipboard');
+                        toast.success('Đã sao chép tin nhắn');
                       });
                     }}
-                    className="w-full"
+                    className="w-full text-xs"
                   >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy tin nhắn
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    disabled={!phone}
-                    onClick={() => {
-                      window.open(`https://zalo.me/${phone}`, '_blank');
-                    }}
-                    className="w-full text-blue-600 hover:bg-blue-50 border-blue-200"
-                  >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Nhắn Zalo
+                    <Copy className="h-3.5 w-3.5 mr-1" />
+                    Copy
                   </Button>
 
                   <Button
@@ -1133,10 +1167,10 @@ Vui lòng thanh toán đúng hạn.`;
                     onClick={() => {
                       window.location.href = `sms:${phone}?body=${encodedMessage}`;
                     }}
-                    className="w-full text-green-600 hover:bg-green-50 border-green-200"
+                    className="w-full text-xs text-green-600 hover:bg-green-50 border-green-200"
                   >
-                    <Send className="h-4 w-4 mr-2" />
-                    Gửi SMS
+                    <Send className="h-3.5 w-3.5 mr-1" />
+                    SMS
                   </Button>
 
                   <Button
@@ -1145,10 +1179,10 @@ Vui lòng thanh toán đúng hạn.`;
                     onClick={() => {
                       window.location.href = `tel:${phone}`;
                     }}
-                    className="w-full text-gray-600"
+                    className="w-full text-xs"
                   >
-                    <Phone className="h-4 w-4 mr-2" />
-                    Gọi điện
+                    <Phone className="h-3.5 w-3.5 mr-1" />
+                    Gọi
                   </Button>
                 </div>
 
