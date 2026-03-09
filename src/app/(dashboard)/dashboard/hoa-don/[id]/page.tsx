@@ -553,6 +553,7 @@ export default function ChinhSuaHoaDonPage() {
                   onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoDien: url }))}
                   label="Ảnh đồng hồ điện"
                   placeholder="Chụp ảnh chỉ số điện"
+                  variant="dien"
                 />
               </TabsContent>
 
@@ -618,6 +619,7 @@ export default function ChinhSuaHoaDonPage() {
                   onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoNuoc: url }))}
                   label="Ảnh đồng hồ nước"
                   placeholder="Chụp ảnh chỉ số nước"
+                  variant="nuoc"
                 />
               </TabsContent>
 

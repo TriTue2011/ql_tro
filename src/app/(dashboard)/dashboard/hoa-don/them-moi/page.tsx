@@ -757,12 +757,14 @@ export default function ThemMoiHoaDonPage() {
                     onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoDien: url }))}
                     label="Ảnh đồng hồ điện"
                     placeholder="Chụp ảnh chỉ số điện"
+                    variant="dien"
                   />
                   <ImageUpload
                     imageUrl={formData.anhChiSoNuoc}
                     onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoNuoc: url }))}
                     label="Ảnh đồng hồ nước"
                     placeholder="Chụp ảnh chỉ số nước"
+                    variant="nuoc"
                   />
                 </div>
               </TabsContent>
