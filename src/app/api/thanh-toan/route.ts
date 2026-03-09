@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getThanhToanRepo, getHoaDonRepo } from '@/lib/repositories';
+import prisma from '@/lib/prisma';
 
 // GET - Lấy danh sách thanh toán
 export async function GET(request: NextRequest) {
@@ -21,16 +22,16 @@ export async function GET(request: NextRequest) {
     const thanhToanRepo = await getThanhToanRepo();
 
     if (hopDongId) {
-      // Tìm hóa đơn theo hợp đồng, rồi lấy thanh toán của từng hóa đơn
+      // Batch-fetch hóa đơn rồi lấy tất cả thanh toán trong 1 query (tránh N+1)
       const hoaDonResult = await hoaDonRepo.findMany({ hopDongId, limit: 1000 });
-      const allThanhToan: any[] = [];
+      const hoaDonIds = hoaDonResult.data.map(hd => hd.id).filter(Boolean) as string[];
 
-      for (const hd of hoaDonResult.data) {
-        const ttList = await thanhToanRepo.findByHoaDon(hd.id);
-        allThanhToan.push(...ttList);
-      }
+      const allThanhToan = await prisma.thanhToan.findMany({
+        where: { hoaDonId: { in: hoaDonIds } },
+        orderBy: { ngayThanhToan: 'desc' },
+      });
 
-      // Sort by ngayThanhToan desc and paginate
+      // Paginate in-memory (danh sách đã được sort từ DB)
       allThanhToan.sort((a, b) => new Date(b.ngayThanhToan).getTime() - new Date(a.ngayThanhToan).getTime());
       const total = allThanhToan.length;
       const skip = (page - 1) * limit;
