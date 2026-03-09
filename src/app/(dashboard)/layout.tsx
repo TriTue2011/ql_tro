@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { SessionProvider } from 'next-auth/react';
 import { useSession } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -46,6 +46,28 @@ function getInitials(name: string) {
   return name.split(' ').map((w) => w[0]).slice(-2).join('').toUpperCase();
 }
 
+// ─── Notification helpers ──────────────────────────────────────────────────────
+
+function getNotifIcon(type: string): string {
+  const map: Record<string, string> = {
+    overdue_invoices: 'bi-receipt-cutoff',
+    expiring_contracts: 'bi-file-earmark-x',
+    pending_issues: 'bi-exclamation-triangle',
+    system: 'bi-megaphone',
+  };
+  return map[type] ?? 'bi-bell';
+}
+
+function formatRelativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const h = Math.floor(diff / 3_600_000);
+  if (h < 1) return 'Vừa xong';
+  if (h < 24) return `${h} giờ trước`;
+  return `${Math.floor(h / 24)} ngày trước`;
+}
+
+// ─── TopBar ────────────────────────────────────────────────────────────────────
+
 function TopBar({
   onMenuClick,
   collapsed,
@@ -60,6 +82,56 @@ function TopBar({
   const userName = session?.user?.name ?? 'User';
 
   const segments = pathname.replace('/dashboard', '').split('/').filter(Boolean);
+
+  // Notification state
+  const [showNotif, setShowNotif] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotif, setLoadingNotif] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotif(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Load count on mount
+  useEffect(() => {
+    fetchNotifCount();
+  }, []);
+
+  async function fetchNotifCount() {
+    try {
+      const res = await fetch('/api/notifications?limit=1');
+      const data = await res.json();
+      if (data.success) setNotifCount(data.pagination?.total ?? data.data?.length ?? 0);
+    } catch { /* ignore */ }
+  }
+
+  async function fetchNotifications() {
+    setLoadingNotif(true);
+    try {
+      const res = await fetch('/api/notifications?limit=10');
+      const data = await res.json();
+      if (data.success) {
+        setNotifications(data.data);
+        setNotifCount(data.pagination?.total ?? data.data?.length ?? 0);
+      }
+    } catch { /* ignore */ }
+    finally { setLoadingNotif(false); }
+  }
+
+  async function handleBellClick() {
+    const next = !showNotif;
+    setShowNotif(next);
+    if (next) await fetchNotifications();
+  }
 
   return (
     <header className="bs-topbar">
@@ -97,10 +169,62 @@ function TopBar({
       </nav>
 
       <div className="bs-topbar-actions">
-        <button className="bs-icon-btn" title="Thông báo">
-          <i className="bi bi-bell" />
-          <span className="notif-dot" />
-        </button>
+        {/* ── Notification Bell ── */}
+        <div ref={notifRef} style={{ position: 'relative' }}>
+          <button className="bs-icon-btn" title="Thông báo" onClick={handleBellClick}>
+            <i className="bi bi-bell" />
+            {notifCount > 0 && (
+              <span className="notif-dot" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, borderRadius: 9, fontSize: 9, fontWeight: 700 }}>
+                {notifCount > 99 ? '99+' : notifCount}
+              </span>
+            )}
+          </button>
+
+          {showNotif && (
+            <div className="notif-dropdown">
+              <div className="notif-header">
+                <span>Thông báo</span>
+                {notifCount > 0 && <span className="notif-count-badge">{notifCount > 99 ? '99+' : notifCount}</span>}
+              </div>
+
+              <div className="notif-list">
+                {loadingNotif ? (
+                  <div className="notif-empty">
+                    <div className="spinner-border spinner-border-sm" style={{ color: '#6366f1' }} />
+                    <span>Đang tải...</span>
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="notif-empty">
+                    <i className="bi bi-bell-slash" style={{ fontSize: 28 }} />
+                    <p style={{ margin: 0 }}>Không có thông báo mới</p>
+                  </div>
+                ) : (
+                  notifications.map((n: any) => (
+                    <div key={n.id} className={`notif-item priority-${n.priority}`}>
+                      <div className="notif-icon">
+                        <i className={`bi ${getNotifIcon(n.type)}`} />
+                      </div>
+                      <div className="notif-body">
+                        <div className="notif-title">{n.title}</div>
+                        <div className="notif-msg">{n.message}</div>
+                        <div className="notif-time">{formatRelativeTime(n.createdAt)}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {notifications.length > 0 && (
+                <div className="notif-footer">
+                  <Link href="/dashboard/thong-bao" onClick={() => setShowNotif(false)}>
+                    Xem tất cả thông báo →
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <button className="bs-icon-btn" title="Tìm kiếm">
           <i className="bi bi-search" />
         </button>
@@ -111,6 +235,8 @@ function TopBar({
     </header>
   );
 }
+
+// ─── Layout ────────────────────────────────────────────────────────────────────
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
@@ -154,21 +280,21 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     <>
       <BootstrapCDN />
       <div className="bs-admin-shell">
-      <BsSidebar
-        collapsed={collapsed}
-        onToggle={() => setCollapsed((p) => !p)}
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-      />
-      <div className={`bs-main-content${collapsed ? ' sidebar-collapsed' : ''}`}>
-        <TopBar
-          onMenuClick={() => setMobileOpen(true)}
+        <BsSidebar
           collapsed={collapsed}
-          onToggleCollapse={() => setCollapsed((p) => !p)}
+          onToggle={() => setCollapsed((p) => !p)}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
         />
-        <main className="bs-page">{children}</main>
+        <div className={`bs-main-content${collapsed ? ' sidebar-collapsed' : ''}`}>
+          <TopBar
+            onMenuClick={() => setMobileOpen(true)}
+            collapsed={collapsed}
+            onToggleCollapse={() => setCollapsed((p) => !p)}
+          />
+          <main className="bs-page">{children}</main>
+        </div>
       </div>
-    </div>
     </>
   );
 }
