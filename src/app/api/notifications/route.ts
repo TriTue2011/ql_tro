@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getHoaDonRepo, getHopDongRepo, getSuCoRepo, getThongBaoRepo } from '@/lib/repositories';
+import { parsePage, parseLimit } from '@/lib/parse-query';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,8 +17,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'all';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const page = parsePage(searchParams.get('page'));
+    const limit = parseLimit(searchParams.get('limit'));
 
     let notifications: any[] = [];
 

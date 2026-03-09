@@ -7,7 +7,10 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const connectionString = process.env.POSTGRESQL_URI!;
+  const connectionString = process.env.POSTGRESQL_URI;
+  if (!connectionString) {
+    throw new Error('Environment variable POSTGRESQL_URI is not set');
+  }
   const pool = new Pool({ connectionString });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });

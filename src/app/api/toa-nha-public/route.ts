@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToaNhaRepo } from '@/lib/repositories';
+import { parsePage, parseLimit } from '@/lib/parse-query';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const page = parsePage(searchParams.get('page'));
+    const limit = parseLimit(searchParams.get('limit'), 50);
     const search = searchParams.get('search') || '';
 
     const repo = await getToaNhaRepo();

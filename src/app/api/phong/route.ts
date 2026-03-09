@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPhongRepo, getToaNhaRepo } from '@/lib/repositories';
+import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
@@ -34,8 +35,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const page = parsePage(searchParams.get('page'));
+    const limit = parseLimit(searchParams.get('limit'));
     const search = searchParams.get('search') || '';
     const toaNhaId = searchParams.get('toaNha') || '';
     const trangThai = searchParams.get('trangThai') || '';
