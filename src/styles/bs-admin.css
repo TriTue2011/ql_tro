@@ -52,7 +52,7 @@
    ========================================================= */
 .bs-sidebar {
   width: var(--bs-admin-sidebar-w);
-  min-height: 100dvh;
+  height: 100dvh;
   background: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
