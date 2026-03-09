@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { HoaDon, HopDong, Phong, KhachThue } from '@/types';
 import { toast } from 'sonner';
+import { ImageUpload } from '@/components/ui/image-upload';
 
 // Helper functions
 const getPhongName = (phongId: string | Phong, phongList: Phong[]) => {
@@ -87,6 +88,8 @@ export default function ChinhSuaHoaDonPage() {
     trangThai: 'chuaThanhToan' as 'chuaThanhToan' | 'daThanhToanMotPhan' | 'daThanhToan' | 'quaHan',
     hanThanhToan: '',
     ghiChu: '',
+    anhChiSoDien: '',
+    anhChiSoNuoc: '',
   });
 
   const [newPhiDichVu, setNewPhiDichVu] = useState({ ten: '', gia: 0 });
@@ -138,10 +141,12 @@ export default function ChinhSuaHoaDonPage() {
             daThanhToan: hoaDonItem.daThanhToan || 0,
             conLai: hoaDonItem.conLai || 0,
             trangThai: hoaDonItem.trangThai || 'chuaThanhToan',
-            hanThanhToan: hoaDonItem.hanThanhToan ? 
-              (typeof hoaDonItem.hanThanhToan === 'string' ? (hoaDonItem.hanThanhToan as string).split('T')[0] : 
+            hanThanhToan: hoaDonItem.hanThanhToan ?
+              (typeof hoaDonItem.hanThanhToan === 'string' ? (hoaDonItem.hanThanhToan as string).split('T')[0] :
                new Date(hoaDonItem.hanThanhToan as Date).toISOString().split('T')[0]) : '',
             ghiChu: hoaDonItem.ghiChu || '',
+            anhChiSoDien: (hoaDonItem as any).anhChiSoDien || '',
+            anhChiSoNuoc: (hoaDonItem as any).anhChiSoNuoc || '',
           });
         } else {
           toast.error('Không tìm thấy hóa đơn');
@@ -529,7 +534,7 @@ export default function ChinhSuaHoaDonPage() {
                       className="bg-gray-50 h-10"
                     />
                   </div>
-                  
+
                   <div className="space-y-1">
                     <Label htmlFor="tienDien" className="text-sm">Tiền điện (VNĐ)</Label>
                     <Input
@@ -542,6 +547,13 @@ export default function ChinhSuaHoaDonPage() {
                     />
                   </div>
                 </div>
+
+                <ImageUpload
+                  imageUrl={formData.anhChiSoDien}
+                  onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoDien: url }))}
+                  label="Ảnh đồng hồ điện"
+                  placeholder="Chụp ảnh chỉ số điện"
+                />
               </TabsContent>
 
               <TabsContent value="nuoc" className="space-y-4 mt-6">
@@ -587,7 +599,7 @@ export default function ChinhSuaHoaDonPage() {
                       className="bg-gray-50 h-10"
                     />
                   </div>
-                  
+
                   <div className="space-y-1">
                     <Label htmlFor="tienNuoc" className="text-sm">Tiền nước (VNĐ)</Label>
                     <Input
@@ -600,6 +612,13 @@ export default function ChinhSuaHoaDonPage() {
                     />
                   </div>
                 </div>
+
+                <ImageUpload
+                  imageUrl={formData.anhChiSoNuoc}
+                  onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoNuoc: url }))}
+                  label="Ảnh đồng hồ nước"
+                  placeholder="Chụp ảnh chỉ số nước"
+                />
               </TabsContent>
 
               <TabsContent value="dich-vu" className="space-y-4 mt-6">
