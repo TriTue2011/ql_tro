@@ -26,10 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  Plus, 
-  Search, 
-  Receipt, 
+import {
+  Plus,
+  Search,
+  Receipt,
   AlertCircle,
   Zap,
   Download,
@@ -42,7 +42,10 @@ import {
   Users,
   Home,
   Edit,
-  Trash2
+  Trash2,
+  Send,
+  Phone,
+  MessageSquare,
 } from 'lucide-react';
 import { HoaDon, HopDong, Phong, KhachThue } from '@/types';
 import { toast } from 'sonner';
@@ -104,6 +107,9 @@ export default function HoaDonPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [paymentHoaDon, setPaymentHoaDon] = useState<HoaDon | null>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [sendingHoaDon, setSendingHoaDon] = useState<HoaDon | null>(null);
+  const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
+  const [isSendingZalo, setIsSendingZalo] = useState(false);
 
   useEffect(() => {
     document.title = 'Quản lý Hóa đơn';
@@ -296,6 +302,49 @@ export default function HoaDonPage() {
       `;
       document.body.appendChild(modal);
     });
+  };
+
+  const generateBillingMessage = (hoaDon: HoaDon) => {
+    const phongName = getPhongName(hoaDon.phong, phongList);
+    const khachThueName = getKhachThueName(hoaDon.khachThue, khachThueList);
+    const hanTT = new Date(hoaDon.hanThanhToan).toLocaleDateString('vi-VN');
+    const phiDVText = hoaDon.phiDichVu.length > 0
+      ? hoaDon.phiDichVu.map(p => `  - ${p.ten}: ${formatCurrency(p.gia)}`).join('\n')
+      : '  (không có)';
+
+    return `THÔNG BÁO TIỀN PHÒNG THÁNG ${hoaDon.thang}/${hoaDon.nam}
+━━━━━━━━━━━━━━━━━━━━
+Phòng: ${phongName}
+Khách thuê: ${khachThueName}
+━━━━━━━━━━━━━━━━━━━━
+Tiền phòng: ${formatCurrency(hoaDon.tienPhong)}
+Tiền điện (${hoaDon.soDien} kWh): ${formatCurrency(hoaDon.tienDien)}
+Tiền nước (${hoaDon.soNuoc} m³): ${formatCurrency(hoaDon.tienNuoc)}
+Phí dịch vụ:
+${phiDVText}
+━━━━━━━━━━━━━━━━━━━━
+TỔNG TIỀN: ${formatCurrency(hoaDon.tongTien)}
+Đã thanh toán: ${formatCurrency(hoaDon.daThanhToan)}
+CÒN LẠI: ${formatCurrency(hoaDon.conLai)}
+━━━━━━━━━━━━━━━━━━━━
+Hạn thanh toán: ${hanTT}
+Vui lòng thanh toán đúng hạn.`;
+  };
+
+  const getKhachThuePhone = (hoaDon: HoaDon): string => {
+    if (typeof hoaDon.khachThue === 'object' && (hoaDon.khachThue as any)?.soDienThoai) {
+      return (hoaDon.khachThue as any).soDienThoai;
+    }
+    if (typeof hoaDon.khachThue === 'string') {
+      const kt = khachThueList.find(k => k.id === hoaDon.khachThue);
+      return kt?.soDienThoai || '';
+    }
+    return '';
+  };
+
+  const handleSend = (hoaDon: HoaDon) => {
+    setSendingHoaDon(hoaDon);
+    setIsSendDialogOpen(true);
   };
 
   const handleDownload = (hoaDon: HoaDon) => {
@@ -674,6 +723,7 @@ export default function HoaDonPage() {
             onDownload={handleDownload}
             onScreenshot={handleScreenshot}
             onShare={handleCopyLink}
+            onSend={handleSend}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onDeleteMultiple={handleDeleteMultiple}
@@ -841,6 +891,15 @@ export default function HoaDonPage() {
                       <Copy className="h-3.5 w-3.5 mr-1" />
                       Link
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSend(hoaDon)}
+                      className="flex-1 text-blue-600 hover:bg-blue-50"
+                    >
+                      <Send className="h-3.5 w-3.5 mr-1" />
+                      Gửi
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -1004,6 +1063,137 @@ export default function HoaDonPage() {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Notification Dialog */}
+      <Dialog open={isSendDialogOpen} onOpenChange={setIsSendDialogOpen}>
+        <DialogContent className="w-[95vw] md:w-full max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Gửi thông báo tiền phòng</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
+              Gửi thông tin hóa đơn tháng {sendingHoaDon?.thang}/{sendingHoaDon?.nam} cho khách thuê
+            </DialogDescription>
+          </DialogHeader>
+
+          {sendingHoaDon && (() => {
+            const phone = getKhachThuePhone(sendingHoaDon);
+            const message = generateBillingMessage(sendingHoaDon);
+            const encodedMessage = encodeURIComponent(message);
+
+            const handleSendViaZaloBot = async () => {
+              if (!phone) {
+                toast.error('Không tìm thấy số điện thoại khách thuê');
+                return;
+              }
+              setIsSendingZalo(true);
+              try {
+                const res = await fetch('/api/gui-zalo', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ phone, message }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                  toast.success('Đã gửi tin nhắn Zalo thành công!');
+                  setIsSendDialogOpen(false);
+                } else {
+                  toast.error(data.message || 'Gửi Zalo thất bại');
+                }
+              } catch {
+                toast.error('Không kết nối được Zalo Bot server');
+              } finally {
+                setIsSendingZalo(false);
+              }
+            };
+
+            return (
+              <div className="space-y-4">
+                {/* Preview message */}
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Nội dung tin nhắn</label>
+                  <pre className="text-xs bg-gray-50 border rounded p-3 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
+                    {message}
+                  </pre>
+                </div>
+
+                {phone ? (
+                  <div className="text-sm text-gray-600">
+                    Gửi đến: <span className="font-semibold text-gray-900">{phone}</span>
+                  </div>
+                ) : (
+                  <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded">
+                    Không tìm thấy số điện thoại khách thuê
+                  </div>
+                )}
+
+                {/* Zalo Bot auto send - nổi bật nhất */}
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={!phone || isSendingZalo}
+                  onClick={handleSendViaZaloBot}
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  {isSendingZalo ? 'Đang gửi...' : 'Gửi Zalo tự động (Zalo Bot)'}
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-gray-400">hoặc thủ công</span>
+                  </div>
+                </div>
+
+                {/* Manual fallback buttons */}
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(message).then(() => {
+                        toast.success('Đã sao chép tin nhắn');
+                      });
+                    }}
+                    className="w-full text-xs"
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1" />
+                    Copy
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    disabled={!phone}
+                    onClick={() => {
+                      window.location.href = `sms:${phone}?body=${encodedMessage}`;
+                    }}
+                    className="w-full text-xs text-green-600 hover:bg-green-50 border-green-200"
+                  >
+                    <Send className="h-3.5 w-3.5 mr-1" />
+                    SMS
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    disabled={!phone}
+                    onClick={() => {
+                      window.location.href = `tel:${phone}`;
+                    }}
+                    className="w-full text-xs"
+                  >
+                    <Phone className="h-3.5 w-3.5 mr-1" />
+                    Gọi
+                  </Button>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" size="sm" onClick={() => setIsSendDialogOpen(false)}>
+                    Đóng
+                  </Button>
+                </DialogFooter>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

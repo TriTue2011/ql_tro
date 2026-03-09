@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { HopDong, Phong, KhachThue } from '@/types';
 import { toast } from 'sonner';
+import { ImageUpload } from '@/components/ui/image-upload';
 
 // Helper functions
 const getPhongName = (phongId: string | Phong, phongList: Phong[]) => {
@@ -83,6 +84,8 @@ export default function ThemMoiHoaDonPage() {
     trangThai: 'chuaThanhToan' as 'chuaThanhToan' | 'daThanhToanMotPhan' | 'daThanhToan' | 'quaHan',
     hanThanhToan: '',
     ghiChu: '',
+    anhChiSoDien: '',
+    anhChiSoNuoc: '',
   });
 
   // Tự động sinh mã hóa đơn
@@ -745,6 +748,22 @@ export default function ThemMoiHoaDonPage() {
                     <div className="text-sm text-gray-600 mb-1">Tổng tiền nước</div>
                     <div className="text-lg font-bold text-blue-600">{formData.tienNuoc.toLocaleString('vi-VN')} VNĐ</div>
                   </div>
+                </div>
+
+                {/* Ảnh chỉ số đồng hồ */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <ImageUpload
+                    imageUrl={formData.anhChiSoDien}
+                    onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoDien: url }))}
+                    label="Ảnh đồng hồ điện"
+                    placeholder="Chụp ảnh chỉ số điện"
+                  />
+                  <ImageUpload
+                    imageUrl={formData.anhChiSoNuoc}
+                    onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoNuoc: url }))}
+                    label="Ảnh đồng hồ nước"
+                    placeholder="Chụp ảnh chỉ số nước"
+                  />
                 </div>
               </TabsContent>
 

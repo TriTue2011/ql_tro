@@ -40,6 +40,7 @@ import {
   Camera,
   Copy,
   Search,
+  Send,
 } from "lucide-react"
 import {
   ColumnDef,
@@ -167,6 +168,7 @@ type HoaDonTableProps = {
   onScreenshot: (hoaDon: HoaDon) => void
   onShare: (hoaDon: HoaDon) => void
   onPayment: (hoaDon: HoaDon) => void
+  onSend?: (hoaDon: HoaDon) => void
   onDeleteMultiple?: (ids: string[]) => void
 }
 
@@ -322,6 +324,12 @@ const createColumns = (props: HoaDonTableProps): ColumnDef<HoaDon>[] => [
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
+          {props.onSend && (
+            <DropdownMenuItem onClick={() => props.onSend!(row.original)}>
+              <Send className="mr-2 h-4 w-4" />
+              Gửi thông báo Zalo/SMS
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => props.onShare(row.original)}>
             <Copy className="mr-2 h-4 w-4" />
             Sao chép link
