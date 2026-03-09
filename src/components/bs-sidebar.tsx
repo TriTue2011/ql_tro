@@ -79,6 +79,7 @@ export function BsSidebar({
             icon: 'bi-shield-lock',
             items: [
               { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
+              { label: 'Cài đặt hệ thống', href: '/dashboard/cai-dat' },
             ],
           },
         ]
@@ -202,6 +203,7 @@ function getGroupIcon(groupLabel: string, itemLabel: string): string {
     'Thông báo': 'bi-bell',
     'Xem Web': 'bi-globe',
     'Quản lý tài khoản': 'bi-person-badge',
+    'Cài đặt hệ thống': 'bi-gear-wide-connected',
     'Hồ sơ': 'bi-person-circle',
     'Cài đặt': 'bi-sliders',
   };
