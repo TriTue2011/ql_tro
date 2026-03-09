@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
+import { hash } from 'bcryptjs';
 
 const khachThueSchema = z.object({
   hoTen: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
@@ -102,7 +103,7 @@ export async function PUT(
     };
 
     if (validatedData.matKhau) {
-      updateData.matKhau = validatedData.matKhau;
+      updateData.matKhau = await hash(validatedData.matKhau, 12);
     }
 
     const khachThue = await repo.update(id, updateData);

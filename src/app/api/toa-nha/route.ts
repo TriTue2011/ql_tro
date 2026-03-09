@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getToaNhaRepo, getPhongRepo } from '@/lib/repositories';
+import { getToaNhaRepo } from '@/lib/repositories';
 import { z } from 'zod';
+import prisma from '@/lib/prisma';
 
 const toaNghiEnum = z.enum(['wifi', 'camera', 'baoVe', 'giuXe', 'thangMay', 'sanPhoi', 'nhaVeSinhChung', 'khuBepChung']);
 
@@ -36,29 +37,42 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
 
     const repo = await getToaNhaRepo();
-    const phongRepo = await getPhongRepo();
-
     const result = await repo.findMany({ page, limit, search: search || undefined });
 
-    // Tính thống kê trạng thái phòng cho mỗi tòa nhà
-    const toaNhaWithStats = await Promise.all(
-      result.data.map(async (toaNha) => {
-        const phongTrongResult = await phongRepo.findMany({ toaNhaId: toaNha.id, trangThai: 'trong', limit: 1 });
-        const phongDangThueResult = await phongRepo.findMany({ toaNhaId: toaNha.id, trangThai: 'dangThue', limit: 1 });
-        const phongDaDatResult = await phongRepo.findMany({ toaNhaId: toaNha.id, trangThai: 'daDat', limit: 1 });
-        const phongBaoTriResult = await phongRepo.findMany({ toaNhaId: toaNha.id, trangThai: 'baoTri', limit: 1 });
-        const tongSoPhongResult = await phongRepo.findMany({ toaNhaId: toaNha.id, limit: 1 });
+    // Batch-fetch thống kê phòng (tránh N+1: 5 queries/tòa nhà → 1 groupBy)
+    const toaNhaIds = result.data.map(t => t.id).filter(Boolean) as string[];
+    const phongGroups = await prisma.phong.groupBy({
+      by: ['toaNhaId', 'trangThai'],
+      where: { toaNhaId: { in: toaNhaIds } },
+      _count: { id: true },
+    });
 
-        return {
-          ...toaNha,
-          tongSoPhong: tongSoPhongResult.pagination.total,
-          phongTrong: phongTrongResult.pagination.total,
-          phongDangThue: phongDangThueResult.pagination.total,
-          phongDaDat: phongDaDatResult.pagination.total,
-          phongBaoTri: phongBaoTriResult.pagination.total,
-        };
-      })
-    );
+    type Stats = { trong: number; dangThue: number; daDat: number; baoTri: number; total: number };
+    const statsMap = new Map<string, Stats>();
+    for (const id of toaNhaIds) {
+      statsMap.set(id, { trong: 0, dangThue: 0, daDat: 0, baoTri: 0, total: 0 });
+    }
+    for (const g of phongGroups) {
+      const s = statsMap.get(g.toaNhaId);
+      if (!s) continue;
+      s.total += g._count.id;
+      if (g.trangThai === 'trong') s.trong = g._count.id;
+      else if (g.trangThai === 'dangThue') s.dangThue = g._count.id;
+      else if (g.trangThai === 'daDat') s.daDat = g._count.id;
+      else if (g.trangThai === 'baoTri') s.baoTri = g._count.id;
+    }
+
+    const toaNhaWithStats = result.data.map(toaNha => {
+      const s = statsMap.get(toaNha.id ?? '') ?? { trong: 0, dangThue: 0, daDat: 0, baoTri: 0, total: 0 };
+      return {
+        ...toaNha,
+        tongSoPhong: s.total,
+        phongTrong: s.trong,
+        phongDangThue: s.dangThue,
+        phongDaDat: s.daDat,
+        phongBaoTri: s.baoTri,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -68,25 +82,8 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching toa nha:', error);
-
-    const errorMessage = process.env.NODE_ENV === 'development'
-      ? error instanceof Error ? error.message : String(error)
-      : 'Internal server error';
-
-    const errorDetails = process.env.NODE_ENV === 'development'
-      ? {
-          name: error instanceof Error ? error.name : 'Unknown',
-          stack: error instanceof Error ? error.stack : undefined,
-          fullError: error
-        }
-      : undefined;
-
     return NextResponse.json(
-      {
-        message: errorMessage,
-        details: errorDetails,
-        error: 'SERVER_ERROR'
-      },
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -94,27 +91,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('=== POST /api/toa-nha started ===');
-
     const session = await getServerSession(authOptions);
-    console.log('Session:', session ? 'Found' : 'Not found');
 
     if (!session) {
-      console.log('No session found, returning 401');
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    console.log('Session user ID:', session.user.id);
-    console.log('Session user role:', session.user.role);
-
     const body = await request.json();
-    console.log('Request body:', body);
-
     const validatedData = toaNhaSchema.parse(body);
-    console.log('Validated data:', validatedData);
 
     const repo = await getToaNhaRepo();
 
@@ -124,8 +111,6 @@ export async function POST(request: NextRequest) {
       tienNghiChung: validatedData.tienNghiChung || [],
     });
 
-    console.log('Toa nha saved successfully');
-
     return NextResponse.json({
       success: true,
       data: newToaNha,
@@ -134,37 +119,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Validation error:', error.issues);
       return NextResponse.json(
-        {
-          message: 'Validation error',
-          details: error.issues,
-          error: 'VALIDATION_ERROR'
-        },
+        { message: error.issues[0].message },
         { status: 400 }
       );
     }
 
     console.error('Error creating toa nha:', error);
-
-    const errorMessage = process.env.NODE_ENV === 'development'
-      ? error instanceof Error ? error.message : String(error)
-      : 'Internal server error';
-
-    const errorDetails = process.env.NODE_ENV === 'development'
-      ? {
-          name: error instanceof Error ? error.name : 'Unknown',
-          stack: error instanceof Error ? error.stack : undefined,
-          fullError: error
-        }
-      : undefined;
-
     return NextResponse.json(
-      {
-        message: errorMessage,
-        details: errorDetails,
-        error: 'SERVER_ERROR'
-      },
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }
