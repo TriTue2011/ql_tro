@@ -237,3 +237,15 @@ model ThongBaoPhong {
 
   @@id([thongBaoId, phongId])
 }
+
+// Cài đặt hệ thống — chỉ admin đọc/ghi qua UI
+model CaiDat {
+  id          String   @id @default(cuid())
+  khoa        String   @unique  // key, e.g. "storage_provider"
+  giaTri      String?           // value (JSON string for complex values)
+  moTa        String?           // mô tả
+  nhom        String   @default("chung") // chung | luuTru | thongBao | heThong | baoMat
+  laBiMat     Boolean  @default(false)   // true → che giá trị khi trả về client
+  ngayTao     DateTime @default(now())
+  ngayCapNhat DateTime @updatedAt
+}

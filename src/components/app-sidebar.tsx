@@ -123,6 +123,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             title: "Quản lý tài khoản",
             url: "/dashboard/quan-ly-tai-khoan",
           },
+          {
+            title: "Cài đặt hệ thống",
+            url: "/dashboard/cai-dat",
+          },
         ],
       })
     }
