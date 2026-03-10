@@ -1,471 +1,609 @@
-Code được OpenSoure lại từ Phạm Trung Dũng
-# Hệ thống quản lý phòng trọ
+# Hệ thống Quản Lý Phòng Trọ
 
-Hệ thống quản lý phòng trọ hiện đại và toàn diện được xây dựng với Next.js 15, TypeScript và MongoDB.
-
-## 🚀 Tính năng chính
-
-### 📊 Dashboard
-- Thống kê tổng quan về phòng, doanh thu, hóa đơn
-- Biểu đồ doanh thu theo tháng
-- Danh sách hóa đơn sắp đến hạn
-- Danh sách sự cố cần xử lý
-- Hợp đồng sắp hết hạn
-
-### 🏢 Quản lý tòa nhà
-- CRUD thông tin tòa nhà
-- Upload ảnh tòa nhà
-- Quản lý tiện ích chung
-- Xem danh sách phòng theo tòa nhà
-
-### 🏠 Quản lý phòng
-- CRUD thông tin phòng
-- Upload ảnh phòng
-- Lọc phòng theo trạng thái
-- Xem lịch sử thuê phòng
-- Quản lý tiện nghi phòng
-
-### 👥 Quản lý khách thuê
-- CRUD thông tin khách thuê
-- Upload ảnh CCCD
-- Lịch sử thuê phòng
-- Lịch sử thanh toán
-
-### 📄 Quản lý hợp đồng
-- Tạo hợp đồng mới
-- Upload file hợp đồng PDF
-- Gia hạn hợp đồng
-- Chấm dứt hợp đồng
-- In hợp đồng
-
-### ⚡ Quản lý chỉ số điện nước
-- Ghi chỉ số hàng tháng
-- Upload ảnh chỉ số
-- Tự động tính tiêu thụ
-- Lịch sử chỉ số
-
-### 🧾 Quản lý hóa đơn
-- Tạo hóa đơn tự động theo chu kỳ
-- Tính toán tự động: tiền điện, nước, dịch vụ
-- Gửi thông báo hóa đơn
-- In hóa đơn
-- Xuất báo cáo Excel
-
-### 💰 Quản lý thanh toán
-- Ghi nhận thanh toán
-- Upload biên lai
-- Lịch sử thanh toán
-- Xuất phiếu thu
-
-### 🚨 Quản lý sự cố
-- Khách thuê báo cáo sự cố
-- Phân loại và ưu tiên sự cố
-- Theo dõi tiến độ xử lý
-- Upload ảnh sự cố
-
-### 🔔 Thông báo
-- Gửi thông báo đến khách thuê
-- Thông báo theo phòng/tòa nhà
-- Lịch sử thông báo
-
-### ⚙️ Cài đặt hệ thống
-- Quản lý người dùng
-- Cấu hình hệ thống
-- Sao lưu và khôi phục dữ liệu
-- Cài đặt thông báo
-
-## 🛠 Tech Stack
-
-### Frontend
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
-- **UI Components**: shadcn/ui
-- **Styling**: Tailwind CSS v4.1
-- **State Management**: React Hooks, Context API
-- **Form Handling**: React Hook Form + Zod validation
-- **Icons**: lucide-react
-
-### Backend
-- **API**: Next.js API Routes (App Router)
-- **Authentication**: NextAuth.js (JWT + Session)
-- **Database**: MongoDB với Mongoose ODM
-
-### Additional Libraries
-- **Date handling**: date-fns
-- **Charts**: recharts
-- **Toast notifications**: sonner
-- **File upload**: uploadthing hoặc cloudinary
-
-## 📦 Cài đặt
-
-### Yêu cầu hệ thống
-- **Node.js**: Phiên bản 18 trở lên (Khuyến nghị: Node.js 20+)
-- **npm**: Đi kèm với Node.js
-- **MongoDB Atlas**: URI connection string (hoặc MongoDB local)
-- **Git**: Để clone repository
-- **Code Editor**: VS Code (khuyến nghị) hoặc bất kỳ editor nào
+Ứng dụng web quản lý nhà trọ hiện đại xây dựng với **Next.js 15**, **TypeScript**, **PostgreSQL** và **Prisma ORM**. Hỗ trợ quản lý toàn bộ vòng đời: tòa nhà → phòng → hợp đồng → hóa đơn → thanh toán → sự cố.
 
 ---
 
-## 🚀 HƯỚNG DẪN SETUP CHO KHÁCH HÀNG MỚI
+## Tính năng chính
 
-### Bước 1: Chuẩn bị môi trường
+| Nhóm | Chức năng |
+|------|-----------|
+| Dashboard | Thống kê tổng quan, biểu đồ doanh thu, cảnh báo hóa đơn quá hạn & hợp đồng sắp hết hạn |
+| Tòa nhà | CRUD, upload ảnh, quản lý tiện ích chung |
+| Phòng | CRUD, lọc theo trạng thái, lịch sử thuê, tiện nghi |
+| Khách thuê | CRUD, upload ảnh CCCD 2 mặt, lịch sử thuê & thanh toán |
+| Hợp đồng | Tạo/gia hạn/chấm dứt, upload PDF, in hợp đồng |
+| Chỉ số điện nước | Ghi chỉ số hàng tháng, upload ảnh đồng hồ, tự động tính tiêu thụ |
+| Hóa đơn | Tạo tự động theo chu kỳ, tính điện/nước/dịch vụ, gửi thông báo, in, xuất Excel |
+| Thanh toán | Ghi nhận thanh toán (tiền mặt/chuyển khoản/ví), upload biên lai |
+| Sự cố | Báo cáo, phân loại, theo dõi tiến độ xử lý, upload ảnh |
+| Thông báo | Chuông thông báo realtime, gửi thông báo Zalo OA |
+| Cài đặt | Quản lý tài khoản, cấu hình lưu trữ ảnh (Local/MinIO/Cloudinary), Zalo, bảo mật |
 
-#### 1.1. Cài đặt Node.js
-- Tải và cài đặt Node.js từ: https://nodejs.org/
-- Kiểm tra cài đặt thành công:
+---
+
+## Tech Stack
+
+### Frontend
+- **Next.js 15** (App Router, Turbopack)
+- **TypeScript**
+- **Bootstrap 5** + **Bootstrap Icons** — UI chính
+- **shadcn/ui** + **Tailwind CSS v4** — một số component
+- **React Hook Form** + **Zod** — validation form
+- **Recharts** — biểu đồ doanh thu
+- **date-fns** — xử lý ngày tháng
+
+### Backend
+- **Next.js API Routes** (App Router)
+- **NextAuth.js** — xác thực JWT, session, phân quyền (admin / chuNha / nhanVien)
+- **Prisma 7** + **PostgreSQL** — ORM, migrations
+- **Repository Pattern** — tách biệt data access logic
+
+### Infrastructure (Production)
+- **Docker** — chạy PostgreSQL (`ql_tro_postgres`, port 5432)
+- **PM2** — process manager cho Next.js app
+- **scripts/migrate-prod.js** — tự động apply migrations khi `npm run build`
+- **scripts/deploy.sh** — tự động deploy khi push code lên GitHub (chạy qua cron mỗi phút)
+
+---
+
+## Yêu cầu hệ thống
+
+| Phần mềm | Phiên bản tối thiểu | Ghi chú |
+|----------|---------------------|---------|
+| Node.js | 20+ | Khuyến nghị LTS |
+| npm | 9+ | Đi kèm Node.js |
+| PostgreSQL | 14+ | Local hoặc Docker |
+| Docker | 20+ | Chỉ cần ở production |
+| PM2 | 5+ | Chỉ cần ở production |
+| Git | Bất kỳ | |
+
+---
+
+## Cài đặt (Development)
+
+### Bước 1 — Clone repository
+
 ```bash
-node --version    # Nên >= v18.0.0
-npm --version     # Nên >= 9.0.0
+git clone https://github.com/TriTue2011/ql_tro.git
+cd ql_tro
 ```
 
-#### 1.2. Cài đặt Git (nếu chưa có)
-- Windows: https://git-scm.com/download/win
-- Mac: https://git-scm.com/download/mac
-- Linux: `sudo apt-get install git`
-
-### Bước 2: Clone dự án
+### Bước 2 — Cài dependencies
 
 ```bash
-# Clone repository (thay <repository-url> bằng link git của bạn)
-git clone <repository-url>
-
-# Di chuyển vào thư mục dự án
-cd demo-phong-tro
-```
-
-### Bước 3: Cài đặt dependencies
-
-```bash
-# Cài đặt tất cả package cần thiết (có thể mất 2-5 phút)
 npm install
-
-# Hoặc nếu gặp lỗi, thử:
-npm install --legacy-peer-deps
 ```
 
-### Bước 4: Cấu hình Environment Variables
+Lệnh này sẽ tự chạy `prisma generate` (postinstall hook).
 
-#### 4.1. Tạo file .env.local
-```bash
-# Windows (PowerShell)
-Copy-Item env.example .env.local
+### Bước 3 — Tạo file `.env.local`
 
-# Mac/Linux
-cp env.example .env.local
-```
-
-#### 4.2. Cấu hình MongoDB URI
-
-**Mở file `.env.local`** bằng editor và cập nhật các thông tin sau:
+Tạo file `.env.local` ở thư mục gốc với nội dung sau:
 
 ```env
-# Database - QUAN TRỌNG: Thêm tên database vào URI
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/TENDATABASE?retryWrites=true&w=majority&appName=AppName
+# ───────────────────────────────────────────
+# DATABASE — PostgreSQL
+# ───────────────────────────────────────────
+# Kết nối PostgreSQL (bắt buộc)
+POSTGRESQL_URI=postgresql://postgres:postgres@localhost:5432/ql_tro
 
+# Chế độ database: postgresql | mongodb | both
+DATABASE_PROVIDER=postgresql
 
-
-# NextAuth - Tạo secret key ngẫu nhiên
+# ───────────────────────────────────────────
+# NEXTAUTH
+# ───────────────────────────────────────────
 NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-random-secret-key-here-make-it-long-and-complex
+# Tạo secret ngẫu nhiên: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+NEXTAUTH_SECRET=your-random-secret-here
 
-# Cloudinary (upload ảnh) - QUAN TRỌNG
-NEXT_PUBLIC_CLOUD_NAME=your-cloudinary-name
-NEXT_PUBLIC_UPLOAD_PRESET=your-upload-preset
+# ───────────────────────────────────────────
+# LƯU TRỮ ẢNH
+# ───────────────────────────────────────────
+# Chế độ lưu trữ: local | cloudinary | minio | both
+STORAGE_PROVIDER=local
 
-# Email (tùy chọn - để gửi thông báo)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
+# --- Cloudinary (nếu STORAGE_PROVIDER=cloudinary hoặc both) ---
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+CLOUDINARY_UPLOAD_PRESET=
+
+# --- MinIO (nếu STORAGE_PROVIDER=minio hoặc both) ---
+MINIO_ENDPOINT=
+MINIO_ACCESS_KEY=
+MINIO_SECRET_KEY=
+MINIO_BUCKET=ql-tro
+
+# ───────────────────────────────────────────
+# ZALO OA (tùy chọn)
+# ───────────────────────────────────────────
+ZALO_ACCESS_TOKEN=
+ZALO_OA_ID=
+ZALO_WEBHOOK_SECRET=
 ```
 
-#### 4.3. Tạo NEXTAUTH_SECRET
-Chạy lệnh sau để tạo secret key ngẫu nhiên:
+### Bước 4 — Tạo database PostgreSQL
 
 ```bash
-# Windows PowerShell
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# Tạo database (nếu chưa có)
+psql -U postgres -c "CREATE DATABASE ql_tro;"
 
-# Mac/Linux/Git Bash
-openssl rand -base64 32
+# Apply migrations (tạo tất cả bảng)
+npx prisma migrate deploy
 ```
 
-Copy kết quả vào `NEXTAUTH_SECRET` trong file `.env.local`
+> **Lưu ý:** Nếu dùng Docker cho PostgreSQL:
+> ```bash
+> docker run -d --name ql_tro_postgres \
+>   -e POSTGRES_PASSWORD=postgres \
+>   -p 5432:5432 \
+>   postgres:16
+> docker exec ql_tro_postgres psql -U postgres -c "CREATE DATABASE ql_tro;"
+> npx prisma migrate deploy
+> ```
 
-#### 4.4. Cấu hình Cloudinary (để upload ảnh)
+### Bước 5 — Tạo tài khoản admin đầu tiên
 
-1. Đăng ký tài khoản miễn phí tại: https://cloudinary.com/
-2. Vào Dashboard, lấy:
-   - **Cloud Name**: Điền vào `NEXT_PUBLIC_CLOUD_NAME`
-   - **Upload Preset**: 
-     - Vào Settings → Upload
-     - Tạo Upload Preset mới (unsigned)
-     - Copy tên preset vào `NEXT_PUBLIC_UPLOAD_PRESET`
+Sau khi apply migrations, gọi API để tạo admin:
 
-### Bước 5: Chạy ứng dụng
+```bash
+curl -X POST http://localhost:3000/api/admin/create-first \
+  -H "Content-Type: application/json" \
+  -d '{"ten":"Admin","email":"admin@example.com","matKhau":"admin123"}'
+```
 
-#### 5.1. Khởi động Development Server
+> API này tự khóa sau khi đã có admin trong hệ thống.
+
+### Bước 6 — Chạy development server
 
 ```bash
 npm run dev
 ```
 
-Đợi vài giây cho đến khi thấy thông báo:
-```
-✓ Ready in 3.2s
-○ Local:   http://localhost:3000
-```
+Truy cập: **http://localhost:3000**
 
-#### 5.2. Truy cập ứng dụng
-
-Mở trình duyệt và truy cập: **http://localhost:3000**
-
-### Bước 6: Tạo dữ liệu mẫu (Optional)
-
-Nếu muốn test với dữ liệu mẫu:
-
-#### 6.1. Mở Terminal mới (giữ server đang chạy)
-
-#### 6.2. Gọi API seed data
-
-```bash
-# Windows PowerShell
-Invoke-WebRequest -Uri http://localhost:3000/api/seed -Method POST
-
-# Mac/Linux/Git Bash
-curl -X POST http://localhost:3000/api/seed
-
-# Hoặc dùng browser: Truy cập http://localhost:3000/api/seed trong trình duyệt
-```
-
-#### 6.3. Đăng nhập với tài khoản mặc định
-
-- **Email**: `admin@example.com`
-- **Password**: `admin123`
+Đăng nhập bằng tài khoản vừa tạo ở Bước 5.
 
 ---
 
-## 🔧 Xử lý lỗi thường gặp
+## Cài đặt (Production — Linux Server)
 
-### Lỗi 1: "Cannot connect to MongoDB"
-**Nguyên nhân**: MongoDB URI không đúng hoặc IP chưa được whitelist
+### Yêu cầu thêm
 
-**Giải pháp**:
-1. Kiểm tra MongoDB URI trong file `.env.local`
-2. Vào MongoDB Atlas → Network Access → Add IP Address
-3. Chọn "Allow access from anywhere" (0.0.0.0/0) để test
+- Docker đã cài và đang chạy
+- PM2 cài global: `npm install -g pm2`
+- Node.js 20+ trên server
 
-### Lỗi 2: "Module not found"
-**Nguyên nhân**: Dependencies chưa được cài đặt đầy đủ
+### Bước 1 — Clone và cài dependencies
 
-**Giải pháp**:
 ```bash
-# Xóa node_modules và cài lại
-rm -rf node_modules package-lock.json
+git clone https://github.com/TriTue2011/ql_tro.git /opt/ql_tro
+cd /opt/ql_tro
 npm install
 ```
 
-### Lỗi 3: "Port 3000 already in use"
-**Nguyên nhân**: Port 3000 đang được sử dụng
+### Bước 2 — Tạo `.env.local`
 
-**Giải pháp**:
 ```bash
-# Chạy trên port khác
-npm run dev -- -p 3001
+nano /opt/ql_tro/.env.local
 ```
 
-### Lỗi 4: Upload ảnh không hoạt động
-**Nguyên nhân**: Chưa cấu hình Cloudinary
+Nội dung tương tự phần Development, thay đổi:
 
-**Giải pháp**: Xem lại Bước 4.4
+```env
+NEXTAUTH_URL=http://<IP-SERVER>:3000   # hoặc domain thực
+POSTGRESQL_URI=postgresql://postgres:postgres@localhost:5432/ql_tro
+DATABASE_PROVIDER=postgresql
+STORAGE_PROVIDER=local                  # hoặc cloudinary nếu đã cấu hình
+```
 
----
+### Bước 3 — Tạo Docker PostgreSQL container
 
-## 📝 Checklist Setup
-
-- [ ] ✅ Đã cài đặt Node.js 18+
-- [ ] ✅ Đã clone repository
-- [ ] ✅ Đã chạy `npm install` thành công
-- [ ] ✅ Đã tạo file `.env.local`
-- [ ] ✅ Đã cấu hình MONGODB_URI với **TÊN DATABASE**
-- [ ] ✅ Đã tạo NEXTAUTH_SECRET
-- [ ] ✅ Đã cấu hình Cloudinary
-- [ ] ✅ Đã chạy `npm run dev` thành công
-- [ ] ✅ Truy cập http://localhost:3000 được
-- [ ] ✅ (Optional) Đã seed data và đăng nhập được
-
----
-
-## 🌐 Deploy lên Production
-
-### Deploy lên Vercel (Khuyến nghị - Miễn phí)
-
-1. **Push code lên GitHub**
 ```bash
-git add .
-git commit -m "Initial commit"
+docker run -d --name ql_tro_postgres \
+  --restart unless-stopped \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 5432:5432 \
+  postgres:16
+
+# Tạo database
+docker exec ql_tro_postgres psql -U postgres -c "CREATE DATABASE ql_tro;"
+```
+
+### Bước 4 — Build và khởi động
+
+```bash
+cd /opt/ql_tro
+
+# Build (tự động apply migrations trước khi build)
+npm run build
+
+# Khởi động qua PM2
+pm2 start ecosystem.config.js --env production
+pm2 save
+pm2 startup   # đăng ký PM2 khởi động cùng hệ thống
+```
+
+Trong quá trình build, bạn sẽ thấy:
+```
+[migrate] Kết nối PostgreSQL thành công.
+[migrate]   Applying: 20260308022917_init...
+[migrate]   OK: 20260308022917_init
+[migrate] Tất cả migrations đã được apply.
+```
+
+### Bước 5 — Tạo tài khoản admin
+
+```bash
+curl -X POST http://localhost:3000/api/admin/create-first \
+  -H "Content-Type: application/json" \
+  -d '{"ten":"Admin","email":"admin@example.com","matKhau":"<mat-khau-manh>"}'
+```
+
+### Bước 6 — Thiết lập tự động deploy (tùy chọn)
+
+Script `scripts/deploy.sh` kiểm tra GitHub mỗi phút, tự động pull và rebuild khi có commit mới:
+
+```bash
+chmod +x /opt/ql_tro/scripts/deploy.sh
+chmod +x /opt/ql_tro/scripts/start-services.sh
+
+# Thêm vào crontab
+(crontab -l 2>/dev/null; echo "* * * * * /opt/ql_tro/scripts/deploy.sh >> /opt/ql_tro/logs/deploy.log 2>&1") | crontab -
+
+# Kiểm tra
+tail -f /opt/ql_tro/logs/deploy.log
+```
+
+Sau khi thiết lập, quy trình deploy chỉ cần:
+```bash
 git push origin main
+# Server tự pull → migrate → build → restart PM2 trong vòng 1 phút
 ```
 
-2. **Deploy với Vercel**
-   - Truy cập: https://vercel.com/
-   - Đăng nhập bằng GitHub
-   - Click "New Project"
-   - Import repository `demo-phong-tro`
-   - Cấu hình Environment Variables (copy từ `.env.local`)
-   - Click "Deploy"
+---
 
-3. **Cập nhật NEXTAUTH_URL**
-   - Sau khi deploy xong, copy URL Vercel (vd: `https://demo-phong-tro.vercel.app`)
-   - Vào Settings → Environment Variables
-   - Sửa `NEXTAUTH_URL` thành URL mới
-   - Redeploy
+## Cấu hình lưu trữ ảnh
+
+### Local (mặc định — không cần cấu hình)
+
+Ảnh lưu vào thư mục `public/uploads/` trên server.
+
+```env
+STORAGE_PROVIDER=local
+```
+
+### Cloudinary (khuyến nghị cho production)
+
+1. Đăng ký tại https://cloudinary.com/
+2. Lấy Cloud Name, API Key, API Secret từ Dashboard
+3. Tạo Upload Preset (unsigned) tại Settings → Upload
+
+```env
+STORAGE_PROVIDER=cloudinary
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=123456789
+CLOUDINARY_API_SECRET=your-secret
+CLOUDINARY_UPLOAD_PRESET=your-preset
+```
+
+Hoặc cấu hình qua giao diện: **Cài đặt hệ thống → tab Lưu trữ** (đăng nhập admin).
+
+### MinIO (self-hosted S3)
+
+```env
+STORAGE_PROVIDER=minio
+MINIO_ENDPOINT=http://your-minio-server:9000
+MINIO_ACCESS_KEY=your-access-key
+MINIO_SECRET_KEY=your-secret-key
+MINIO_BUCKET=ql-tro
+```
 
 ---
 
-## 💡 Tips cho khách hàng mới
+## Cấu hình Zalo OA (gửi thông báo tự động)
 
-1. **Backup MongoDB URI**: Lưu lại MongoDB URI ở nơi an toàn
-2. **Đổi mật khẩu admin**: Đăng nhập và đổi password ngay
-3. **Tạo tài khoản riêng**: Không dùng chung tài khoản admin
-4. **Backup database**: Thường xuyên export data từ MongoDB Atlas
-5. **Check logs**: Nếu có lỗi, xem logs trong terminal
-6. **Update thường xuyên**: Chạy `npm update` để update dependencies
+1. Đăng ký Zalo Official Account tại https://oa.zalo.me/
+2. Lấy Access Token và OA ID
+3. Điền vào `.env.local` hoặc qua giao diện **Cài đặt → tab Thông báo**
+
+```env
+ZALO_ACCESS_TOKEN=your-access-token
+ZALO_OA_ID=your-oa-id
+ZALO_WEBHOOK_SECRET=your-webhook-secret
+```
 
 ---
 
-## 📞 Hỗ trợ
+## Database Schema
 
-Nếu gặp vấn đề trong quá trình setup:
-1. Kiểm tra lại từng bước trong hướng dẫn
-2. Xem phần "Xử lý lỗi thường gặp"
-3. Liên hệ người phát triển
+Hệ thống sử dụng **PostgreSQL** với Prisma ORM. Migrations nằm trong `prisma/migrations/`.
 
-## 📊 Database Schema
+| Model | Mô tả |
+|-------|-------|
+| `NguoiDung` | Tài khoản người dùng (admin / chuNha / nhanVien) |
+| `ToaNha` | Tòa nhà / khu nhà trọ |
+| `Phong` | Phòng trọ (trong / daDat / dangThue / baoTri) |
+| `KhachThue` | Thông tin khách thuê |
+| `HopDong` | Hợp đồng thuê phòng (hoatDong / hetHan / daHuy) |
+| `ChiSoDienNuoc` | Chỉ số điện nước hàng tháng theo phòng |
+| `HoaDon` | Hóa đơn tháng (chuaThanhToan / daThanhToanMotPhan / daThanhToan / quaHan) |
+| `ThanhToan` | Giao dịch thanh toán (tiền mặt / chuyển khoản / ví điện tử) |
+| `SuCo` | Sự cố cần xử lý (moi / dangXuLy / daXong / daHuy) |
+| `ThongBao` | Thông báo hệ thống |
+| `CaiDat` | Cài đặt hệ thống dạng key-value |
 
-Hệ thống sử dụng MongoDB với các collection chính:
+### Thêm migration mới
 
-- **NguoiDung**: Quản lý người dùng (admin, chủ nhà, nhân viên)
-- **ToaNha**: Thông tin tòa nhà
-- **Phong**: Thông tin phòng trọ
-- **KhachThue**: Thông tin khách thuê
-- **HopDong**: Hợp đồng thuê phòng
-- **ChiSoDienNuoc**: Chỉ số điện nước hàng tháng
-- **HoaDon**: Hóa đơn thanh toán
-- **ThanhToan**: Giao dịch thanh toán
-- **SuCo**: Báo cáo sự cố
-- **ThongBao**: Thông báo hệ thống
-
-## 🔐 Authentication
-
-Hệ thống sử dụng NextAuth.js với:
-- JWT tokens
-- Session management
-- Role-based access control (admin, chủ nhà, nhân viên)
-- Protected routes
-
-## 📱 Responsive Design
-
-- Mobile-first approach
-- Sidebar collapse trên mobile
-- Bảng responsive với horizontal scroll
-- Form stack trên mobile
-
-## 🚀 Deployment
-
-### Vercel (Recommended)
-1. Push code lên GitHub
-2. Connect với Vercel
-3. Cấu hình environment variables
-4. Deploy
-
-### Docker
 ```bash
-docker build -t motel-management .
-docker run -p 3000:3000 motel-management
+# Development
+npx prisma migrate dev --name ten_migration
+
+# Production (tự chạy khi npm run build)
+# Hoặc chạy thủ công:
+npx prisma migrate deploy
 ```
 
-## 📝 API Documentation
+---
 
-### Authentication
-- `POST /api/auth/register` - Đăng ký tài khoản
-- `POST /api/auth/[...nextauth]` - Đăng nhập
+## API Routes
+
+### Auth
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| POST | `/api/auth/register` | Đăng ký tài khoản |
+| POST | `/api/auth/[...nextauth]` | Đăng nhập (NextAuth) |
+| POST | `/api/admin/create-first` | Tạo admin đầu tiên (tự khóa sau khi dùng) |
 
 ### Tòa nhà
-- `GET /api/toa-nha` - Lấy danh sách tòa nhà
-- `POST /api/toa-nha` - Tạo tòa nhà mới
-- `GET /api/toa-nha/[id]` - Lấy thông tin tòa nhà
-- `PUT /api/toa-nha/[id]` - Cập nhật tòa nhà
-- `DELETE /api/toa-nha/[id]` - Xóa tòa nhà
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/toa-nha` | Danh sách tòa nhà |
+| POST | `/api/toa-nha` | Tạo mới |
+| GET/PUT/DELETE | `/api/toa-nha/[id]` | Chi tiết / cập nhật / xóa |
 
 ### Phòng
-- `GET /api/phong` - Lấy danh sách phòng
-- `POST /api/phong` - Tạo phòng mới
-- `GET /api/phong/[id]` - Lấy thông tin phòng
-- `PUT /api/phong/[id]` - Cập nhật phòng
-- `DELETE /api/phong/[id]` - Xóa phòng
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/phong` | Danh sách phòng (có filter trangThai, toaNhaId) |
+| POST | `/api/phong` | Tạo mới |
+| GET/PUT/DELETE | `/api/phong/[id]` | Chi tiết / cập nhật / xóa |
+| GET | `/api/phong-public` | Danh sách phòng công khai (không cần auth) |
 
 ### Khách thuê
-- `GET /api/khach-thue` - Lấy danh sách khách thuê
-- `POST /api/khach-thue` - Tạo khách thuê mới
-- `GET /api/khach-thue/[id]` - Lấy thông tin khách thuê
-- `PUT /api/khach-thue/[id]` - Cập nhật khách thuê
-- `DELETE /api/khach-thue/[id]` - Xóa khách thuê
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/khach-thue` | Danh sách khách thuê |
+| POST | `/api/khach-thue` | Tạo mới |
+| GET/PUT/DELETE | `/api/khach-thue/[id]` | Chi tiết / cập nhật / xóa |
 
 ### Hợp đồng
-- `GET /api/hop-dong` - Lấy danh sách hợp đồng
-- `POST /api/hop-dong` - Tạo hợp đồng mới
-- `GET /api/hop-dong/[id]` - Lấy thông tin hợp đồng
-- `PUT /api/hop-dong/[id]` - Cập nhật hợp đồng
-- `DELETE /api/hop-dong/[id]` - Xóa hợp đồng
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/hop-dong` | Danh sách hợp đồng |
+| POST | `/api/hop-dong` | Tạo mới |
+| GET/PUT/DELETE | `/api/hop-dong/[id]` | Chi tiết / cập nhật / xóa |
 
 ### Chỉ số điện nước
-- `GET /api/chi-so-dien-nuoc` - Lấy danh sách chỉ số
-- `POST /api/chi-so-dien-nuoc` - Ghi chỉ số mới
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/chi-so-dien-nuoc` | Danh sách chỉ số |
+| POST | `/api/chi-so-dien-nuoc` | Ghi chỉ số mới |
+| GET/PUT/DELETE | `/api/chi-so-dien-nuoc/[id]` | Chi tiết / cập nhật / xóa |
 
 ### Hóa đơn
-- `GET /api/hoa-don` - Lấy danh sách hóa đơn
-- `POST /api/hoa-don` - Tạo hóa đơn mới
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/hoa-don` | Danh sách hóa đơn |
+| POST | `/api/hoa-don` | Tạo hóa đơn |
+| GET | `/api/hoa-don-public/[id]` | Xem hóa đơn công khai (link chia sẻ) |
+| POST | `/api/auto-invoice` | Tạo hóa đơn tự động theo chu kỳ |
 
 ### Thanh toán
-- `GET /api/thanh-toan` - Lấy danh sách thanh toán
-- `POST /api/thanh-toan` - Ghi nhận thanh toán
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/thanh-toan` | Danh sách thanh toán |
+| POST | `/api/thanh-toan` | Ghi nhận thanh toán |
+| PUT/DELETE | `/api/thanh-toan/[id]` | Cập nhật / xóa |
 
 ### Sự cố
-- `GET /api/su-co` - Lấy danh sách sự cố
-- `POST /api/su-co` - Báo cáo sự cố
-- `GET /api/su-co/[id]` - Lấy thông tin sự cố
-- `PUT /api/su-co/[id]` - Cập nhật sự cố
-- `DELETE /api/su-co/[id]` - Xóa sự cố
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/su-co` | Danh sách sự cố |
+| POST | `/api/su-co` | Báo cáo sự cố |
+| GET/PUT/DELETE | `/api/su-co/[id]` | Chi tiết / cập nhật / xóa |
 
-### Thông báo
-- `GET /api/thong-bao` - Lấy danh sách thông báo
-- `POST /api/thong-bao` - Gửi thông báo
+### Thông báo & Notifications
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/thong-bao` | Danh sách thông báo |
+| POST | `/api/thong-bao` | Gửi thông báo |
+| GET | `/api/notifications` | Chuông thông báo (hóa đơn quá hạn, hợp đồng sắp hết hạn, sự cố) |
+| POST | `/api/gui-zalo` | Gửi tin nhắn Zalo OA |
 
-### Dashboard
-- `GET /api/dashboard/stats` - Lấy thống kê dashboard
+### Admin
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/admin/users` | Danh sách người dùng |
+| PUT/DELETE | `/api/admin/users/[id]` | Cập nhật / xóa tài khoản |
+| GET/PUT | `/api/admin/settings` | Đọc / cập nhật cài đặt hệ thống |
 
-## 🤝 Contributing
+### Khác
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/dashboard/stats` | Thống kê dashboard |
+| GET | `/api/reports` | Xuất báo cáo |
+| POST | `/api/upload` | Upload file/ảnh |
+| GET | `/api/files/[...path]` | Serve file local |
 
-1. Fork repository
-2. Tạo feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Tạo Pull Request
+---
 
-## 📄 License
+## Scripts
 
-Distributed under the MIT License. See `LICENSE` for more information.
+| Script | Lệnh | Mô tả |
+|--------|------|-------|
+| Dev server | `npm run dev` | Chạy Next.js với Turbopack |
+| Build | `npm run build` | Tự động migrate → prisma generate → next build |
+| Production | `npm run start` | Chạy bản đã build |
+| Check setup | `npm run check-setup` | Kiểm tra cấu hình môi trường |
+| Migrate prod | `node scripts/migrate-prod.js` | Apply migrations vào PostgreSQL thủ công |
+| Start services | `bash scripts/start-services.sh` | Khởi động toàn bộ dịch vụ (Docker + Migrate + PM2) |
+| Auto deploy | `bash scripts/deploy.sh` | Deploy thủ công (thường chạy qua cron) |
 
-## 📞 Contact
+---
 
-Project Link: [https://github.com/yourusername/demo-phong-tro](https://github.com/yourusername/demo-phong-tro)
+## Xử lý lỗi thường gặp
 
-## 🙏 Acknowledgments
+### `P2021: Table does not exist`
 
-- [Next.js](https://nextjs.org/)
-- [shadcn/ui](https://ui.shadcn.com/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [MongoDB](https://www.mongodb.com/)
-- [NextAuth.js](https://next-auth.js.org/)
+Migration chưa được apply vào database.
+
+```bash
+# Chạy lại build (sẽ tự migrate)
+npm run build
+
+# Hoặc migrate thủ công
+npx prisma migrate deploy
+
+# Nếu dùng Docker PostgreSQL
+docker exec -i ql_tro_postgres psql -U postgres -d ql_tro \
+  < prisma/migrations/20260309000001_add_cai_dat/migration.sql
+```
+
+### `P2022: Column does not exist`
+
+Migration thêm cột mới chưa được apply.
+
+```bash
+docker exec -i ql_tro_postgres psql -U postgres -d ql_tro \
+  < prisma/migrations/20260309000002_hoa_don_anh_chi_so/migration.sql
+```
+
+### `[migrate] Không có POSTGRESQL_URI, bỏ qua migration.`
+
+File `.env.local` thiếu biến `POSTGRESQL_URI`.
+
+```bash
+echo 'POSTGRESQL_URI=postgresql://postgres:postgres@localhost:5432/ql_tro' >> .env.local
+```
+
+### `Cannot connect to database`
+
+PostgreSQL chưa chạy.
+
+```bash
+# Kiểm tra container
+docker ps | grep ql_tro_postgres
+
+# Khởi động lại nếu đang stop
+docker start ql_tro_postgres
+
+# Kiểm tra PostgreSQL sẵn sàng chưa
+docker exec ql_tro_postgres pg_isready -U postgres
+```
+
+### PM2 process lỗi / crash loop
+
+```bash
+# Xem log lỗi
+pm2 logs ql-tro --lines 50
+
+# Reset sạch và khởi động lại
+pm2 delete all
+npm run build
+pm2 start ecosystem.config.js --env production
+pm2 save
+```
+
+### Port 3000 đang bận
+
+```bash
+# Tìm process đang dùng port 3000
+lsof -i :3000
+kill -9 <PID>
+```
+
+### `Module not found` / lỗi node_modules
+
+```bash
+rm -rf node_modules .next
+npm install
+npm run build
+```
+
+---
+
+## Checklist Setup
+
+### Development
+- [ ] Node.js 20+ đã cài
+- [ ] PostgreSQL đang chạy (local hoặc Docker)
+- [ ] Database `ql_tro` đã tạo
+- [ ] File `.env.local` đã tạo với `POSTGRESQL_URI` và `NEXTAUTH_SECRET`
+- [ ] `npm install` thành công
+- [ ] `npx prisma migrate deploy` thành công
+- [ ] `npm run dev` chạy không lỗi
+- [ ] Tạo admin qua `/api/admin/create-first`
+- [ ] Đăng nhập được tại http://localhost:3000
+
+### Production
+- [ ] Docker đang chạy
+- [ ] Container `ql_tro_postgres` đang chạy
+- [ ] `.env.local` đã cấu hình đầy đủ
+- [ ] `npm run build` thành công (thấy `[migrate] Tất cả migrations đã được apply.`)
+- [ ] PM2 đang chạy: `pm2 status`
+- [ ] `pm2 startup` đã chạy để auto-restart khi reboot
+- [ ] Cron deploy đã thiết lập (nếu muốn auto-deploy)
+- [ ] Tạo admin qua API
+
+---
+
+## Phân quyền
+
+| Vai trò | Quyền |
+|---------|-------|
+| `admin` | Toàn quyền: quản lý tài khoản, cài đặt hệ thống, xem tất cả dữ liệu |
+| `chuNha` | Quản lý tòa nhà, phòng, hợp đồng, hóa đơn, báo cáo của mình |
+| `nhanVien` | Xem và thao tác theo phân công, không vào cài đặt hệ thống |
+
+---
+
+## Cấu trúc thư mục
+
+```
+ql_tro/
+├── prisma/
+│   ├── schema.prisma          # Database schema
+│   └── migrations/            # SQL migrations
+├── scripts/
+│   ├── migrate-prod.js        # Auto-migrate khi build
+│   ├── deploy.sh              # Auto-deploy từ GitHub
+│   └── start-services.sh     # Khởi động toàn bộ dịch vụ
+├── src/
+│   ├── app/
+│   │   ├── api/               # API Routes (Next.js App Router)
+│   │   └── (dashboard)/       # Dashboard UI pages
+│   ├── components/            # React components
+│   ├── lib/
+│   │   ├── auth.ts            # NextAuth config
+│   │   ├── prisma.ts          # Prisma client
+│   │   └── repositories/      # Data access layer
+│   └── types/                 # TypeScript types
+├── public/
+│   └── uploads/               # Ảnh lưu local
+├── ecosystem.config.js        # PM2 config
+└── .env.local                 # Environment variables (không commit)
+```
+
+---
+
+## Liên hệ & Hỗ trợ
+
+- GitHub Issues: https://github.com/TriTue2011/ql_tro/issues
+- Nếu gặp lỗi: chạy `pm2 logs ql-tro --lines 100` và kiểm tra log
+
+---
+
+*Dự án phát triển bởi Phạm Trung Dũng — OpenSource theo MIT License*
