@@ -71,8 +71,9 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: safeSettings });
   } catch (error) {
-    console.error('[admin/settings GET]', error);
-    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[admin/settings GET]', msg);
+    return NextResponse.json({ message: `Database error: ${msg}` }, { status: 500 });
   }
 }
 

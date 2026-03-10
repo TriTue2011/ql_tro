@@ -286,9 +286,12 @@ export default function CaiDatPage() {
         const vals: Record<string, string> = {};
         for (const s of data.data) vals[s.khoa] = s.giaTri ?? '';
         setSettingValues(vals);
+      } else if (res.status === 403) {
+        setErrorSystem('Không có quyền truy cập (403). Vui lòng đăng xuất và đăng nhập lại.');
+        toast.error('Không có quyền truy cập cài đặt hệ thống');
       } else {
-        setErrorSystem('Không thể tải cài đặt hệ thống. Vui lòng thử lại.');
-        toast.error('Không thể tải cài đặt hệ thống');
+        setErrorSystem(`Lỗi máy chủ (HTTP ${res.status}): ${data.message ?? 'Không xác định'}. Kiểm tra log PM2.`);
+        toast.error(`Lỗi tải cài đặt (${res.status})`);
       }
     } catch {
       setErrorSystem('Không thể kết nối cơ sở dữ liệu. Kiểm tra PostgreSQL đang chạy.');
