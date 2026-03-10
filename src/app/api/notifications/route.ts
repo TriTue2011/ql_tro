@@ -187,12 +187,21 @@ async function getSystemNotifications() {
 }
 
 async function getAllNotifications() {
-  const [overdueInvoices, expiringContracts, pendingIssues, systemNotifications] = await Promise.all([
+  const results = await Promise.allSettled([
     getOverdueInvoices(),
     getExpiringContracts(),
     getPendingIssues(),
     getSystemNotifications(),
   ]);
+
+  const [overdueInvoices, expiringContracts, pendingIssues, systemNotifications] = results.map(
+    (r, i) => {
+      if (r.status === 'fulfilled') return r.value;
+      const labels = ['overdue_invoices', 'expiring_contracts', 'pending_issues', 'system'];
+      console.error(`[notifications] Lỗi khi lấy ${labels[i]}:`, r.reason?.message ?? r.reason);
+      return [];
+    }
+  );
 
   // Combine and sort by priority and date
   const allNotifications = [
