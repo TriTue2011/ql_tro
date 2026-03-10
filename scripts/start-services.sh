@@ -59,4 +59,13 @@ pm2 start ecosystem.config.js --env production 2>/dev/null \
   || echo "[$(date)] PM2 đã chạy."
 
 pm2 save
+
+# 5. Thiết lập cron tự động deploy nếu chưa có
+if ! crontab -l 2>/dev/null | grep -q "deploy.sh"; then
+  echo "[$(date)] Thiết lập cron tự động deploy..."
+  mkdir -p "$APP_DIR/logs"
+  (crontab -l 2>/dev/null; echo "* * * * * $APP_DIR/scripts/deploy.sh >> $APP_DIR/logs/deploy.log 2>&1") | crontab -
+  echo "[$(date)] Cron đã thiết lập: kiểm tra code mới mỗi phút."
+fi
+
 echo "[$(date)] === Hoàn tất ==="
