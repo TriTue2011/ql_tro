@@ -268,6 +268,7 @@ export default function CaiDatPage() {
   const [systemSettings, setSystemSettings] = useState<CaiDatItem[]>([]);
   const [settingValues, setSettingValues] = useState<Record<string, string>>({});
   const [loadingSystem, setLoadingSystem] = useState(false);
+  const [errorSystem, setErrorSystem] = useState<string | null>(null);
   const [savingGroup, setSavingGroup] = useState<string | null>(null);
 
   useEffect(() => {
@@ -276,6 +277,7 @@ export default function CaiDatPage() {
 
   async function fetchSystemSettings() {
     setLoadingSystem(true);
+    setErrorSystem(null);
     try {
       const res = await fetch('/api/admin/settings');
       const data = await res.json();
@@ -285,10 +287,12 @@ export default function CaiDatPage() {
         for (const s of data.data) vals[s.khoa] = s.giaTri ?? '';
         setSettingValues(vals);
       } else {
+        setErrorSystem('Không thể tải cài đặt hệ thống. Vui lòng thử lại.');
         toast.error('Không thể tải cài đặt hệ thống');
       }
     } catch {
-      toast.error('Lỗi kết nối');
+      setErrorSystem('Không thể kết nối cơ sở dữ liệu. Kiểm tra PostgreSQL đang chạy.');
+      toast.error('Lỗi kết nối cơ sở dữ liệu');
     } finally {
       setLoadingSystem(false);
     }
@@ -366,6 +370,20 @@ export default function CaiDatPage() {
               <div className="flex items-center justify-center py-12">
                 <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
                 <span className="ml-2 text-gray-500">Đang tải cài đặt hệ thống...</span>
+              </div>
+            ) : errorSystem ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
+                <div className="rounded-full bg-red-50 p-4">
+                  <Settings className="h-8 w-8 text-red-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">Không thể tải cài đặt</p>
+                  <p className="text-sm text-red-500 mt-1">{errorSystem}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchSystemSettings}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Thử lại
+                </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
