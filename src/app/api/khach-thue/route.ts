@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { hash } from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
+import { sanitizeText } from '@/lib/sanitize';
 
 const khachThueSchema = z.object({
   hoTen: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
@@ -121,15 +122,15 @@ export async function POST(request: NextRequest) {
       : undefined;
 
     const newKhachThue = await repo.create({
-      hoTen: validatedData.hoTen,
+      hoTen: sanitizeText(validatedData.hoTen),
       soDienThoai: validatedData.soDienThoai,
       email: validatedData.email,
       cccd: validatedData.cccd,
       ngaySinh: new Date(validatedData.ngaySinh),
       gioiTinh: validatedData.gioiTinh,
-      queQuan: validatedData.queQuan,
+      queQuan: sanitizeText(validatedData.queQuan),
       anhCCCD: validatedData.anhCCCD || { matTruoc: '', matSau: '' },
-      ngheNghiep: validatedData.ngheNghiep,
+      ngheNghiep: validatedData.ngheNghiep ? sanitizeText(validatedData.ngheNghiep) : undefined,
       matKhau: hashedPassword,
     });
 

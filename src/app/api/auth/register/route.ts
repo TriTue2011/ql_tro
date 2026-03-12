@@ -3,6 +3,7 @@ import { getNguoiDungRepo } from '@/lib/repositories';
 import { z } from 'zod';
 import { hash } from 'bcryptjs';
 import { Prisma } from '@prisma/client';
+import { sanitizeText } from '@/lib/sanitize';
 
 const registerSchema = z.object({
   ten: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Create new user
     await repo.create({
-      ten: validatedData.ten,
+      ten: sanitizeText(validatedData.ten),
       email: validatedData.email.toLowerCase(),
       matKhau: hashedPassword,
       soDienThoai: validatedData.soDienThoai,
