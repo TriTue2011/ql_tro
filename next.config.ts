@@ -26,6 +26,33 @@ const nextConfig: NextConfig = {
 
   // ─── Security Headers ───────────────────────────────────────────────────────
   async headers() {
+    // Content-Security-Policy: chặn XSS, chặn script từ domain lạ
+    // 'unsafe-inline' cần cho Next.js inline styles & scripts trong App Router
+    // 'unsafe-eval' cần cho Next.js hot-reload (dev) — có thể bỏ ở production nếu muốn
+    const CSP = [
+      "default-src 'self'",
+      // Script: chỉ self + inline (Next.js yêu cầu) — chặn script từ CDN lạ
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // Style: self + inline (CSS-in-JS / Tailwind)
+      "style-src 'self' 'unsafe-inline'",
+      // Ảnh: self + data URI + blob + Cloudinary + MinIO
+      "img-src 'self' data: blob: https://res.cloudinary.com",
+      // Font chỉ từ self
+      "font-src 'self' data:",
+      // Kết nối API: chỉ same-origin
+      "connect-src 'self'",
+      // Không cho phép <object>, <embed>, <applet>
+      "object-src 'none'",
+      // Không cho phép <base> tag bị hijack
+      "base-uri 'self'",
+      // Không cho phép form submit ra ngoài domain
+      "form-action 'self'",
+      // frame-ancestors thay thế X-Frame-Options
+      "frame-ancestors 'none'",
+      // Không cho phép upgrade-insecure-requests (Cloudflare xử lý HTTPS)
+      "upgrade-insecure-requests",
+    ].join('; ');
+
     return [
       {
         // Áp dụng cho mọi route
@@ -49,8 +76,8 @@ const nextConfig: NextConfig = {
             key: 'Strict-Transport-Security',
             value: 'max-age=31536000; includeSubDomains; preload',
           },
-          // Không cache trang dashboard (dữ liệu nhạy cảm)
-          // (chỉ áp dụng cho /dashboard và /api — see below)
+          // Content-Security-Policy — chặn XSS và script injection
+          { key: 'Content-Security-Policy', value: CSP },
         ],
       },
       {
