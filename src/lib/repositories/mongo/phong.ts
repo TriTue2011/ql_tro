@@ -89,6 +89,7 @@ export default class PhongRepository {
       anhPhong: data.anhPhong ?? [],
       tienNghi: data.tienNghi ?? [],
       soNguoiToiDa: data.soNguoiToiDa,
+      ngayTinhTien: data.ngayTinhTien ?? 1,
     });
     await doc.populate('toaNha', 'tenToaNha diaChi');
     return normalizePhong(doc);
@@ -108,6 +109,7 @@ export default class PhongRepository {
     if (data.tienNghi !== undefined) updateFields.tienNghi = data.tienNghi;
     if (data.trangThai !== undefined) updateFields.trangThai = data.trangThai;
     if (data.soNguoiToiDa !== undefined) updateFields.soNguoiToiDa = data.soNguoiToiDa;
+    if (data.ngayTinhTien !== undefined) updateFields.ngayTinhTien = data.ngayTinhTien;
 
     const doc = await PhongModel.findByIdAndUpdate(id, { $set: updateFields }, { new: true }).populate('toaNha', 'tenToaNha diaChi');
     if (!doc) return null;

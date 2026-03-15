@@ -715,6 +715,7 @@ function PhongForm({
     anhPhong: phong?.anhPhong || [],
     tienNghi: phong?.tienNghi || [],
     soNguoiToiDa: phong?.soNguoiToiDa || 1,
+    ngayTinhTien: phong?.ngayTinhTien ?? 1,
     trangThai: phong?.trangThai || 'trong',
   });
 
@@ -738,6 +739,7 @@ function PhongForm({
         anhPhong: phong.anhPhong || [],
         tienNghi: phong.tienNghi || [],
         soNguoiToiDa: phong.soNguoiToiDa || 1,
+        ngayTinhTien: phong.ngayTinhTien ?? 1,
         trangThai: phong.trangThai || 'trong',
       });
     } else {
@@ -752,6 +754,7 @@ function PhongForm({
         anhPhong: [],
         tienNghi: [],
         soNguoiToiDa: 1,
+        ngayTinhTien: 1,
         trangThai: 'trong',
       });
     }
@@ -923,6 +926,20 @@ function PhongForm({
                 required
                 className="text-sm"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ngayTinhTien" className="text-sm">Ngày thu tiền hàng tháng</Label>
+              <Input
+                id="ngayTinhTien"
+                type="number"
+                min="1"
+                max="28"
+                value={formData.ngayTinhTien}
+                onChange={(e) => setFormData(prev => ({ ...prev, ngayTinhTien: Math.min(28, Math.max(1, parseInt(e.target.value) || 1)) }))}
+                className="text-sm"
+              />
+              <p className="text-xs text-muted-foreground">Ngày 1-28, dùng làm mặc định khi tạo hợp đồng</p>
             </div>
 
             <div className="space-y-2 col-span-2 md:col-span-1">

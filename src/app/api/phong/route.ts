@@ -21,6 +21,7 @@ const phongSchema = z.object({
   anhPhong: z.array(z.string()).optional(),
   tienNghi: z.array(z.string()).optional(),
   soNguoiToiDa: z.number().min(1, 'Số người tối đa phải lớn hơn 0').max(10, 'Số người tối đa không được quá 10'),
+  ngayTinhTien: z.number().min(1).max(28).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
       anhPhong: validatedData.anhPhong || [],
       tienNghi: validatedData.tienNghi || [],
       soNguoiToiDa: validatedData.soNguoiToiDa,
+      ngayTinhTien: validatedData.ngayTinhTien ?? 1,
     });
 
     return NextResponse.json({

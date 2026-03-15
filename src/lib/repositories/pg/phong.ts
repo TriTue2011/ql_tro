@@ -25,6 +25,7 @@ function normalize(raw: any): PhongData {
     tienNghi: raw.tienNghi,
     trangThai: raw.trangThai as TrangThaiPhong,
     soNguoiToiDa: raw.soNguoiToiDa,
+    ngayTinhTien: raw.ngayTinhTien ?? 1,
     ngayTao: raw.ngayTao,
     ngayCapNhat: raw.ngayCapNhat,
   };
@@ -86,6 +87,7 @@ export default class PhongRepository {
         anhPhong: data.anhPhong ?? [],
         tienNghi: data.tienNghi ?? [],
         soNguoiToiDa: data.soNguoiToiDa,
+        ngayTinhTien: data.ngayTinhTien ?? 1,
       },
       include: {
         toaNha: { select: { id: true, tenToaNha: true, diaChi: true } },
@@ -108,6 +110,7 @@ export default class PhongRepository {
           ...(data.tienNghi !== undefined && { tienNghi: data.tienNghi }),
           ...(data.trangThai !== undefined && { trangThai: data.trangThai }),
           ...(data.soNguoiToiDa !== undefined && { soNguoiToiDa: data.soNguoiToiDa }),
+          ...(data.ngayTinhTien !== undefined && { ngayTinhTien: data.ngayTinhTien }),
         },
         include: {
           toaNha: { select: { id: true, tenToaNha: true, diaChi: true } },

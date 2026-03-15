@@ -144,6 +144,7 @@ export default function ThemMoiHopDongPage() {
         phong: phongId,
         giaThue: selectedPhong.giaThue,
         tienCoc: selectedPhong.tienCoc,
+        ngayThanhToan: selectedPhong.ngayTinhTien ?? prev.ngayThanhToan,
       }));
     }
     setOpenPhong(false);

@@ -12,6 +12,7 @@ export interface IPhong extends Document {
   tienNghi: string[];
   trangThai: 'trong' | 'daDat' | 'dangThue' | 'baoTri';
   soNguoiToiDa: number;
+  ngayTinhTien: number; // Ngày thu tiền mặc định (1-28)
   ngayTao: Date;
   ngayCapNhat: Date;
 }
@@ -77,6 +78,12 @@ const PhongSchema = new Schema<IPhong>({
     required: [true, 'Số người tối đa là bắt buộc'],
     min: [1, 'Số người tối đa phải lớn hơn 0'],
     max: [10, 'Số người tối đa không được quá 10']
+  },
+  ngayTinhTien: {
+    type: Number,
+    default: 1,
+    min: [1, 'Ngày thu tiền phải từ 1 đến 28'],
+    max: [28, 'Ngày thu tiền phải từ 1 đến 28']
   }
 }, {
   timestamps: { createdAt: 'ngayTao', updatedAt: 'ngayCapNhat' }
