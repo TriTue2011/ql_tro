@@ -1,20 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNguoiDungRepo } from '@/lib/repositories';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { z } from 'zod';
 import { hash } from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { sanitizeText } from '@/lib/sanitize';
 
 const registerSchema = z.object({
-  ten: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
+  ten: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
   email: z.string().email('Email không hợp lệ'),
-  matKhau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+  matKhau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').max(128),
   soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ'),
+  // Chỉ cho phép role an toàn — admin không thể tự đăng ký qua endpoint này
   vaiTro: z.enum(['chuNha', 'nhanVien']),
 });
 
 export async function POST(request: NextRequest) {
   try {
+    // Chỉ admin đã đăng nhập mới được tạo tài khoản mới.
+    // Ngăn người lạ tự đăng ký tài khoản quản lý.
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json(
+        { message: 'Chỉ admin mới có thể tạo tài khoản mới' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     // Validate input

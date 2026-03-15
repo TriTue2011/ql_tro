@@ -28,11 +28,15 @@ const nextConfig: NextConfig = {
   async headers() {
     // Content-Security-Policy: chặn XSS, chặn script từ domain lạ
     // 'unsafe-inline' cần cho Next.js inline styles & scripts trong App Router
-    // 'unsafe-eval' cần cho Next.js hot-reload (dev) — có thể bỏ ở production nếu muốn
+    // 'unsafe-eval' CHỈ dùng trong dev (hot-reload) — bỏ ở production để tăng bảo mật
+    const isDev = process.env.NODE_ENV === 'development';
+
     const CSP = [
       "default-src 'self'",
-      // Script: chỉ self + inline (Next.js yêu cầu) — chặn script từ CDN lạ
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // Script: production bỏ unsafe-eval, dev giữ để hot-reload hoạt động
+      isDev
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+        : "script-src 'self' 'unsafe-inline'",
       // Style: self + inline (CSS-in-JS / Tailwind)
       "style-src 'self' 'unsafe-inline'",
       // Ảnh: self + data URI + blob + Cloudinary + MinIO

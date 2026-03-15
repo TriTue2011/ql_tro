@@ -9,6 +9,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMinioClient } from '@/lib/minio';
 
+/** Danh sách bucket hợp lệ — chặn truy cập bucket tùy ý */
+const ALLOWED_BUCKETS = new Set(['ql-tro']);
+
+/** Kiểm tra path traversal: không cho phép .. hoặc ký tự nguy hiểm */
+function isSafePath(value: string): boolean {
+  // Không cho phép path traversal (../, ..\, %2e%2e, v.v.)
+  if (/\.\./.test(value)) return false;
+  // Không cho phép ký tự null byte
+  if (/\0/.test(value)) return false;
+  // Không cho phép path bắt đầu hoặc kết thúc bằng /
+  if (value.startsWith('/') || value.endsWith('/')) return false;
+  // Chỉ cho phép ký tự an toàn: chữ, số, -, _, ., /
+  if (!/^[\w\-./ ]+$/.test(value)) return false;
+  return true;
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -20,6 +36,16 @@ export async function GET(
 
   const [bucket, ...fileParts] = path;
   const filename = fileParts.join('/');
+
+  // Kiểm tra bucket hợp lệ — chặn truy cập bucket tùy ý
+  if (!ALLOWED_BUCKETS.has(bucket)) {
+    return NextResponse.json({ message: 'Invalid path' }, { status: 400 });
+  }
+
+  // Kiểm tra path traversal trong filename
+  if (!isSafePath(filename)) {
+    return NextResponse.json({ message: 'Invalid path' }, { status: 400 });
+  }
 
   try {
     const client = getMinioClient();

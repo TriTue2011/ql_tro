@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getNguoiDungRepo } from '@/lib/repositories';
+import { z } from 'zod';
+import { sanitizeText } from '@/lib/sanitize';
+
+const updateProfileSchema = z.object({
+  ten: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100).optional(),
+  soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ').optional(),
+  // anhDaiDien chỉ cho phép đường dẫn nội bộ hoặc URL Cloudinary/MinIO hợp lệ
+  anhDaiDien: z.string().max(500).regex(
+    /^(\/api\/files\/[\w\-./]+|https:\/\/res\.cloudinary\.com\/[\w\-./]+|https?:\/\/[^<>"']+)$/,
+    'URL ảnh đại diện không hợp lệ'
+  ).optional().nullable(),
+});
 
 export async function GET() {
   try {
@@ -44,7 +56,17 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { ten, soDienThoai, anhDaiDien } = body;
+
+    // Validate và sanitize input
+    const parsed = updateProfileSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    const { ten, soDienThoai, anhDaiDien } = parsed.data;
 
     const repo = await getNguoiDungRepo();
 
@@ -55,9 +77,9 @@ export async function PUT(request: NextRequest) {
     }
 
     const updatedUser = await repo.update(existingUser.id, {
-      ten,
+      ten: ten ? sanitizeText(ten) : undefined,
       soDienThoai,
-      anhDaiDien,
+      anhDaiDien: anhDaiDien ?? undefined,
     });
 
     if (!updatedUser) {
