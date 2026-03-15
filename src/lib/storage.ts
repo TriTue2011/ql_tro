@@ -1,5 +1,5 @@
 /**
- * Storage abstraction - tự động chọn provider dựa trên STORAGE_PROVIDER:
+ * Storage abstraction - tự động chọn provider từ DB (CaiDat) với fallback env vars:
  *   cloudinary  → Cloudinary (online)
  *   minio       → MinIO Docker (offline, phục vụ qua /api/files/)
  *   local       → public/uploads/ (mặc định nếu không set)
@@ -12,28 +12,72 @@ export type UploadResult = {
   secure_url: string;
 };
 
-export async function uploadFile(file: File): Promise<UploadResult> {
-  const provider = process.env.STORAGE_PROVIDER || 'local';
+interface CloudinaryConfig {
+  cloudName: string;
+  uploadPreset: string;
+}
 
-  switch (provider) {
+interface StorageConfig {
+  provider: string;
+  cloudinary: CloudinaryConfig;
+}
+
+// ─── DB config cache (30s TTL) ────────────────────────────────────────────────
+let _storageConfig: StorageConfig | null = null;
+let _cacheExpiry = 0;
+
+async function getStorageConfig(): Promise<StorageConfig> {
+  if (_storageConfig && Date.now() < _cacheExpiry) return _storageConfig;
+
+  const envConfig: StorageConfig = {
+    provider: process.env.STORAGE_PROVIDER || 'local',
+    cloudinary: {
+      cloudName: process.env.NEXT_PUBLIC_CLOUD_NAME || '',
+      uploadPreset: process.env.NEXT_PUBLIC_UPLOAD_PRESET || '',
+    },
+  };
+
+  try {
+    const { default: prisma } = await import('./prisma');
+    const settings = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
+    const get = (key: string) => settings.find((s) => s.khoa === key)?.giaTri ?? '';
+
+    _storageConfig = {
+      provider: get('storage_provider') || envConfig.provider,
+      cloudinary: {
+        cloudName: get('cloudinary_cloud_name') || envConfig.cloudinary.cloudName,
+        uploadPreset: get('cloudinary_upload_preset') || envConfig.cloudinary.uploadPreset,
+      },
+    };
+    _cacheExpiry = Date.now() + 30_000;
+  } catch {
+    _storageConfig = envConfig;
+    _cacheExpiry = Date.now() + 5_000;
+  }
+
+  return _storageConfig!;
+}
+
+export async function uploadFile(file: File): Promise<UploadResult> {
+  const config = await getStorageConfig();
+
+  switch (config.provider) {
     case 'cloudinary':
-      return uploadToCloudinary(file);
+      return uploadToCloudinary(file, config.cloudinary);
     case 'minio':
       return uploadToMinio(file);
     case 'both':
-      return uploadToBoth(file);
+      return uploadToBoth(file, config.cloudinary);
     default:
       return uploadToLocal(file);
   }
 }
 
 // ─── Both (MinIO primary + Cloudinary secondary) ─────────────────────────────
-async function uploadToBoth(file: File): Promise<UploadResult> {
-  // Upload lên MinIO trước (primary/offline), chờ kết quả
+async function uploadToBoth(file: File, cloudinaryConfig: CloudinaryConfig): Promise<UploadResult> {
   const result = await uploadToMinio(file);
 
-  // Upload lên Cloudinary sau (secondary/online), fire-and-forget
-  uploadToCloudinary(file).catch((err: Error) => {
+  uploadToCloudinary(file, cloudinaryConfig).catch((err: Error) => {
     console.error('[DualStorage] Cloudinary backup failed:', err.message);
   });
 
@@ -41,12 +85,11 @@ async function uploadToBoth(file: File): Promise<UploadResult> {
 }
 
 // ─── Cloudinary ───────────────────────────────────────────────────────────────
-async function uploadToCloudinary(file: File): Promise<UploadResult> {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUD_NAME;
-  const uploadPreset = process.env.NEXT_PUBLIC_UPLOAD_PRESET;
+async function uploadToCloudinary(file: File, config: CloudinaryConfig): Promise<UploadResult> {
+  const { cloudName, uploadPreset } = config;
 
   if (!cloudName || !uploadPreset) {
-    throw new Error('Thiếu cấu hình Cloudinary (NEXT_PUBLIC_CLOUD_NAME, NEXT_PUBLIC_UPLOAD_PRESET)');
+    throw new Error('Thiếu cấu hình Cloudinary (cloud name, upload preset)');
   }
 
   const formData = new FormData();
@@ -69,25 +112,25 @@ async function uploadToCloudinary(file: File): Promise<UploadResult> {
 
 // ─── MinIO ────────────────────────────────────────────────────────────────────
 async function uploadToMinio(file: File): Promise<UploadResult> {
-  const { getMinioClient, ensureBucket, MINIO_BUCKET } = await import('./minio');
+  const { getMinioConfig, createMinioClient, ensureBucketExists } = await import('./minio');
   const { randomBytes } = await import('crypto');
   const { extname } = await import('path');
 
-  const client = getMinioClient();
-  await ensureBucket();
+  const config = await getMinioConfig();
+  const client = createMinioClient(config);
+  await ensureBucketExists(client, config.bucket);
 
   const ext = extname(file.name) || '.jpg';
   const filename = `${Date.now()}-${randomBytes(8).toString('hex')}${ext}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  await client.putObject(MINIO_BUCKET, filename, buffer, buffer.length, {
+  await client.putObject(config.bucket, filename, buffer, buffer.length, {
     'Content-Type': file.type,
   });
 
-  // URL đi qua Next.js proxy → tương thích với Cloudflare Tunnel
   return {
-    public_id: `${MINIO_BUCKET}/${filename}`,
-    secure_url: `/api/files/${MINIO_BUCKET}/${filename}`,
+    public_id: `${config.bucket}/${filename}`,
+    secure_url: `/api/files/${config.bucket}/${filename}`,
   };
 }
 
