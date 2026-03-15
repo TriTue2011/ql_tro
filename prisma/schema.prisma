@@ -215,18 +215,19 @@ model SuCo {
 }
 
 model ThongBao {
-  id          String    @id @default(cuid())
-  tieuDe      String
-  noiDung     String
-  loai        String    @default("chung") // chung | hoaDon | suCo | hopDong | khac
-  nguoiGuiId  String
-  nguoiGui    NguoiDung @relation(fields: [nguoiGuiId], references: [id])
-  nguoiNhan   String[]  // array of NguoiDung/KhachThue IDs
-  daDoc       String[]  // array of IDs đã đọc
-  ngayGui     DateTime  @default(now())
-  ngayTao     DateTime  @default(now())
-  toaNhaId    String?
-  phong       ThongBaoPhong[]
+  id              String    @id @default(cuid())
+  tieuDe          String
+  noiDung         String
+  loai            String    @default("chung") // chung | hoaDon | suCo | hopDong | khac
+  nguoiGuiId      String
+  nguoiGui        NguoiDung @relation(fields: [nguoiGuiId], references: [id])
+  nguoiNhan       String[]  // array of NguoiDung/KhachThue IDs
+  daDoc           String[]  // array of IDs đã đọc
+  trangThaiXuLy   String    @default("chuaXuLy") // chuaXuLy | daXuLy | tuChoi | tamHoan
+  ngayGui         DateTime  @default(now())
+  ngayTao         DateTime  @default(now())
+  toaNhaId        String?
+  phong           ThongBaoPhong[]
 }
 
 model ThongBaoPhong {

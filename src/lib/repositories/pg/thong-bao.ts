@@ -27,6 +27,7 @@ function normalize(raw: any): ThongBaoData {
     phongIds: raw.phong ? raw.phong.map((p: any) => p.phongId) : undefined,
     toaNhaId: raw.toaNhaId ?? undefined,
     daDoc: raw.daDoc,
+    trangThaiXuLy: (raw.trangThaiXuLy ?? 'chuaXuLy') as ThongBaoData['trangThaiXuLy'],
     ngayGui: raw.ngayGui,
     ngayTao: raw.ngayTao,
   };
@@ -113,6 +114,7 @@ export default class ThongBaoRepository {
         nguoiNhan: data.nguoiNhan,
         toaNhaId: data.toaNhaId,
         daDoc: [],
+        trangThaiXuLy: data.trangThaiXuLy ?? 'chuaXuLy',
         ...(data.phongIds && data.phongIds.length > 0
           ? {
               phong: {
@@ -124,6 +126,19 @@ export default class ThongBaoRepository {
       include: includeRelations,
     });
     return normalize(raw);
+  }
+
+  async updateTrangThai(id: string, trangThaiXuLy: string): Promise<ThongBaoData | null> {
+    try {
+      const raw = await prisma.thongBao.update({
+        where: { id },
+        data: { trangThaiXuLy },
+        include: includeRelations,
+      });
+      return normalize(raw);
+    } catch {
+      return null;
+    }
   }
 
   async markAsRead(id: string, userId: string): Promise<ThongBaoData | null> {

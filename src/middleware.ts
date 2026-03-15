@@ -60,6 +60,17 @@ const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 phút
 const RATE_LIMIT_MAX = 10;
 
+// Dọn dẹp entries hết hạn mỗi 5 phút để tránh memory leak
+let lastCleanup = Date.now();
+function cleanupRateLimitEntries() {
+  const now = Date.now();
+  if (now - lastCleanup < 300_000) return; // 5 phút
+  lastCleanup = now;
+  for (const [key, entry] of loginAttempts) {
+    if (now > entry.resetAt) loginAttempts.delete(key);
+  }
+}
+
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = loginAttempts.get(ip);
@@ -88,13 +99,16 @@ export default withAuth(
     const token = req.nextauth?.token as Record<string, unknown> | null | undefined;
     const ip = getRealIP(req);
 
-    // Rate limit cho endpoint đăng nhập (NextAuth + khách thuê)
+    cleanupRateLimitEntries();
+
+    // Rate limit cho endpoint đăng nhập, upload (NextAuth + khách thuê)
     const isNextAuthLogin =
       pathname.startsWith('/api/auth') &&
       (pathname.includes('callback') || pathname.includes('signin'));
     const isKhachThueLogin = RATE_LIMITED_PATHS.some(p => pathname === p);
+    const isUpload = pathname === '/api/upload';
 
-    if (isNextAuthLogin || isKhachThueLogin) {
+    if (isNextAuthLogin || isKhachThueLogin || isUpload) {
       if (!checkRateLimit(ip)) {
         return new NextResponse(
           JSON.stringify({ message: 'Quá nhiều yêu cầu, thử lại sau 1 phút' }),

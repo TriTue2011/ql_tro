@@ -166,7 +166,20 @@ export default class ThongBaoRepository {
         : [],
       toaNha: data.toaNhaId ? new mongoose.Types.ObjectId(data.toaNhaId) : undefined,
       daDoc: [],
+      trangThaiXuLy: data.trangThaiXuLy ?? 'chuaXuLy',
     });
+    return normalizeThongBao(doc);
+  }
+
+  async updateTrangThai(id: string, trangThaiXuLy: string): Promise<ThongBaoData | null> {
+    await dbConnect();
+    if (!mongoose.isValidObjectId(id)) return null;
+    const doc = await ThongBaoModel.findByIdAndUpdate(
+      id,
+      { trangThaiXuLy },
+      { new: true }
+    );
+    if (!doc) return null;
     return normalizeThongBao(doc);
   }
 

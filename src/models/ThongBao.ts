@@ -9,6 +9,7 @@ export interface IThongBao extends Document {
   phong?: mongoose.Types.ObjectId[];
   toaNha?: mongoose.Types.ObjectId;
   daDoc: mongoose.Types.ObjectId[];
+  trangThaiXuLy: 'chuaXuLy' | 'daXuLy' | 'tuChoi' | 'tamHoan';
   ngayGui: Date;
   ngayTao: Date;
 }
@@ -51,6 +52,11 @@ const ThongBaoSchema = new Schema<IThongBao>({
   daDoc: [{
     type: Schema.Types.ObjectId
   }],
+  trangThaiXuLy: {
+    type: String,
+    enum: ['chuaXuLy', 'daXuLy', 'tuChoi', 'tamHoan'],
+    default: 'chuaXuLy'
+  },
   ngayGui: {
     type: Date,
     required: [true, 'Ngày gửi là bắt buộc'],
