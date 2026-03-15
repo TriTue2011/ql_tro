@@ -31,12 +31,12 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Bell, 
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Bell,
   Calendar,
   Users,
   Eye,
@@ -44,7 +44,13 @@ import {
   Send,
   Building2,
   Home,
-  RefreshCw
+  RefreshCw,
+  Check,
+  X,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Pause,
 } from 'lucide-react';
 import { ThongBao, ToaNha, Phong, KhachThue } from '@/types';
 import { toast } from 'sonner';
@@ -187,6 +193,71 @@ export default function ThongBaoPage() {
       return khachThue?.hoTen || 'Không xác định';
     });
     return khachThueNames.join(', ');
+  };
+
+  // Lấy 2 nút hành động phù hợp theo loại thông báo
+  const getActionButtons = (loai: string): { positive: { label: string; value: string }; negative: { label: string; value: string } } => {
+    switch (loai) {
+      case 'hoaDon':
+        return {
+          positive: { label: 'Đã thu', value: 'daXuLy' },
+          negative: { label: 'Chưa thu', value: 'tamHoan' },
+        };
+      case 'suCo':
+        return {
+          positive: { label: 'Tiếp nhận', value: 'daXuLy' },
+          negative: { label: 'Từ chối', value: 'tuChoi' },
+        };
+      case 'hopDong':
+        return {
+          positive: { label: 'Gia hạn', value: 'daXuLy' },
+          negative: { label: 'Kết thúc', value: 'tuChoi' },
+        };
+      case 'chung':
+        return {
+          positive: { label: 'Đã xem', value: 'daXuLy' },
+          negative: { label: 'Tạm hoãn', value: 'tamHoan' },
+        };
+      default: // khac
+        return {
+          positive: { label: 'Hoàn thành', value: 'daXuLy' },
+          negative: { label: 'Tạm hoãn', value: 'tamHoan' },
+        };
+    }
+  };
+
+  const getTrangThaiXuLyBadge = (trangThai?: string) => {
+    switch (trangThai) {
+      case 'daXuLy':
+        return <Badge className="bg-green-100 text-green-700 border-green-200 text-xs"><CheckCircle2 className="h-3 w-3 mr-1" />Đã xử lý</Badge>;
+      case 'tuChoi':
+        return <Badge className="bg-red-100 text-red-700 border-red-200 text-xs"><XCircle className="h-3 w-3 mr-1" />Từ chối</Badge>;
+      case 'tamHoan':
+        return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs"><Pause className="h-3 w-3 mr-1" />Tạm hoãn</Badge>;
+      default:
+        return <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-xs"><Clock className="h-3 w-3 mr-1" />Chờ xử lý</Badge>;
+    }
+  };
+
+  const handleUpdateTrangThai = async (id: string, trangThaiXuLy: string) => {
+    try {
+      const response = await fetch(`/api/thong-bao?id=${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trangThaiXuLy }),
+      });
+      if (response.ok) {
+        cache.clearCache();
+        setThongBaoList(prev => prev.map(tb =>
+          tb.id === id ? { ...tb, trangThaiXuLy: trangThaiXuLy as any } : tb
+        ));
+        toast.success('Cập nhật trạng thái thành công');
+      } else {
+        toast.error('Có lỗi xảy ra');
+      }
+    } catch {
+      toast.error('Có lỗi xảy ra khi cập nhật');
+    }
   };
 
   const handleEdit = (thongBao: ThongBao) => {
@@ -385,6 +456,7 @@ export default function ThongBaoPage() {
                   <TableHead>Tòa nhà</TableHead>
                   <TableHead>Ngày gửi</TableHead>
                   <TableHead>Trạng thái</TableHead>
+                  <TableHead>Hành động</TableHead>
                   <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
@@ -427,31 +499,59 @@ export default function ThongBaoPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={thongBao.daDoc.length > 0 ? "default" : "secondary"}>
-                        {thongBao.daDoc.length > 0 ? 'Đã đọc' : 'Chưa đọc'}
-                      </Badge>
+                      {getTrangThaiXuLyBadge(thongBao.trangThaiXuLy)}
+                    </TableCell>
+                    <TableCell>
+                      {(!thongBao.trangThaiXuLy || thongBao.trangThaiXuLy === 'chuaXuLy') ? (
+                        <div className="flex gap-1">
+                          {(() => {
+                            const actions = getActionButtons(thongBao.loai);
+                            return (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-green-600 hover:bg-green-50 border-green-200 text-xs h-7 px-2"
+                                  onClick={() => handleUpdateTrangThai(thongBao.id!, actions.positive.value)}
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  {actions.positive.label}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 hover:bg-red-50 border-red-200 text-xs h-7 px-2"
+                                  onClick={() => handleUpdateTrangThai(thongBao.id!, actions.negative.value)}
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  {actions.negative.label}
+                                </Button>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2 text-gray-500"
+                          onClick={() => handleUpdateTrangThai(thongBao.id!, 'chuaXuLy')}
+                        >
+                          Hoàn tác
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleSend(thongBao)}
-                        >
-                          <Send className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleEdit(thongBao)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleDelete(thongBao.id!)}
                           className="text-red-600 hover:text-red-700"
@@ -546,24 +646,55 @@ export default function ThongBaoPage() {
                     </div>
                   </div>
 
-                  {/* Read status */}
-                  <div className="border-t pt-2">
-                    <Badge variant={thongBao.daDoc.length > 0 ? "default" : "secondary"} className="text-xs">
-                      {thongBao.daDoc.length > 0 ? 'Đã đọc' : 'Chưa đọc'}
-                    </Badge>
+                  {/* Trạng thái xử lý */}
+                  <div className="border-t pt-2 flex items-center gap-2">
+                    {getTrangThaiXuLyBadge(thongBao.trangThaiXuLy)}
                   </div>
+
+                  {/* Nút hành động theo loại thông báo */}
+                  {(!thongBao.trangThaiXuLy || thongBao.trangThaiXuLy === 'chuaXuLy') ? (
+                    <div className="flex gap-2 pt-2 border-t">
+                      {(() => {
+                        const actions = getActionButtons(thongBao.loai);
+                        return (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-green-600 hover:bg-green-50 border-green-200 text-xs"
+                              onClick={() => handleUpdateTrangThai(thongBao.id!, actions.positive.value)}
+                            >
+                              <Check className="h-3.5 w-3.5 mr-1" />
+                              {actions.positive.label}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-red-600 hover:bg-red-50 border-red-200 text-xs"
+                              onClick={() => handleUpdateTrangThai(thongBao.id!, actions.negative.value)}
+                            >
+                              <X className="h-3.5 w-3.5 mr-1" />
+                              {actions.negative.label}
+                            </Button>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 pt-2 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-gray-500"
+                        onClick={() => handleUpdateTrangThai(thongBao.id!, 'chuaXuLy')}
+                      >
+                        Hoàn tác trạng thái
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Action buttons */}
                   <div className="flex flex-wrap gap-2 pt-2 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSend(thongBao)}
-                      className="flex-1"
-                    >
-                      <Send className="h-3.5 w-3.5 mr-1" />
-                      Gửi
-                    </Button>
                     <Button
                       variant="outline"
                       size="sm"

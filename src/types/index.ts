@@ -227,6 +227,7 @@ export interface ThongBao {
   phong?: string[]; // ObjectId[] ref Phong
   toaNha?: string; // ObjectId ref ToaNha
   daDoc: string[]; // ObjectId[] danh sách người đã đọc
+  trangThaiXuLy?: 'chuaXuLy' | 'daXuLy' | 'tuChoi' | 'tamHoan'; // trạng thái xử lý thông báo
   ngayGui: Date;
   ngayTao: Date;
 }

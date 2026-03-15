@@ -476,6 +476,7 @@ export interface SuCoQueryOptions extends QueryOptions {
 // ─── ThongBao ─────────────────────────────────────────────────
 
 export type LoaiThongBao = 'chung' | 'hoaDon' | 'suCo' | 'hopDong' | 'khac';
+export type TrangThaiXuLy = 'chuaXuLy' | 'daXuLy' | 'tuChoi' | 'tamHoan';
 
 export interface ThongBaoData {
   id: string;
@@ -488,6 +489,7 @@ export interface ThongBaoData {
   phongIds?: string[];
   toaNhaId?: string;
   daDoc: string[];
+  trangThaiXuLy: TrangThaiXuLy;
   ngayGui: Date;
   ngayTao: Date;
 }
@@ -500,6 +502,7 @@ export interface CreateThongBaoInput {
   nguoiNhan: string[];
   phongIds?: string[];
   toaNhaId?: string;
+  trangThaiXuLy?: TrangThaiXuLy;
 }
 
 export interface ThongBaoQueryOptions extends QueryOptions {

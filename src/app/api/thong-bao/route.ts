@@ -174,6 +174,46 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+// PATCH - Cập nhật trạng thái xử lý thông báo
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ message: 'ID thông báo là bắt buộc' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const validTrangThai = ['chuaXuLy', 'daXuLy', 'tuChoi', 'tamHoan'];
+    if (!body.trangThaiXuLy || !validTrangThai.includes(body.trangThaiXuLy)) {
+      return NextResponse.json(
+        { message: 'Trạng thái không hợp lệ' },
+        { status: 400 }
+      );
+    }
+
+    const repo = await getThongBaoRepo();
+    const updated = await repo.updateTrangThai(id, body.trangThaiXuLy);
+    if (!updated) {
+      return NextResponse.json({ message: 'Không tìm thấy thông báo' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+      message: 'Cập nhật trạng thái thành công',
+    });
+  } catch (error) {
+    console.error('Error updating thong bao status:', error);
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

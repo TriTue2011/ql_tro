@@ -38,6 +38,13 @@ function getExtension(filename: string): string {
   return idx >= 0 ? filename.slice(idx).toLowerCase() : '';
 }
 
+// Giới hạn body size ở tầng framework (chặn trước khi đọc vào memory)
+export const config = {
+  api: { bodyParser: false },
+};
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB — khớp với giới hạn phía client
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -46,6 +53,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // Kiểm tra Content-Length trước khi đọc body vào memory
+    const contentLength = parseInt(request.headers.get('content-length') || '0', 10);
+    if (contentLength > MAX_FILE_SIZE + 1024) { // +1KB cho overhead multipart
+      return NextResponse.json(
+        { message: 'Kích thước file không được vượt quá 5MB' },
+        { status: 413 }
       );
     }
 
@@ -85,9 +101,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { message: 'Kích thước file không được vượt quá 10MB' },
+        { message: 'Kích thước file không được vượt quá 5MB' },
         { status: 400 }
       );
     }
