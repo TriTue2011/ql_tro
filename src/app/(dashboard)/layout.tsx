@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { SessionProvider } from 'next-auth/react';
 import { useSession } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -55,15 +55,16 @@ interface AppNotification {
   message: string;
   priority: string;
   createdAt: string;
+  data?: Record<string, string | number | undefined>;
 }
 
 // ─── Notification helpers ──────────────────────────────────────────────────────
 
 function getNotifIcon(type: string): string {
   const map: Record<string, string> = {
-    overdue_invoices: 'bi-receipt-cutoff',
-    expiring_contracts: 'bi-file-earmark-x',
-    pending_issues: 'bi-exclamation-triangle',
+    overdue_invoice: 'bi-receipt-cutoff',
+    expiring_contract: 'bi-file-earmark-x',
+    pending_issue: 'bi-exclamation-triangle',
     system: 'bi-megaphone',
   };
   return map[type] ?? 'bi-bell';
@@ -100,6 +101,9 @@ function TopBar({
   const [loadingNotif, setLoadingNotif] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
+  // Detail modal
+  const [detailNotif, setDetailNotif] = useState<AppNotification | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -138,10 +142,55 @@ function TopBar({
     finally { setLoadingNotif(false); }
   }
 
-  async function handleBellClick() {
+  function dismissNotif(n: AppNotification) {
+    setNotifications(prev => prev.filter(x => x.id !== n.id));
+    setNotifCount(prev => Math.max(0, prev - 1));
+    setDetailNotif(null);
+  }
+
+  async function handleMarkRead(n: AppNotification) {
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId: n.data?.notificationId, type: n.type }),
+      });
+    } catch { /* ignore */ }
+    dismissNotif(n);
+  }
+
+  async function handleTiepNhan(n: AppNotification) {
+    setActionLoading(true);
+    try {
+      const issueId = n.data?.issueId;
+      await fetch(`/api/su-co/${issueId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trangThai: 'dangXuLy' }),
+      });
+      dismissNotif(n);
+    } catch { /* ignore */ }
+    setActionLoading(false);
+  }
+
+  async function handleDaThanhToan(n: AppNotification) {
+    setActionLoading(true);
+    try {
+      const invoiceId = n.data?.invoiceId;
+      await fetch('/api/hoa-don', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: invoiceId, trangThai: 'daThanhToan' }),
+      });
+      dismissNotif(n);
+    } catch { /* ignore */ }
+    setActionLoading(false);
+  }
+
+  function handleBellClick() {
     const next = !showNotif;
     setShowNotif(next);
-    if (next) await fetchNotifications();
+    if (next) fetchNotifications();
   }
 
   return (
@@ -219,6 +268,22 @@ function TopBar({
                         <div className="notif-title">{n.title}</div>
                         <div className="notif-msg">{n.message}</div>
                         <div className="notif-time">{formatRelativeTime(n.createdAt)}</div>
+                        <div className="notif-item-actions">
+                          <button
+                            className="notif-action-btn"
+                            title="Đánh dấu đã đọc"
+                            onClick={() => handleMarkRead(n)}
+                          >
+                            <i className="bi bi-check2" /> Đã đọc
+                          </button>
+                          <button
+                            className="notif-action-btn notif-action-detail"
+                            title="Xem chi tiết"
+                            onClick={() => { setDetailNotif(n); setShowNotif(false); }}
+                          >
+                            <i className="bi bi-eye" /> Xem chi tiết
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -243,6 +308,91 @@ function TopBar({
           {getInitials(userName)}
         </div>
       </div>
+
+      {/* ── Notification Detail Modal ── */}
+      {detailNotif && (
+        <div
+          className="notif-modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setDetailNotif(null); }}
+        >
+          <div className="notif-modal">
+            <div className="notif-modal-header">
+              <div className="notif-modal-title">
+                <i className={`bi ${getNotifIcon(detailNotif.type)} me-2`} />
+                {detailNotif.title}
+              </div>
+              <button className="notif-modal-close" onClick={() => setDetailNotif(null)}>
+                <i className="bi bi-x-lg" />
+              </button>
+            </div>
+            <div className="notif-modal-body">
+              <p className="notif-modal-msg">{detailNotif.message}</p>
+              <span className="notif-modal-time">
+                <i className="bi bi-clock me-1" />
+                {formatRelativeTime(detailNotif.createdAt)}
+              </span>
+            </div>
+            <div className="notif-modal-footer">
+              {detailNotif.type === 'pending_issue' && (
+                <>
+                  <button
+                    className="notif-modal-btn notif-modal-btn-positive"
+                    disabled={actionLoading}
+                    onClick={() => handleTiepNhan(detailNotif)}
+                  >
+                    {actionLoading ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-check-circle me-1" />}
+                    Tiếp nhận
+                  </button>
+                  <button className="notif-modal-btn notif-modal-btn-negative" onClick={() => setDetailNotif(null)}>
+                    <i className="bi bi-x-circle me-1" />Hủy
+                  </button>
+                </>
+              )}
+              {detailNotif.type === 'overdue_invoice' && (
+                <>
+                  <button
+                    className="notif-modal-btn notif-modal-btn-positive"
+                    disabled={actionLoading}
+                    onClick={() => handleDaThanhToan(detailNotif)}
+                  >
+                    {actionLoading ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-cash-coin me-1" />}
+                    Đã thanh toán
+                  </button>
+                  <button className="notif-modal-btn notif-modal-btn-negative" onClick={() => setDetailNotif(null)}>
+                    <i className="bi bi-x-circle me-1" />Hủy
+                  </button>
+                </>
+              )}
+              {detailNotif.type === 'expiring_contract' && (
+                <>
+                  <button
+                    className="notif-modal-btn notif-modal-btn-positive"
+                    onClick={() => { router.push(`/dashboard/hop-dong/${detailNotif.data?.contractId}`); setDetailNotif(null); }}
+                  >
+                    <i className="bi bi-file-earmark-text me-1" />Xem hợp đồng
+                  </button>
+                  <button className="notif-modal-btn notif-modal-btn-negative" onClick={() => setDetailNotif(null)}>
+                    <i className="bi bi-x-circle me-1" />Đóng
+                  </button>
+                </>
+              )}
+              {(detailNotif.type === 'system' || !['pending_issue', 'overdue_invoice', 'expiring_contract'].includes(detailNotif.type)) && (
+                <>
+                  <button
+                    className="notif-modal-btn notif-modal-btn-positive"
+                    onClick={() => handleMarkRead(detailNotif)}
+                  >
+                    <i className="bi bi-check-all me-1" />Đã xem
+                  </button>
+                  <button className="notif-modal-btn notif-modal-btn-negative" onClick={() => setDetailNotif(null)}>
+                    <i className="bi bi-x-circle me-1" />Đóng
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
