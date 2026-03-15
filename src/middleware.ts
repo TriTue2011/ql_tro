@@ -51,8 +51,10 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
-// ─── Rate limit đơn giản trong memory (login endpoint) ────────────────────────
-// Giới hạn: tối đa 10 request / phút mỗi IP cho /api/auth/[...nextauth]
+// ─── Rate limit đơn giản trong memory (login endpoints) ──────────────────────
+// Giới hạn: tối đa 10 request / phút mỗi IP cho các endpoint đăng nhập.
+// Áp dụng cho cả NextAuth và khách thuê login.
+// Lưu ý: in-memory, reset khi restart process. Dùng Redis cho production scale-out.
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 phút
@@ -73,6 +75,11 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+/** Danh sách path cần rate limit — bao gồm cả khách thuê login */
+const RATE_LIMITED_PATHS = [
+  '/api/auth/khach-thue/login',
+];
+
 // ─── withAuth (bảo vệ /dashboard/*) ───────────────────────────────────────────
 
 export default withAuth(
@@ -81,11 +88,13 @@ export default withAuth(
     const token = req.nextauth?.token as Record<string, unknown> | null | undefined;
     const ip = getRealIP(req);
 
-    // Rate limit cho endpoint đăng nhập
-    if (
+    // Rate limit cho endpoint đăng nhập (NextAuth + khách thuê)
+    const isNextAuthLogin =
       pathname.startsWith('/api/auth') &&
-      (pathname.includes('callback') || pathname.includes('signin'))
-    ) {
+      (pathname.includes('callback') || pathname.includes('signin'));
+    const isKhachThueLogin = RATE_LIMITED_PATHS.some(p => pathname === p);
+
+    if (isNextAuthLogin || isKhachThueLogin) {
       if (!checkRateLimit(ip)) {
         return new NextResponse(
           JSON.stringify({ message: 'Quá nhiều yêu cầu, thử lại sau 1 phút' }),

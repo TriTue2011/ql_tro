@@ -71,9 +71,9 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: safeSettings });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error('[admin/settings GET]', msg);
-    return NextResponse.json({ message: `Database error: ${msg}` }, { status: 500 });
+    // Log chi tiết ở server, không trả về client để tránh lộ thông tin nội bộ
+    console.error('[admin/settings GET]', error);
+    return NextResponse.json({ message: 'Lỗi server' }, { status: 500 });
   }
 }
 
