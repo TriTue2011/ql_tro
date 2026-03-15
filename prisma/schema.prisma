@@ -83,6 +83,7 @@ model KhachThue {
   anhCCCD       Json?     // { matTruoc, matSau }
   ngheNghiep    String?
   matKhau       String?
+  zaloChatId    String?   // Zalo bot chat_id riêng của từng khách
   trangThai     String    @default("chuaThue") // dangThue | daTraPhong | chuaThue
   ngayTao       DateTime  @default(now())
   ngayCapNhat   DateTime  @updatedAt

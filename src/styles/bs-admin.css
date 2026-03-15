@@ -1396,3 +1396,4 @@
 }
 .notif-note-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
 .notif-note-input::placeholder { color: #94a3b8; }
+@keyframes spin { to { transform: rotate(360deg); } }
