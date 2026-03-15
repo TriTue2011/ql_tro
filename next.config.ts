@@ -31,18 +31,22 @@ const nextConfig: NextConfig = {
     // 'unsafe-eval' CHỈ dùng trong dev (hot-reload) — bỏ ở production để tăng bảo mật
     const isDev = process.env.NODE_ENV === 'development';
 
+    // upgrade-insecure-requests CHỈ an toàn khi ứng dụng chạy sau HTTPS proxy (Cloudflare Tunnel).
+    // Nếu bật trên HTTP trực tiếp, browser sẽ cố upgrade /_next/static CSS/JS lên HTTPS → fail → trang không có style.
+    const isBehindHttps = process.env.CLOUDFLARE_TUNNEL === 'true';
+
     const CSP = [
       "default-src 'self'",
       // Script: production bỏ unsafe-eval, dev giữ để hot-reload hoạt động
       isDev
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
         : "script-src 'self' 'unsafe-inline'",
-      // Style: self + inline (CSS-in-JS / Tailwind)
-      "style-src 'self' 'unsafe-inline'",
+      // Style: self + inline (CSS-in-JS / Tailwind) + Bootstrap CDN cho dashboard
+      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
       // Ảnh: self + data URI + blob + Cloudinary + MinIO
       "img-src 'self' data: blob: https://res.cloudinary.com",
-      // Font chỉ từ self
-      "font-src 'self' data:",
+      // Font: self + Bootstrap Icons CDN (font files)
+      "font-src 'self' data: https://cdn.jsdelivr.net",
       // Kết nối API: chỉ same-origin
       "connect-src 'self'",
       // Không cho phép <object>, <embed>, <applet>
@@ -53,8 +57,8 @@ const nextConfig: NextConfig = {
       "form-action 'self'",
       // frame-ancestors thay thế X-Frame-Options
       "frame-ancestors 'none'",
-      // Không cho phép upgrade-insecure-requests (Cloudflare xử lý HTTPS)
-      "upgrade-insecure-requests",
+      // upgrade-insecure-requests: CHỈ bật khi đứng sau HTTPS proxy
+      ...(isBehindHttps ? ["upgrade-insecure-requests"] : []),
     ].join('; ');
 
     return [
