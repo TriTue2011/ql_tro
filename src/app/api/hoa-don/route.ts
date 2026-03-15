@@ -379,6 +379,37 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+// PATCH - Cập nhật nhanh trạng thái hóa đơn (dùng từ notification dropdown)
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id, trangThai } = await request.json();
+    if (!id || !trangThai) {
+      return NextResponse.json({ message: 'Thiếu id hoặc trangThai' }, { status: 400 });
+    }
+
+    const hoaDonRepo = await getHoaDonRepo();
+    const existing = await hoaDonRepo.findById(id);
+    if (!existing) {
+      return NextResponse.json({ message: 'Hóa đơn không tồn tại' }, { status: 404 });
+    }
+
+    const updated = await hoaDonRepo.update(id, {
+      trangThai,
+      daThanhToan: trangThai === 'daThanhToan' ? existing.tongTien : existing.daThanhToan,
+    });
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error) {
+    console.error('Error patching hoa-don:', error);
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // DELETE - Xóa hóa đơn
 export async function DELETE(request: NextRequest) {
   try {
