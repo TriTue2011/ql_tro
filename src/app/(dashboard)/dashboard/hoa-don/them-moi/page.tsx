@@ -106,6 +106,16 @@ export default function ThemMoiHoaDonPage() {
     isFirstInvoice: boolean;
     lastInvoiceMonth: string | null;
   } | null>(null);
+  // Thông tin tính tiền phòng theo tỷ lệ ngày (pro-rata)
+  const [proRataInfo, setProRataInfo] = useState<{
+    apDung: boolean;           // có áp dụng pro-rata không
+    soNgayO: number;           // số ngày ở thực tế
+    tongSoNgay: number;        // tổng số ngày trong tháng
+    tienPhongDayDu: number;    // tiền phòng nguyên tháng
+    tienPhongProRata: number;  // tiền phòng theo tỷ lệ ngày
+    loaiProRata: 'vao-giua-thang' | 'ra-giua-thang' | null;
+    ngayBatDau: string;        // ngày bắt đầu tháng áp dụng
+  } | null>(null);
 
   useEffect(() => {
     fetchFormData();
@@ -118,7 +128,6 @@ export default function ThemMoiHoaDonPage() {
       const formDataResponse = await fetch('/api/hoa-don/form-data');
       if (formDataResponse.ok) {
         const formData = await formDataResponse.json();
-        console.log('Form data loaded:', formData.data);
         setHopDongList(formData.data.hopDongList || []);
         setPhongList(formData.data.phongList || []);
         setKhachThueList(formData.data.khachThueList || []);
@@ -132,19 +141,99 @@ export default function ThemMoiHoaDonPage() {
     }
   };
 
+  /**
+   * Tính tiền phòng theo tỷ lệ ngày (pro-rata).
+   * Áp dụng khi:
+   *   - Hóa đơn đầu tiên + hợp đồng bắt đầu không phải ngày 1 (vào giữa tháng)
+   *   - Hóa đơn cuối cùng + hợp đồng kết thúc không phải ngày cuối tháng (ra giữa tháng)
+   *
+   * Công thức chuẩn Việt Nam:
+   *   Tiền phòng = Giá thuê × Số ngày ở / Tổng ngày trong tháng
+   *   Làm tròn lên đến 1,000 VNĐ gần nhất
+   */
+  const tinhProRata = (
+    hopDong: HopDong,
+    thang: number,
+    nam: number,
+    isFirstInvoice: boolean
+  ): typeof proRataInfo => {
+    const tongSoNgay = new Date(nam, thang, 0).getDate(); // số ngày trong tháng
+    const ngayBatDauHD = new Date(hopDong.ngayBatDau as string | Date);
+    const ngayKetThucHD = new Date(hopDong.ngayKetThuc as string | Date);
+
+    // Kiểm tra vào giữa tháng: HĐ bắt đầu trong tháng/năm này AND ngày > 1
+    const hdBatDauTrongThang =
+      ngayBatDauHD.getFullYear() === nam &&
+      ngayBatDauHD.getMonth() + 1 === thang &&
+      ngayBatDauHD.getDate() > 1;
+
+    // Kiểm tra ra giữa tháng: HĐ kết thúc trong tháng/năm này AND không phải ngày cuối tháng
+    const hdKetThucTrongThang =
+      ngayKetThucHD.getFullYear() === nam &&
+      ngayKetThucHD.getMonth() + 1 === thang &&
+      ngayKetThucHD.getDate() < tongSoNgay;
+
+    if (isFirstInvoice && hdBatDauTrongThang) {
+      // Vào giữa tháng: tính từ ngày bắt đầu đến cuối tháng
+      const ngayBatDau = ngayBatDauHD.getDate();
+      const soNgayO = tongSoNgay - ngayBatDau + 1;
+      const tienPhongDayDu = hopDong.giaThue;
+      const tienRaw = (tienPhongDayDu * soNgayO) / tongSoNgay;
+      // Làm tròn lên đến 1,000 VNĐ gần nhất
+      const tienPhongProRata = Math.ceil(tienRaw / 1000) * 1000;
+      return {
+        apDung: true,
+        soNgayO,
+        tongSoNgay,
+        tienPhongDayDu,
+        tienPhongProRata,
+        loaiProRata: 'vao-giua-thang',
+        ngayBatDau: ngayBatDauHD.toLocaleDateString('vi-VN'),
+      };
+    }
+
+    if (hdKetThucTrongThang) {
+      // Ra giữa tháng: tính từ đầu tháng đến ngày kết thúc
+      const soNgayO = ngayKetThucHD.getDate();
+      const tienPhongDayDu = hopDong.giaThue;
+      const tienRaw = (tienPhongDayDu * soNgayO) / tongSoNgay;
+      const tienPhongProRata = Math.ceil(tienRaw / 1000) * 1000;
+      return {
+        apDung: true,
+        soNgayO,
+        tongSoNgay,
+        tienPhongDayDu,
+        tienPhongProRata,
+        loaiProRata: 'ra-giua-thang',
+        ngayBatDau: `01/${thang}/${nam}`,
+      };
+    }
+
+    return { apDung: false, soNgayO: tongSoNgay, tongSoNgay, tienPhongDayDu: hopDong.giaThue, tienPhongProRata: hopDong.giaThue, loaiProRata: null, ngayBatDau: '' };
+  };
+
   const fetchLatestElectricityReading = async (hopDongId: string, thang: number, nam: number) => {
     try {
       const response = await fetch(`/api/hoa-don/latest-reading?hopDong=${hopDongId}&thang=${thang}&nam=${nam}`);
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          console.log('Latest electricity reading:', data.data);
           setFormData(prev => ({
             ...prev,
             chiSoDienBanDau: data.data.chiSoDienBanDau || 0,
             chiSoNuocBanDau: data.data.chiSoNuocBanDau || 0,
           }));
           setReadingSource(data.data);
+
+          // Tính pro-rata khi biết đây có phải hóa đơn đầu tiên không
+          const hopDong = hopDongList.find(hd => hd.id === hopDongId);
+          if (hopDong) {
+            const pr = tinhProRata(hopDong, thang, nam, data.data.isFirstInvoice);
+            setProRataInfo(pr);
+            if (pr?.apDung) {
+              setFormData(prev => ({ ...prev, tienPhong: pr.tienPhongProRata }));
+            }
+          }
         }
       }
     } catch (error) {
@@ -157,8 +246,6 @@ export default function ThemMoiHoaDonPage() {
     if (formData.hopDong) {
       const selectedHopDong = hopDongList.find(hd => hd.id === formData.hopDong);
       if (selectedHopDong) {
-        console.log('Auto-filling form data from contract:', selectedHopDong);
-        
         setFormData(prev => ({
           ...prev,
           phong: selectedHopDong.phong as string,
@@ -167,8 +254,14 @@ export default function ThemMoiHoaDonPage() {
           phiDichVu: selectedHopDong.phiDichVu || [],
           chiSoDienBanDau: 0,
           chiSoNuocBanDau: 0,
+          // Đặt hạn thanh toán tự động theo ngayThanhToan trong hợp đồng
+          hanThanhToan: (() => {
+            const lastDay = new Date(formData.nam, formData.thang, 0).getDate();
+            const day = Math.min(selectedHopDong.ngayThanhToan, lastDay);
+            return `${formData.nam}-${String(formData.thang).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+          })(),
         }));
-        
+        setProRataInfo(null);
         fetchLatestElectricityReading(formData.hopDong, formData.thang, formData.nam);
       }
     }
@@ -522,7 +615,14 @@ export default function ThemMoiHoaDonPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label htmlFor="tienPhong" className="text-sm">Tiền phòng (VNĐ)</Label>
+                    <Label htmlFor="tienPhong" className="text-sm">
+                      Tiền phòng (VNĐ)
+                      {proRataInfo?.apDung && (
+                        <span className="ml-2 text-xs text-orange-600 font-normal">
+                          (tính theo {proRataInfo.soNgayO}/{proRataInfo.tongSoNgay} ngày)
+                        </span>
+                      )}
+                    </Label>
                     <Input
                       id="tienPhong"
                       type="number"
@@ -532,10 +632,34 @@ export default function ThemMoiHoaDonPage() {
                       required
                       className="h-10"
                     />
+                    {/* Thông báo pro-rata */}
+                    {proRataInfo?.apDung && (
+                      <div className="text-xs bg-orange-50 border border-orange-200 rounded px-2 py-1.5 space-y-0.5">
+                        <div className="font-medium text-orange-700">
+                          {proRataInfo.loaiProRata === 'vao-giua-thang'
+                            ? `📅 Khách vào ngày ${proRataInfo.ngayBatDau} — tính ${proRataInfo.soNgayO}/${proRataInfo.tongSoNgay} ngày`
+                            : `📅 Khách ra ngày ${proRataInfo.soNgayO}/${formData.thang}/${formData.nam} — tính ${proRataInfo.soNgayO}/${proRataInfo.tongSoNgay} ngày`
+                          }
+                        </div>
+                        <div className="text-orange-600">
+                          {proRataInfo.tienPhongDayDu.toLocaleString('vi-VN')} × {proRataInfo.soNgayO}/{proRataInfo.tongSoNgay} = <strong>{proRataInfo.tienPhongProRata.toLocaleString('vi-VN')} VNĐ</strong>
+                          {' '}(làm tròn lên 1,000)
+                        </div>
+                        <button
+                          type="button"
+                          className="text-orange-500 underline text-xs"
+                          onClick={() => setFormData(prev => ({ ...prev, tienPhong: proRataInfo.tienPhongDayDu }))}
+                        >
+                          Dùng giá nguyên tháng ({proRataInfo.tienPhongDayDu.toLocaleString('vi-VN')} VNĐ)
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  
+
                   <div className="space-y-1">
-                    <Label htmlFor="daThanhToan" className="text-sm">Đã thanh toán (VNĐ)</Label>
+                    <Label htmlFor="daThanhToan" className="text-sm">
+                      Đã thanh toán / Trả trước (VNĐ)
+                    </Label>
                     <Input
                       id="daThanhToan"
                       type="number"
@@ -545,6 +669,7 @@ export default function ThemMoiHoaDonPage() {
                       required
                       className="h-10"
                     />
+                    <p className="text-xs text-gray-400">Nhập số tiền khách đã trả trước hoặc đặt cọc (nếu có)</p>
                   </div>
                 </div>
               </TabsContent>
