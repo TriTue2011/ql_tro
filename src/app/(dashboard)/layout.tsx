@@ -104,6 +104,8 @@ function TopBar({
   // Detail modal
   const [detailNotif, setDetailNotif] = useState<AppNotification | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [confirmStep, setConfirmStep] = useState<'positive' | 'negative' | null>(null);
+  const [actionNote, setActionNote] = useState('');
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -145,7 +147,13 @@ function TopBar({
   function dismissNotif(n: AppNotification) {
     setNotifications(prev => prev.filter(x => x.id !== n.id));
     setNotifCount(prev => Math.max(0, prev - 1));
+    closeModal();
+  }
+
+  function closeModal() {
     setDetailNotif(null);
+    setConfirmStep(null);
+    setActionNote('');
   }
 
   async function handleMarkRead(n: AppNotification) {
@@ -159,28 +167,39 @@ function TopBar({
     dismissNotif(n);
   }
 
-  async function handleTiepNhan(n: AppNotification) {
+  async function handleTiepNhan(n: AppNotification, note: string) {
     setActionLoading(true);
     try {
-      const issueId = n.data?.issueId;
-      await fetch(`/api/su-co/${issueId}`, {
+      await fetch(`/api/su-co/${n.data?.issueId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trangThai: 'dangXuLy' }),
+        body: JSON.stringify({ trangThai: 'dangXuLy', ghiChuXuLy: note || undefined }),
       });
       dismissNotif(n);
     } catch { /* ignore */ }
     setActionLoading(false);
   }
 
-  async function handleDaThanhToan(n: AppNotification) {
+  async function handleHuySuCo(n: AppNotification, note: string) {
     setActionLoading(true);
     try {
-      const invoiceId = n.data?.invoiceId;
+      await fetch(`/api/su-co/${n.data?.issueId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trangThai: 'daHuy', ghiChuXuLy: note || undefined }),
+      });
+      dismissNotif(n);
+    } catch { /* ignore */ }
+    setActionLoading(false);
+  }
+
+  async function handleDaThanhToan(n: AppNotification, note: string) {
+    setActionLoading(true);
+    try {
       await fetch('/api/hoa-don', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: invoiceId, trangThai: 'daThanhToan' }),
+        body: JSON.stringify({ id: n.data?.invoiceId, trangThai: 'daThanhToan', ghiChu: note || undefined }),
       });
       dismissNotif(n);
     } catch { /* ignore */ }
@@ -313,83 +332,128 @@ function TopBar({
       {detailNotif && (
         <div
           className="notif-modal-overlay"
-          onClick={(e) => { if (e.target === e.currentTarget) setDetailNotif(null); }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
         >
           <div className="notif-modal">
             <div className="notif-modal-header">
               <div className="notif-modal-title">
                 <i className={`bi ${getNotifIcon(detailNotif.type)} me-2`} />
-                {detailNotif.title}
+                {confirmStep ? (confirmStep === 'positive' ? 'Xác nhận hoàn thành' : 'Xác nhận hủy') : detailNotif.title}
               </div>
-              <button className="notif-modal-close" onClick={() => setDetailNotif(null)}>
+              <button className="notif-modal-close" onClick={closeModal}>
                 <i className="bi bi-x-lg" />
               </button>
             </div>
-            <div className="notif-modal-body">
-              <p className="notif-modal-msg">{detailNotif.message}</p>
-              <span className="notif-modal-time">
-                <i className="bi bi-clock me-1" />
-                {formatRelativeTime(detailNotif.createdAt)}
-              </span>
-            </div>
-            <div className="notif-modal-footer">
-              {detailNotif.type === 'pending_issue' && (
-                <>
+
+            {/* Step 1 — detail view */}
+            {!confirmStep && (
+              <>
+                <div className="notif-modal-body">
+                  <p className="notif-modal-msg">{detailNotif.message}</p>
+                  <span className="notif-modal-time">
+                    <i className="bi bi-clock me-1" />
+                    {formatRelativeTime(detailNotif.createdAt)}
+                  </span>
+                </div>
+                <div className="notif-modal-footer">
+                  {detailNotif.type === 'pending_issue' && (
+                    <>
+                      <button className="notif-modal-btn notif-modal-btn-positive" onClick={() => setConfirmStep('positive')}>
+                        <i className="bi bi-check-circle me-1" />Tiếp nhận
+                      </button>
+                      <button className="notif-modal-btn notif-modal-btn-negative" onClick={() => setConfirmStep('negative')}>
+                        <i className="bi bi-x-circle me-1" />Hủy
+                      </button>
+                    </>
+                  )}
+                  {detailNotif.type === 'overdue_invoice' && (
+                    <>
+                      <button className="notif-modal-btn notif-modal-btn-positive" onClick={() => setConfirmStep('positive')}>
+                        <i className="bi bi-cash-coin me-1" />Đã thanh toán
+                      </button>
+                      <button className="notif-modal-btn notif-modal-btn-negative" onClick={closeModal}>
+                        <i className="bi bi-x-circle me-1" />Hủy
+                      </button>
+                    </>
+                  )}
+                  {detailNotif.type === 'expiring_contract' && (
+                    <>
+                      <button
+                        className="notif-modal-btn notif-modal-btn-positive"
+                        onClick={() => { router.push(`/dashboard/hop-dong/${detailNotif.data?.contractId}`); closeModal(); }}
+                      >
+                        <i className="bi bi-file-earmark-text me-1" />Xem hợp đồng
+                      </button>
+                      <button className="notif-modal-btn notif-modal-btn-negative" onClick={closeModal}>
+                        <i className="bi bi-x-circle me-1" />Đóng
+                      </button>
+                    </>
+                  )}
+                  {(detailNotif.type === 'system' || !['pending_issue', 'overdue_invoice', 'expiring_contract'].includes(detailNotif.type)) && (
+                    <>
+                      <button className="notif-modal-btn notif-modal-btn-positive" onClick={() => handleMarkRead(detailNotif)}>
+                        <i className="bi bi-check-all me-1" />Đã xem
+                      </button>
+                      <button className="notif-modal-btn notif-modal-btn-negative" onClick={closeModal}>
+                        <i className="bi bi-x-circle me-1" />Đóng
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Step 2 — confirm with note */}
+            {confirmStep && (
+              <>
+                <div className="notif-modal-body">
+                  <label className="notif-note-label">
+                    {confirmStep === 'positive' ? (
+                      <><i className="bi bi-journal-text me-1" />Kết quả / Ghi chú (tùy chọn)</>
+                    ) : (
+                      <><i className="bi bi-chat-left-text me-1" />Lý do hủy (tùy chọn)</>
+                    )}
+                  </label>
+                  <textarea
+                    className="notif-note-input"
+                    rows={3}
+                    placeholder={confirmStep === 'positive' ? 'Mô tả kết quả đã thực hiện...' : 'Nhập lý do hủy...'}
+                    value={actionNote}
+                    onChange={(e) => setActionNote(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="notif-modal-footer">
                   <button
                     className="notif-modal-btn notif-modal-btn-positive"
                     disabled={actionLoading}
-                    onClick={() => handleTiepNhan(detailNotif)}
+                    onClick={() => {
+                      if (detailNotif.type === 'pending_issue') {
+                        confirmStep === 'positive'
+                          ? handleTiepNhan(detailNotif, actionNote)
+                          : handleHuySuCo(detailNotif, actionNote);
+                      } else if (detailNotif.type === 'overdue_invoice') {
+                        handleDaThanhToan(detailNotif, actionNote);
+                      } else {
+                        handleMarkRead(detailNotif);
+                      }
+                    }}
                   >
-                    {actionLoading ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-check-circle me-1" />}
-                    Tiếp nhận
+                    {actionLoading
+                      ? <span className="spinner-border spinner-border-sm me-1" />
+                      : <i className="bi bi-check2-circle me-1" />}
+                    Xác nhận
                   </button>
-                  <button className="notif-modal-btn notif-modal-btn-negative" onClick={() => setDetailNotif(null)}>
-                    <i className="bi bi-x-circle me-1" />Hủy
-                  </button>
-                </>
-              )}
-              {detailNotif.type === 'overdue_invoice' && (
-                <>
                   <button
-                    className="notif-modal-btn notif-modal-btn-positive"
+                    className="notif-modal-btn notif-modal-btn-negative"
                     disabled={actionLoading}
-                    onClick={() => handleDaThanhToan(detailNotif)}
+                    onClick={() => { setConfirmStep(null); setActionNote(''); }}
                   >
-                    {actionLoading ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-cash-coin me-1" />}
-                    Đã thanh toán
+                    <i className="bi bi-arrow-left me-1" />Quay lại
                   </button>
-                  <button className="notif-modal-btn notif-modal-btn-negative" onClick={() => setDetailNotif(null)}>
-                    <i className="bi bi-x-circle me-1" />Hủy
-                  </button>
-                </>
-              )}
-              {detailNotif.type === 'expiring_contract' && (
-                <>
-                  <button
-                    className="notif-modal-btn notif-modal-btn-positive"
-                    onClick={() => { router.push(`/dashboard/hop-dong/${detailNotif.data?.contractId}`); setDetailNotif(null); }}
-                  >
-                    <i className="bi bi-file-earmark-text me-1" />Xem hợp đồng
-                  </button>
-                  <button className="notif-modal-btn notif-modal-btn-negative" onClick={() => setDetailNotif(null)}>
-                    <i className="bi bi-x-circle me-1" />Đóng
-                  </button>
-                </>
-              )}
-              {(detailNotif.type === 'system' || !['pending_issue', 'overdue_invoice', 'expiring_contract'].includes(detailNotif.type)) && (
-                <>
-                  <button
-                    className="notif-modal-btn notif-modal-btn-positive"
-                    onClick={() => handleMarkRead(detailNotif)}
-                  >
-                    <i className="bi bi-check-all me-1" />Đã xem
-                  </button>
-                  <button className="notif-modal-btn notif-modal-btn-negative" onClick={() => setDetailNotif(null)}>
-                    <i className="bi bi-x-circle me-1" />Đóng
-                  </button>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

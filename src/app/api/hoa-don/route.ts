@@ -387,7 +387,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id, trangThai } = await request.json();
+    const { id, trangThai, ghiChu } = await request.json();
     if (!id || !trangThai) {
       return NextResponse.json({ message: 'Thiếu id hoặc trangThai' }, { status: 400 });
     }
@@ -401,6 +401,7 @@ export async function PATCH(request: NextRequest) {
     const updated = await hoaDonRepo.update(id, {
       trangThai,
       daThanhToan: trangThai === 'daThanhToan' ? existing.tongTien : existing.daThanhToan,
+      ...(ghiChu !== undefined && { ghiChu }),
     });
 
     return NextResponse.json({ success: true, data: updated });
