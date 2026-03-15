@@ -278,16 +278,12 @@ export async function POST(request: NextRequest) {
 // PUT - Cập nhật hóa đơn
 export async function PUT(request: NextRequest) {
   try {
-    console.log('PUT request received for hoa-don');
-
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      console.log('Unauthorized request');
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    console.log('Request body:', body);
     const {
       id,
       maHoaDon,
@@ -321,10 +317,8 @@ export async function PUT(request: NextRequest) {
     const hopDongRepo = await getHopDongRepo();
 
     // Kiểm tra hóa đơn tồn tại
-    console.log('Looking for hoa don with ID:', id);
     const existingHoaDon = await hoaDonRepo.findById(id);
     if (!existingHoaDon) {
-      console.log('Hoa don not found');
       return NextResponse.json(
         { message: 'Hóa đơn không tồn tại' },
         { status: 404 }
@@ -332,10 +326,8 @@ export async function PUT(request: NextRequest) {
     }
 
     // Kiểm tra hợp đồng tồn tại
-    console.log('Looking for hop dong with ID:', hopDong);
     const hopDongData = await hopDongRepo.findById(hopDong);
     if (!hopDongData) {
-      console.log('Hop dong not found');
       return NextResponse.json(
         { message: 'Hợp đồng không tồn tại' },
         { status: 404 }
@@ -381,7 +373,7 @@ export async function PUT(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined
     });
     return NextResponse.json(
-      { message: 'Internal server error', error: error instanceof Error ? error.message : 'Unknown error' },
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }

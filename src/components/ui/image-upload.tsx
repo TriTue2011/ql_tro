@@ -98,8 +98,10 @@ export function ImageUpload({
       if (!response.ok) throw new Error('Upload failed');
 
       const result = await response.json();
-      if (result.success && result.data.url) {
-        onImageChange(result.data.url);
+      // API trả về secure_url (không phải url) — fix lỗi upload ảnh từ máy tính
+      const uploadedUrl = result.data?.secure_url || result.data?.url;
+      if (result.success && uploadedUrl) {
+        onImageChange(uploadedUrl);
         setUploadState('success');
         toast.success('Upload ảnh thành công');
         setTimeout(() => setUploadState('idle'), 2000);
@@ -274,7 +276,6 @@ export function ImageUpload({
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileSelect}
         className="hidden"
       />
