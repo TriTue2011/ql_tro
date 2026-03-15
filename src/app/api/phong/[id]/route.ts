@@ -15,6 +15,7 @@ const phongSchema = z.object({
   anhPhong: z.array(z.string()).optional(),
   tienNghi: z.array(z.string()).optional(),
   soNguoiToiDa: z.number().min(1, 'Số người tối đa phải lớn hơn 0').max(10, 'Số người tối đa không được quá 10'),
+  ngayTinhTien: z.number().min(1).max(28).optional(),
 });
 
 export async function GET(
@@ -95,6 +96,7 @@ export async function PUT(
       anhPhong: validatedData.anhPhong || [],
       tienNghi: validatedData.tienNghi || [],
       soNguoiToiDa: validatedData.soNguoiToiDa,
+      ...(validatedData.ngayTinhTien !== undefined && { ngayTinhTien: validatedData.ngayTinhTien }),
     });
 
     if (!updatedPhong) {

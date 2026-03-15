@@ -60,6 +60,7 @@ model Phong {
   tienNghi      String[]
   trangThai     String    @default("trong") // trong | daDat | dangThue | baoTri
   soNguoiToiDa  Int
+  ngayTinhTien  Int       @default(1)        // Ngày thu tiền hàng tháng (1-28)
   ngayTao       DateTime  @default(now())
   ngayCapNhat   DateTime  @updatedAt
 

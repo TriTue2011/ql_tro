@@ -114,6 +114,7 @@ export interface PhongData {
   tienNghi: string[];
   trangThai: TrangThaiPhong;
   soNguoiToiDa: number;
+  ngayTinhTien: number; // Ngày thu tiền mặc định trong tháng (1-28)
   ngayTao: Date;
   ngayCapNhat: Date;
 }
@@ -129,6 +130,7 @@ export interface CreatePhongInput {
   anhPhong?: string[];
   tienNghi?: string[];
   soNguoiToiDa: number;
+  ngayTinhTien?: number;
 }
 
 export interface UpdatePhongInput {
@@ -141,6 +143,7 @@ export interface UpdatePhongInput {
   tienNghi?: string[];
   trangThai?: TrangThaiPhong;
   soNguoiToiDa?: number;
+  ngayTinhTien?: number;
 }
 
 export interface PhongQueryOptions extends QueryOptions {
