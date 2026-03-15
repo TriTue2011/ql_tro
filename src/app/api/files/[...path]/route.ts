@@ -7,10 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getMinioClient } from '@/lib/minio';
-
-/** Danh sách bucket hợp lệ — chặn truy cập bucket tùy ý */
-const ALLOWED_BUCKETS = new Set(['ql-tro']);
+import { getMinioConfig, createMinioClient } from '@/lib/minio';
 
 /** Kiểm tra path traversal: không cho phép .. hoặc ký tự nguy hiểm */
 function isSafePath(value: string): boolean {
@@ -37,18 +34,20 @@ export async function GET(
   const [bucket, ...fileParts] = path;
   const filename = fileParts.join('/');
 
-  // Kiểm tra bucket hợp lệ — chặn truy cập bucket tùy ý
-  if (!ALLOWED_BUCKETS.has(bucket)) {
-    return NextResponse.json({ message: 'Invalid path' }, { status: 400 });
-  }
-
   // Kiểm tra path traversal trong filename
   if (!isSafePath(filename)) {
     return NextResponse.json({ message: 'Invalid path' }, { status: 400 });
   }
 
   try {
-    const client = getMinioClient();
+    const minioConfig = await getMinioConfig();
+
+    // Chỉ cho phép truy cập bucket đã cấu hình — chặn truy cập bucket tùy ý
+    if (bucket !== minioConfig.bucket) {
+      return NextResponse.json({ message: 'Invalid path' }, { status: 400 });
+    }
+
+    const client = createMinioClient(minioConfig);
 
     const stat = await client.statObject(bucket, filename);
     const stream = await client.getObject(bucket, filename);
