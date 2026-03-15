@@ -12,19 +12,28 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar, 
-  Shield, 
-  Edit3, 
-  Save, 
+import { Switch } from '@/components/ui/switch';
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Shield,
+  Edit3,
+  Save,
   X,
   Camera,
   Key,
-  Bell
+  Bell,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Wrench,
+  FileText,
+  Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -40,6 +49,49 @@ interface UserProfile {
   lastLogin?: string;
 }
 
+// ─── Password strength helpers ────────────────────────────────────────────────
+function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (score <= 1) return { score, label: 'Rất yếu', color: 'bg-red-500' };
+  if (score === 2) return { score, label: 'Yếu', color: 'bg-orange-500' };
+  if (score === 3) return { score, label: 'Trung bình', color: 'bg-yellow-500' };
+  if (score === 4) return { score, label: 'Mạnh', color: 'bg-blue-500' };
+  return { score, label: 'Rất mạnh', color: 'bg-green-500' };
+}
+
+const PASSWORD_RULES = [
+  { label: 'Ít nhất 8 ký tự', test: (p: string) => p.length >= 8 },
+  { label: 'Ít nhất 1 chữ hoa (A-Z)', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'Ít nhất 1 chữ số (0-9)', test: (p: string) => /[0-9]/.test(p) },
+];
+
+// ─── Notification preference helpers ──────────────────────────────────────────
+const NOTIF_TYPES = [
+  { key: 'pending_issue', label: 'Sự cố mới', desc: 'Khi có phòng báo cáo sự cố cần xử lý', icon: Wrench },
+  { key: 'overdue_invoice', label: 'Hóa đơn quá hạn', desc: 'Khi hóa đơn chưa được thanh toán đúng hạn', icon: AlertTriangle },
+  { key: 'expiring_contract', label: 'Hợp đồng sắp hết hạn', desc: 'Khi hợp đồng thuê sắp đến ngày kết thúc', icon: FileText },
+  { key: 'system', label: 'Thông báo hệ thống', desc: 'Thông báo quan trọng từ hệ thống', icon: Bell },
+];
+
+function loadNotifPrefs(userId: string): Record<string, boolean> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(`notif_prefs_${userId}`);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return { pending_issue: true, overdue_invoice: true, expiring_contract: true, system: true };
+}
+
+function saveNotifPrefs(userId: string, prefs: Record<string, boolean>) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(`notif_prefs_${userId}`, JSON.stringify(prefs));
+}
+
 export default function ProfilePage() {
   const { data: session, update } = useSession();
   const router = useRouter();
@@ -52,6 +104,16 @@ export default function ProfilePage() {
     phone: '',
     address: '',
     avatar: ''
+  });
+
+  // ── Security state ────────────────────────────────────────────
+  const [pwForm, setPwForm] = useState({ matKhauHienTai: '', matKhauMoi: '', xacNhanMatKhau: '' });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false });
+
+  // ── Notification prefs state ──────────────────────────────────
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({
+    pending_issue: true, overdue_invoice: true, expiring_contract: true, system: true,
   });
 
   useEffect(() => {
@@ -130,6 +192,43 @@ export default function ProfilePage() {
       avatar: profile?.avatar || ''
     });
     setIsEditing(false);
+  };
+
+  // Load notif prefs when profile loads
+  useEffect(() => {
+    if (profile?._id) {
+      setNotifPrefs(loadNotifPrefs(profile._id));
+    }
+  }, [profile?._id]);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwSaving(true);
+    try {
+      const res = await fetch('/api/user/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pwForm),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('Đổi mật khẩu thành công');
+        setPwForm({ matKhauHienTai: '', matKhauMoi: '', xacNhanMatKhau: '' });
+      } else {
+        toast.error(data.error || 'Đổi mật khẩu thất bại');
+      }
+    } catch {
+      toast.error('Có lỗi xảy ra');
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
+  const handleNotifToggle = (key: string, value: boolean) => {
+    const updated = { ...notifPrefs, [key]: value };
+    setNotifPrefs(updated);
+    if (profile?._id) saveNotifPrefs(profile._id, updated);
+    toast.success(value ? 'Đã bật thông báo' : 'Đã tắt thông báo');
   };
 
   const getRoleBadge = (role: string) => {
@@ -366,44 +465,235 @@ export default function ProfilePage() {
           </Card>
         </TabsContent>
 
+        {/* ── Bảo mật ── */}
         <TabsContent value="security" className="space-y-4 md:space-y-6">
           <Card>
             <CardHeader className="p-4 md:p-6">
               <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <Key className="h-4 w-4 md:h-5 md:w-5" />
-                Bảo mật tài khoản
+                <Lock className="h-4 w-4 md:h-5 md:w-5" />
+                Đổi mật khẩu
               </CardTitle>
               <CardDescription className="text-xs md:text-sm">
-                Quản lý mật khẩu và bảo mật tài khoản
+                Sử dụng mật khẩu mạnh để bảo vệ tài khoản của bạn
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 md:space-y-4 p-4 md:p-6">
-              <div className="p-3 md:p-4 border rounded-lg bg-yellow-50 border-yellow-200">
-                <p className="text-xs md:text-sm text-yellow-800">
-                  Tính năng đổi mật khẩu sẽ được cập nhật trong phiên bản tiếp theo.
-                </p>
+            <CardContent className="p-4 md:p-6">
+              <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
+                {/* Current password */}
+                <div className="space-y-2">
+                  <Label htmlFor="matKhauHienTai" className="text-sm">Mật khẩu hiện tại</Label>
+                  <div className="relative">
+                    <Input
+                      id="matKhauHienTai"
+                      type={showPw.current ? 'text' : 'password'}
+                      value={pwForm.matKhauHienTai}
+                      onChange={e => setPwForm(p => ({ ...p, matKhauHienTai: e.target.value }))}
+                      placeholder="Nhập mật khẩu hiện tại"
+                      className="pr-10 text-sm"
+                      required
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowPw(p => ({ ...p, current: !p.current }))}
+                    >
+                      {showPw.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* New password */}
+                <div className="space-y-2">
+                  <Label htmlFor="matKhauMoi" className="text-sm">Mật khẩu mới</Label>
+                  <div className="relative">
+                    <Input
+                      id="matKhauMoi"
+                      type={showPw.new ? 'text' : 'password'}
+                      value={pwForm.matKhauMoi}
+                      onChange={e => setPwForm(p => ({ ...p, matKhauMoi: e.target.value }))}
+                      placeholder="Nhập mật khẩu mới"
+                      className="pr-10 text-sm"
+                      required
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowPw(p => ({ ...p, new: !p.new }))}
+                    >
+                      {showPw.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+
+                  {/* Strength bar */}
+                  {pwForm.matKhauMoi && (() => {
+                    const s = getPasswordStrength(pwForm.matKhauMoi);
+                    return (
+                      <div className="space-y-1.5">
+                        <div className="flex gap-1">
+                          {[1,2,3,4,5].map(i => (
+                            <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= s.score ? s.color : 'bg-gray-200'}`} />
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500">Độ mạnh: <span className="font-medium">{s.label}</span></p>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Rules checklist */}
+                  {pwForm.matKhauMoi && (
+                    <ul className="space-y-1">
+                      {PASSWORD_RULES.map(rule => {
+                        const ok = rule.test(pwForm.matKhauMoi);
+                        return (
+                          <li key={rule.label} className={`flex items-center gap-1.5 text-xs ${ok ? 'text-green-600' : 'text-gray-400'}`}>
+                            {ok ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <XCircle className="h-3 w-3 shrink-0" />}
+                            {rule.label}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Confirm password */}
+                <div className="space-y-2">
+                  <Label htmlFor="xacNhanMatKhau" className="text-sm">Xác nhận mật khẩu mới</Label>
+                  <div className="relative">
+                    <Input
+                      id="xacNhanMatKhau"
+                      type={showPw.confirm ? 'text' : 'password'}
+                      value={pwForm.xacNhanMatKhau}
+                      onChange={e => setPwForm(p => ({ ...p, xacNhanMatKhau: e.target.value }))}
+                      placeholder="Nhập lại mật khẩu mới"
+                      className={`pr-10 text-sm ${pwForm.xacNhanMatKhau && pwForm.xacNhanMatKhau !== pwForm.matKhauMoi ? 'border-red-400' : ''}`}
+                      required
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowPw(p => ({ ...p, confirm: !p.confirm }))}
+                    >
+                      {showPw.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {pwForm.xacNhanMatKhau && pwForm.xacNhanMatKhau !== pwForm.matKhauMoi && (
+                    <p className="text-xs text-red-500">Mật khẩu xác nhận không khớp</p>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={pwSaving || !pwForm.matKhauHienTai || !pwForm.matKhauMoi || pwForm.matKhauMoi !== pwForm.xacNhanMatKhau}
+                  className="w-full sm:w-auto"
+                >
+                  {pwSaving ? (
+                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />Đang lưu...</>
+                  ) : (
+                    <><Key className="h-4 w-4 mr-2" />Cập nhật mật khẩu</>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Session info */}
+          <Card>
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                Thông tin bảo mật
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 p-4 md:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
+                  <Calendar className="h-4 w-4 text-gray-500 shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-gray-700">Ngày tạo tài khoản</p>
+                    <p className="text-xs text-gray-500">{profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
+                  <Key className="h-4 w-4 text-gray-500 shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-gray-700">Đăng nhập cuối</p>
+                    <p className="text-xs text-gray-500">{profile?.lastLogin ? new Date(profile.lastLogin).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 p-3 rounded-lg border border-blue-100 bg-blue-50 text-xs text-blue-700">
+                <Shield className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>Nên đổi mật khẩu định kỳ và không chia sẻ mật khẩu với người khác để bảo vệ tài khoản của bạn.</span>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* ── Thông báo ── */}
         <TabsContent value="notifications" className="space-y-4 md:space-y-6">
           <Card>
             <CardHeader className="p-4 md:p-6">
               <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                 <Bell className="h-4 w-4 md:h-5 md:w-5" />
-                Cài đặt thông báo
+                Tùy chọn thông báo
               </CardTitle>
               <CardDescription className="text-xs md:text-sm">
-                Quản lý các thông báo và email
+                Chọn loại thông báo bạn muốn nhận trong ứng dụng
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 md:space-y-4 p-4 md:p-6">
-              <div className="p-3 md:p-4 border rounded-lg bg-blue-50 border-blue-200">
-                <p className="text-xs md:text-sm text-blue-800">
-                  Tính năng cài đặt thông báo sẽ được cập nhật trong phiên bản tiếp theo.
-                </p>
-              </div>
+            <CardContent className="p-4 md:p-6 space-y-1">
+              {NOTIF_TYPES.map((item, idx) => {
+                const Icon = item.icon;
+                const enabled = notifPrefs[item.key] ?? true;
+                return (
+                  <div key={item.key}>
+                    <div className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${enabled ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{item.label}</p>
+                          <p className="text-xs text-gray-500">{item.desc}</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={enabled}
+                        onCheckedChange={v => handleNotifToggle(item.key, v)}
+                      />
+                    </div>
+                    {idx < NOTIF_TYPES.length - 1 && <Separator />}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Bell className="h-4 w-4 md:h-5 md:w-5" />
+                Cấu hình thông báo toàn hệ thống
+              </CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Cài đặt nâng cao như Zalo, số ngày cảnh báo... được quản lý trong trang Cài đặt
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/dashboard/cai-dat')}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Đi đến trang Cài đặt hệ thống
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
