@@ -59,6 +59,13 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         khachThue: { select: { id: true } },
+        phong: {
+          select: {
+            id: true,
+            maPhong: true,
+            toaNha: { select: { tenToaNha: true } },
+          },
+        },
       },
     });
     const hopDongByKT = new Map<string, (typeof hopDongBatch)[0]>();
