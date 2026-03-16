@@ -342,6 +342,42 @@ export default function CaiDatPage() {
     }
   }
 
+  // --- Gửi test Zalo ---
+  const [testChatId, setTestChatId] = useState('');
+  const [testMessage, setTestMessage] = useState('Tin nhắn test từ hệ thống Quản Lý Trọ 🏠');
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function handleSendTest() {
+    if (!testChatId.trim()) {
+      toast.error('Vui lòng nhập Chat ID');
+      return;
+    }
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/gui-zalo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId: testChatId.trim(), message: testMessage || 'Test message' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success !== false) {
+        setTestResult({ ok: true, message: 'Gửi thành công!' });
+        toast.success('Đã gửi tin nhắn test thành công');
+      } else {
+        const errMsg = data.error || data.message || `HTTP ${res.status}`;
+        setTestResult({ ok: false, message: errMsg });
+        toast.error(`Gửi thất bại: ${errMsg}`);
+      }
+    } catch {
+      setTestResult({ ok: false, message: 'Lỗi kết nối máy chủ' });
+      toast.error('Lỗi kết nối máy chủ');
+    } finally {
+      setTestLoading(false);
+    }
+  }
+
   // --- Webhook Zalo ---
   const [webhookStatus, setWebhookStatus] = useState<any>(null);
   const [webhookLoading, setWebhookLoading] = useState<string | null>(null); // 'set' | 'delete' | 'info'
@@ -447,6 +483,62 @@ export default function CaiDatPage() {
                     ) : null
                   )}
                 </div>
+
+                {/* ── Gửi test Zalo ── */}
+                <Card>
+                  <CardHeader className="p-4 md:p-6">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                      <Bell className="h-4 w-4" />
+                      Gửi tin nhắn Zalo test
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm">
+                      Kiểm tra kết nối Zalo Bot bằng cách gửi tin nhắn đến một Chat ID cụ thể.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 md:p-6 space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs md:text-sm font-medium">Chat ID người nhận</Label>
+                      <Input
+                        type="text"
+                        placeholder="Nhập Zalo Chat ID (vd: 1234567890)"
+                        value={testChatId}
+                        onChange={(e) => setTestChatId(e.target.value)}
+                        className="text-sm font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs md:text-sm font-medium">Nội dung tin nhắn</Label>
+                      <Input
+                        type="text"
+                        value={testMessage}
+                        onChange={(e) => setTestMessage(e.target.value)}
+                        className="text-sm"
+                        maxLength={500}
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleSendTest}
+                      disabled={testLoading}
+                      className="w-full"
+                    >
+                      {testLoading
+                        ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        : <Bell className="h-4 w-4 mr-2" />}
+                      Gửi tin nhắn test
+                    </Button>
+                    {testResult && (
+                      <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${
+                        testResult.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
+                      }`}>
+                        {testResult.ok
+                          ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
+                          : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                        {testResult.message}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* ── Webhook Zalo ── */}
                 <Card>
