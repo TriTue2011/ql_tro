@@ -13,6 +13,7 @@ interface ImageUploadProps {
   label?: string;
   placeholder?: string;
   variant?: Variant;
+  folder?: string;
 }
 
 const variantConfig: Record<Variant, {
@@ -70,6 +71,7 @@ export function ImageUpload({
   label = 'Ảnh',
   placeholder = 'Chọn ảnh',
   variant = 'default',
+  folder,
 }: ImageUploadProps) {
   const [uploadState, setUploadState] = useState<UploadState>('idle');
   const [isDragging, setIsDragging] = useState(false);
@@ -92,6 +94,7 @@ export function ImageUpload({
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (folder) formData.append('folder', folder);
 
       const response = await fetch('/api/upload', { method: 'POST', body: formData });
 

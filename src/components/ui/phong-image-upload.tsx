@@ -12,13 +12,15 @@ interface PhongImageUploadProps {
   onImagesChange: (images: string[]) => void;
   className?: string;
   maxImages?: number;
+  folder?: string;
 }
 
-export function PhongImageUpload({ 
-  images, 
-  onImagesChange, 
+export function PhongImageUpload({
+  images,
+  onImagesChange,
   className = '',
-  maxImages = 10
+  maxImages = 10,
+  folder,
 }: PhongImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +50,7 @@ export function PhongImageUpload({
       const uploadPromises = newFiles.map(async (file) => {
         const formData = new FormData();
         formData.append('file', file);
+        if (folder) formData.append('folder', folder);
 
         const response = await fetch('/api/upload', {
           method: 'POST',

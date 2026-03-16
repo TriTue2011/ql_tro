@@ -58,26 +58,50 @@ async function getStorageConfig(): Promise<StorageConfig> {
   return _storageConfig!;
 }
 
-export async function uploadFile(file: File): Promise<UploadResult> {
+/** Chuẩn hóa 1 segment của đường dẫn folder: bỏ dấu, lowercase, chỉ giữ a-z0-9_- */
+function slugifySegment(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60);
+}
+
+/** Chuẩn hóa toàn bộ folder path: toa/thang/phong → an toàn cho filesystem & object storage */
+export function buildFolderPath(folder: string): string {
+  return folder
+    .split('/')
+    .map(s => slugifySegment(s.trim()))
+    .filter(Boolean)
+    .slice(0, 5) // tối đa 5 cấp
+    .join('/');
+}
+
+export async function uploadFile(file: File, folder?: string): Promise<UploadResult> {
   const config = await getStorageConfig();
+  const normalizedFolder = folder ? buildFolderPath(folder) : undefined;
 
   switch (config.provider) {
     case 'cloudinary':
-      return uploadToCloudinary(file, config.cloudinary);
+      return uploadToCloudinary(file, config.cloudinary, normalizedFolder);
     case 'minio':
-      return uploadToMinio(file);
+      return uploadToMinio(file, normalizedFolder);
     case 'both':
-      return uploadToBoth(file, config.cloudinary);
+      return uploadToBoth(file, config.cloudinary, normalizedFolder);
     default:
-      return uploadToLocal(file);
+      return uploadToLocal(file, normalizedFolder);
   }
 }
 
 // ─── Both (MinIO primary + Cloudinary secondary) ─────────────────────────────
-async function uploadToBoth(file: File, cloudinaryConfig: CloudinaryConfig): Promise<UploadResult> {
-  const result = await uploadToMinio(file);
+async function uploadToBoth(file: File, cloudinaryConfig: CloudinaryConfig, folder?: string): Promise<UploadResult> {
+  const result = await uploadToMinio(file, folder);
 
-  uploadToCloudinary(file, cloudinaryConfig).catch((err: Error) => {
+  uploadToCloudinary(file, cloudinaryConfig, folder).catch((err: Error) => {
     console.error('[DualStorage] Cloudinary backup failed:', err.message);
   });
 
@@ -85,7 +109,7 @@ async function uploadToBoth(file: File, cloudinaryConfig: CloudinaryConfig): Pro
 }
 
 // ─── Cloudinary ───────────────────────────────────────────────────────────────
-async function uploadToCloudinary(file: File, config: CloudinaryConfig): Promise<UploadResult> {
+async function uploadToCloudinary(file: File, config: CloudinaryConfig, folder?: string): Promise<UploadResult> {
   const { cloudName, uploadPreset } = config;
 
   if (!cloudName || !uploadPreset) {
@@ -95,6 +119,7 @@ async function uploadToCloudinary(file: File, config: CloudinaryConfig): Promise
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', uploadPreset);
+  if (folder) formData.append('folder', folder);
 
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -111,7 +136,7 @@ async function uploadToCloudinary(file: File, config: CloudinaryConfig): Promise
 }
 
 // ─── MinIO ────────────────────────────────────────────────────────────────────
-async function uploadToMinio(file: File): Promise<UploadResult> {
+async function uploadToMinio(file: File, folder?: string): Promise<UploadResult> {
   const { getMinioConfig, createMinioClient, ensureBucketExists } = await import('./minio');
   const { randomBytes } = await import('crypto');
   const { extname } = await import('path');
@@ -122,25 +147,28 @@ async function uploadToMinio(file: File): Promise<UploadResult> {
 
   const ext = extname(file.name) || '.jpg';
   const filename = `${Date.now()}-${randomBytes(8).toString('hex')}${ext}`;
+  const objectName = folder ? `${folder}/${filename}` : filename;
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  await client.putObject(config.bucket, filename, buffer, buffer.length, {
+  await client.putObject(config.bucket, objectName, buffer, buffer.length, {
     'Content-Type': file.type,
   });
 
   return {
-    public_id: `${config.bucket}/${filename}`,
-    secure_url: `/api/files/${config.bucket}/${filename}`,
+    public_id: `${config.bucket}/${objectName}`,
+    secure_url: `/api/files/${config.bucket}/${objectName}`,
   };
 }
 
 // ─── Local filesystem ─────────────────────────────────────────────────────────
-async function uploadToLocal(file: File): Promise<UploadResult> {
+async function uploadToLocal(file: File, folder?: string): Promise<UploadResult> {
   const { writeFile, mkdir } = await import('fs/promises');
   const { join, extname } = await import('path');
   const { randomBytes } = await import('crypto');
 
-  const uploadDir = join(process.cwd(), 'public', 'uploads');
+  const uploadDir = folder
+    ? join(process.cwd(), 'public', 'uploads', folder)
+    : join(process.cwd(), 'public', 'uploads');
   await mkdir(uploadDir, { recursive: true });
 
   const ext = extname(file.name) || '.jpg';
@@ -150,8 +178,9 @@ async function uploadToLocal(file: File): Promise<UploadResult> {
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(filePath, buffer);
 
+  const relativePath = folder ? `uploads/${folder}/${filename}` : `uploads/${filename}`;
   return {
-    public_id: `uploads/${filename}`,
-    secure_url: `/uploads/${filename}`,
+    public_id: relativePath,
+    secure_url: `/${relativePath}`,
   };
 }
