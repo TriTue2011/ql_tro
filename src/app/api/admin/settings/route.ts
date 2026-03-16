@@ -65,11 +65,16 @@ export async function GET() {
       orderBy: [{ nhom: 'asc' }, { khoa: 'asc' }],
     });
 
+    // Chỉ hiển thị các key có trong DEFAULT_SETTINGS (ẩn key cũ/không dùng nữa)
+    const knownKeys = new Set(DEFAULT_SETTINGS.map((d) => d.khoa));
+
     // Che giá trị bí mật
-    const safeSettings = allSettings.map((s) => ({
-      ...s,
-      giaTri: s.laBiMat ? maskSecret(s.giaTri) : s.giaTri,
-    }));
+    const safeSettings = allSettings
+      .filter((s) => knownKeys.has(s.khoa))
+      .map((s) => ({
+        ...s,
+        giaTri: s.laBiMat ? maskSecret(s.giaTri) : s.giaTri,
+      }));
 
     return NextResponse.json({ success: true, data: safeSettings });
   } catch (error) {
