@@ -14,8 +14,7 @@
  */
 
 import prisma from '@/lib/prisma';
-import { getKhachThueRepo } from '@/lib/repositories';
-import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
+import { handleZaloUpdate } from '@/lib/zalo-message-handler';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
@@ -28,7 +27,7 @@ interface WorkerState {
   lastMessageAt: Date | null;
   lastError: string | null;
   timerId: ReturnType<typeof setTimeout> | null;
-  webhookWasActive: string | null; // URL webhook cũ để restore sau
+  webhookWasActive: string | null;
 }
 
 const state: WorkerState = {
@@ -42,15 +41,6 @@ const state: WorkerState = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
 
 async function getZaloToken(): Promise<string | null> {
   try {
@@ -76,61 +66,6 @@ async function callZalo(token: string, endpoint: string, body: object): Promise<
   }
 }
 
-async function saveMessage(update: any): Promise<void> {
-  try {
-    const msg = update?.message;
-    if (!msg?.from?.id) return;
-    const chatId = String(msg.from.id);
-    const displayName: string = msg.from.display_name || '';
-    const content: string = msg.text || msg.attachments?.[0]?.description || '[đính kèm]';
-    const eventName: string = update?.event_name || 'message';
-    await prisma.zaloMessage.create({
-      data: { chatId, displayName: displayName || null, content, role: 'user', eventName, rawPayload: update as any },
-    });
-  } catch {
-    // Không dừng worker vì lỗi lưu message
-  }
-}
-
-async function detectAndStorePending(update: any): Promise<void> {
-  const msg = update?.message;
-  if (!msg?.from?.id) return;
-
-  const chatId = String(msg.from.id);
-  const displayName: string = msg.from.display_name || '';
-  if (!displayName) return;
-
-  const normalizedSender = normalizeName(displayName);
-
-  try {
-    // Khách thuê
-    const ktRepo = await getKhachThueRepo();
-    const allKt = await ktRepo.findMany({ limit: 1000 });
-    const matchedKt = allKt.data.find(kt => {
-      const norm = normalizeName(kt.hoTen);
-      const lastWord = norm.split(' ').pop() ?? '';
-      return norm === normalizedSender || normalizedSender.includes(lastWord) || norm.includes(normalizedSender);
-    });
-    if (matchedKt && matchedKt.zaloChatId !== chatId && matchedKt.pendingZaloChatId !== chatId) {
-      await ktRepo.update(matchedKt.id, { pendingZaloChatId: chatId });
-    }
-  } catch { /* bỏ qua */ }
-
-  try {
-    // Người dùng (admin/nhân viên)
-    const ndRepo = new NguoiDungRepository();
-    const allNd = await ndRepo.findMany({ limit: 100 });
-    const matchedNd = allNd.data.find(nd => {
-      const norm = normalizeName(nd.ten);
-      const lastWord = norm.split(' ').pop() ?? '';
-      return norm === normalizedSender || normalizedSender.includes(lastWord) || norm.includes(normalizedSender);
-    });
-    if (matchedNd && matchedNd.zaloChatId !== chatId && matchedNd.pendingZaloChatId !== chatId) {
-      await ndRepo.update(matchedNd.id, { pendingZaloChatId: chatId });
-    }
-  } catch { /* bỏ qua */ }
-}
-
 // ─── Core polling loop ────────────────────────────────────────────────────────
 
 async function pollOnce(): Promise<void> {
@@ -144,7 +79,6 @@ async function pollOnce(): Promise<void> {
   }
 
   try {
-    // Long-poll 5s → trả ngay nếu có tin, chờ 5s nếu không có
     const res = await fetch(`${ZALO_API}/bot${token}/getUpdates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -165,7 +99,7 @@ async function pollOnce(): Promise<void> {
       state.messagesProcessed++;
       state.lastMessageAt = new Date();
       state.lastError = null;
-      await Promise.all([saveMessage(update), detectAndStorePending(update)]);
+      await handleZaloUpdate(update, token);
       // Có tin → poll ngay (có thể còn tin tiếp)
       scheduleNext(0);
     } else {
@@ -217,7 +151,6 @@ export async function startPolling(): Promise<{ ok: boolean; message: string }> 
   state.lastMessageAt = null;
   state.lastError = null;
 
-  // Bắt đầu loop
   scheduleNext(0);
 
   return { ok: true, message: 'Polling worker đã khởi động' };
@@ -234,7 +167,6 @@ export async function stopPolling(restoreWebhook = false): Promise<{ ok: boolean
     state.timerId = null;
   }
 
-  // Đăng ký lại webhook nếu cần
   if (restoreWebhook && state.webhookWasActive) {
     try {
       const token = await getZaloToken();

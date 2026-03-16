@@ -2,21 +2,11 @@
  * POST /api/zalo/webhook
  * Nhận HTTP POST từ Zalo khi có tương tác từ người dùng.
  * - Xác thực qua header X-Bot-Api-Secret-Token
- * - Lưu tin nhắn vào ZaloMessage để hiển thị trong UI
- * - Phát hiện chat_id và lưu pendingZaloChatId
+ * - Delegate toàn bộ xử lý sang zalo-message-handler
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getKhachThueRepo } from '@/lib/repositories';
 import prisma from '@/lib/prisma';
-
-function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+import { handleZaloUpdate } from '@/lib/zalo-message-handler';
 
 async function getWebhookSecret(): Promise<string | null> {
   try {
@@ -27,59 +17,12 @@ async function getWebhookSecret(): Promise<string | null> {
   }
 }
 
-async function saveMessage(update: any): Promise<void> {
+async function getZaloToken(): Promise<string | null> {
   try {
-    const msg = update?.message;
-    if (!msg?.from?.id) return;
-
-    const chatId = String(msg.from.id);
-    const displayName: string = msg.from.display_name || '';
-    const content: string = msg.text || msg.attachments?.[0]?.description || '[đính kèm]';
-    const eventName: string = update?.event_name || 'message';
-
-    await prisma.zaloMessage.create({
-      data: {
-        chatId,
-        displayName: displayName || null,
-        content,
-        role: 'user',
-        eventName,
-        rawPayload: update as any,
-      },
-    });
-  } catch (err) {
-    console.error('[zalo/webhook] saveMessage error:', err);
-  }
-}
-
-async function detectAndStorePending(update: any): Promise<void> {
-  const msg = update?.message;
-  if (!msg?.from?.id) return;
-
-  const chatId = String(msg.from.id);
-  const displayName: string = msg.from.display_name || '';
-  if (!displayName) return;
-
-  try {
-    const repo = await getKhachThueRepo();
-    const allTenants = await repo.findMany({ limit: 1000 });
-    const normalizedSender = normalizeName(displayName);
-
-    const matched = allTenants.data.find(kt => {
-      const normalizedKt = normalizeName(kt.hoTen);
-      const lastWordKt = normalizedKt.split(' ').pop() ?? '';
-      return normalizedKt === normalizedSender ||
-        normalizedSender.includes(lastWordKt) ||
-        normalizedKt.includes(normalizedSender);
-    });
-
-    if (!matched) return;
-    if (matched.zaloChatId === chatId) return;
-    if (matched.pendingZaloChatId === chatId) return;
-
-    await repo.update(matched.id, { pendingZaloChatId: chatId });
-  } catch (err) {
-    console.error('[zalo/webhook] detectAndStorePending error:', err);
+    const s = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_access_token' } });
+    return s?.giaTri?.trim() || null;
+  } catch {
+    return null;
   }
 }
 
@@ -106,12 +49,13 @@ export async function POST(request: NextRequest) {
     }
 
     const update = body?.result ?? body;
+    const token = await getZaloToken();
 
-    // Lưu tin nhắn vào DB + phát hiện chat ID song song
-    await Promise.all([
-      saveMessage(update),
-      detectAndStorePending(update),
-    ]);
+    if (token) {
+      await handleZaloUpdate(update, token);
+    } else {
+      console.warn('[zalo/webhook] zalo_access_token chưa cấu hình — bỏ qua reply');
+    }
 
     return NextResponse.json({ message: 'Success' });
   } catch (error) {
