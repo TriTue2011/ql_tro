@@ -24,13 +24,13 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
   EyeIcon,
-  Users, 
+  Users,
   Phone,
   Mail,
   Calendar,
@@ -38,7 +38,10 @@ import {
   Info,
   CreditCard,
   RefreshCw,
-  Copy
+  Copy,
+  MessageCircle,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react';
 import { KhachThue } from '@/types';
 import { KhachThueDataTable } from './table';
@@ -499,6 +502,7 @@ function KhachThueForm({
     },
     ngheNghiep: khachThue?.ngheNghiep || '',
     matKhau: '',
+    zaloChatId: khachThue?.zaloChatId || '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -548,17 +552,21 @@ function KhachThueForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
       <Tabs defaultValue="thong-tin" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className={`grid w-full ${khachThue ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="thong-tin" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
             <Info className="h-3 w-3 md:h-4 md:w-4" />
-            <span className="hidden sm:inline">Thông tin</span>
-            <span className="sm:hidden">Thông tin</span>
+            <span>Thông tin</span>
           </TabsTrigger>
           <TabsTrigger value="anh-cccd" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
             <CreditCard className="h-3 w-3 md:h-4 md:w-4" />
-            <span className="hidden sm:inline">Ảnh CCCD</span>
-            <span className="sm:hidden">CCCD</span>
+            <span>Ảnh CCCD</span>
           </TabsTrigger>
+          {khachThue && (
+            <TabsTrigger value="zalo" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <MessageCircle className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Zalo</span>
+            </TabsTrigger>
+          )}
         </TabsList>
         
         <TabsContent value="thong-tin" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
@@ -685,6 +693,63 @@ function KhachThueForm({
             className="w-full"
           />
         </TabsContent>
+
+        {khachThue && (
+          <TabsContent value="zalo" className="space-y-4 mt-4">
+            {/* Trạng thái hiện tại */}
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-blue-500" />
+                <span className="text-sm font-medium">Trạng thái liên kết Zalo</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div className="flex items-center justify-between p-2 rounded bg-gray-50">
+                  <span className="text-gray-600">SĐT:</span>
+                  <span className="font-mono font-medium">{khachThue.soDienThoai}</span>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded bg-gray-50">
+                  <span className="text-gray-600">Zalo Chat ID:</span>
+                  {khachThue.zaloChatId ? (
+                    <span className="flex items-center gap-1 text-green-600 font-mono text-xs">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {khachThue.zaloChatId}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-xs">Chưa liên kết</span>
+                  )}
+                </div>
+                {khachThue.pendingZaloChatId && (
+                  <div className="flex items-center justify-between p-2 rounded bg-amber-50 border border-amber-200">
+                    <span className="text-amber-700 text-xs">Chờ xác nhận:</span>
+                    <span className="flex items-center gap-1 text-amber-700 font-mono text-xs">
+                      <Clock className="h-3.5 w-3.5" />
+                      {khachThue.pendingZaloChatId}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Nhập thủ công */}
+            <div className="space-y-2">
+              <Label htmlFor="zaloChatId" className="text-xs md:text-sm">
+                Zalo Chat ID
+                <span className="ml-1 text-gray-400 font-normal">(nhập để liên kết thủ công)</span>
+              </Label>
+              <Input
+                id="zaloChatId"
+                value={formData.zaloChatId}
+                onChange={(e) => setFormData(prev => ({ ...prev, zaloChatId: e.target.value }))}
+                placeholder="Nhập Zalo Chat ID..."
+                className="text-sm font-mono"
+                maxLength={64}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Chat ID lấy từ bot Zalo khi khách thuê nhắn tin cho bot. Khớp với số điện thoại: <strong>{khachThue.soDienThoai}</strong>
+              </p>
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
 
       <DialogFooter className="flex-col sm:flex-row gap-2">
