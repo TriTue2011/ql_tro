@@ -404,6 +404,73 @@ export default function CaiDatPage() {
     }
   }
 
+  // --- Polling worker ---
+  const [pollingStatus, setPollingStatus] = useState<{
+    running: boolean;
+    startedAt: string | null;
+    messagesProcessed: number;
+    lastMessageAt: string | null;
+    lastError: string | null;
+    webhookWillRestore: boolean;
+  } | null>(null);
+  const [pollingLoading, setPollingLoading] = useState(false);
+
+  async function fetchPollingStatus() {
+    try {
+      const res = await fetch('/api/zalo/polling');
+      if (res.ok) setPollingStatus(await res.json());
+    } catch { /* bỏ qua */ }
+  }
+
+  useEffect(() => {
+    fetchPollingStatus();
+    // Refresh status mỗi 5s nếu đang chạy
+    const interval = setInterval(() => {
+      setPollingStatus(prev => {
+        if (prev?.running) fetchPollingStatus();
+        return prev;
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleStartPolling() {
+    setPollingLoading(true);
+    try {
+      const res = await fetch('/api/zalo/polling', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success(data.message);
+        await fetchPollingStatus();
+      } else {
+        toast.error(data.message || 'Không thể khởi động');
+      }
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setPollingLoading(false);
+    }
+  }
+
+  async function handleStopPolling(restoreWebhook: boolean) {
+    setPollingLoading(true);
+    try {
+      const res = await fetch('/api/zalo/polling', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restoreWebhook }),
+      });
+      const data = await res.json();
+      toast.success(data.message);
+      await fetchPollingStatus();
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setPollingLoading(false);
+    }
+  }
+
   // --- Gửi test Zalo ---
   const [testChatId, setTestChatId] = useState('');
   const [testMessage, setTestMessage] = useState('Tin nhắn test từ hệ thống Quản Lý Trọ 🏠');
@@ -829,6 +896,98 @@ export default function CaiDatPage() {
                         )}
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+
+                {/* ── Polling Worker ── */}
+                <Card>
+                  <CardHeader className="p-4 md:p-6">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                      <RefreshCw className="h-4 w-4" />
+                      Polling Worker (thay thế Webhook)
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm">
+                      Khi Webhook bị lỗi, dùng Polling để nhận tin nhắn liên tục từ nhiều người.
+                      Worker chạy nền trong server — không cần giữ trình duyệt mở.
+                      <span className="block mt-1 text-amber-600 font-medium">
+                        ⚠ Polling và Webhook không thể chạy cùng lúc. Bật Polling sẽ tự xóa Webhook.
+                      </span>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 md:p-6 space-y-3">
+                    {/* Status */}
+                    {pollingStatus && (
+                      <div className={`rounded-md border p-3 text-sm space-y-1.5 ${
+                        pollingStatus.running
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-gray-700">Trạng thái</span>
+                          {pollingStatus.running ? (
+                            <Badge className="bg-green-600 text-xs">Đang chạy</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Dừng</Badge>
+                          )}
+                        </div>
+                        {pollingStatus.running && pollingStatus.startedAt && (
+                          <div className="text-xs text-gray-500">
+                            Bắt đầu: {new Date(pollingStatus.startedAt).toLocaleTimeString('vi-VN')}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-600">
+                          Tin nhắn đã xử lý: <strong>{pollingStatus.messagesProcessed}</strong>
+                        </div>
+                        {pollingStatus.lastMessageAt && (
+                          <div className="text-xs text-gray-500">
+                            Tin cuối: {new Date(pollingStatus.lastMessageAt).toLocaleTimeString('vi-VN')}
+                          </div>
+                        )}
+                        {pollingStatus.lastError && (
+                          <div className="text-xs text-red-600">Lỗi: {pollingStatus.lastError}</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    {!pollingStatus?.running ? (
+                      <Button
+                        size="sm"
+                        onClick={handleStartPolling}
+                        disabled={pollingLoading}
+                        className="w-full bg-green-600 hover:bg-green-700"
+                      >
+                        <RefreshCw className={`h-4 w-4 mr-2 ${pollingLoading ? 'animate-spin' : ''}`} />
+                        {pollingLoading ? 'Đang khởi động…' : 'Bật Polling Worker'}
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStopPolling(false)}
+                          disabled={pollingLoading}
+                          className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          {pollingLoading ? 'Đang dừng…' : 'Dừng Polling'}
+                        </Button>
+                        {pollingStatus.webhookWillRestore && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleStopPolling(true)}
+                            disabled={pollingLoading}
+                            className="flex-1 border-blue-300 text-blue-600 hover:bg-blue-50"
+                          >
+                            Dừng & Bật lại Webhook
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    <p className="text-[11px] text-muted-foreground">
+                      Worker dừng khi server khởi động lại. Sau khi restart, bấm "Bật Polling Worker" lại nếu cần.
+                    </p>
                   </CardContent>
                 </Card>
 
