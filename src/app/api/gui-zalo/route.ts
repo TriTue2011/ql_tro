@@ -9,6 +9,7 @@ const schema = z.object({
   phone: z.string().min(9, 'Số điện thoại không hợp lệ').optional(),
   chatId: z.string().min(1).optional(),
   nguoiDungId: z.string().min(1).optional(), // ID của NguoiDung (chủ trọ/admin)
+  phongId: z.string().min(1).optional(),     // Phòng liên quan → tự động notify chủ trọ toà nhà
   message: z.string().min(1, 'Tin nhắn không được trống').max(2000).optional(),
   imageUrl: z.string().url('URL hình ảnh không hợp lệ').optional(),
 }).refine(d => d.phone || d.chatId || d.nguoiDungId, { message: 'Cần cung cấp phone, chatId hoặc nguoiDungId' })
@@ -36,6 +37,37 @@ async function resolveChatIdKhachThue(phone: string): Promise<{ chatId: string |
     return { chatId: kt.zaloChatId ?? null };
   } catch {
     return { chatId: null };
+  }
+}
+
+/**
+ * Gửi bản sao thông báo cho chủ trọ của toà nhà chứa phòng đó.
+ * Chỉ gửi nếu chủ trọ đã bật nhanThongBaoZalo và có zaloChatId.
+ * Lỗi không ảnh hưởng đến kết quả chính.
+ */
+async function notifyChuNha(token: string, phongId: string, originalMessage: string): Promise<void> {
+  try {
+    const phong = await prisma.phong.findUnique({
+      where: { id: phongId },
+      select: {
+        maPhong: true,
+        toaNha: {
+          select: {
+            tenToaNha: true,
+            chuSoHuu: { select: { id: true, ten: true, zaloChatId: true, nhanThongBaoZalo: true } },
+          },
+        },
+      },
+    });
+
+    const chuNha = phong?.toaNha?.chuSoHuu;
+    if (!chuNha?.zaloChatId || !chuNha.nhanThongBaoZalo) return;
+
+    const prefix = `📋 [Thông báo phòng ${phong!.maPhong} - ${phong!.toaNha.tenToaNha}]\n`;
+    const ownerMsg = (prefix + originalMessage).slice(0, 2000);
+    await sendZaloMessage(token, chuNha.zaloChatId, ownerMsg);
+  } catch {
+    // Không fail main request vì lỗi notify chủ trọ
   }
 }
 
@@ -93,7 +125,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { phone, chatId: explicitChatId, nguoiDungId, message, imageUrl } = parsed.data;
+    const { phone, chatId: explicitChatId, nguoiDungId, phongId, message, imageUrl } = parsed.data;
 
     const token = await getZaloToken();
     if (!token) {
@@ -153,6 +185,7 @@ export async function POST(request: NextRequest) {
         );
       }
       const result = await response.json().catch(() => ({}));
+      if (phongId && message) notifyChuNha(token, phongId, message);
       return NextResponse.json({ success: true, message: 'Đã gửi hình ảnh Zalo thành công', data: result });
     }
 
@@ -168,6 +201,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await response.json().catch(() => ({}));
+    if (phongId) notifyChuNha(token, phongId, message!);
     return NextResponse.json({ success: true, message: 'Đã gửi tin nhắn Zalo thành công', data: result });
   } catch (error: any) {
     if (error?.name === 'TimeoutError') {

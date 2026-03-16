@@ -1091,7 +1091,7 @@ Vui lòng thanh toán đúng hạn.`;
                 const res = await fetch('/api/gui-zalo', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ phone, message }),
+                  body: JSON.stringify({ phone, message, phongId: sendingHoaDon.phong }),
                 });
                 const data = await res.json();
                 if (data.success) {
