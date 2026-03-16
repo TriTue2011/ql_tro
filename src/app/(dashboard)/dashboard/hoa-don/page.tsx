@@ -52,6 +52,18 @@ import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
+// Tạo URL QR VietQR (SePay)
+function buildVietQRUrl(soTaiKhoan: string, bank: string, amount: number, des: string): string {
+  const params = new URLSearchParams({
+    acc: soTaiKhoan,
+    bank,
+    amount: String(Math.round(amount)),
+    des,
+    template: 'compact',
+  });
+  return `https://qr.sepay.vn/img?${params.toString()}`;
+}
+
 // Helper functions for form and dialogs
 const getPhongName = (phongId: string | Phong, phongList: Phong[]) => {
   if (!phongId) return 'N/A';
@@ -110,6 +122,7 @@ export default function HoaDonPage() {
   const [sendingHoaDon, setSendingHoaDon] = useState<HoaDon | null>(null);
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
   const [isSendingZalo, setIsSendingZalo] = useState(false);
+  const [bankSettings, setBankSettings] = useState({ tenNganHang: '', soTaiKhoan: '', chuTaiKhoan: '' });
 
   useEffect(() => {
     document.title = 'Quản lý Hóa đơn';
@@ -117,6 +130,17 @@ export default function HoaDonPage() {
 
   useEffect(() => {
     fetchData();
+    // Lấy thông tin ngân hàng từ cài đặt
+    fetch('/api/admin/settings').then(r => r.json()).then(data => {
+      if (data.success && Array.isArray(data.data)) {
+        const get = (khoa: string) => data.data.find((s: any) => s.khoa === khoa)?.giaTri || '';
+        setBankSettings({
+          tenNganHang: get('ngan_hang_ten'),
+          soTaiKhoan: get('ngan_hang_so_tai_khoan'),
+          chuTaiKhoan: get('ngan_hang_chu_tai_khoan'),
+        });
+      }
+    }).catch(() => {});
   }, []);
 
 
@@ -363,6 +387,10 @@ Vui lòng thanh toán đúng hạn.`;
           .item { display: flex; justify-content: space-between; margin: 5px 0; }
           .total { border-top: 2px solid #000; padding-top: 10px; margin-top: 20px; }
           .footer { margin-top: 30px; text-align: center; }
+          .qr-section { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #f0f7ff; }
+          .qr-section h3 { margin: 0 0 10px 0; }
+          .qr-section img { display: block; margin: 10px 0; }
+          .qr-section p { margin: 4px 0; font-size: 14px; }
         </style>
       </head>
       <body>
@@ -415,9 +443,18 @@ Vui lòng thanh toán đúng hạn.`;
           </div>
         </div>
         
+        ${hoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang ? `
+        <div class="qr-section">
+          <h3>Thanh toán chuyển khoản</h3>
+          <img src="${buildVietQRUrl(bankSettings.soTaiKhoan, bankSettings.tenNganHang, hoaDon.conLai, `TT ${hoaDon.maHoaDon}`)}"
+               alt="QR Chuyển khoản" style="width:180px;height:180px;" />
+          <p><strong>Ngân hàng:</strong> ${bankSettings.tenNganHang}</p>
+          <p><strong>Số TK:</strong> ${bankSettings.soTaiKhoan}${bankSettings.chuTaiKhoan ? ` — ${bankSettings.chuTaiKhoan}` : ''}</p>
+          <p><strong>Nội dung:</strong> TT ${hoaDon.maHoaDon}</p>
+        </div>` : ''}
         <div class="footer">
-          <p>Trạng thái: ${hoaDon.trangThai === 'daThanhToan' ? 'Đã thanh toán' : 
-                         hoaDon.trangThai === 'daThanhToanMotPhan' ? 'Thanh toán một phần' : 
+          <p>Trạng thái: ${hoaDon.trangThai === 'daThanhToan' ? 'Đã thanh toán' :
+                         hoaDon.trangThai === 'daThanhToanMotPhan' ? 'Thanh toán một phần' :
                          hoaDon.trangThai === 'quaHan' ? 'Quá hạn' : 'Chưa thanh toán'}</p>
           ${hoaDon.ghiChu ? `<p>Ghi chú: ${hoaDon.ghiChu}</p>` : ''}
         </div>
@@ -533,11 +570,29 @@ Vui lòng thanh toán đúng hạn.`;
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 14px;">
               <span>Còn lại:</span>
-              <span style="color: #10b981; font-weight: bold;">
+              <span style="color: ${hoaDon.conLai > 0 ? '#ef4444' : '#10b981'}; font-weight: bold;">
                 ${formatCurrency(hoaDon.conLai)}
               </span>
             </div>
           </div>
+
+          ${hoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang ? `
+          <!-- QR Thanh toán -->
+          <div style="margin-top: 24px; padding: 16px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff;">
+            <div style="font-size: 15px; font-weight: bold; margin-bottom: 12px; color: #1d4ed8;">🏦 Thanh toán chuyển khoản</div>
+            <div style="display: flex; gap: 20px; align-items: flex-start;">
+              <img src="${buildVietQRUrl(bankSettings.soTaiKhoan, bankSettings.tenNganHang, hoaDon.conLai, `TT ${hoaDon.maHoaDon}`)}"
+                   crossorigin="anonymous"
+                   style="width:160px;height:160px;border-radius:8px;border:1px solid #bfdbfe;" />
+              <div style="font-size: 13px; line-height: 1.8;">
+                <div><strong>Ngân hàng:</strong> ${bankSettings.tenNganHang}</div>
+                <div><strong>Số TK:</strong> ${bankSettings.soTaiKhoan}</div>
+                ${bankSettings.chuTaiKhoan ? `<div><strong>Chủ TK:</strong> ${bankSettings.chuTaiKhoan}</div>` : ''}
+                <div><strong>Số tiền:</strong> <span style="color:#ef4444;font-weight:bold;">${formatCurrency(hoaDon.conLai)}</span></div>
+                <div><strong>Nội dung:</strong> TT ${hoaDon.maHoaDon}</div>
+              </div>
+            </div>
+          </div>` : ''}
         </div>
       `;
       
@@ -1034,6 +1089,37 @@ Vui lòng thanh toán đúng hạn.`;
                   </span>
                 </div>
               </div>
+
+              {/* QR Thanh toán */}
+              {viewingHoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang && (
+                <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
+                  <h3 className="text-sm md:text-base font-semibold mb-3 text-blue-800 flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Thanh toán chuyển khoản
+                  </h3>
+                  <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    <img
+                      src={buildVietQRUrl(
+                        bankSettings.soTaiKhoan,
+                        bankSettings.tenNganHang,
+                        viewingHoaDon.conLai,
+                        `TT ${viewingHoaDon.maHoaDon}`
+                      )}
+                      alt="QR Chuyển khoản"
+                      className="w-48 h-48 rounded-lg border border-blue-200 bg-white"
+                    />
+                    <div className="space-y-1 text-xs md:text-sm">
+                      <div><span className="text-gray-600">Ngân hàng:</span> <strong>{bankSettings.tenNganHang}</strong></div>
+                      <div><span className="text-gray-600">Số tài khoản:</span> <strong>{bankSettings.soTaiKhoan}</strong></div>
+                      {bankSettings.chuTaiKhoan && (
+                        <div><span className="text-gray-600">Chủ tài khoản:</span> <strong>{bankSettings.chuTaiKhoan}</strong></div>
+                      )}
+                      <div><span className="text-gray-600">Số tiền:</span> <strong className="text-red-600">{formatCurrency(viewingHoaDon.conLai)}</strong></div>
+                      <div><span className="text-gray-600">Nội dung:</span> <strong>TT {viewingHoaDon.maHoaDon}</strong></div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Notes */}
               {viewingHoaDon.ghiChu && (
