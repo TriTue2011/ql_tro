@@ -24,12 +24,12 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Home, 
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Home,
   MapPin,
   Users,
   Eye,
@@ -37,7 +37,10 @@ import {
   Copy,
   Info,
   Image,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  Building2,
 } from 'lucide-react';
 import {
   Carousel,
@@ -73,6 +76,14 @@ export default function PhongPage() {
   const [isTenantsViewerOpen, setIsTenantsViewerOpen] = useState(false);
   const [viewingTenants, setViewingTenants] = useState<any[]>([]);
   const [viewingTenantsPhongName, setViewingTenantsPhongName] = useState('');
+  // Accordion: set of toaNhaId đang mở (mặc định tất cả ẩn)
+  const [openBuildings, setOpenBuildings] = useState<Set<string>>(new Set());
+  const toggleBuilding = (id: string) =>
+    setOpenBuildings(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     document.title = 'Quản lý Phòng';
@@ -170,6 +181,23 @@ export default function PhongPage() {
     phong.maPhong.toLowerCase().includes(searchTerm.toLowerCase()) ||
     phong.moTa?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Helper lấy toaNhaId từ phong (có thể là string hoặc object)
+  const getPhongToaNhaId = (phong: Phong): string => {
+    const p = phong as any;
+    if (p.toaNhaId) return p.toaNhaId;
+    if (typeof p.toaNha === 'object' && p.toaNha?.id) return p.toaNha.id;
+    if (typeof p.toaNha === 'string') return p.toaNha;
+    return '';
+  };
+
+  // Nhóm phòng theo tòa nhà (chỉ tòa có phòng thoả filter)
+  const groupedPhong = toaNhaList
+    .map(toa => ({
+      toa,
+      phongs: filteredPhong.filter(p => getPhongToaNhaId(p) === toa.id),
+    }))
+    .filter(g => g.phongs.length > 0);
 
   const handleEdit = (phong: Phong) => {
     setEditingPhong(phong);
@@ -338,78 +366,174 @@ export default function PhongPage() {
         </Card>
       </div>
 
-      {/* Desktop Table View */}
-      <Card className="hidden md:block">
-        <CardHeader>
-          <CardTitle>Danh sách phòng</CardTitle>
-          <CardDescription>
-            {filteredPhong.length} phòng được tìm thấy
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
-          <PhongDataTable 
-            data={filteredPhong}
-            toaNhaList={toaNhaList}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onViewImages={handleViewImages}
-            onViewTenants={handleViewTenants}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            selectedToaNha={selectedToaNha}
-            onToaNhaChange={setSelectedToaNha}
-            selectedTrangThai={selectedTrangThai}
-            onTrangThaiChange={setSelectedTrangThai}
-            allToaNhaList={toaNhaList}
-          />
-        </CardContent>
-      </Card>
+      {/* Grouped by building — Desktop + Mobile */}
+      <div className="space-y-3">
+        {groupedPhong.length === 0 ? (
+          <Card className="p-6 text-center">
+            <Home className="h-10 w-10 mx-auto text-gray-400 mb-3" />
+            <h3 className="text-base font-medium text-gray-900 mb-1">Không tìm thấy phòng nào</h3>
+            <p className="text-sm text-gray-600">Thử thay đổi bộ lọc hoặc tìm kiếm khác</p>
+          </Card>
+        ) : (
+          groupedPhong.map(({ toa, phongs }) => {
+            const isOpen = openBuildings.has(toa.id!);
+            const soTrong   = phongs.filter(p => p.trangThai === 'trong').length;
+            const soDangThue = phongs.filter(p => p.trangThai === 'dangThue').length;
+            const soBaoTri  = phongs.filter(p => p.trangThai === 'baoTri').length;
+            return (
+              <div key={toa.id} className="border rounded-lg overflow-hidden shadow-sm">
+                {/* Building header — toggle */}
+                <button
+                  type="button"
+                  onClick={() => toggleBuilding(toa.id!)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Building2 className="h-5 w-5 text-blue-600 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="font-semibold text-gray-900 text-sm md:text-base">{toa.tenToaNha}</span>
+                      <div className="flex gap-2 mt-0.5 flex-wrap">
+                        <span className="text-[10px] text-gray-500">{phongs.length} phòng</span>
+                        {soTrong > 0    && <span className="text-[10px] text-green-600">{soTrong} trống</span>}
+                        {soDangThue > 0 && <span className="text-[10px] text-blue-600">{soDangThue} đang thuê</span>}
+                        {soBaoTri > 0   && <span className="text-[10px] text-red-500">{soBaoTri} bảo trì</span>}
+                      </div>
+                    </div>
+                  </div>
+                  {isOpen
+                    ? <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
+                    : <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />
+                  }
+                </button>
 
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-3">
+                {/* Building rooms — collapsible */}
+                {isOpen && (
+                  <div className="p-3 bg-white">
+                    {/* Desktop table */}
+                    <div className="hidden md:block">
+                      <PhongDataTable
+                        data={phongs}
+                        toaNhaList={toaNhaList}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onViewImages={handleViewImages}
+                        onViewTenants={handleViewTenants}
+                        searchTerm=""
+                        onSearchChange={() => {}}
+                        selectedToaNha={toa.id || ''}
+                        onToaNhaChange={() => {}}
+                        selectedTrangThai={selectedTrangThai}
+                        onTrangThaiChange={setSelectedTrangThai}
+                        allToaNhaList={toaNhaList}
+                      />
+                    </div>
+                    {/* Mobile cards */}
+                    <div className="md:hidden grid grid-cols-1 gap-3">
+                      {phongs.map((phong) => {
+                        const hopDong = (phong as any).hopDongHienTai;
+                        return (
+                          <Card key={phong.id} className="hover:shadow-md transition-shadow">
+                            <CardContent className="p-3">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-base">{phong.maPhong}</h3>
+                                  <p className="text-xs text-gray-600">Tầng {phong.tang} • {phong.dienTich}m²</p>
+                                </div>
+                                <Badge className={`text-xs ${{
+                                  trong: 'bg-green-100 text-green-800',
+                                  daDat: 'bg-yellow-100 text-yellow-800',
+                                  dangThue: 'bg-blue-100 text-blue-800',
+                                  baoTri: 'bg-red-100 text-red-800',
+                                }[phong.trangThai] ?? 'bg-gray-100 text-gray-800'}`}>
+                                  {{ trong:'Trống', daDat:'Đã đặt', dangThue:'Đang thuê', baoTri:'Bảo trì' }[phong.trangThai] ?? phong.trangThai}
+                                </Badge>
+                              </div>
+                              <div className="space-y-1 mb-3">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-600">Giá thuê:</span>
+                                  <span className="font-semibold text-green-600">
+                                    {new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(phong.giaThue)}
+                                  </span>
+                                </div>
+                              </div>
+                              {hopDong?.khachThue?.length > 0 && (
+                                <div className="mb-3 p-2 bg-blue-50 rounded-md border border-blue-200">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <Users className="h-3.5 w-3.5 text-blue-600" />
+                                    <span className="text-xs font-medium text-blue-900">Người thuê</span>
+                                  </div>
+                                  <p className="text-sm font-medium">{hopDong.nguoiDaiDien?.hoTen || 'N/A'}</p>
+                                  {hopDong.khachThue.length > 1 && (
+                                    <Button variant="link" size="sm" className="text-xs text-blue-600 h-auto p-0 mt-0.5"
+                                      onClick={() => handleViewTenants(phong)}>
+                                      +{hopDong.khachThue.length - 1} người khác
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => handleEdit(phong)} className="flex-1 text-xs">
+                                  <Edit className="h-3.5 w-3.5 mr-1" />Sửa
+                                </Button>
+                                <DeleteConfirmPopover
+                                  onConfirm={() => handleDelete(phong.id!)}
+                                  title="Xóa phòng"
+                                  description="Bạn có chắc chắn muốn xóa phòng này?"
+                                  className="text-black hover:text-red-700 hover:bg-red-50"
+                                />
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* (Mobile filter bar — still useful for search/status filter) */}
+      <div className="md:hidden space-y-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Tìm kiếm phòng..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 text-sm"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Select value={selectedToaNha} onValueChange={setSelectedToaNha}>
+            <SelectTrigger className="text-sm"><SelectValue placeholder="Tòa nhà" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-sm">Tất cả tòa nhà</SelectItem>
+              {toaNhaList.map(toa => (
+                <SelectItem key={toa.id} value={toa.id!} className="text-sm">{toa.tenToaNha}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedTrangThai} onValueChange={setSelectedTrangThai}>
+            <SelectTrigger className="text-sm"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-sm">Tất cả</SelectItem>
+              <SelectItem value="trong" className="text-sm">Trống</SelectItem>
+              <SelectItem value="daDat" className="text-sm">Đã đặt</SelectItem>
+              <SelectItem value="dangThue" className="text-sm">Đang thuê</SelectItem>
+              <SelectItem value="baoTri" className="text-sm">Bảo trì</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Legacy mobile card list — now hidden (handled by grouped view above) */}
+      <div className="hidden">
         <div className="flex justify-between items-center">
           <h2 className="text-base font-semibold">Danh sách phòng</h2>
           <span className="text-xs text-gray-600">{filteredPhong.length} phòng</span>
-        </div>
-
-        {/* Mobile Filters */}
-        <div className="space-y-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm phòng..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 text-sm"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Select value={selectedToaNha} onValueChange={setSelectedToaNha}>
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Tòa nhà" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-sm">Tất cả tòa nhà</SelectItem>
-                {toaNhaList.map((toaNha) => (
-                  <SelectItem key={toaNha.id} value={toaNha.id!} className="text-sm">
-                    {toaNha.tenToaNha}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={selectedTrangThai} onValueChange={setSelectedTrangThai}>
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-sm">Tất cả</SelectItem>
-                <SelectItem value="trong" className="text-sm">Trống</SelectItem>
-                <SelectItem value="daDat" className="text-sm">Đã đặt</SelectItem>
-                <SelectItem value="dangThue" className="text-sm">Đang thuê</SelectItem>
-                <SelectItem value="baoTri" className="text-sm">Bảo trì</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
         
         {filteredPhong.length === 0 ? (

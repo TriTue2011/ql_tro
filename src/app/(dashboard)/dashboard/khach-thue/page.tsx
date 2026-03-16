@@ -43,6 +43,10 @@ import {
   MessageCircle,
   CheckCircle2,
   Clock,
+  ChevronDown,
+  ChevronRight,
+  Building2,
+  DoorOpen,
 } from 'lucide-react';
 import { KhachThue } from '@/types';
 import { KhachThueDataTable } from './table';
@@ -64,6 +68,13 @@ export default function KhachThuePage() {
   const [editingKhachThue, setEditingKhachThue] = useState<KhachThue | null>(null);
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  // Accordion states (mặc định tất cả ẩn)
+  const [openBuildings, setOpenBuildings] = useState<Set<string>>(new Set());
+  const [openPhong, setOpenPhong] = useState<Set<string>>(new Set());
+  const toggleBuilding = (id: string) =>
+    setOpenBuildings(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const togglePhong = (id: string) =>
+    setOpenPhong(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   useEffect(() => {
     document.title = 'Quản lý Khách thuê';
@@ -130,7 +141,44 @@ export default function KhachThuePage() {
     khachThue.soDienThoai.includes(searchTerm) ||
     khachThue.cccd.includes(searchTerm) ||
     khachThue.queQuan.toLowerCase().includes(searchTerm.toLowerCase())
+  ).filter(k =>
+    !selectedTrangThai || selectedTrangThai === 'all' || k.trangThai === selectedTrangThai
   );
+
+  // Nhóm khách thuê theo tòa nhà → phòng
+  type PhongGroup = { phongId: string; maPhong: string; tenants: typeof filteredKhachThue };
+  type BuildingGroup = { toaNhaId: string; tenToaNha: string; rooms: PhongGroup[]; noRoom: typeof filteredKhachThue };
+
+  const buildingGroups = (() => {
+    const map = new Map<string, BuildingGroup>();
+    const noRoom: typeof filteredKhachThue = [];
+
+    for (const kt of filteredKhachThue) {
+      const hopDong = (kt as any).hopDongHienTai;
+      const phong = hopDong?.phong;
+      const toa = phong?.toaNha;
+
+      if (!phong || !toa) {
+        noRoom.push(kt);
+        continue;
+      }
+
+      const toaNhaId = toa.id || toa;
+      const tenToaNha = toa.tenToaNha || 'Tòa không tên';
+      const phongId = phong.id || phong;
+      const maPhong = phong.maPhong || phongId;
+
+      if (!map.has(toaNhaId)) {
+        map.set(toaNhaId, { toaNhaId, tenToaNha, rooms: [], noRoom: [] });
+      }
+      const bg = map.get(toaNhaId)!;
+      let pg = bg.rooms.find(r => r.phongId === phongId);
+      if (!pg) { pg = { phongId, maPhong, tenants: [] }; bg.rooms.push(pg); }
+      pg.tenants.push(kt);
+    }
+
+    return { groups: Array.from(map.values()), noRoom };
+  })();
 
   const handleEdit = (khachThue: KhachThue) => {
     setEditingKhachThue(khachThue);
@@ -297,30 +345,176 @@ export default function KhachThuePage() {
         </Card>
       </div>
 
-      {/* Desktop Table */}
-      <Card className="hidden md:block">
-        <CardHeader>
-          <CardTitle>Danh sách khách thuê</CardTitle>
-          <CardDescription>
-            {filteredKhachThue.length} khách thuê được tìm thấy
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
-          <KhachThueDataTable
-            data={filteredKhachThue}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            actionLoading={actionLoading}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            selectedTrangThai={selectedTrangThai}
-            onTrangThaiChange={setSelectedTrangThai}
-          />
-        </CardContent>
-      </Card>
+      {/* Search + filter bar (both desktop + mobile) */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input placeholder="Tìm theo tên, SĐT, CCCD..." value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)} className="pl-10 text-sm" />
+        </div>
+        <Select value={selectedTrangThai} onValueChange={setSelectedTrangThai}>
+          <SelectTrigger className="w-full sm:w-44 text-sm"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="dangThue">Đang thuê</SelectItem>
+            <SelectItem value="daTraPhong">Đã trả phòng</SelectItem>
+            <SelectItem value="chuaThue">Chưa thuê</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* Mobile Cards */}
-      <div className="md:hidden">
+      {/* Grouped by Building → Room */}
+      <div className="space-y-3">
+        {filteredKhachThue.length === 0 ? (
+          <div className="text-center py-8">
+            <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">Không có khách thuê nào</p>
+          </div>
+        ) : (
+          <>
+            {buildingGroups.groups.map(bg => {
+              const isBuildingOpen = openBuildings.has(bg.toaNhaId);
+              return (
+                <div key={bg.toaNhaId} className="border rounded-lg overflow-hidden shadow-sm">
+                  {/* Building header */}
+                  <button type="button" onClick={() => toggleBuilding(bg.toaNhaId)}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
+                    <div className="flex items-center gap-3">
+                      <Building2 className="h-5 w-5 text-blue-600 shrink-0" />
+                      <div>
+                        <span className="font-semibold text-gray-900 text-sm">{bg.tenToaNha}</span>
+                        <p className="text-[10px] text-gray-500">
+                          {bg.rooms.reduce((s, r) => s + r.tenants.length, 0)} khách • {bg.rooms.length} phòng
+                        </p>
+                      </div>
+                    </div>
+                    {isBuildingOpen
+                      ? <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
+                      : <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />}
+                  </button>
+
+                  {isBuildingOpen && (
+                    <div className="p-3 space-y-2 bg-white">
+                      {bg.rooms.map(pg => {
+                        const isPhongOpen = openPhong.has(pg.phongId);
+                        return (
+                          <div key={pg.phongId} className="border rounded-md overflow-hidden">
+                            {/* Room header */}
+                            <button type="button" onClick={() => togglePhong(pg.phongId)}
+                              className="w-full flex items-center justify-between px-3 py-2 bg-blue-50 hover:bg-blue-100 transition-colors text-left">
+                              <div className="flex items-center gap-2">
+                                <DoorOpen className="h-4 w-4 text-blue-600 shrink-0" />
+                                <span className="font-medium text-sm text-blue-900">{pg.maPhong}</span>
+                                <span className="text-[10px] text-blue-600">{pg.tenants.length} người</span>
+                              </div>
+                              {isPhongOpen
+                                ? <ChevronDown className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                                : <ChevronRight className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                            </button>
+
+                            {isPhongOpen && (
+                              <div className="p-2 space-y-2">
+                                {/* Desktop table */}
+                                <div className="hidden md:block">
+                                  <KhachThueDataTable
+                                    data={pg.tenants}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                    actionLoading={actionLoading}
+                                    searchTerm=""
+                                    onSearchChange={() => {}}
+                                    selectedTrangThai=""
+                                    onTrangThaiChange={() => {}}
+                                  />
+                                </div>
+                                {/* Mobile cards */}
+                                <div className="md:hidden space-y-2">
+                                  {pg.tenants.map(kt => (
+                                    <Card key={kt.id} className="p-3">
+                                      <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                          <p className="font-medium text-sm">{kt.hoTen}</p>
+                                          <p className="text-xs text-gray-500">{kt.gioiTinh}</p>
+                                        </div>
+                                        <TrangThaiBadge trangThai={kt.trangThai} />
+                                      </div>
+                                      <div className="space-y-1 text-xs text-gray-600">
+                                        <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" />{kt.soDienThoai}</div>
+                                        <div className="flex items-center gap-1.5"><CreditCard className="h-3 w-3 font-mono" />{kt.cccd}</div>
+                                      </div>
+                                      <div className="flex justify-between items-center mt-2 pt-2 border-t">
+                                        <Button variant="outline" size="sm" onClick={() => handleEdit(kt)} disabled={actionLoading === `edit-${kt.id}`}>
+                                          <Edit className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)}
+                                          disabled={actionLoading === `delete-${kt.id}`}
+                                          className="text-red-600 hover:bg-red-50">
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    </Card>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Tenants without room */}
+            {buildingGroups.noRoom.length > 0 && (
+              <div className="border rounded-lg overflow-hidden shadow-sm">
+                <button type="button" onClick={() => toggleBuilding('__noRoom__')}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
+                  <div className="flex items-center gap-3">
+                    <Users className="h-5 w-5 text-gray-500 shrink-0" />
+                    <div>
+                      <span className="font-semibold text-gray-700 text-sm">Chưa có phòng</span>
+                      <p className="text-[10px] text-gray-500">{buildingGroups.noRoom.length} khách</p>
+                    </div>
+                  </div>
+                  {openBuildings.has('__noRoom__')
+                    ? <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                    : <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />}
+                </button>
+                {openBuildings.has('__noRoom__') && (
+                  <div className="p-3 bg-white">
+                    <div className="hidden md:block">
+                      <KhachThueDataTable data={buildingGroups.noRoom} onEdit={handleEdit} onDelete={handleDelete}
+                        actionLoading={actionLoading} searchTerm="" onSearchChange={() => {}} selectedTrangThai="" onTrangThaiChange={() => {}} />
+                    </div>
+                    <div className="md:hidden space-y-2">
+                      {buildingGroups.noRoom.map(kt => (
+                        <Card key={kt.id} className="p-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium text-sm">{kt.hoTen}</p>
+                              <p className="text-xs text-gray-500">{kt.soDienThoai}</p>
+                            </div>
+                            <TrangThaiBadge trangThai={kt.trangThai} />
+                          </div>
+                          <div className="flex justify-end gap-2 mt-2 pt-2 border-t">
+                            <Button variant="outline" size="sm" onClick={() => handleEdit(kt)}><Edit className="h-3.5 w-3.5" /></Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)} className="text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></Button>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Legacy mobile card section — replaced by grouped view above */}
+      <div className="hidden">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Danh sách khách thuê</h2>
           <span className="text-sm text-gray-500">{filteredKhachThue.length} khách thuê</span>
@@ -477,6 +671,16 @@ export default function KhachThuePage() {
       </div>
     </div>
   );
+}
+
+// Helper badge component
+function TrangThaiBadge({ trangThai }: { trangThai: string }) {
+  switch (trangThai) {
+    case 'dangThue':  return <Badge variant="default" className="text-xs">Đang thuê</Badge>;
+    case 'daTraPhong': return <Badge variant="secondary" className="text-xs">Đã trả phòng</Badge>;
+    case 'chuaThue':  return <Badge variant="outline" className="text-xs">Chưa thuê</Badge>;
+    default:          return <Badge variant="outline" className="text-xs">{trangThai}</Badge>;
+  }
 }
 
 // Form component for adding/editing khach thue
