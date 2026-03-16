@@ -1,45 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { getKhachThueRepo } from '@/lib/repositories';
 import prisma from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
 
-export async function GET(request: NextRequest) {
+/** Lấy KhachThue ID từ NextAuth session hoặc Bearer token (backward compat) */
+async function getKhachThueId(request: NextRequest): Promise<string | null> {
+  // 1. NextAuth session (ưu tiên)
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role === 'khachThue') {
+    return session.user.id;
+  }
+
+  // 2. Bearer token (legacy — backward compat)
   try {
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const decoded: any = jwt.verify(token, process.env.NEXTAUTH_SECRET!);
+      if (decoded.role === 'khachThue') return decoded.id;
     }
+  } catch { /* bỏ qua token lỗi */ }
 
-    const token = authHeader.substring(7);
+  return null;
+}
 
-    let decoded: any;
-    try {
-      decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET!);
-    } catch {
-      return NextResponse.json(
-        { success: false, message: 'Token không hợp lệ' },
-        { status: 401 }
-      );
-    }
-
-    if (decoded.role !== 'khachThue') {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 403 }
-      );
+export async function GET(request: NextRequest) {
+  try {
+    const khachThueId = await getKhachThueId(request);
+    if (!khachThueId) {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
     const repo = await getKhachThueRepo();
-    const khachThue = await repo.findById(decoded.id);
+    const khachThue = await repo.findById(khachThueId);
 
     if (!khachThue) {
-      return NextResponse.json(
-        { success: false, message: 'Khách thuê không tồn tại' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, message: 'Khách thuê không tồn tại' }, { status: 404 });
     }
 
     const now = new Date();
@@ -97,9 +95,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching khach thue info:', error);
-    return NextResponse.json(
-      { success: false, message: 'Có lỗi xảy ra' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'Có lỗi xảy ra' }, { status: 500 });
   }
 }

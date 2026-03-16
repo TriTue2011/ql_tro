@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import '@/styles/bs-admin.css';
 
-interface NavSubItem {
+interface NavItem {
   label: string;
   href: string;
   badge?: number;
@@ -15,7 +15,7 @@ interface NavSubItem {
 interface NavGroup {
   label: string;
   icon: string;
-  items: NavSubItem[];
+  items: NavItem[];
 }
 
 function getInitials(name: string) {
@@ -27,24 +27,52 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-export function BsSidebar({
-  collapsed,
-  onToggle,
-  mobileOpen,
-  onMobileClose,
-}: {
-  collapsed: boolean;
-  onToggle: () => void;
-  mobileOpen: boolean;
-  onMobileClose: () => void;
-}) {
-  const { data: session } = useSession();
-  const pathname = usePathname();
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
+// ─── Phân quyền sidebar theo role ──────────────────────────────────────────
+type Role = 'admin' | 'chuNha' | 'quanLy' | 'nhanVien' | string;
 
-  const isAdmin = session?.user?.role === 'admin';
+/**
+ * Trả về danh sách NavGroup dựa vào role hiện tại.
+ *
+ * admin    → toàn quyền
+ * chuNha   → tất cả trừ "Quản lý tài khoản"; cài đặt ẩn luuTru/thongBao (xử lý trong trang)
+ * quanLy   → không có tab "Cài đặt", không có "Quản lý tài khoản"
+ * nhanVien → chỉ: Phòng, Khách thuê (xem), Hóa đơn, Sự cố, Thông báo, Xem Web, Hồ sơ
+ */
+function buildNavGroups(role: Role): NavGroup[] {
+  const isAdmin = role === 'admin';
+  const isChuNha = role === 'chuNha';
+  const isQuanLy = role === 'quanLy';
+  const isNhanVien = role === 'nhanVien';
 
-  const navGroups: NavGroup[] = [
+  if (isNhanVien) {
+    return [
+      {
+        label: 'Quản lý',
+        icon: 'bi-building',
+        items: [
+          { label: 'Phòng', href: '/dashboard/phong' },
+          { label: 'Khách thuê', href: '/dashboard/khach-thue' },
+        ],
+      },
+      {
+        label: 'Vận hành',
+        icon: 'bi-tools',
+        items: [
+          { label: 'Hóa đơn', href: '/dashboard/hoa-don' },
+          { label: 'Sự cố', href: '/dashboard/su-co' },
+          { label: 'Thông báo', href: '/dashboard/thong-bao' },
+          { label: 'Xem Web', href: '/dashboard/xem-web' },
+        ],
+      },
+      {
+        label: 'Cài đặt',
+        icon: 'bi-gear',
+        items: [{ label: 'Hồ sơ', href: '/dashboard/ho-so' }],
+      },
+    ];
+  }
+
+  const groups: NavGroup[] = [
     {
       label: 'Quản lý cơ bản',
       icon: 'bi-building',
@@ -72,26 +100,70 @@ export function BsSidebar({
         { label: 'Xem Web', href: '/dashboard/xem-web' },
       ],
     },
-    ...(isAdmin
-      ? [
-          {
-            label: 'Quản trị',
-            icon: 'bi-shield-lock',
-            items: [
-              { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
-            ],
-          },
-        ]
-      : []),
-    {
+  ];
+
+  // "Quản trị" chỉ admin thấy
+  if (isAdmin) {
+    groups.push({
+      label: 'Quản trị',
+      icon: 'bi-shield-lock',
+      items: [
+        { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
+      ],
+    });
+  }
+
+  // Tab "Cài đặt": quanLy không có; admin/chuNha có đủ; (chuNha ẩn luuTru trong trang cai-dat)
+  if (!isQuanLy) {
+    groups.push({
       label: 'Cài đặt',
       icon: 'bi-gear',
       items: [
         { label: 'Hồ sơ', href: '/dashboard/ho-so' },
-        { label: 'Cài đặt', href: '/dashboard/cai-dat' },
+        ...(isAdmin || isChuNha
+          ? [{ label: 'Cài đặt', href: '/dashboard/cai-dat' }]
+          : []),
       ],
-    },
-  ];
+    });
+  } else {
+    // quanLy chỉ có hồ sơ (không có tab cài đặt hệ thống)
+    groups.push({
+      label: 'Tài khoản',
+      icon: 'bi-person',
+      items: [{ label: 'Hồ sơ', href: '/dashboard/ho-so' }],
+    });
+  }
+
+  return groups;
+}
+
+function roleLabel(role: Role): string {
+  switch (role) {
+    case 'admin':    return 'Quản trị viên';
+    case 'chuNha':   return 'Chủ trọ';
+    case 'quanLy':   return 'Người quản lý';
+    case 'nhanVien': return 'Nhân viên';
+    default:         return 'Người dùng';
+  }
+}
+
+export function BsSidebar({
+  collapsed,
+  onToggle,
+  mobileOpen,
+  onMobileClose,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}) {
+  const { data: session } = useSession();
+  const pathname = usePathname();
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+
+  const role: Role = session?.user?.role ?? 'nhanVien';
+  const navGroups = buildNavGroups(role);
 
   // Auto-open group containing current path
   useEffect(() => {
@@ -101,11 +173,10 @@ export function BsSidebar({
         break;
       }
     }
-  }, [pathname, navGroups]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const userName = session?.user?.name ?? 'User';
-  const userEmail = session?.user?.email ?? '';
-  const userRole = session?.user?.role === 'admin' ? 'Quản trị viên' : 'Nhân viên';
 
   return (
     <>
@@ -142,35 +213,30 @@ export function BsSidebar({
             <span className="nav-label">Tổng quan</span>
           </Link>
 
-          {navGroups.map((group) => {
-            const isGroupActive = group.items.some((it) => pathname.startsWith(it.href));
-            const isOpen = openGroup === group.label;
-
-            return (
-              <div key={group.label}>
-                <div className="bs-nav-group-label">{group.label}</div>
-                {group.items.map((item) => {
-                  const isActive = pathname.startsWith(item.href);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`bs-nav-item ${isActive ? 'active' : ''}`}
-                      onClick={() => {
-                        if (window.innerWidth < 768) onMobileClose();
-                      }}
-                    >
-                      <i className={`bi ${getGroupIcon(group.label, item.label)}`} />
-                      <span className="nav-label">{item.label}</span>
-                      {item.badge ? (
-                        <span className="nav-badge">{item.badge}</span>
-                      ) : null}
-                    </Link>
-                  );
-                })}
-              </div>
-            );
-          })}
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              <div className="bs-nav-group-label">{group.label}</div>
+              {group.items.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`bs-nav-item ${isActive ? 'active' : ''}`}
+                    onClick={() => {
+                      if (window.innerWidth < 768) onMobileClose();
+                    }}
+                  >
+                    <i className={`bi ${getItemIcon(item.label)}`} />
+                    <span className="nav-label">{item.label}</span>
+                    {item.badge ? (
+                      <span className="nav-badge">{item.badge}</span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </div>
 
         {/* User footer */}
@@ -179,7 +245,7 @@ export function BsSidebar({
             <div className="bs-user-avatar">{getInitials(userName)}</div>
             <div className="bs-user-info">
               <div className="bs-user-name">{userName}</div>
-              <div className="bs-user-role">{userRole}</div>
+              <div className="bs-user-role">{roleLabel(role)}</div>
             </div>
             <i className="bi bi-box-arrow-right" style={{ color: 'rgba(139,148,158,0.6)', fontSize: 15 }} />
           </div>
@@ -189,21 +255,20 @@ export function BsSidebar({
   );
 }
 
-function getGroupIcon(groupLabel: string, itemLabel: string): string {
+function getItemIcon(label: string): string {
   const iconMap: Record<string, string> = {
-    'Tòa nhà': 'bi-building',
-    'Phòng': 'bi-door-open',
-    'Khách thuê': 'bi-people',
-    'Hợp đồng': 'bi-file-earmark-text',
-    'Hóa đơn': 'bi-receipt-cutoff',
-    'Thanh toán': 'bi-credit-card',
-    'Sự cố': 'bi-exclamation-triangle',
-    'Thông báo': 'bi-bell',
-    'Xem Web': 'bi-globe',
+    'Tòa nhà':            'bi-building',
+    'Phòng':              'bi-door-open',
+    'Khách thuê':         'bi-people',
+    'Hợp đồng':          'bi-file-earmark-text',
+    'Hóa đơn':           'bi-receipt-cutoff',
+    'Thanh toán':         'bi-credit-card',
+    'Sự cố':             'bi-exclamation-triangle',
+    'Thông báo':          'bi-bell',
+    'Xem Web':            'bi-globe',
     'Quản lý tài khoản': 'bi-person-badge',
-    'Cài đặt hệ thống': 'bi-gear-wide-connected',
-    'Hồ sơ': 'bi-person-circle',
-    'Cài đặt': 'bi-sliders',
+    'Hồ sơ':             'bi-person-circle',
+    'Cài đặt':           'bi-sliders',
   };
-  return iconMap[itemLabel] ?? 'bi-dot';
+  return iconMap[label] ?? 'bi-dot';
 }

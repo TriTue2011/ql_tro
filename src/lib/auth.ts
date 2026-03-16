@@ -20,6 +20,7 @@ export const authOptions: NextAuthOptions = {
           const login = credentials.emailOrPhone.trim();
           const isPhone = /^[0-9+\s()-]{8,15}$/.test(login.replace(/\s/g, ''));
 
+          // 1. Tìm trong NguoiDung (admin | chuNha | quanLy | nhanVien)
           const user = isPhone
             ? await prisma.nguoiDung.findFirst({
                 where: { soDienThoai: login },
@@ -28,24 +29,47 @@ export const authOptions: NextAuthOptions = {
                 where: { email: login.toLowerCase() },
               });
 
-          if (!user || user.trangThai !== 'hoatDong') {
-            return null;
+          if (user) {
+            if (user.trangThai !== 'hoatDong') return null;
+
+            const isPasswordValid = await compare(credentials.matKhau, user.matKhau);
+            if (!isPasswordValid) return null;
+
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.ten,
+              role: user.vaiTro,
+              phone: user.soDienThoai ?? '',
+              avatar: user.anhDaiDien ?? undefined,
+            };
           }
 
-          const isPasswordValid = await compare(credentials.matKhau, user.matKhau);
+          // 2. Nếu không tìm thấy NguoiDung và đầu vào là số điện thoại → thử KhachThue
+          if (isPhone) {
+            const khachThue = await prisma.khachThue.findFirst({
+              where: { soDienThoai: login },
+            });
 
-          if (!isPasswordValid) {
-            return null;
+            if (khachThue && khachThue.matKhau) {
+              const isPasswordValid = await compare(credentials.matKhau, khachThue.matKhau);
+              if (!isPasswordValid) return null;
+
+              // Email placeholder nếu KhachThue không có email
+              const email = khachThue.email || `kt.${khachThue.soDienThoai}@phongtro.local`;
+
+              return {
+                id: khachThue.id,
+                email,
+                name: khachThue.hoTen,
+                role: 'khachThue',
+                phone: khachThue.soDienThoai,
+                avatar: undefined,
+              };
+            }
           }
 
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.ten,
-            role: user.vaiTro,
-            phone: user.soDienThoai ?? '',
-            avatar: user.anhDaiDien ?? undefined,
-          };
+          return null;
         } catch (error) {
           console.error('[AUTH] Error:', error);
           return null;

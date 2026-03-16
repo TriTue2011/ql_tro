@@ -16,14 +16,7 @@ export default function KhachThueDashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('khachThueToken');
-      if (!token) return;
-
-      const response = await fetch('/api/auth/khach-thue/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await fetch('/api/auth/khach-thue/me');
 
       const result = await response.json();
       if (result.success) {

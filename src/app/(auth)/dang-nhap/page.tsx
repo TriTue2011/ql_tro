@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,15 +46,15 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        const isPhone = /^[0-9]{9,11}$/.test(data.emailOrPhone.trim());
-        setError(
-          isPhone
-            ? 'Số điện thoại hoặc mật khẩu không đúng. Nếu bạn là khách thuê, vui lòng dùng trang đăng nhập dành cho khách thuê.'
-            : 'Email hoặc mật khẩu không đúng'
-        );
+        setError('Email/SĐT hoặc mật khẩu không đúng');
       } else {
-        // Redirect tất cả user về dashboard
-        router.push('/dashboard');
+        // Lấy session để biết role và redirect đúng trang
+        const session = await getSession();
+        if (session?.user?.role === 'khachThue') {
+          router.push('/khach-thue/dashboard');
+        } else {
+          router.push('/dashboard');
+        }
       }
     } catch (error) {
       setError('Đã xảy ra lỗi, vui lòng thử lại');
@@ -151,12 +150,6 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-4 pt-4 border-t text-center text-xs text-muted-foreground">
-              Bạn là khách thuê?{' '}
-              <Link href="/khach-thue/dang-nhap" className="text-primary underline underline-offset-2">
-                Đăng nhập tại đây
-              </Link>
-            </div>
           </CardContent>
         </Card>
       </div>

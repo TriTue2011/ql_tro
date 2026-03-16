@@ -8,29 +8,37 @@
  * Body: { zaloChatId: string }
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/sanitize';
 import jwt from 'jsonwebtoken';
 
-function getKhachThueFromToken(request: NextRequest): { id: string } | null {
+/** Lấy KhachThue ID từ NextAuth session hoặc Bearer token */
+async function getKhachThueId(request: NextRequest): Promise<string | null> {
+  // 1. NextAuth session
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role === 'khachThue') return session.user.id;
+
+  // 2. Bearer token (legacy)
   try {
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) return null;
-    const token = authHeader.substring(7);
-    const decoded: any = jwt.verify(token, process.env.NEXTAUTH_SECRET!);
-    if (decoded.role !== 'khachThue') return null;
-    return { id: decoded.id };
-  } catch {
-    return null;
-  }
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const decoded: any = jwt.verify(token, process.env.NEXTAUTH_SECRET!);
+      if (decoded.role === 'khachThue') return decoded.id;
+    }
+  } catch { /* ignore */ }
+
+  return null;
 }
 
 /** PATCH: Xác nhận hoặc từ chối pending chatId của chính mình */
 export async function PATCH(request: NextRequest) {
   try {
-    const me = getKhachThueFromToken(request);
-    if (!me) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    const id = await getKhachThueId(request);
+    if (!id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
     const parsed = z.object({ action: z.enum(['confirm', 'reject']) }).safeParse(body);
@@ -39,17 +47,17 @@ export async function PATCH(request: NextRequest) {
     }
 
     const repo = await getKhachThueRepo();
-    const kt = await repo.findById(me.id);
+    const kt = await repo.findById(id);
     if (!kt) return NextResponse.json({ success: false, message: 'Không tìm thấy khách thuê' }, { status: 404 });
     if (!kt.pendingZaloChatId) {
       return NextResponse.json({ success: false, message: 'Không có Chat ID chờ xác nhận' }, { status: 400 });
     }
 
     if (parsed.data.action === 'confirm') {
-      const updated = await repo.update(me.id, { zaloChatId: kt.pendingZaloChatId, pendingZaloChatId: '' });
+      const updated = await repo.update(id, { zaloChatId: kt.pendingZaloChatId, pendingZaloChatId: '' });
       return NextResponse.json({ success: true, message: 'Đã xác nhận Zalo Chat ID', zaloChatId: updated?.zaloChatId });
     } else {
-      await repo.update(me.id, { pendingZaloChatId: '' });
+      await repo.update(id, { pendingZaloChatId: '' });
       return NextResponse.json({ success: true, message: 'Đã từ chối Chat ID chờ xác nhận' });
     }
   } catch (error) {
@@ -61,8 +69,8 @@ export async function PATCH(request: NextRequest) {
 /** PUT: Khách thuê tự nhập zaloChatId thủ công */
 export async function PUT(request: NextRequest) {
   try {
-    const me = getKhachThueFromToken(request);
-    if (!me) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    const id = await getKhachThueId(request);
+    if (!id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
     const parsed = z.object({ zaloChatId: z.string().max(64) }).safeParse(body);
@@ -71,7 +79,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const repo = await getKhachThueRepo();
-    const updated = await repo.update(me.id, {
+    const updated = await repo.update(id, {
       zaloChatId: sanitizeText(parsed.data.zaloChatId) || '',
     });
 
