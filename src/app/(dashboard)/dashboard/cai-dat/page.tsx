@@ -33,6 +33,12 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  Webhook,
+  Link2,
+  CheckCircle,
+  XCircle,
+  Copy,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -336,6 +342,40 @@ export default function CaiDatPage() {
     }
   }
 
+  // --- Webhook Zalo ---
+  const [webhookStatus, setWebhookStatus] = useState<any>(null);
+  const [webhookLoading, setWebhookLoading] = useState<string | null>(null); // 'set' | 'delete' | 'info'
+
+  async function handleWebhookAction(action: 'setWebhook' | 'deleteWebhook' | 'getWebhookInfo') {
+    setWebhookLoading(action === 'setWebhook' ? 'set' : action === 'deleteWebhook' ? 'delete' : 'info');
+    setWebhookStatus(null);
+    try {
+      const body: any = { action };
+      if (action === 'setWebhook') {
+        body.webhookUrl = `${window.location.origin}/api/zalo/webhook`;
+      }
+      const res = await fetch('/api/zalo/set-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWebhookStatus({ ok: true, result: data.result });
+        if (action === 'setWebhook') toast.success('Đã đăng ký Webhook thành công');
+        else if (action === 'deleteWebhook') toast.success('Đã xóa Webhook');
+      } else {
+        setWebhookStatus({ ok: false, error: data.error || data.message });
+        toast.error(data.error || data.message || 'Thao tác thất bại');
+      }
+    } catch {
+      toast.error('Lỗi kết nối máy chủ');
+      setWebhookStatus({ ok: false, error: 'Lỗi kết nối máy chủ' });
+    } finally {
+      setWebhookLoading(null);
+    }
+  }
+
   // Nhóm các cài đặt
   const settingsByGroup = systemSettings.reduce<Record<string, CaiDatItem[]>>((acc, s) => {
     if (!acc[s.nhom]) acc[s.nhom] = [];
@@ -391,20 +431,119 @@ export default function CaiDatPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {groupOrder.map((nhom) =>
-                  settingsByGroup[nhom]?.length ? (
-                    <SettingGroupCard
-                      key={nhom}
-                      nhom={nhom}
-                      items={settingsByGroup[nhom]}
-                      values={settingValues}
-                      onChange={handleSettingChange}
-                      onSave={handleSaveGroup}
-                      saving={savingGroup === nhom}
-                    />
-                  ) : null
-                )}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {groupOrder.map((nhom) =>
+                    settingsByGroup[nhom]?.length ? (
+                      <SettingGroupCard
+                        key={nhom}
+                        nhom={nhom}
+                        items={settingsByGroup[nhom]}
+                        values={settingValues}
+                        onChange={handleSettingChange}
+                        onSave={handleSaveGroup}
+                        saving={savingGroup === nhom}
+                      />
+                    ) : null
+                  )}
+                </div>
+
+                {/* ── Webhook Zalo ── */}
+                <Card>
+                  <CardHeader className="p-4 md:p-6">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                      <Webhook className="h-4 w-4" />
+                      Zalo Webhook
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm">
+                      Zalo sẽ gửi HTTP POST đến Webhook URL khi có tin nhắn từ người dùng.
+                      Hãy lưu <strong>Secret Token</strong> trong nhóm Thông báo trước, sau đó nhấn&nbsp;
+                      <em>Đăng ký Webhook</em>.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 md:p-6 space-y-4">
+                    {/* Webhook URL */}
+                    <div className="space-y-1">
+                      <Label className="text-xs md:text-sm font-medium">Webhook URL</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={typeof window !== 'undefined' ? `${window.location.origin}/api/zalo/webhook` : '/api/zalo/webhook'}
+                          className="text-sm font-mono bg-gray-50"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          title="Sao chép URL"
+                          onClick={() => {
+                            const url = `${window.location.origin}/api/zalo/webhook`;
+                            navigator.clipboard.writeText(url);
+                            toast.success('Đã sao chép Webhook URL');
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Dán URL này vào trang quản lý Zalo Bot khi thiết lập webhook thủ công.
+                      </p>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleWebhookAction('setWebhook')}
+                        disabled={!!webhookLoading}
+                      >
+                        {webhookLoading === 'set'
+                          ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          : <Link2 className="h-4 w-4 mr-2" />}
+                        Đăng ký Webhook
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleWebhookAction('getWebhookInfo')}
+                        disabled={!!webhookLoading}
+                      >
+                        {webhookLoading === 'info'
+                          ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          : <CheckCircle className="h-4 w-4 mr-2" />}
+                        Kiểm tra trạng thái
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleWebhookAction('deleteWebhook')}
+                        disabled={!!webhookLoading}
+                      >
+                        {webhookLoading === 'delete'
+                          ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          : <Trash2 className="h-4 w-4 mr-2" />}
+                        Xóa Webhook
+                      </Button>
+                    </div>
+
+                    {/* Kết quả */}
+                    {webhookStatus && (
+                      <div className={`rounded-md p-3 text-sm font-mono whitespace-pre-wrap break-all ${
+                        webhookStatus.ok ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1 font-sans font-medium text-xs">
+                          {webhookStatus.ok
+                            ? <><CheckCircle className="h-3.5 w-3.5 text-green-600" /><span className="text-green-700">Thành công</span></>
+                            : <><XCircle className="h-3.5 w-3.5 text-red-600" /><span className="text-red-700">Lỗi</span></>
+                          }
+                        </div>
+                        {webhookStatus.ok
+                          ? JSON.stringify(webhookStatus.result, null, 2)
+                          : webhookStatus.error}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             )}
           </TabsContent>

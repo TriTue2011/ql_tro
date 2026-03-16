@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS = [
   { khoa: 'upload_max_size_mb', giaTri: '10', moTa: 'Kích thước tối đa file upload (MB)', nhom: 'luuTru', laBiMat: false },
   // Thông báo
   { khoa: 'zalo_access_token', giaTri: '', moTa: 'Zalo Bot Access Token', nhom: 'thongBao', laBiMat: true },
+  { khoa: 'zalo_webhook_secret', giaTri: '', moTa: 'Zalo Webhook Secret Token', nhom: 'thongBao', laBiMat: true },
   { khoa: 'thong_bao_truoc_han_hop_dong', giaTri: '30', moTa: 'Cảnh báo trước khi hợp đồng hết hạn (ngày)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'thong_bao_qua_han_hoa_don', giaTri: '3', moTa: 'Cảnh báo hóa đơn quá hạn sau (ngày)', nhom: 'thongBao', laBiMat: false },
   // Hệ thống
