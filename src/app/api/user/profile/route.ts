@@ -13,6 +13,7 @@ const updateProfileSchema = z.object({
     /^(\/api\/files\/[\w\-./]+|https:\/\/res\.cloudinary\.com\/[\w\-./]+|https?:\/\/[^<>"']+)$/,
     'URL ảnh đại diện không hợp lệ'
   ).optional().nullable(),
+  zaloChatId: z.string().max(64).optional(),
 });
 
 export async function GET() {
@@ -38,6 +39,8 @@ export async function GET() {
       vaiTro: user.vaiTro,
       anhDaiDien: user.anhDaiDien,
       trangThai: user.trangThai,
+      zaloChatId: user.zaloChatId ?? null,
+      pendingZaloChatId: user.pendingZaloChatId ?? null,
       ngayTao: user.ngayTao,
       ngayCapNhat: user.ngayCapNhat,
     });
@@ -66,7 +69,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { ten, soDienThoai, anhDaiDien } = parsed.data;
+    const { ten, soDienThoai, anhDaiDien, zaloChatId } = parsed.data;
 
     const repo = await getNguoiDungRepo();
 
@@ -80,6 +83,7 @@ export async function PUT(request: NextRequest) {
       ten: ten ? sanitizeText(ten) : undefined,
       soDienThoai,
       anhDaiDien: anhDaiDien ?? undefined,
+      ...(zaloChatId !== undefined && { zaloChatId: sanitizeText(zaloChatId) }),
     });
 
     if (!updatedUser) {
@@ -94,6 +98,8 @@ export async function PUT(request: NextRequest) {
       vaiTro: updatedUser.vaiTro,
       anhDaiDien: updatedUser.anhDaiDien,
       trangThai: updatedUser.trangThai,
+      zaloChatId: updatedUser.zaloChatId ?? null,
+      pendingZaloChatId: updatedUser.pendingZaloChatId ?? null,
       ngayTao: updatedUser.ngayTao,
       ngayCapNhat: updatedUser.ngayCapNhat,
     });

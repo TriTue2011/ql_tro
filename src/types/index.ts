@@ -94,6 +94,8 @@ export interface KhachThue {
   anhCCCD: AnhCCCD;
   ngheNghiep?: string;
   matKhau?: string;
+  zaloChatId?: string;
+  pendingZaloChatId?: string;
   trangThai: 'dangThue' | 'daTraPhong' | 'chuaThue';
   ngayTao: Date;
   ngayCapNhat: Date;

@@ -16,6 +16,7 @@ export interface IKhachThue extends Document {
   ngheNghiep?: string;
   matKhau?: string;
   zaloChatId?: string;
+  pendingZaloChatId?: string;
   trangThai: 'dangThue' | 'daTraPhong' | 'chuaThue';
   ngayTao: Date;
   ngayCapNhat: Date;
@@ -89,6 +90,10 @@ const KhachThueSchema = new Schema<IKhachThue>({
     minlength: [6, 'Mật khẩu phải có ít nhất 6 ký tự']
   },
   zaloChatId: {
+    type: String,
+    trim: true,
+  },
+  pendingZaloChatId: {
     type: String,
     trim: true,
   },

@@ -9,6 +9,8 @@ export interface INguoiDung extends Document {
   vaiTro: 'admin' | 'chuNha' | 'nhanVien';
   anhDaiDien?: string;
   trangThai: 'hoatDong' | 'khoa';
+  zaloChatId?: string;
+  pendingZaloChatId?: string;
   ngayTao: Date;
   ngayCapNhat: Date;
   // English field names for compatibility
@@ -64,6 +66,14 @@ const NguoiDungSchema = new Schema<INguoiDung>({
     type: String,
     enum: ['hoatDong', 'khoa'],
     default: 'hoatDong'
+  },
+  zaloChatId: {
+    type: String,
+    trim: true,
+  },
+  pendingZaloChatId: {
+    type: String,
+    trim: true,
   },
   // English fields for compatibility
   name: {

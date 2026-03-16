@@ -102,6 +102,7 @@ export default class KhachThueRepository {
       if (data.anhCCCD !== undefined) doc.anhCCCD = data.anhCCCD as any;
       if (data.trangThai !== undefined) doc.trangThai = data.trangThai;
       if (data.zaloChatId !== undefined) doc.zaloChatId = data.zaloChatId;
+      if (data.pendingZaloChatId !== undefined) doc.pendingZaloChatId = data.pendingZaloChatId;
       doc.matKhau = data.matKhau;
       await doc.save();
       const obj = normalize(doc);
@@ -117,6 +118,7 @@ export default class KhachThueRepository {
     if (data.anhCCCD !== undefined) updateFields.anhCCCD = data.anhCCCD;
     if (data.trangThai !== undefined) updateFields.trangThai = data.trangThai;
     if (data.zaloChatId !== undefined) updateFields.zaloChatId = data.zaloChatId;
+    if (data.pendingZaloChatId !== undefined) updateFields.pendingZaloChatId = data.pendingZaloChatId;
 
     const doc = await KhachThueModel.findByIdAndUpdate(id, { $set: updateFields }, { new: true }).select('-matKhau');
     if (!doc) return null;

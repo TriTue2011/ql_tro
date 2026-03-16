@@ -16,6 +16,8 @@ function normalize(raw: any): NguoiDungData {
     vaiTro: raw.vaiTro as NguoiDungData['vaiTro'],
     anhDaiDien: raw.anhDaiDien ?? undefined,
     trangThai: raw.trangThai as NguoiDungData['trangThai'],
+    zaloChatId: raw.zaloChatId ?? undefined,
+    pendingZaloChatId: raw.pendingZaloChatId ?? undefined,
     ngayTao: raw.ngayTao,
     ngayCapNhat: raw.ngayCapNhat,
   };
@@ -89,6 +91,8 @@ export default class NguoiDungRepository {
           ...(data.anhDaiDien !== undefined && { anhDaiDien: data.anhDaiDien }),
           ...(data.trangThai !== undefined && { trangThai: data.trangThai }),
           ...(data.matKhau !== undefined && { matKhau: data.matKhau }),
+          ...(data.zaloChatId !== undefined && { zaloChatId: data.zaloChatId }),
+          ...(data.pendingZaloChatId !== undefined && { pendingZaloChatId: data.pendingZaloChatId }),
         },
       });
       return normalize(raw);

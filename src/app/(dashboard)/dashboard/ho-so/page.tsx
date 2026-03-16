@@ -34,6 +34,8 @@ import {
   Wrench,
   FileText,
   Lock,
+  MessageCircle,
+  Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -47,6 +49,8 @@ interface UserProfile {
   role: string;
   createdAt: string;
   lastLogin?: string;
+  zaloChatId?: string | null;
+  pendingZaloChatId?: string | null;
 }
 
 // ─── Password strength helpers ────────────────────────────────────────────────
@@ -103,7 +107,8 @@ export default function ProfilePage() {
     name: '',
     phone: '',
     address: '',
-    avatar: ''
+    avatar: '',
+    zaloChatId: '',
   });
 
   // ── Security state ────────────────────────────────────────────
@@ -136,7 +141,8 @@ export default function ProfilePage() {
           name: data.name || '',
           phone: data.phone || '',
           address: data.address || '',
-          avatar: data.avatar || ''
+          avatar: data.avatar || '',
+          zaloChatId: data.zaloChatId || '',
         });
       }
     } catch (error) {
@@ -155,7 +161,13 @@ export default function ProfilePage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone,
+          address: formData.address,
+          avatar: formData.avatar,
+          zaloChatId: formData.zaloChatId || undefined,
+        }),
       });
 
       if (response.ok) {
@@ -189,7 +201,8 @@ export default function ProfilePage() {
       name: profile?.name || '',
       phone: profile?.phone || '',
       address: profile?.address || '',
-      avatar: profile?.avatar || ''
+      avatar: profile?.avatar || '',
+      zaloChatId: profile?.zaloChatId || '',
     });
     setIsEditing(false);
   };
@@ -385,6 +398,45 @@ export default function ProfilePage() {
                     <Shield className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
                     {profile?.role && getRoleBadge(profile.role)}
                   </div>
+                </div>
+
+                {/* Zalo Chat ID */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="zaloChatId" className="text-xs md:text-sm flex items-center gap-1.5">
+                    <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
+                    Zalo Chat ID
+                  </Label>
+                  {isEditing ? (
+                    <Input
+                      id="zaloChatId"
+                      value={formData.zaloChatId}
+                      onChange={(e) => setFormData({ ...formData, zaloChatId: e.target.value })}
+                      placeholder="Nhập Zalo Chat ID của bạn..."
+                      className="text-sm font-mono"
+                      maxLength={64}
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2 p-2 md:p-3 border rounded-md bg-gray-50">
+                      <MessageCircle className="h-3 w-3 md:h-4 md:w-4 text-gray-500 shrink-0" />
+                      {profile?.zaloChatId ? (
+                        <span className="text-sm font-mono flex items-center gap-1.5 text-green-700">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {profile.zaloChatId}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-400">Chưa liên kết Zalo</span>
+                      )}
+                    </div>
+                  )}
+                  {profile?.pendingZaloChatId && (
+                    <p className="text-[10px] text-amber-600 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Chờ xác nhận: <span className="font-mono">{profile.pendingZaloChatId}</span>
+                    </p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">
+                    Nhắn tin cho bot Zalo rồi lấy Chat ID để nhận thông báo qua Zalo
+                  </p>
                 </div>
               </div>
 

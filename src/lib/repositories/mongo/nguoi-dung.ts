@@ -94,6 +94,8 @@ export default class NguoiDungRepository {
     if (data.vaiTro !== undefined) { updateFields.vaiTro = data.vaiTro; updateFields.role = data.vaiTro; }
     if (data.anhDaiDien !== undefined) { updateFields.anhDaiDien = data.anhDaiDien; updateFields.avatar = data.anhDaiDien; }
     if (data.trangThai !== undefined) { updateFields.trangThai = data.trangThai; updateFields.isActive = data.trangThai === 'hoatDong'; }
+    if (data.zaloChatId !== undefined) updateFields.zaloChatId = data.zaloChatId;
+    if (data.pendingZaloChatId !== undefined) updateFields.pendingZaloChatId = data.pendingZaloChatId;
 
     if (data.matKhau !== undefined) {
       // Need to use save() to trigger pre-save hook for hashing
