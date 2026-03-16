@@ -4,6 +4,12 @@ import { authOptions } from '@/lib/auth';
 import { getToaNhaRepo, getPhongRepo } from '@/lib/repositories';
 import { z } from 'zod';
 
+const lienHeSchema = z.object({
+  ten: z.string().min(1, 'Tên liên hệ không được trống'),
+  soDienThoai: z.string().min(9, 'Số điện thoại không hợp lệ'),
+  vaiTro: z.string().optional(),
+});
+
 const toaNhaSchema = z.object({
   tenToaNha: z.string().min(1, 'Tên tòa nhà là bắt buộc'),
   diaChi: z.object({
@@ -15,6 +21,7 @@ const toaNhaSchema = z.object({
   }),
   moTa: z.string().optional(),
   tienNghiChung: z.array(z.string()).optional(),
+  lienHePhuTrach: z.array(lienHeSchema).optional(),
 });
 
 export async function GET(

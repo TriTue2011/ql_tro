@@ -36,6 +36,12 @@ export interface NguoiDung {
   ngayCapNhat: Date;
 }
 
+export interface LienHePhuTrach {
+  ten: string;
+  soDienThoai: string;
+  vaiTro?: string;
+}
+
 export interface ToaNha {
   id?: string;
   _id?: string;
@@ -46,6 +52,7 @@ export interface ToaNha {
   chuSoHuu: string; // ObjectId ref NguoiDung
   tongSoPhong: number;
   tienNghiChung: string[];
+  lienHePhuTrach: LienHePhuTrach[];
   ngayTao: Date;
   ngayCapNhat: Date;
 }
