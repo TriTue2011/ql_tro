@@ -369,6 +369,10 @@ export default function HoaDonPage() {
       ? hoaDon.phiDichVu.map(p => `  - ${p.ten}: ${formatCurrency(p.gia)}`).join('\n')
       : '  (không có)';
 
+    const bankBlock = hoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang
+      ? `\n━━━━━━━━━━━━━━━━━━━━\n🏦 CHUYỂN KHOẢN\nNgân hàng: ${bankSettings.tenNganHang}\nSố TK: ${bankSettings.soTaiKhoan}${bankSettings.chuTaiKhoan ? `\nChủ TK: ${bankSettings.chuTaiKhoan}` : ''}\nSố tiền: ${formatCurrency(hoaDon.conLai)}\nNội dung: ${buildTransferDesc(hoaDon, phongList)}`
+      : '';
+
     return `THÔNG BÁO TIỀN PHÒNG THÁNG ${hoaDon.thang}/${hoaDon.nam}
 ━━━━━━━━━━━━━━━━━━━━
 Phòng: ${phongName}
@@ -382,7 +386,7 @@ ${phiDVText}
 ━━━━━━━━━━━━━━━━━━━━
 TỔNG TIỀN: ${formatCurrency(hoaDon.tongTien)}
 Đã thanh toán: ${formatCurrency(hoaDon.daThanhToan)}
-CÒN LẠI: ${formatCurrency(hoaDon.conLai)}
+CÒN LẠI: ${formatCurrency(hoaDon.conLai)}${bankBlock}
 ━━━━━━━━━━━━━━━━━━━━
 Hạn thanh toán: ${hanTT}
 Vui lòng thanh toán đúng hạn.`;
@@ -482,7 +486,9 @@ Vui lòng thanh toán đúng hạn.`;
           <img src="${buildVietQRUrl(bankSettings.soTaiKhoan, bankSettings.tenNganHang, hoaDon.conLai, buildTransferDesc(hoaDon, phongList))}"
                alt="QR Chuyển khoản" style="width:180px;height:180px;" />
           <p><strong>Ngân hàng:</strong> ${bankSettings.tenNganHang}</p>
-          <p><strong>Số TK:</strong> ${bankSettings.soTaiKhoan}${bankSettings.chuTaiKhoan ? ` — ${bankSettings.chuTaiKhoan}` : ''}</p>
+          <p><strong>Số TK:</strong> ${bankSettings.soTaiKhoan}</p>
+          ${bankSettings.chuTaiKhoan ? `<p><strong>Chủ TK:</strong> ${bankSettings.chuTaiKhoan}</p>` : ''}
+          <p><strong>Số tiền:</strong> <span style="color:#dc2626;font-weight:bold;">${formatCurrency(hoaDon.conLai)}</span></p>
           <p><strong>Nội dung:</strong> ${buildTransferDesc(hoaDon, phongList)}</p>
         </div>` : ''}
         <div class="footer">
