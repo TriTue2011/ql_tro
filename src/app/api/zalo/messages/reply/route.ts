@@ -1,0 +1,81 @@
+/**
+ * POST /api/zalo/messages/reply
+ * Gửi tin nhắn từ bot đến người dùng và lưu vào DB.
+ *
+ * Body: { chatId: string, message: string, displayName?: string }
+ *
+ * Thiết kế sẵn cho AI: sau này AI có thể gọi endpoint này
+ * sau khi đọc lịch sử từ GET /api/zalo/messages.
+ */
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+
+const ZALO_API = 'https://bot-api.zaloplatforms.com';
+
+async function getZaloToken(): Promise<string | null> {
+  try {
+    const s = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_access_token' } });
+    return s?.giaTri?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  let body: any;
+  try { body = await request.json(); } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const { chatId, message, displayName } = body ?? {};
+  if (!chatId || !message?.trim()) {
+    return NextResponse.json({ error: 'chatId và message là bắt buộc' }, { status: 400 });
+  }
+
+  const token = await getZaloToken();
+  if (!token) {
+    return NextResponse.json({ error: 'Chưa cấu hình zalo_access_token' }, { status: 503 });
+  }
+
+  // Gửi qua Zalo Bot API
+  let zalOk = false;
+  let zaloError: string | null = null;
+  try {
+    const res = await fetch(`${ZALO_API}/bot${token}/sendmessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipient: { id: chatId }, message: { text: message.trim() } }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const data = await res.json();
+    if (data?.error === 0 || data?.error_code === 0) {
+      zalOk = true;
+    } else {
+      zaloError = data?.message || data?.error_message || `Zalo lỗi ${data?.error}`;
+    }
+  } catch (e: any) {
+    zaloError = e?.message || 'Timeout gửi Zalo';
+  }
+
+  // Lưu vào DB dù gửi thành công hay thất bại (để UI biết trạng thái)
+  const saved = await prisma.zaloMessage.create({
+    data: {
+      chatId,
+      displayName: displayName || null,
+      content: message.trim(),
+      role: 'bot',
+      eventName: zalOk ? 'bot_reply' : 'bot_reply_failed',
+    },
+  });
+
+  if (!zalOk) {
+    return NextResponse.json({ success: false, error: zaloError, saved }, { status: 502 });
+  }
+
+  return NextResponse.json({ success: true, saved });
+}
