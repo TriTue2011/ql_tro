@@ -1,14 +1,21 @@
 /**
  * GET /api/zalo/updates
- * Lấy danh sách tin nhắn gửi tới bot để tra cứu chat_id.
+ * Lấy tin nhắn mới nhất gửi tới bot để tra cứu chat_id.
  * Nếu phát hiện chat_id khác với đã lưu → lưu vào pendingZaloChatId chờ xác nhận.
- * Dùng khi KHÔNG có webhook (long polling).
+ * Dùng khi KHÔNG có webhook (polling thủ công).
+ *
+ * Zalo Bot API: getUpdates trả về 1 update object (không phải array):
+ *   result.message.from.id          → chat_id
+ *   result.message.from.display_name → tên hiển thị
+ *   result.event_name               → loại sự kiện
  */
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getKhachThueRepo } from '@/lib/repositories';
 import prisma from '@/lib/prisma';
+
+const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
 async function getZaloToken(): Promise<string | null> {
   try {
@@ -19,9 +26,7 @@ async function getZaloToken(): Promise<string | null> {
   }
 }
 
-/**
- * Chuẩn hóa tên để so sánh gần đúng (bỏ dấu, chữ thường, bỏ khoảng trắng thừa).
- */
+/** Chuẩn hóa tên để so sánh gần đúng (bỏ dấu, chữ thường). */
 function normalizeName(name: string): string {
   return name
     .toLowerCase()
@@ -32,62 +37,52 @@ function normalizeName(name: string): string {
 }
 
 /**
- * Phát hiện các chat_id mới từ updates và lưu vào pendingZaloChatId nếu khác với đã lưu.
- * - Khớp theo tên (gần đúng) với danh sách khách thuê.
+ * Phát hiện chat_id từ một update và lưu vào pendingZaloChatId nếu khác với đã lưu.
+ * - Khớp theo display_name (gần đúng) với danh sách khách thuê.
  * - KHÔNG tự động ghi đè zaloChatId đã xác thực.
- * - Trả về danh sách các phát hiện mới.
  */
-async function detectAndStorePendingChatIds(updates: any[]): Promise<{ detected: number; details: any[] }> {
-  const details: any[] = [];
+async function detectAndStorePending(update: any): Promise<{ detected: number; details: any[] }> {
+  const msg = update?.message;
+  if (!msg?.from?.id) return { detected: 0, details: [] };
 
-  // Thu thập tất cả sender từ updates
-  const senders: Array<{ chatId: string; name: string }> = [];
-  for (const update of updates) {
-    const msg = update.message ?? update.edited_message;
-    if (!msg?.from?.id) continue;
-    const chatId = String(msg.from.id);
-    const name = msg.from.first_name || msg.from.username || '';
-    if (chatId && name) {
-      senders.push({ chatId, name });
-    }
-  }
+  const chatId = String(msg.from.id);
+  // Zalo Bot API dùng display_name, không phải first_name
+  const displayName: string = msg.from.display_name || '';
+  if (!displayName) return { detected: 0, details: [] };
 
-  if (senders.length === 0) return { detected: 0, details: [] };
-
-  // Lấy tất cả khách thuê để so sánh
   const repo = await getKhachThueRepo();
   const allTenants = await repo.findMany({ limit: 1000 });
 
-  for (const sender of senders) {
-    const normalizedSenderName = normalizeName(sender.name);
+  const normalizedSender = normalizeName(displayName);
 
-    // Tìm khách thuê khớp tên gần đúng
-    const matched = allTenants.data.find(kt =>
-      normalizeName(kt.hoTen).includes(normalizedSenderName) ||
-      normalizedSenderName.includes(normalizeName(kt.hoTen).split(' ').pop() ?? '')
-    );
+  // Tìm khách thuê khớp tên (so sánh tên đầy đủ hoặc họ/tên cuối)
+  const matched = allTenants.data.find(kt => {
+    const normalizedKt = normalizeName(kt.hoTen);
+    const lastWordKt = normalizedKt.split(' ').pop() ?? '';
+    return normalizedKt === normalizedSender ||
+      normalizedSender.includes(lastWordKt) ||
+      normalizedKt.includes(normalizedSender);
+  });
 
-    if (!matched) continue;
+  if (!matched) return { detected: 0, details: [] };
+  // Đã là chat_id chính thức rồi
+  if (matched.zaloChatId === chatId) return { detected: 0, details: [] };
+  // Đã là pending rồi
+  if (matched.pendingZaloChatId === chatId) return { detected: 0, details: [] };
 
-    // Nếu chat_id này đã là zaloChatId chính thức → bỏ qua
-    if (matched.zaloChatId === sender.chatId) continue;
+  await repo.update(matched.id, { pendingZaloChatId: chatId });
 
-    // Nếu chat_id này đã là pendingZaloChatId → bỏ qua (đã ghi nhận rồi)
-    if (matched.pendingZaloChatId === sender.chatId) continue;
-
-    // Lưu vào pendingZaloChatId để admin xem xét
-    await repo.update(matched.id, { pendingZaloChatId: sender.chatId });
-    details.push({
+  return {
+    detected: 1,
+    details: [{
       khachThueId: matched.id,
       hoTen: matched.hoTen,
       soDienThoai: matched.soDienThoai,
       currentZaloChatId: matched.zaloChatId ?? null,
-      pendingZaloChatId: sender.chatId,
-      zaloName: sender.name,
-    });
-  }
-
-  return { detected: details.length, details };
+      pendingZaloChatId: chatId,
+      zaloDisplayName: displayName,
+    }],
+  };
 }
 
 export async function GET() {
@@ -100,24 +95,27 @@ export async function GET() {
       return NextResponse.json({ error: 'Chưa cấu hình zalo_access_token' }, { status: 503 });
     }
 
-    const response = await fetch(`https://bot-api.zapps.me/bot${token}/getUpdates`, {
+    const response = await fetch(`${ZALO_API}/bot${token}/getUpdates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ timeout: 0 }),
-      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({ timeout: 30 }),
+      signal: AbortSignal.timeout(40000),
     });
 
     if (!response.ok) {
       const txt = await response.text();
-      return NextResponse.json({ error: `Zalo API lỗi: ${response.status} — ${txt.slice(0, 200)}` }, { status: 502 });
+      return NextResponse.json(
+        { error: `Zalo API lỗi: ${response.status} — ${txt.slice(0, 200)}` },
+        { status: 502 }
+      );
     }
 
     const data = await response.json();
-    const updates: any[] = Array.isArray(data?.result) ? data.result : [];
 
-    // Phát hiện và lưu pending chat_ids (nếu có updates)
-    const pendingInfo = updates.length > 0
-      ? await detectAndStorePendingChatIds(updates)
+    // result là một object update đơn (không phải array)
+    const update = data?.result ?? null;
+    const pendingInfo = update?.message
+      ? await detectAndStorePending(update)
       : { detected: 0, details: [] };
 
     return NextResponse.json({

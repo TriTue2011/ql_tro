@@ -14,6 +14,8 @@ const schema = z.object({
 }).refine(d => d.phone || d.chatId || d.nguoiDungId, { message: 'Cần cung cấp phone, chatId hoặc nguoiDungId' })
   .refine(d => d.message || d.imageUrl, { message: 'Cần cung cấp message hoặc imageUrl' });
 
+const ZALO_API = 'https://bot-api.zaloplatforms.com';
+
 /** Lấy Zalo Bot Token từ cài đặt hệ thống */
 async function getZaloToken(): Promise<string | null> {
   try {
@@ -48,7 +50,7 @@ async function resolveChatIdNguoiDung(nguoiDungId: string): Promise<string | nul
 /** Gửi tin nhắn văn bản qua Zalo Bot */
 async function sendZaloMessage(token: string, chatId: string, text: string) {
   const truncated = text.length > 2000 ? text.slice(0, 1997) + '...' : text;
-  return fetch(`https://bot-api.zapps.me/bot${token}/sendMessage`, {
+  return fetch(`${ZALO_API}/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, text: truncated }),
@@ -60,7 +62,7 @@ async function sendZaloMessage(token: string, chatId: string, text: string) {
 async function sendZaloPhoto(token: string, chatId: string, imageUrl: string, caption?: string) {
   const body: any = { chat_id: chatId, photo: imageUrl };
   if (caption) body.caption = caption.slice(0, 1024);
-  return fetch(`https://bot-api.zapps.me/bot${token}/sendPhoto`, {
+  return fetch(`${ZALO_API}/bot${token}/sendPhoto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
