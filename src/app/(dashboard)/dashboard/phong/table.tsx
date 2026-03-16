@@ -269,7 +269,7 @@ const createColumns = (props: PhongTableProps): ColumnDef<Phong>[] => [
       const phong = row.original as any;
       const hopDong = phong.hopDongHienTai;
       
-      if (!hopDong || !hopDong.khachThueIds || hopDong.khachThueIds.length === 0) {
+      if (!hopDong || !hopDong.khachThue || hopDong.khachThue.length === 0) {
         return (
           <div className="flex items-center gap-2 text-muted-foreground">
             <User className="h-4 w-4" />
@@ -279,7 +279,7 @@ const createColumns = (props: PhongTableProps): ColumnDef<Phong>[] => [
       }
       
       const nguoiDaiDien = hopDong.nguoiDaiDien;
-      const soLuongKhachThue = hopDong.khachThueIds.length;
+      const soLuongKhachThue = hopDong.khachThue.length;
       
       return (
         <div className="min-w-40">
