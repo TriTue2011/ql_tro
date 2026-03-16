@@ -4,7 +4,10 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 
-// Danh sách cài đặt mặc định — chỉ admin đọc/ghi
+// Vai trò được phép quản lý cài đặt hệ thống
+const ALLOWED_ROLES = ['admin', 'chuNha'];
+
+// Danh sách cài đặt mặc định — admin và chuNha đọc/ghi
 const DEFAULT_SETTINGS = [
   // Lưu trữ
   { khoa: 'storage_provider', giaTri: 'local', moTa: 'Nhà cung cấp lưu trữ ảnh (local | minio | cloudinary)', nhom: 'luuTru', laBiMat: false },
@@ -44,7 +47,7 @@ function maskSecret(value: string | null | undefined): string {
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !ALLOWED_ROLES.includes(session.user.role)) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -87,7 +90,7 @@ const updateSchema = z.object({
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !ALLOWED_ROLES.includes(session.user.role)) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 

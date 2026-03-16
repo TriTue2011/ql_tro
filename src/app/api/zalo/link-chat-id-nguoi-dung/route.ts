@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!['admin', 'chuNha'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const body = await request.json();
     const parsed = linkSchema.safeParse(body);
@@ -55,6 +58,9 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!['admin', 'chuNha'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const nguoiDungId = new URL(request.url).searchParams.get('nguoiDungId');
     if (!nguoiDungId) return NextResponse.json({ error: 'Thiếu nguoiDungId' }, { status: 400 });

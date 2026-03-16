@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,6 +52,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 
 export default function KhachThuePage() {
+  const { data: session } = useSession();
+  const canViewZalo = ['admin', 'chuNha'].includes(session?.user?.role ?? '');
   const cache = useCache<{ khachThueList: KhachThue[] }>({ key: 'khach-thue-data', duration: 300000 });
   const [khachThueList, setKhachThueList] = useState<KhachThue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -213,8 +216,9 @@ export default function KhachThuePage() {
               </DialogDescription>
             </DialogHeader>
             
-            <KhachThueForm 
+            <KhachThueForm
               khachThue={editingKhachThue}
+              canViewZalo={canViewZalo}
               onClose={() => setIsDialogOpen(false)}
               onSuccess={(newKhachThue) => {
                 cache.clearCache();
@@ -475,14 +479,16 @@ export default function KhachThuePage() {
 }
 
 // Form component for adding/editing khach thue
-function KhachThueForm({ 
-  khachThue, 
-  onClose, 
+function KhachThueForm({
+  khachThue,
+  canViewZalo,
+  onClose,
   onSuccess,
   isSubmitting,
   setIsSubmitting
-}: { 
+}: {
   khachThue: KhachThue | null;
+  canViewZalo: boolean;
   onClose: () => void;
   onSuccess: (newKhachThue?: KhachThue) => void;
   isSubmitting: boolean;
@@ -552,7 +558,7 @@ function KhachThueForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
       <Tabs defaultValue="thong-tin" className="w-full">
-        <TabsList className={`grid w-full ${khachThue ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full ${khachThue && canViewZalo ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="thong-tin" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
             <Info className="h-3 w-3 md:h-4 md:w-4" />
             <span>Thông tin</span>
@@ -561,7 +567,7 @@ function KhachThueForm({
             <CreditCard className="h-3 w-3 md:h-4 md:w-4" />
             <span>Ảnh CCCD</span>
           </TabsTrigger>
-          {khachThue && (
+          {khachThue && canViewZalo && (
             <TabsTrigger value="zalo" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
               <MessageCircle className="h-3 w-3 md:h-4 md:w-4" />
               <span>Zalo</span>
@@ -694,7 +700,7 @@ function KhachThueForm({
           />
         </TabsContent>
 
-        {khachThue && (
+        {khachThue && canViewZalo && (
           <TabsContent value="zalo" className="space-y-4 mt-4">
             {/* Trạng thái hiện tại */}
             <div className="rounded-lg border p-4 space-y-3">
