@@ -479,11 +479,12 @@ Vào **Dashboard → Cài đặt → Tab Hệ thống**.
 | Trường | Giá trị |
 |--------|---------|
 | MinIO Endpoint URL | `http://localhost:9000` |
-| MinIO Access Key | `minioadmin` |
-| MinIO Secret Key 🔒 | `minioadmin` |
+| MinIO Username | `minioadmin` (= `MINIO_ROOT_USER`) |
+| MinIO Password 🔒 | `minioadmin` (= `MINIO_ROOT_PASSWORD`) |
 | MinIO Bucket Name | `ql-tro` |
 
 > Port **9000** = S3 API (dùng trong app). Port **9001** = Web Console (quản trị qua browser).
+> Username/Password trong UI chính là `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` trong `docker-compose.yml`.
 
 #### Cloudinary (khi chọn `cloudinary`)
 
@@ -647,7 +648,18 @@ Không cần cấu hình. Ảnh lưu tại `public/uploads/`.
 ### MinIO (khuyến nghị — đã có trong Docker Compose)
 
 Đã chạy sẵn tại port `9000` (API) và `9001` (Console).
-Cấu hình trong UI như hướng dẫn ở mục [Nhóm Lưu trữ ảnh](#nhóm-lưu-trữ-ảnh).
+
+Cấu hình trong UI — **Cài đặt → Lưu trữ ảnh**:
+
+| Trường | Giá trị |
+|--------|---------|
+| Provider | `minio` |
+| MinIO Endpoint URL | `http://localhost:9000` |
+| MinIO Username | `minioadmin` |
+| MinIO Password | `minioadmin` |
+| MinIO Bucket Name | `ql-tro` |
+
+> Username và Password tương ứng với `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` trong `docker-compose.yml`.
 
 ### Cloudinary
 
@@ -840,7 +852,7 @@ lsof -i :3000 && kill -9 <PID>
 
 ### Lưu trữ ảnh
 - [ ] Chọn provider trong UI (minio/cloudinary/local)
-- [ ] Nếu MinIO: điền endpoint `http://localhost:9000`, bucket `ql-tro`
+- [ ] Nếu MinIO: điền endpoint `http://localhost:9000`, username `minioadmin`, password `minioadmin`, bucket `ql-tro`
 - [ ] Test upload ảnh thành công
 
 ### Zalo Bot (nếu dùng)
