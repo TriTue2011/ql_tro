@@ -40,15 +40,14 @@ import {
 import { toast } from 'sonner';
 
 interface UserProfile {
-  _id: string;
-  name: string;
+  id: string;
+  ten: string;
   email: string;
-  phone?: string;
-  address?: string;
-  avatar?: string;
-  role: string;
-  createdAt: string;
-  lastLogin?: string;
+  soDienThoai?: string;
+  anhDaiDien?: string;
+  vaiTro: string;
+  trangThai: string;
+  ngayTao: string;
   zaloChatId?: string | null;
   pendingZaloChatId?: string | null;
 }
@@ -167,10 +166,10 @@ export default function ProfilePage() {
         const data = await response.json();
         setProfile(data);
         setFormData({
-          name: data.name || '',
-          phone: data.phone || '',
-          address: data.address || '',
-          avatar: data.avatar || '',
+          name: data.ten || '',
+          phone: data.soDienThoai || '',
+          address: '',
+          avatar: data.anhDaiDien || '',
           zaloChatId: data.zaloChatId || '',
         });
       }
@@ -191,10 +190,9 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: formData.name,
-          phone: formData.phone,
-          address: formData.address,
-          avatar: formData.avatar,
+          ten: formData.name,
+          soDienThoai: formData.phone,
+          anhDaiDien: formData.avatar || undefined,
           zaloChatId: formData.zaloChatId || undefined,
         }),
       });
@@ -227,10 +225,10 @@ export default function ProfilePage() {
 
   const handleCancel = () => {
     setFormData({
-      name: profile?.name || '',
-      phone: profile?.phone || '',
-      address: profile?.address || '',
-      avatar: profile?.avatar || '',
+      name: profile?.ten || '',
+      phone: profile?.soDienThoai || '',
+      address: '',
+      avatar: profile?.anhDaiDien || '',
       zaloChatId: profile?.zaloChatId || '',
     });
     setIsEditing(false);
@@ -362,7 +360,7 @@ export default function ProfilePage() {
                 </Avatar>
                 <div className="space-y-2 text-center sm:text-left">
                   <h3 className="text-base md:text-lg font-medium">{formData.name}</h3>
-                  {profile?.role && getRoleBadge(profile.role)}
+                  {profile?.vaiTro && getRoleBadge(profile.vaiTro)}
                   {isEditing && (
                     <Button variant="outline" size="sm" className="text-xs md:text-sm">
                       <Camera className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
@@ -425,13 +423,12 @@ export default function ProfilePage() {
                   <Label htmlFor="role" className="text-xs md:text-sm">Vai trò</Label>
                   <div className="flex items-center gap-2 p-2 md:p-3 border rounded-md bg-gray-50">
                     <Shield className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                    {profile?.role && getRoleBadge(profile.role)}
+                    {profile?.vaiTro && getRoleBadge(profile.vaiTro)}
                   </div>
                 </div>
 
-                {/* Zalo Chat ID — chỉ admin và chuNha */}
-                {['admin', 'chuNha'].includes(profile?.role ?? '') && (
-                  <div className="space-y-2 md:col-span-2">
+                {/* Zalo Chat ID — tất cả người dùng */}
+                <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="zaloChatId" className="text-xs md:text-sm flex items-center gap-1.5">
                       <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
                       Zalo Chat ID
@@ -490,8 +487,7 @@ export default function ProfilePage() {
                     <p className="text-[10px] text-muted-foreground">
                       Nhắn tin cho bot Zalo — hệ thống tự phát hiện và liên kết Chat ID của bạn
                     </p>
-                  </div>
-                )}
+                </div>
               </div>
 
               <div className="space-y-2">
