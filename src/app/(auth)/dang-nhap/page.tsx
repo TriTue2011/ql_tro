@@ -47,7 +47,12 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError('Email/SĐT hoặc mật khẩu không đúng');
+        const isPhone = /^[0-9]{9,11}$/.test(data.emailOrPhone.trim());
+        setError(
+          isPhone
+            ? 'Số điện thoại hoặc mật khẩu không đúng. Nếu bạn là khách thuê, vui lòng dùng trang đăng nhập dành cho khách thuê.'
+            : 'Email hoặc mật khẩu không đúng'
+        );
       } else {
         // Redirect tất cả user về dashboard
         router.push('/dashboard');
@@ -146,7 +151,12 @@ export default function LoginPage() {
               </Button>
             </form>
 
-           
+            <div className="mt-4 pt-4 border-t text-center text-xs text-muted-foreground">
+              Bạn là khách thuê?{' '}
+              <Link href="/khach-thue/dang-nhap" className="text-primary underline underline-offset-2">
+                Đăng nhập tại đây
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
