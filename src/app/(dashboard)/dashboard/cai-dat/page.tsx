@@ -557,7 +557,7 @@ export default function CaiDatPage() {
     return acc;
   }, {});
 
-  const groupOrder = ['luuTru', 'thongBao', 'heThong', 'baoMat'];
+  const groupOrder = ['luuTru', 'thongBao', 'thanhToan', 'heThong', 'baoMat'];
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -568,29 +568,41 @@ export default function CaiDatPage() {
         </p>
       </div>
 
-      <Tabs defaultValue={canManage ? 'system' : 'display'}>
-        <TabsList className="w-full md:w-auto">
-          {canManage && (
-            <TabsTrigger value="system" className="flex items-center gap-1.5 text-xs md:text-sm">
+      <Tabs defaultValue={canManage ? 'thanhToan' : 'display'}>
+        <TabsList className="flex flex-wrap h-auto gap-1 w-full md:w-auto">
+          {canManage && (<>
+            <TabsTrigger value="thanhToan" className="flex items-center gap-1.5 text-xs md:text-sm">
+              <CreditCard className="h-3.5 w-3.5" />
+              Thanh toán
+            </TabsTrigger>
+            <TabsTrigger value="thongBao" className="flex items-center gap-1.5 text-xs md:text-sm">
+              <Bell className="h-3.5 w-3.5" />
+              Thông báo
+            </TabsTrigger>
+            <TabsTrigger value="luuTru" className="flex items-center gap-1.5 text-xs md:text-sm">
+              <HardDrive className="h-3.5 w-3.5" />
+              Lưu trữ
+            </TabsTrigger>
+            <TabsTrigger value="heThong" className="flex items-center gap-1.5 text-xs md:text-sm">
               <Shield className="h-3.5 w-3.5" />
               Hệ thống
             </TabsTrigger>
-          )}
+          </>)}
           <TabsTrigger value="display" className="flex items-center gap-1.5 text-xs md:text-sm">
             <Monitor className="h-3.5 w-3.5" />
             Giao diện
           </TabsTrigger>
         </TabsList>
 
-        {/* ── Tab Hệ thống (admin only) ─────────────────────────────────────── */}
-        {canManage && (
-          <TabsContent value="system" className="space-y-4 mt-4">
+        {/* ── Skeleton lỗi/loading dùng chung ── */}
+        {canManage && (loadingSystem || errorSystem) && (
+          <div className="mt-4">
             {loadingSystem ? (
               <div className="flex items-center justify-center py-12">
                 <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
                 <span className="ml-2 text-gray-500">Đang tải cài đặt hệ thống...</span>
               </div>
-            ) : errorSystem ? (
+            ) : (
               <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
                 <div className="rounded-full bg-red-50 p-4">
                   <Settings className="h-8 w-8 text-red-400" />
@@ -604,356 +616,325 @@ export default function CaiDatPage() {
                   Thử lại
                 </Button>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Tab Thanh toán ─────────────────────────────────────────────────── */}
+        {canManage && !loadingSystem && !errorSystem && (
+          <TabsContent value="thanhToan" className="space-y-4 mt-4">
+            {settingsByGroup['thanhToan']?.length ? (
+              <SettingGroupCard
+                nhom="thanhToan"
+                items={settingsByGroup['thanhToan']}
+                values={settingValues}
+                onChange={handleSettingChange}
+                onSave={handleSaveGroup}
+                saving={savingGroup === 'thanhToan'}
+              />
             ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {groupOrder.map((nhom) =>
-                    settingsByGroup[nhom]?.length ? (
-                      <SettingGroupCard
-                        key={nhom}
-                        nhom={nhom}
-                        items={settingsByGroup[nhom]}
-                        values={settingValues}
-                        onChange={handleSettingChange}
-                        onSave={handleSaveGroup}
-                        saving={savingGroup === nhom}
-                      />
-                    ) : null
-                  )}
+              <p className="text-sm text-gray-500 text-center py-8">Chưa có cài đặt thanh toán nào.</p>
+            )}
+          </TabsContent>
+        )}
+
+        {/* ── Tab Thông báo (Zalo) ───────────────────────────────────────────── */}
+        {canManage && !loadingSystem && !errorSystem && (
+          <TabsContent value="thongBao" className="space-y-4 mt-4">
+            {settingsByGroup['thongBao']?.length && (
+              <SettingGroupCard
+                nhom="thongBao"
+                items={settingsByGroup['thongBao']}
+                values={settingValues}
+                onChange={handleSettingChange}
+                onSave={handleSaveGroup}
+                saving={savingGroup === 'thongBao'}
+              />
+            )}
+
+            {/* ── Gửi test Zalo ── */}
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Bell className="h-4 w-4" />
+                  Gửi tin nhắn Zalo test
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Kiểm tra kết nối Zalo Bot bằng cách gửi tin nhắn đến một Chat ID cụ thể.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs md:text-sm font-medium">Chat ID người nhận</Label>
+                  <Input
+                    type="text"
+                    placeholder="Nhập Zalo Chat ID (vd: 1234567890)"
+                    value={testChatId}
+                    onChange={(e) => setTestChatId(e.target.value)}
+                    className="text-sm font-mono"
+                  />
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-xs md:text-sm font-medium">Nội dung tin nhắn</Label>
+                  <Input
+                    type="text"
+                    value={testMessage}
+                    onChange={(e) => setTestMessage(e.target.value)}
+                    className="text-sm"
+                    maxLength={500}
+                  />
+                </div>
+                <Button size="sm" onClick={handleSendTest} disabled={testLoading} className="w-full">
+                  {testLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
+                  Gửi tin nhắn test
+                </Button>
+                {testResult && (
+                  <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${
+                    testResult.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
+                  }`}>
+                    {testResult.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" /> : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                    {testResult.message}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                {/* ── Kiểm tra kết nối MinIO ── */}
-                <Card>
-                  <CardHeader className="p-4 md:p-6">
-                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                      <HardDrive className="h-4 w-4" />
-                      Kiểm tra kết nối MinIO
-                    </CardTitle>
-                    <CardDescription className="text-xs md:text-sm">
-                      Lưu cài đặt MinIO trước, sau đó bấm kiểm tra để xác nhận kết nối thành công.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 md:p-6 space-y-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleTestMinio}
-                      disabled={minioTestLoading}
-                      className="w-full"
-                    >
-                      {minioTestLoading
-                        ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        : <CheckCircle className="h-4 w-4 mr-2" />}
-                      Kiểm tra kết nối
-                    </Button>
-                    {minioTestResult && (
-                      <div className={`rounded-md p-3 text-sm flex flex-col gap-1 ${
-                        minioTestResult.ok
-                          ? 'bg-green-50 border border-green-200 text-green-800'
-                          : 'bg-red-50 border border-red-200 text-red-800'
-                      }`}>
-                        <div className="flex items-center gap-2 font-medium">
-                          {minioTestResult.ok
-                            ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
-                            : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
-                          {minioTestResult.message}
+            {/* ── Lấy Chat ID từ Zalo getUpdates ── */}
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Bell className="h-4 w-4" />
+                  Lấy Zalo Chat ID
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Nhắn bất kỳ cho Zalo Bot, sau đó bấm nút bên dưới.
+                  Hệ thống sẽ tự động: <strong>xóa Webhook → lấy tin nhắn → đăng ký lại Webhook</strong>.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-3">
+                <Button size="sm" variant="outline" onClick={handleGetUpdates} disabled={updatesLoading} className="w-full">
+                  <RefreshCw className={`h-4 w-4 mr-2 ${updatesLoading ? 'animate-spin' : ''}`} />
+                  {updatesLoading ? 'Đang chờ (tối đa 30s)…' : 'Lấy tin nhắn mới nhất'}
+                </Button>
+                {updatesResult && (
+                  <div className={`rounded-md p-3 text-sm space-y-2 ${
+                    updatesResult.ok && updatesResult.chatId
+                      ? 'bg-green-50 border border-green-200'
+                      : updatesResult.ok
+                      ? 'bg-amber-50 border border-amber-200'
+                      : 'bg-red-50 border border-red-200'
+                  }`}>
+                    {!updatesResult.ok || !updatesResult.chatId ? (
+                      <div className="flex items-center gap-2 text-sm">
+                        {updatesResult.ok
+                          ? <CheckCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                          : <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />}
+                        <span className={updatesResult.ok ? 'text-amber-800' : 'text-red-800'}>{updatesResult.error}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2 font-medium text-green-800">
+                          <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          Tìm thấy người nhắn tin
                         </div>
-                        {minioTestResult.ok && minioTestResult.details && (
-                          <div className="text-xs font-mono text-green-700 mt-1 space-y-0.5 pl-6">
-                            <div>Endpoint: {String(minioTestResult.details.endpoint)}</div>
-                            <div>Bucket: {String(minioTestResult.details.bucket)}</div>
-                            <div>Tổng buckets: {String(minioTestResult.details.totalBuckets)}</div>
+                        <div className="space-y-1 pl-6">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 w-24">Chat ID</span>
+                            <code className="bg-white border rounded px-2 py-0.5 text-xs font-mono font-bold text-gray-800 select-all">
+                              {updatesResult.chatId}
+                            </code>
+                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6" title="Sao chép Chat ID"
+                              onClick={() => { navigator.clipboard.writeText(updatesResult.chatId!); toast.success('Đã sao chép Chat ID'); }}>
+                              <Copy className="h-3 w-3" />
+                            </Button>
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* ── Gửi test Zalo ── */}
-                <Card>
-                  <CardHeader className="p-4 md:p-6">
-                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                      <Bell className="h-4 w-4" />
-                      Gửi tin nhắn Zalo test
-                    </CardTitle>
-                    <CardDescription className="text-xs md:text-sm">
-                      Kiểm tra kết nối Zalo Bot bằng cách gửi tin nhắn đến một Chat ID cụ thể.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 md:p-6 space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs md:text-sm font-medium">Chat ID người nhận</Label>
-                      <Input
-                        type="text"
-                        placeholder="Nhập Zalo Chat ID (vd: 1234567890)"
-                        value={testChatId}
-                        onChange={(e) => setTestChatId(e.target.value)}
-                        className="text-sm font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs md:text-sm font-medium">Nội dung tin nhắn</Label>
-                      <Input
-                        type="text"
-                        value={testMessage}
-                        onChange={(e) => setTestMessage(e.target.value)}
-                        className="text-sm"
-                        maxLength={500}
-                      />
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={handleSendTest}
-                      disabled={testLoading}
-                      className="w-full"
-                    >
-                      {testLoading
-                        ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        : <Bell className="h-4 w-4 mr-2" />}
-                      Gửi tin nhắn test
-                    </Button>
-                    {testResult && (
-                      <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${
-                        testResult.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
-                      }`}>
-                        {testResult.ok
-                          ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
-                          : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
-                        {testResult.message}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* ── Lấy Chat ID từ Zalo getUpdates ── */}
-                <Card>
-                  <CardHeader className="p-4 md:p-6">
-                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                      <Bell className="h-4 w-4" />
-                      Lấy Zalo Chat ID
-                    </CardTitle>
-                    <CardDescription className="text-xs md:text-sm">
-                      Nhắn bất kỳ cho Zalo Bot, sau đó bấm nút bên dưới.
-                      Hệ thống sẽ tự động: <strong>xóa Webhook → lấy tin nhắn → đăng ký lại Webhook</strong>.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 md:p-6 space-y-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleGetUpdates}
-                      disabled={updatesLoading}
-                      className="w-full"
-                    >
-                      <RefreshCw className={`h-4 w-4 mr-2 ${updatesLoading ? 'animate-spin' : ''}`} />
-                      {updatesLoading ? 'Đang chờ (tối đa 30s)…' : 'Lấy tin nhắn mới nhất'}
-                    </Button>
-
-                    {updatesResult && (
-                      <div className={`rounded-md p-3 text-sm space-y-2 ${
-                        updatesResult.ok && updatesResult.chatId
-                          ? 'bg-green-50 border border-green-200'
-                          : updatesResult.ok
-                          ? 'bg-amber-50 border border-amber-200'
-                          : 'bg-red-50 border border-red-200'
-                      }`}>
-                        {!updatesResult.ok || !updatesResult.chatId ? (
-                          <div className="flex items-center gap-2 text-sm">
-                            {updatesResult.ok
-                              ? <CheckCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                              : <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />}
-                            <span className={updatesResult.ok ? 'text-amber-800' : 'text-red-800'}>
-                              {updatesResult.error}
-                            </span>
+                          {updatesResult.displayName && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500 w-24">Tên Zalo</span>
+                              <span className="text-xs text-gray-700">{updatesResult.displayName}</span>
+                            </div>
+                          )}
+                          {updatesResult.eventName && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500 w-24">Sự kiện</span>
+                              <span className="text-xs text-gray-500 font-mono">{updatesResult.eventName}</span>
+                            </div>
+                          )}
+                        </div>
+                        {updatesResult.pendingDetected && updatesResult.pendingDetected > 0 ? (
+                          <div className="mt-2 rounded bg-blue-50 border border-blue-200 p-2 text-xs text-blue-800">
+                            <strong>Gợi ý liên kết:</strong> Tìm thấy {updatesResult.pendingDetected} khách thuê tên gần giống.
+                            Vào <strong>Quản lý khách thuê</strong> để xác nhận liên kết Chat ID.
+                            {updatesResult.pendingDetails?.map((p) => (
+                              <div key={p.pendingZaloChatId} className="mt-1 font-mono">→ {p.hoTen} ({p.soDienThoai})</div>
+                            ))}
                           </div>
                         ) : (
-                          <>
-                            <div className="flex items-center gap-2 font-medium text-green-800">
-                              <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
-                              Tìm thấy người nhắn tin
-                            </div>
-                            <div className="space-y-1 pl-6">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500 w-24">Chat ID</span>
-                                <code className="bg-white border rounded px-2 py-0.5 text-xs font-mono font-bold text-gray-800 select-all">
-                                  {updatesResult.chatId}
-                                </code>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  title="Sao chép Chat ID"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(updatesResult.chatId!);
-                                    toast.success('Đã sao chép Chat ID');
-                                  }}
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              {updatesResult.displayName && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-500 w-24">Tên Zalo</span>
-                                  <span className="text-xs text-gray-700">{updatesResult.displayName}</span>
-                                </div>
-                              )}
-                              {updatesResult.eventName && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-500 w-24">Sự kiện</span>
-                                  <span className="text-xs text-gray-500 font-mono">{updatesResult.eventName}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            {updatesResult.pendingDetected && updatesResult.pendingDetected > 0 ? (
-                              <div className="mt-2 rounded bg-blue-50 border border-blue-200 p-2 text-xs text-blue-800">
-                                <strong>Gợi ý liên kết:</strong> Tìm thấy {updatesResult.pendingDetected} khách thuê tên gần giống.
-                                Vào <strong>Quản lý khách thuê</strong> để xác nhận liên kết Chat ID.
-                                {updatesResult.pendingDetails?.map((p) => (
-                                  <div key={p.pendingZaloChatId} className="mt-1 font-mono">
-                                    → {p.hoTen} ({p.soDienThoai})
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-gray-500 pl-6">
-                                Không tìm thấy khách thuê trùng tên. Sao chép Chat ID và điền thủ công.
-                              </p>
-                            )}
-
-                            {/* Trạng thái webhook */}
-                            {updatesResult.webhookWasActive && (
-                              <div className={`mt-2 rounded px-2 py-1.5 text-xs ${
-                                updatesResult.webhookRestored
-                                  ? 'bg-green-50 border border-green-200 text-green-800'
-                                  : 'bg-amber-50 border border-amber-200 text-amber-800'
-                              }`}>
-                                {updatesResult.webhookRestored
-                                  ? '✓ Webhook đã được đăng ký lại tự động'
-                                  : `⚠ ${updatesResult.webhookRestoreError || 'Webhook chưa được đăng ký lại — vào tab Webhook để đăng ký lại.'}`}
-                              </div>
-                            )}
-                          </>
+                          <p className="text-xs text-gray-500 pl-6">Không tìm thấy khách thuê trùng tên. Sao chép Chat ID và điền thủ công.</p>
                         )}
-                      </div>
+                        {updatesResult.webhookWasActive && (
+                          <div className={`mt-2 rounded px-2 py-1.5 text-xs ${
+                            updatesResult.webhookRestored
+                              ? 'bg-green-50 border border-green-200 text-green-800'
+                              : 'bg-amber-50 border border-amber-200 text-amber-800'
+                          }`}>
+                            {updatesResult.webhookRestored
+                              ? '✓ Webhook đã được đăng ký lại tự động'
+                              : `⚠ ${updatesResult.webhookRestoreError || 'Webhook chưa được đăng ký lại — vào tab Webhook để đăng ký lại.'}`}
+                          </div>
+                        )}
+                      </>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                {/* ── Webhook Zalo ── */}
-                <Card>
-                  <CardHeader className="p-4 md:p-6">
-                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                      <Webhook className="h-4 w-4" />
-                      Zalo Webhook
-                    </CardTitle>
-                    <CardDescription className="text-xs md:text-sm">
-                      Zalo sẽ gửi HTTP POST đến Webhook URL khi có tin nhắn từ người dùng.
-                      Hãy lưu <strong>Secret Token</strong> trong nhóm Thông báo trước, sau đó nhấn&nbsp;
-                      <em>Đăng ký Webhook</em>.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 md:p-6 space-y-4">
-                    {/* Webhook URL */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs md:text-sm font-medium">Webhook URL</Label>
-                        {webhookUrlSource && webhookUrlSource !== 'browser' && (
-                          <span className="text-xs text-green-600 font-medium">
-                            ✓ từ {webhookUrlSource} (Cloudflare Tunnel)
-                          </span>
-                        )}
-                        {webhookUrlSource === 'browser' && (
-                          <span className="text-xs text-amber-600 font-medium">
-                            ⚠ URL từ trình duyệt — có thể là localhost
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Input
-                          type="url"
-                          value={webhookUrl}
-                          onChange={(e) => setWebhookUrl(e.target.value)}
-                          placeholder="https://your-domain.com/api/zalo/webhook"
-                          className="text-sm font-mono"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          title="Sao chép URL"
-                          onClick={() => {
-                            navigator.clipboard.writeText(webhookUrl);
-                            toast.success('Đã sao chép Webhook URL');
-                          }}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        URL được lấy từ <code className="bg-gray-100 px-1 rounded">NEXTAUTH_URL</code>.
-                        Nếu dùng Cloudflare Tunnel, đặt <code className="bg-gray-100 px-1 rounded">NEXTAUTH_URL=https://tunnel-url.com</code> để tự động đúng.
-                      </p>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleWebhookAction('setWebhook')}
-                        disabled={!!webhookLoading}
-                      >
-                        {webhookLoading === 'set'
-                          ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          : <Link2 className="h-4 w-4 mr-2" />}
-                        Đăng ký Webhook
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleWebhookAction('getWebhookInfo')}
-                        disabled={!!webhookLoading}
-                      >
-                        {webhookLoading === 'info'
-                          ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          : <CheckCircle className="h-4 w-4 mr-2" />}
-                        Kiểm tra trạng thái
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleWebhookAction('deleteWebhook')}
-                        disabled={!!webhookLoading}
-                      >
-                        {webhookLoading === 'delete'
-                          ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          : <Trash2 className="h-4 w-4 mr-2" />}
-                        Xóa Webhook
-                      </Button>
-                    </div>
-
-                    {/* Kết quả */}
-                    {webhookStatus && (
-                      <div className={`rounded-md p-3 text-sm font-mono whitespace-pre-wrap break-all ${
-                        webhookStatus.ok ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-                      }`}>
-                        <div className="flex items-center gap-2 mb-1 font-sans font-medium text-xs">
-                          {webhookStatus.ok
-                            ? <><CheckCircle className="h-3.5 w-3.5 text-green-600" /><span className="text-green-700">Thành công</span></>
-                            : <><XCircle className="h-3.5 w-3.5 text-red-600" /><span className="text-red-700">Lỗi</span></>
-                          }
-                        </div>
-                        {webhookStatus.ok
-                          ? JSON.stringify(webhookStatus.result, null, 2)
-                          : webhookStatus.error}
-                      </div>
+            {/* ── Webhook Zalo ── */}
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Webhook className="h-4 w-4" />
+                  Zalo Webhook
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Zalo sẽ gửi HTTP POST đến Webhook URL khi có tin nhắn từ người dùng.
+                  Hãy lưu <strong>Secret Token</strong> trong phần cài đặt bên trên trước, sau đó nhấn&nbsp;
+                  <em>Đăng ký Webhook</em>.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-4">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs md:text-sm font-medium">Webhook URL</Label>
+                    {webhookUrlSource && webhookUrlSource !== 'browser' && (
+                      <span className="text-xs text-green-600 font-medium">✓ từ {webhookUrlSource} (Cloudflare Tunnel)</span>
                     )}
-                  </CardContent>
-                </Card>
-              </div>
+                    {webhookUrlSource === 'browser' && (
+                      <span className="text-xs text-amber-600 font-medium">⚠ URL từ trình duyệt — có thể là localhost</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      type="url"
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                      placeholder="https://your-domain.com/api/zalo/webhook"
+                      className="text-sm font-mono"
+                    />
+                    <Button type="button" variant="outline" size="icon" title="Sao chép URL"
+                      onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success('Đã sao chép Webhook URL'); }}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    URL được lấy từ <code className="bg-gray-100 px-1 rounded">NEXTAUTH_URL</code>.
+                    Nếu dùng Cloudflare Tunnel, đặt <code className="bg-gray-100 px-1 rounded">NEXTAUTH_URL=https://tunnel-url.com</code> để tự động đúng.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => handleWebhookAction('setWebhook')} disabled={!!webhookLoading}>
+                    {webhookLoading === 'set' ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Link2 className="h-4 w-4 mr-2" />}
+                    Đăng ký Webhook
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleWebhookAction('getWebhookInfo')} disabled={!!webhookLoading}>
+                    {webhookLoading === 'info' ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                    Kiểm tra trạng thái
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleWebhookAction('deleteWebhook')} disabled={!!webhookLoading}>
+                    {webhookLoading === 'delete' ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                    Xóa Webhook
+                  </Button>
+                </div>
+                {webhookStatus && (
+                  <div className={`rounded-md p-3 text-sm font-mono whitespace-pre-wrap break-all ${
+                    webhookStatus.ok ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1 font-sans font-medium text-xs">
+                      {webhookStatus.ok
+                        ? <><CheckCircle className="h-3.5 w-3.5 text-green-600" /><span className="text-green-700">Thành công</span></>
+                        : <><XCircle className="h-3.5 w-3.5 text-red-600" /><span className="text-red-700">Lỗi</span></>}
+                    </div>
+                    {webhookStatus.ok ? JSON.stringify(webhookStatus.result, null, 2) : webhookStatus.error}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* ── Tab Lưu trữ ───────────────────────────────────────────────────── */}
+        {canManage && !loadingSystem && !errorSystem && (
+          <TabsContent value="luuTru" className="space-y-4 mt-4">
+            {settingsByGroup['luuTru']?.length && (
+              <SettingGroupCard
+                nhom="luuTru"
+                items={settingsByGroup['luuTru']}
+                values={settingValues}
+                onChange={handleSettingChange}
+                onSave={handleSaveGroup}
+                saving={savingGroup === 'luuTru'}
+              />
             )}
+
+            {/* ── Kiểm tra kết nối MinIO ── */}
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <HardDrive className="h-4 w-4" />
+                  Kiểm tra kết nối MinIO
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Lưu cài đặt MinIO trước, sau đó bấm kiểm tra để xác nhận kết nối thành công.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-3">
+                <Button size="sm" variant="outline" onClick={handleTestMinio} disabled={minioTestLoading} className="w-full">
+                  {minioTestLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                  Kiểm tra kết nối
+                </Button>
+                {minioTestResult && (
+                  <div className={`rounded-md p-3 text-sm flex flex-col gap-1 ${
+                    minioTestResult.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
+                  }`}>
+                    <div className="flex items-center gap-2 font-medium">
+                      {minioTestResult.ok
+                        ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
+                        : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                      {minioTestResult.message}
+                    </div>
+                    {minioTestResult.ok && minioTestResult.details && (
+                      <div className="text-xs font-mono text-green-700 mt-1 space-y-0.5 pl-6">
+                        <div>Endpoint: {String(minioTestResult.details.endpoint)}</div>
+                        <div>Bucket: {String(minioTestResult.details.bucket)}</div>
+                        <div>Tổng buckets: {String(minioTestResult.details.totalBuckets)}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* ── Tab Hệ thống + Bảo mật ────────────────────────────────────────── */}
+        {canManage && !loadingSystem && !errorSystem && (
+          <TabsContent value="heThong" className="space-y-4 mt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {['heThong', 'baoMat'].map((nhom) =>
+                settingsByGroup[nhom]?.length ? (
+                  <SettingGroupCard
+                    key={nhom}
+                    nhom={nhom}
+                    items={settingsByGroup[nhom]}
+                    values={settingValues}
+                    onChange={handleSettingChange}
+                    onSave={handleSaveGroup}
+                    saving={savingGroup === nhom}
+                  />
+                ) : null
+              )}
+            </div>
           </TabsContent>
         )}
 
