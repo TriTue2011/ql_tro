@@ -196,6 +196,8 @@ function SettingGroupCard({
 export default function CaiDatPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === 'admin';
+  // Chủ trọ và admin đều có thể xem/thay đổi cài đặt hệ thống (Zalo, thông báo, ...)
+  const canManage = isAdmin || session?.user?.role === 'chuNha';
 
   // --- Cài đặt giao diện (cho tất cả users) ---
   const [fontSettings, setFontSettings] = useState({
@@ -272,7 +274,7 @@ export default function CaiDatPage() {
   const [savingGroup, setSavingGroup] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isAdmin) fetchSystemSettings();
+    if (canManage) fetchSystemSettings();
   }, [isAdmin]);
 
   async function fetchSystemSettings() {
@@ -348,13 +350,13 @@ export default function CaiDatPage() {
       <div>
         <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Cài đặt</h1>
         <p className="text-xs md:text-sm text-gray-600">
-          Tùy chỉnh giao diện{isAdmin ? ' và cài đặt hệ thống' : ''}
+          Tùy chỉnh giao diện{canManage ? ' và cài đặt hệ thống' : ''}
         </p>
       </div>
 
-      <Tabs defaultValue={isAdmin ? 'system' : 'display'}>
+      <Tabs defaultValue={canManage ? 'system' : 'display'}>
         <TabsList className="w-full md:w-auto">
-          {isAdmin && (
+          {canManage && (
             <TabsTrigger value="system" className="flex items-center gap-1.5 text-xs md:text-sm">
               <Shield className="h-3.5 w-3.5" />
               Hệ thống
@@ -367,7 +369,7 @@ export default function CaiDatPage() {
         </TabsList>
 
         {/* ── Tab Hệ thống (admin only) ─────────────────────────────────────── */}
-        {isAdmin && (
+        {canManage && (
           <TabsContent value="system" className="space-y-4 mt-4">
             {loadingSystem ? (
               <div className="flex items-center justify-center py-12">
