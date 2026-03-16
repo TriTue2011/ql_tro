@@ -364,7 +364,9 @@ export default function CaiDatPage() {
     setUpdatesLoading(true);
     setUpdatesResult(null);
     try {
-      const res = await fetch('/api/zalo/updates');
+      const res = await fetch('/api/zalo/updates', {
+        signal: AbortSignal.timeout(45000),
+      });
       const data = await res.json();
       if (!res.ok || data.error) {
         setUpdatesResult({ ok: false, error: data.error || `HTTP ${res.status}` });
@@ -386,9 +388,11 @@ export default function CaiDatPage() {
         pendingDetails: data.pendingDetails,
       });
       toast.success('Lấy Chat ID thành công');
-    } catch {
-      setUpdatesResult({ ok: false, error: 'Lỗi kết nối máy chủ' });
-      toast.error('Lỗi kết nối máy chủ');
+    } catch (err: any) {
+      const isTimeout = err?.name === 'TimeoutError' || err?.name === 'AbortError';
+      const msg = isTimeout ? 'Quá thời gian chờ (45s). Thử lại sau.' : 'Lỗi kết nối máy chủ';
+      setUpdatesResult({ ok: false, error: msg });
+      toast.error(msg);
     } finally {
       setUpdatesLoading(false);
     }
@@ -709,10 +713,8 @@ export default function CaiDatPage() {
                       disabled={updatesLoading}
                       className="w-full"
                     >
-                      {updatesLoading
-                        ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        : <RefreshCw className="h-4 w-4 mr-2" />}
-                      Lấy tin nhắn mới nhất
+                      <RefreshCw className={`h-4 w-4 mr-2 ${updatesLoading ? 'animate-spin' : ''}`} />
+                      {updatesLoading ? 'Đang chờ (tối đa 30s)…' : 'Lấy tin nhắn mới nhất'}
                     </Button>
 
                     {updatesResult && (
