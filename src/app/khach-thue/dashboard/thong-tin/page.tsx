@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import {
   User, Phone, Mail, CreditCard, MapPin, Briefcase,
   MessageCircle, CheckCircle2, Clock, XCircle,
@@ -40,6 +41,29 @@ export default function ThongTinPage() {
   const [zaloInput, setZaloInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  const handleToggleThongBao = async (value: boolean) => {
+    setToggling(true);
+    try {
+      const res = await fetch('/api/auth/khach-thue/zalo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ nhanThongBaoZalo: value }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success(result.message);
+        setKhachThue(prev => prev ? { ...prev, nhanThongBaoZalo: value } : prev);
+      } else {
+        toast.error(result.message || 'Thao tác thất bại');
+      }
+    } catch {
+      toast.error('Có lỗi xảy ra');
+    } finally {
+      setToggling(false);
+    }
+  };
 
   useEffect(() => {
     document.title = 'Thông tin cá nhân';
@@ -199,10 +223,10 @@ export default function ThongTinPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Trạng thái hiện tại */}
-          <div className="flex items-center justify-between p-3 rounded-md border bg-gray-50">
-            <div className="flex items-center gap-2">
+          <div className="rounded-md border bg-gray-50 divide-y">
+            <div className="flex items-center gap-2 p-3">
               <MessageCircle className="h-4 w-4 text-gray-500 shrink-0" />
-              <div>
+              <div className="flex-1">
                 <p className="text-xs text-muted-foreground">Zalo Chat ID hiện tại</p>
                 {khachThue.zaloChatId ? (
                   <span className="text-sm font-mono flex items-center gap-1 text-green-700">
@@ -214,10 +238,25 @@ export default function ThongTinPage() {
                 )}
               </div>
             </div>
-            {khachThue.nhanThongBaoZalo ? (
-              <Badge className="bg-green-100 text-green-700 text-xs">Đang nhận thông báo</Badge>
-            ) : (
-              <Badge variant="secondary" className="text-xs">Tắt thông báo</Badge>
+            <div className="flex items-center justify-between p-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Nhận thông báo qua Zalo</p>
+                <p className="text-xs text-muted-foreground">
+                  {khachThue.nhanThongBaoZalo
+                    ? 'Đang bật — hóa đơn, hợp đồng sẽ được gửi qua Zalo'
+                    : 'Đang tắt — không nhận thông báo qua Zalo'}
+                </p>
+              </div>
+              <Switch
+                checked={khachThue.nhanThongBaoZalo}
+                onCheckedChange={handleToggleThongBao}
+                disabled={toggling || !khachThue.zaloChatId}
+              />
+            </div>
+            {!khachThue.zaloChatId && (
+              <p className="px-3 pb-2 text-[10px] text-amber-600">
+                Cần liên kết Zalo Chat ID trước khi bật thông báo.
+              </p>
             )}
           </div>
 

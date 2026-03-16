@@ -6,6 +6,10 @@
  * PUT /api/auth/khach-thue/zalo
  * Khách thuê tự nhập zaloChatId thủ công.
  * Body: { zaloChatId: string }
+ *
+ * POST /api/auth/khach-thue/zalo
+ * Khách thuê tự bật/tắt nhận thông báo Zalo.
+ * Body: { nhanThongBaoZalo: boolean }
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getKhachThueRepo } from '@/lib/repositories';
@@ -54,6 +58,32 @@ export async function PATCH(request: NextRequest) {
     }
   } catch (error) {
     console.error('Error confirming zalo chat id for khach thue:', error);
+    return NextResponse.json({ success: false, message: 'Lỗi máy chủ' }, { status: 500 });
+  }
+}
+
+/** POST: Khách thuê tự bật/tắt nhận thông báo Zalo */
+export async function POST(request: NextRequest) {
+  try {
+    const me = getKhachThueFromToken(request);
+    if (!me) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+    const body = await request.json();
+    const parsed = z.object({ nhanThongBaoZalo: z.boolean() }).safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, message: parsed.error.issues[0].message }, { status: 400 });
+    }
+
+    const repo = await getKhachThueRepo();
+    await repo.update(me.id, { nhanThongBaoZalo: parsed.data.nhanThongBaoZalo });
+
+    return NextResponse.json({
+      success: true,
+      message: parsed.data.nhanThongBaoZalo ? 'Đã bật nhận thông báo Zalo' : 'Đã tắt nhận thông báo Zalo',
+      nhanThongBaoZalo: parsed.data.nhanThongBaoZalo,
+    });
+  } catch (error) {
+    console.error('Error toggling nhanThongBaoZalo:', error);
     return NextResponse.json({ success: false, message: 'Lỗi máy chủ' }, { status: 500 });
   }
 }
