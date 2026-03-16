@@ -32,19 +32,22 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Building2, 
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Building2,
   MapPin,
   Users,
   Eye,
   RefreshCw,
-  Copy
+  Copy,
+  Phone,
+  UserCircle,
+  X
 } from 'lucide-react';
-import { ToaNha } from '@/types';
+import { ToaNha, LienHePhuTrach } from '@/types';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { toast } from 'sonner';
 import { ToaNhaDataTable } from './table';
@@ -417,6 +420,11 @@ function ToaNhaForm({
     tienNghiChung: toaNha?.tienNghiChung || [],
   });
 
+  const [lienHePhuTrach, setLienHePhuTrach] = useState<LienHePhuTrach[]>(
+    toaNha?.lienHePhuTrach || []
+  );
+  const [newContact, setNewContact] = useState<LienHePhuTrach>({ ten: '', soDienThoai: '', vaiTro: '' });
+
   const tienNghiOptions = [
     { value: 'wifi', label: 'WiFi' },
     { value: 'camera', label: 'Camera an ninh' },
@@ -443,6 +451,7 @@ function ToaNhaForm({
         },
         moTa: formData.moTa,
         tienNghiChung: formData.tienNghiChung,
+        lienHePhuTrach,
       };
 
       const url = toaNha ? `/api/toa-nha/${toaNha.id}` : '/api/toa-nha';
@@ -476,10 +485,22 @@ function ToaNhaForm({
   const handleTienNghiChange = (tienNghi: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      tienNghiChung: checked 
+      tienNghiChung: checked
         ? [...prev.tienNghiChung, tienNghi]
         : prev.tienNghiChung.filter(t => t !== tienNghi)
     }));
+  };
+
+  const handleAddContact = () => {
+    const ten = newContact.ten.trim();
+    const soDienThoai = newContact.soDienThoai.trim();
+    if (!ten || !soDienThoai) return;
+    setLienHePhuTrach(prev => [...prev, { ten, soDienThoai, vaiTro: newContact.vaiTro?.trim() || undefined }]);
+    setNewContact({ ten: '', soDienThoai: '', vaiTro: '' });
+  };
+
+  const handleRemoveContact = (index: number) => {
+    setLienHePhuTrach(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -582,6 +603,75 @@ function ToaNhaForm({
               </Label>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Liên hệ phụ trách */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Liên hệ phụ trách</Label>
+        <p className="text-xs text-gray-500">Thêm các đầu mối liên hệ để khách thuê liên hệ khi cần hỗ trợ.</p>
+
+        {lienHePhuTrach.length > 0 && (
+          <div className="space-y-2">
+            {lienHePhuTrach.map((lh, index) => (
+              <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-gray-50">
+                <UserCircle className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium">{lh.ten}</span>
+                  {lh.vaiTro && <span className="text-xs text-gray-500 ml-1">({lh.vaiTro})</span>}
+                  <div className="flex items-center gap-1 text-xs text-gray-600">
+                    <Phone className="h-3 w-3" />
+                    {lh.soDienThoai}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => handleRemoveContact(index)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add new contact row */}
+        <div className="grid grid-cols-1 gap-2 p-2 border rounded-md border-dashed">
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              placeholder="Tên liên hệ *"
+              value={newContact.ten}
+              onChange={e => setNewContact(prev => ({ ...prev, ten: e.target.value }))}
+              className="text-sm"
+            />
+            <Input
+              placeholder="Số điện thoại *"
+              value={newContact.soDienThoai}
+              onChange={e => setNewContact(prev => ({ ...prev, soDienThoai: e.target.value }))}
+              className="text-sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Vai trò (vd: Quản lý, Bảo vệ...)"
+              value={newContact.vaiTro || ''}
+              onChange={e => setNewContact(prev => ({ ...prev, vaiTro: e.target.value }))}
+              className="text-sm flex-1"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleAddContact}
+              disabled={!newContact.ten.trim() || !newContact.soDienThoai.trim()}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Thêm
+            </Button>
+          </div>
         </div>
       </div>
 

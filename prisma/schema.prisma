@@ -41,9 +41,10 @@ model ToaNha {
   chuSoHuuId    String
   chuSoHuu      NguoiDung @relation(fields: [chuSoHuuId], references: [id])
   tongSoPhong   Int       @default(0)
-  tienNghiChung String[]
-  ngayTao       DateTime  @default(now())
-  ngayCapNhat   DateTime  @updatedAt
+  tienNghiChung   String[]
+  lienHePhuTrach  Json      @default("[]") // [{ ten, soDienThoai, vaiTro? }]
+  ngayTao         DateTime  @default(now())
+  ngayCapNhat     DateTime  @updatedAt
 
   phong         Phong[]
 }

@@ -6,6 +6,7 @@ import type {
   QueryOptions,
   PaginatedResult,
   DiaChi,
+  LienHePhuTrach,
 } from '../types';
 
 function normalize(raw: any): ToaNhaData {
@@ -21,6 +22,7 @@ function normalize(raw: any): ToaNhaData {
       : undefined,
     tongSoPhong: raw.tongSoPhong,
     tienNghiChung: raw.tienNghiChung,
+    lienHePhuTrach: (raw.lienHePhuTrach as LienHePhuTrach[]) ?? [],
     ngayTao: raw.ngayTao,
     ngayCapNhat: raw.ngayCapNhat,
   };
@@ -72,6 +74,7 @@ export default class ToaNhaRepository {
         chuSoHuuId: data.chuSoHuuId,
         tongSoPhong: data.tongSoPhong ?? 0,
         tienNghiChung: data.tienNghiChung ?? [],
+        lienHePhuTrach: (data.lienHePhuTrach ?? []) as object[],
       },
       include: { chuSoHuu: { select: { id: true, ten: true, email: true } } },
     });
@@ -96,6 +99,7 @@ export default class ToaNhaRepository {
           ...(data.anhToaNha !== undefined && { anhToaNha: data.anhToaNha }),
           ...(data.tongSoPhong !== undefined && { tongSoPhong: data.tongSoPhong }),
           ...(data.tienNghiChung !== undefined && { tienNghiChung: data.tienNghiChung }),
+          ...(data.lienHePhuTrach !== undefined && { lienHePhuTrach: data.lienHePhuTrach as object[] }),
         },
         include: { chuSoHuu: { select: { id: true, ten: true, email: true } } },
       });

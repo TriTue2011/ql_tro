@@ -67,6 +67,12 @@ export interface DiaChi {
   thanhPho: string;
 }
 
+export interface LienHePhuTrach {
+  ten: string;
+  soDienThoai: string;
+  vaiTro?: string;
+}
+
 export interface ToaNhaData {
   id: string;
   tenToaNha: string;
@@ -77,6 +83,7 @@ export interface ToaNhaData {
   chuSoHuu?: Partial<NguoiDungData>;
   tongSoPhong: number;
   tienNghiChung: string[];
+  lienHePhuTrach: LienHePhuTrach[];
   ngayTao: Date;
   ngayCapNhat: Date;
 }
@@ -89,6 +96,7 @@ export interface CreateToaNhaInput {
   chuSoHuuId: string;
   tongSoPhong?: number;
   tienNghiChung?: string[];
+  lienHePhuTrach?: LienHePhuTrach[];
 }
 
 export interface UpdateToaNhaInput {
@@ -98,6 +106,7 @@ export interface UpdateToaNhaInput {
   anhToaNha?: string[];
   tongSoPhong?: number;
   tienNghiChung?: string[];
+  lienHePhuTrach?: LienHePhuTrach[];
 }
 
 // ─── Phong ────────────────────────────────────────────────────

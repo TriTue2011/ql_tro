@@ -16,7 +16,7 @@ export async function POST() {
     const results: string[] = [];
 
     // Thêm các cột còn thiếu (idempotent — dùng IF NOT EXISTS / DO NOTHING)
-    const migrations = [
+    const migrations: { name: string; sql: string }[] = [
       {
         name: 'KhachThue.pendingZaloChatId',
         sql: `ALTER TABLE "KhachThue" ADD COLUMN IF NOT EXISTS "pendingZaloChatId" TEXT`,
@@ -45,6 +45,10 @@ export async function POST() {
       {
         name: 'ZaloMessage.chatId index',
         sql: `CREATE INDEX IF NOT EXISTS "ZaloMessage_chatId_createdAt_idx" ON "ZaloMessage"("chatId", "createdAt")`,
+      },
+      {
+        name: 'ToaNha.lienHePhuTrach',
+        sql: `ALTER TABLE "ToaNha" ADD COLUMN IF NOT EXISTS "lienHePhuTrach" JSONB NOT NULL DEFAULT '[]'::jsonb`,
       },
     ];
 
