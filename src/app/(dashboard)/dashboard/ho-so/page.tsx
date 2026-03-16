@@ -429,8 +429,8 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Zalo Chat ID — chỉ admin và chuNha */}
-                {['admin', 'chuNha'].includes(profile?.role ?? '') && (
+                {/* Zalo Chat ID — tất cả người dùng */}
+                {(true) && (
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="zaloChatId" className="text-xs md:text-sm flex items-center gap-1.5">
                       <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
