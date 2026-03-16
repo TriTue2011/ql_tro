@@ -19,8 +19,9 @@ model NguoiDung {
   vaiTro        String    @default("nhanVien") // admin | chuNha | nhanVien
   anhDaiDien    String?
   trangThai        String    @default("hoatDong") // hoatDong | khoa
-  zaloChatId       String?   // Zalo bot chat_id đã xác thực
+  zaloChatId        String?   // Zalo bot chat_id đã xác thực
   pendingZaloChatId String?  // Zalo bot chat_id chờ xác nhận (từ getUpdates)
+  nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
   ngayTao          DateTime  @default(now())
   ngayCapNhat      DateTime  @updatedAt
 
@@ -87,6 +88,7 @@ model KhachThue {
   matKhau       String?
   zaloChatId        String?   // Zalo bot chat_id đã xác thực
   pendingZaloChatId String?   // Zalo bot chat_id chờ xác nhận (phát hiện từ getUpdates)
+  nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
   trangThai         String    @default("chuaThue") // dangThue | daTraPhong | chuaThue
   ngayTao       DateTime  @default(now())
   ngayCapNhat   DateTime  @updatedAt

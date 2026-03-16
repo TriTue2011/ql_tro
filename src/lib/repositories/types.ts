@@ -33,6 +33,7 @@ export interface NguoiDungData {
   trangThai: 'hoatDong' | 'khoa';
   zaloChatId?: string;
   pendingZaloChatId?: string;
+  nhanThongBaoZalo: boolean;
   ngayTao: Date;
   ngayCapNhat: Date;
 }
@@ -55,6 +56,7 @@ export interface UpdateNguoiDungInput {
   matKhau?: string;
   zaloChatId?: string;
   pendingZaloChatId?: string;
+  nhanThongBaoZalo?: boolean;
 }
 
 // ─── ToaNha ───────────────────────────────────────────────────
@@ -177,6 +179,7 @@ export interface KhachThueData {
   ngheNghiep?: string;
   zaloChatId?: string;
   pendingZaloChatId?: string;
+  nhanThongBaoZalo: boolean;
   trangThai: TrangThaiKhachThue;
   ngayTao: Date;
   ngayCapNhat: Date;
@@ -205,6 +208,7 @@ export interface UpdateKhachThueInput {
   matKhau?: string;
   zaloChatId?: string;
   pendingZaloChatId?: string;
+  nhanThongBaoZalo?: boolean;
 }
 
 // ─── HopDong ──────────────────────────────────────────────────
