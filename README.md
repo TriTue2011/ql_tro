@@ -117,10 +117,9 @@ volumes:
 
 > **Lưu ý:** Không cần MongoDB — hệ thống chỉ dùng PostgreSQL.
 
-### Khởi động
+### Cách 1 — Terminal (chọn một trong hai)
 
 ```bash
-# Khởi động tất cả
 docker compose up -d
 
 # Kiểm tra trạng thái
@@ -130,12 +129,14 @@ docker compose ps
 docker compose logs -f
 ```
 
-### Qua Portainer
+### Cách 2 — Portainer (chọn một trong hai)
 
 1. Vào Portainer → **Stacks → Add stack**
 2. Đặt tên: `ql-tro-infra`
 3. Dán nội dung `docker-compose.yml` vào **Web editor**
 4. Nhấn **Deploy the stack**
+
+> Chỉ cần dùng **một trong hai cách**. Nếu đã deploy qua Portainer thì bỏ qua lệnh terminal và ngược lại.
 
 ### Sau khi khởi động
 
@@ -243,11 +244,18 @@ npm install
 
 ### Bước 3 — Khởi động infrastructure
 
+> Dùng **terminal** hoặc **Portainer** — chọn một trong hai.
+
 ```bash
+# Terminal
 cd /opt/ql_tro
 docker compose up -d
+```
 
-# Tạo bucket MinIO
+Hoặc qua **Portainer → Stacks → Add stack** → dán nội dung `docker-compose.yml` → Deploy.
+
+**Tạo bucket MinIO** (làm 1 lần sau khi container chạy):
+```bash
 docker exec ql_tro_minio mc alias set local http://localhost:9000 minioadmin minioadmin
 docker exec ql_tro_minio mc mb local/ql-tro
 ```

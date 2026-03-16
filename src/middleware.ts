@@ -117,8 +117,8 @@ export default withAuth(
       }
     }
 
-    // Chặn /api/admin/* nếu không phải admin
-    if (pathname.startsWith('/api/admin') && token?.role !== 'admin') {
+    // Chặn /api/admin/* nếu không phải admin (trừ create-first)
+    if (pathname.startsWith('/api/admin') && pathname !== '/api/admin/create-first' && token?.role !== 'admin') {
       return new NextResponse(
         JSON.stringify({ message: 'Forbidden — chỉ admin mới có quyền truy cập' }),
         { status: 403, headers: { 'Content-Type': 'application/json' } }
@@ -135,6 +135,9 @@ export default withAuth(
 
         // /dashboard/* phải có session
         if (pathname.startsWith('/dashboard')) return !!token;
+
+        // /api/admin/create-first không cần session (bootstrap admin đầu tiên)
+        if (pathname === '/api/admin/create-first') return true;
 
         // /api/admin/* phải có session (role check là trong middleware function trên)
         if (pathname.startsWith('/api/admin')) return !!token;
