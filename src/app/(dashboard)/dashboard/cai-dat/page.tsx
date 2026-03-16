@@ -471,6 +471,23 @@ export default function CaiDatPage() {
   const [webhookStatus, setWebhookStatus] = useState<any>(null);
   const [webhookLoading, setWebhookLoading] = useState<string | null>(null); // 'set' | 'delete' | 'info'
 
+  // --- Tin nhắn webhook nhận được ---
+  const [webhookMessages, setWebhookMessages] = useState<any[]>([]);
+  const [webhookMsgLoading, setWebhookMsgLoading] = useState(false);
+
+  async function loadWebhookMessages() {
+    setWebhookMsgLoading(true);
+    try {
+      const res = await fetch('/api/zalo/messages?conversations=1');
+      const data = await res.json();
+      if (data.data) setWebhookMessages(data.data);
+    } catch {
+      toast.error('Không thể tải tin nhắn webhook');
+    } finally {
+      setWebhookMsgLoading(false);
+    }
+  }
+
   // Load webhook URL gợi ý từ server (dựa vào NEXTAUTH_URL → đúng khi dùng Cloudflare Tunnel)
   useEffect(() => {
     if (!canManage) return;
@@ -923,6 +940,62 @@ export default function CaiDatPage() {
                           : webhookStatus.error}
                       </div>
                     )}
+
+                    {/* ── Tin nhắn webhook nhận được ── */}
+                    <div className="space-y-2 pt-2 border-t">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-700">Tin nhắn nhận qua Webhook</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs px-2"
+                          disabled={webhookMsgLoading}
+                          onClick={loadWebhookMessages}
+                        >
+                          <RefreshCw className={`h-3 w-3 mr-1 ${webhookMsgLoading ? 'animate-spin' : ''}`} />
+                          Tải tin nhắn
+                        </Button>
+                      </div>
+                      {webhookMessages.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">
+                          {webhookMsgLoading ? 'Đang tải...' : 'Nhấn "Tải tin nhắn" để xem các tin nhắn bot đã nhận'}
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                          {webhookMessages.map((msg: any) => (
+                            <div key={msg.id} className="flex items-start gap-2 p-2 rounded border bg-gray-50 text-xs">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-medium text-gray-800 truncate">
+                                    {msg.displayName || 'Ẩn danh'}
+                                  </span>
+                                  <span className="font-mono text-gray-400 text-[10px]">{msg.chatId}</span>
+                                  {msg.eventName && msg.eventName !== 'message' && (
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1">{msg.eventName}</Badge>
+                                  )}
+                                </div>
+                                <p className="text-gray-600 mt-0.5 truncate">{msg.content}</p>
+                                <p className="text-gray-400 text-[10px] mt-0.5">
+                                  {new Date(msg.createdAt).toLocaleString('vi-VN')}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                title="Sao chép Chat ID"
+                                className="shrink-0 text-gray-400 hover:text-blue-600"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(msg.chatId);
+                                  toast.success('Đã sao chép Chat ID');
+                                }}
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>

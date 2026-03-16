@@ -111,6 +111,35 @@ export default function ProfilePage() {
     zaloChatId: '',
   });
 
+  // ── Zalo pending confirm state ────────────────────────────────
+  const [zaloPendingLoading, setZaloPendingLoading] = useState(false);
+
+  async function handleZaloPendingAction(action: 'confirm' | 'reject') {
+    if (!profile?._id) return;
+    setZaloPendingLoading(true);
+    try {
+      const res = await fetch('/api/zalo/link-chat-id-nguoi-dung', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nguoiDungId: profile._id, action }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message);
+        // Reload profile
+        const r = await fetch('/api/user/profile');
+        const d = await r.json();
+        if (d.success) setProfile(d.data);
+      } else {
+        toast.error(data.error || 'Có lỗi xảy ra');
+      }
+    } catch {
+      toast.error('Không thể kết nối máy chủ');
+    } finally {
+      setZaloPendingLoading(false);
+    }
+  }
+
   // ── Security state ────────────────────────────────────────────
   const [pwForm, setPwForm] = useState({ matKhauHienTai: '', matKhauMoi: '', xacNhanMatKhau: '' });
   const [pwSaving, setPwSaving] = useState(false);
@@ -430,13 +459,36 @@ export default function ProfilePage() {
                       </div>
                     )}
                     {profile?.pendingZaloChatId && (
-                      <p className="text-[10px] text-amber-600 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        Chờ xác nhận: <span className="font-mono">{profile.pendingZaloChatId}</span>
-                      </p>
+                      <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-1.5">
+                        <p className="text-[10px] text-amber-700 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Phát hiện Chat ID mới: <span className="font-mono font-semibold">{profile.pendingZaloChatId}</span>
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-6 text-[10px] px-2 bg-green-600 hover:bg-green-700"
+                            disabled={zaloPendingLoading}
+                            onClick={() => handleZaloPendingAction('confirm')}
+                          >
+                            <CheckCircle2 className="h-3 w-3 mr-1" /> Xác nhận
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[10px] px-2 border-red-300 text-red-600 hover:bg-red-50"
+                            disabled={zaloPendingLoading}
+                            onClick={() => handleZaloPendingAction('reject')}
+                          >
+                            <XCircle className="h-3 w-3 mr-1" /> Từ chối
+                          </Button>
+                        </div>
+                      </div>
                     )}
                     <p className="text-[10px] text-muted-foreground">
-                      Nhắn tin cho bot Zalo rồi lấy Chat ID để nhận thông báo qua Zalo
+                      Nhắn tin cho bot Zalo — hệ thống tự phát hiện và liên kết Chat ID của bạn
                     </p>
                   </div>
                 )}

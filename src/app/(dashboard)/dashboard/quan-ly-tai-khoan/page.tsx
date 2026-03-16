@@ -33,19 +33,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Shield, 
-  Mail, 
+import {
+  Users,
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Shield,
+  Mail,
   Phone,
   Calendar,
   MoreHorizontal,
-  RefreshCw
+  RefreshCw,
+  MessageCircle,
+  CheckCircle2,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { UserDataTable } from './table';
 
@@ -65,6 +68,8 @@ interface User {
   lastLogin?: string;
   isActive?: boolean;
   trangThai?: string;
+  zaloChatId?: string;
+  nhanThongBaoZalo?: boolean;
 }
 
 interface CreateUserData {
@@ -96,7 +101,9 @@ export default function AccountManagementPage() {
     name: '',
     phone: '',
     role: '',
-    isActive: true
+    isActive: true,
+    zaloChatId: '',
+    nhanThongBaoZalo: false,
   });
 
   useEffect(() => {
@@ -236,7 +243,9 @@ export default function AccountManagementPage() {
       name: getUserName(user),
       phone: getUserPhone(user),
       role: getUserRole(user),
-      isActive: getUserIsActive(user)
+      isActive: getUserIsActive(user),
+      zaloChatId: user.zaloChatId || '',
+      nhanThongBaoZalo: user.nhanThongBaoZalo ?? false,
     });
     setIsEditDialogOpen(true);
   };
@@ -625,6 +634,33 @@ export default function AccountManagementPage() {
                   <SelectItem value="admin" className="text-sm">Quản trị viên</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-zalo" className="text-xs md:text-sm flex items-center gap-1.5">
+                <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
+                Zalo Chat ID
+              </Label>
+              <Input
+                id="edit-zalo"
+                value={editUserData.zaloChatId}
+                onChange={(e) => setEditUserData({ ...editUserData, zaloChatId: e.target.value })}
+                placeholder="Nhập hoặc để trống để xóa"
+                className="text-sm font-mono"
+                maxLength={64}
+              />
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-md border">
+              <div className="space-y-0.5">
+                <Label className="text-xs md:text-sm flex items-center gap-1.5">
+                  <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
+                  Gửi thông báo Zalo
+                </Label>
+                <p className="text-[10px] text-muted-foreground">Bật để hệ thống gửi tin nhắn Zalo cho người này</p>
+              </div>
+              <Switch
+                checked={editUserData.nhanThongBaoZalo}
+                onCheckedChange={(v) => setEditUserData({ ...editUserData, nhanThongBaoZalo: v })}
+              />
             </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">

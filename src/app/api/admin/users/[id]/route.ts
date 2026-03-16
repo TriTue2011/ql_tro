@@ -16,16 +16,20 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, role, isActive } = body;
+    const { name, phone, role, isActive, zaloChatId, nhanThongBaoZalo } = body;
 
     const repo = await getNguoiDungRepo();
 
-    const updatedUser = await repo.update(id, {
+    const updateData: any = {
       ten: name,
       soDienThoai: phone,
       vaiTro: role,
       trangThai: isActive ? 'hoatDong' : 'khoa',
-    });
+    };
+    if (zaloChatId !== undefined) updateData.zaloChatId = zaloChatId || null;
+    if (nhanThongBaoZalo !== undefined) updateData.nhanThongBaoZalo = Boolean(nhanThongBaoZalo);
+
+    const updatedUser = await repo.update(id, updateData);
 
     if (!updatedUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });

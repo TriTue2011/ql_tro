@@ -19,6 +19,8 @@ const khachThueSchema = z.object({
   }).optional(),
   ngheNghiep: z.string().optional(),
   matKhau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').optional(),
+  zaloChatId: z.string().max(64).optional(),
+  nhanThongBaoZalo: z.boolean().optional(),
 });
 
 export async function GET(
@@ -104,6 +106,12 @@ export async function PUT(
 
     if (validatedData.matKhau) {
       updateData.matKhau = await hash(validatedData.matKhau, 12);
+    }
+    if (validatedData.zaloChatId !== undefined) {
+      updateData.zaloChatId = validatedData.zaloChatId || '';
+    }
+    if (validatedData.nhanThongBaoZalo !== undefined) {
+      updateData.nhanThongBaoZalo = validatedData.nhanThongBaoZalo;
     }
 
     const khachThue = await repo.update(id, updateData);

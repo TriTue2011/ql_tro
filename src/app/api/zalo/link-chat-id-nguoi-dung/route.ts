@@ -12,6 +12,12 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/sanitize';
+import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
+
+const confirmSchema = z.object({
+  nguoiDungId: z.string().min(1),
+  action: z.enum(['confirm', 'reject']),
+});
 
 const linkSchema = z.object({
   nguoiDungId: z.string().min(1, 'nguoiDungId không được trống'),
@@ -50,6 +56,42 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error linking Zalo chat ID for NguoiDung:', error);
+    return NextResponse.json({ error: 'Lỗi máy chủ' }, { status: 500 });
+  }
+}
+
+/** PATCH: Xác nhận hoặc từ chối pendingZaloChatId của NguoiDung */
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!['admin', 'chuNha'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const parsed = confirmSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    }
+
+    const { nguoiDungId, action } = parsed.data;
+    const repo = new NguoiDungRepository();
+    const nd = await repo.findById(nguoiDungId);
+    if (!nd) return NextResponse.json({ error: 'Không tìm thấy người dùng' }, { status: 404 });
+    if (!nd.pendingZaloChatId) {
+      return NextResponse.json({ error: 'Không có pendingZaloChatId cần xác nhận' }, { status: 400 });
+    }
+
+    if (action === 'confirm') {
+      await repo.update(nguoiDungId, { zaloChatId: nd.pendingZaloChatId, pendingZaloChatId: '' });
+      return NextResponse.json({ success: true, message: `Đã xác nhận Zalo Chat ID cho ${nd.ten}` });
+    } else {
+      await repo.update(nguoiDungId, { pendingZaloChatId: '' });
+      return NextResponse.json({ success: true, message: `Đã từ chối Zalo Chat ID chờ xác nhận` });
+    }
+  } catch (error) {
+    console.error('Error confirming pending chat ID for NguoiDung:', error);
     return NextResponse.json({ error: 'Lỗi máy chủ' }, { status: 500 });
   }
 }
