@@ -52,6 +52,39 @@ import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
+// Xóa dấu tiếng Việt, giữ chữ + số + khoảng trắng
+function removeAccents(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .replace(/[^a-zA-Z0-9 ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+}
+
+// Tạo nội dung chuyển khoản: "PHONG P101 [TOA NHA] HDXXX"
+function buildTransferDesc(hoaDon: HoaDon, phongList: Phong[]): string {
+  const phong = phongList.find(p => p.id === hoaDon.phong || (p as any).id === (hoaDon.phong as any)?.id);
+  const maPhong = phong?.maPhong ? removeAccents(phong.maPhong) : '';
+
+  // Lấy tên tòa nhà nếu có nhiều tòa (hoặc luôn đính kèm nếu có)
+  const toaNha = (phong as any)?.toaNha;
+  const tenToaNha = toaNha?.tenToaNha ? removeAccents(toaNha.tenToaNha) : '';
+
+  // Đếm số tòa nhà khác nhau trong danh sách phòng
+  const distinctBuildings = new Set(phongList.map((p: any) => p.toaNha?.id || p.toaNhaId).filter(Boolean));
+  const includeBuilding = distinctBuildings.size > 1 && tenToaNha;
+
+  const maHD = removeAccents(hoaDon.maHoaDon);
+  const parts = ['THANH TOAN'];
+  if (maPhong) parts.push(`PHONG ${maPhong}`);
+  if (includeBuilding) parts.push(tenToaNha);
+  parts.push(maHD);
+  return parts.join(' ');
+}
+
 // Tạo URL QR VietQR (SePay)
 function buildVietQRUrl(soTaiKhoan: string, bank: string, amount: number, des: string): string {
   const params = new URLSearchParams({
@@ -446,11 +479,11 @@ Vui lòng thanh toán đúng hạn.`;
         ${hoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang ? `
         <div class="qr-section">
           <h3>Thanh toán chuyển khoản</h3>
-          <img src="${buildVietQRUrl(bankSettings.soTaiKhoan, bankSettings.tenNganHang, hoaDon.conLai, `TT ${hoaDon.maHoaDon}`)}"
+          <img src="${buildVietQRUrl(bankSettings.soTaiKhoan, bankSettings.tenNganHang, hoaDon.conLai, buildTransferDesc(hoaDon, phongList))}"
                alt="QR Chuyển khoản" style="width:180px;height:180px;" />
           <p><strong>Ngân hàng:</strong> ${bankSettings.tenNganHang}</p>
           <p><strong>Số TK:</strong> ${bankSettings.soTaiKhoan}${bankSettings.chuTaiKhoan ? ` — ${bankSettings.chuTaiKhoan}` : ''}</p>
-          <p><strong>Nội dung:</strong> TT ${hoaDon.maHoaDon}</p>
+          <p><strong>Nội dung:</strong> ${buildTransferDesc(hoaDon, phongList)}</p>
         </div>` : ''}
         <div class="footer">
           <p>Trạng thái: ${hoaDon.trangThai === 'daThanhToan' ? 'Đã thanh toán' :
@@ -581,7 +614,7 @@ Vui lòng thanh toán đúng hạn.`;
           <div style="margin-top: 24px; padding: 16px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff;">
             <div style="font-size: 15px; font-weight: bold; margin-bottom: 12px; color: #1d4ed8;">🏦 Thanh toán chuyển khoản</div>
             <div style="display: flex; gap: 20px; align-items: flex-start;">
-              <img src="${buildVietQRUrl(bankSettings.soTaiKhoan, bankSettings.tenNganHang, hoaDon.conLai, `TT ${hoaDon.maHoaDon}`)}"
+              <img src="${buildVietQRUrl(bankSettings.soTaiKhoan, bankSettings.tenNganHang, hoaDon.conLai, buildTransferDesc(hoaDon, phongList))}"
                    crossorigin="anonymous"
                    style="width:160px;height:160px;border-radius:8px;border:1px solid #bfdbfe;" />
               <div style="font-size: 13px; line-height: 1.8;">
@@ -589,7 +622,7 @@ Vui lòng thanh toán đúng hạn.`;
                 <div><strong>Số TK:</strong> ${bankSettings.soTaiKhoan}</div>
                 ${bankSettings.chuTaiKhoan ? `<div><strong>Chủ TK:</strong> ${bankSettings.chuTaiKhoan}</div>` : ''}
                 <div><strong>Số tiền:</strong> <span style="color:#ef4444;font-weight:bold;">${formatCurrency(hoaDon.conLai)}</span></div>
-                <div><strong>Nội dung:</strong> TT ${hoaDon.maHoaDon}</div>
+                <div><strong>Nội dung:</strong> <code>${buildTransferDesc(hoaDon, phongList)}</code></div>
               </div>
             </div>
           </div>` : ''}
@@ -1103,7 +1136,7 @@ Vui lòng thanh toán đúng hạn.`;
                         bankSettings.soTaiKhoan,
                         bankSettings.tenNganHang,
                         viewingHoaDon.conLai,
-                        `TT ${viewingHoaDon.maHoaDon}`
+                        buildTransferDesc(viewingHoaDon, phongList)
                       )}
                       alt="QR Chuyển khoản"
                       className="w-48 h-48 rounded-lg border border-blue-200 bg-white"
@@ -1115,7 +1148,7 @@ Vui lòng thanh toán đúng hạn.`;
                         <div><span className="text-gray-600">Chủ tài khoản:</span> <strong>{bankSettings.chuTaiKhoan}</strong></div>
                       )}
                       <div><span className="text-gray-600">Số tiền:</span> <strong className="text-red-600">{formatCurrency(viewingHoaDon.conLai)}</strong></div>
-                      <div><span className="text-gray-600">Nội dung:</span> <strong>TT {viewingHoaDon.maHoaDon}</strong></div>
+                      <div><span className="text-gray-600">Nội dung:</span> <strong className="font-mono text-xs">{buildTransferDesc(viewingHoaDon, phongList)}</strong></div>
                     </div>
                   </div>
                 </div>
