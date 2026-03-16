@@ -32,6 +32,10 @@ const DEFAULT_SETTINGS = [
   { khoa: 'dia_chi_cong_ty', giaTri: '', moTa: 'Địa chỉ công ty', nhom: 'heThong', laBiMat: false },
   { khoa: 'logo_url', giaTri: '', moTa: 'URL logo công ty', nhom: 'heThong', laBiMat: false },
   { khoa: 'tien_te', giaTri: 'VND', moTa: 'Đơn vị tiền tệ', nhom: 'heThong', laBiMat: false },
+  // Thanh toán — tài khoản ngân hàng & QR
+  { khoa: 'ngan_hang_ten', giaTri: '', moTa: 'Ngân hàng nhận tiền (mã ngân hàng, vd: Vietcombank)', nhom: 'thanhToan', laBiMat: false },
+  { khoa: 'ngan_hang_so_tai_khoan', giaTri: '', moTa: 'Số tài khoản ngân hàng', nhom: 'thanhToan', laBiMat: false },
+  { khoa: 'ngan_hang_chu_tai_khoan', giaTri: '', moTa: 'Tên chủ tài khoản', nhom: 'thanhToan', laBiMat: false },
   // Bảo mật
   { khoa: 'session_max_age_days', giaTri: '30', moTa: 'Thời gian hết hạn phiên đăng nhập (ngày)', nhom: 'baoMat', laBiMat: false },
   { khoa: 'rate_limit_login', giaTri: '10', moTa: 'Số lần đăng nhập tối đa / phút', nhom: 'baoMat', laBiMat: false },

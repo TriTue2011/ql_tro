@@ -141,7 +141,7 @@ export default function ToaNhaPage() {
   };
 
   const formatAddress = (diaChi: ToaNha['diaChi']) => {
-    return `${diaChi.soNha} ${diaChi.duong}, ${diaChi.phuong}, ${diaChi.quan}, ${diaChi.thanhPho}`;
+    return `${diaChi.soNha} ${diaChi.duong}, ${diaChi.phuong}, ${diaChi.thanhPho}`;
   };
 
   if (loading) {
@@ -414,7 +414,6 @@ function ToaNhaForm({
     soNha: toaNha?.diaChi.soNha || '',
     duong: toaNha?.diaChi.duong || '',
     phuong: toaNha?.diaChi.phuong || '',
-    quan: toaNha?.diaChi.quan || '',
     thanhPho: toaNha?.diaChi.thanhPho || '',
     moTa: toaNha?.moTa || '',
     tienNghiChung: toaNha?.tienNghiChung || [],
@@ -446,7 +445,6 @@ function ToaNhaForm({
           soNha: formData.soNha,
           duong: formData.duong,
           phuong: formData.phuong,
-          quan: formData.quan,
           thanhPho: formData.thanhPho,
         },
         moTa: formData.moTa,
@@ -551,28 +549,17 @@ function ToaNhaForm({
             className="text-sm"
           />
         </div>
-        
+
         <div className="space-y-2">
-          <Label htmlFor="quan" className="text-sm">Quận/Huyện</Label>
+          <Label htmlFor="thanhPho" className="text-sm">Tỉnh/Thành phố</Label>
           <Input
-            id="quan"
-            value={formData.quan}
-            onChange={(e) => setFormData(prev => ({ ...prev, quan: e.target.value }))}
+            id="thanhPho"
+            value={formData.thanhPho}
+            onChange={(e) => setFormData(prev => ({ ...prev, thanhPho: e.target.value }))}
             required
             className="text-sm"
           />
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="thanhPho" className="text-sm">Thành phố</Label>
-        <Input
-          id="thanhPho"
-          value={formData.thanhPho}
-          onChange={(e) => setFormData(prev => ({ ...prev, thanhPho: e.target.value }))}
-          required
-          className="text-sm"
-        />
       </div>
 
       <div className="space-y-2">

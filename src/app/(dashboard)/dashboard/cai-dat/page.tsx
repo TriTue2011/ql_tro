@@ -40,6 +40,7 @@ import {
   XCircle,
   Copy,
   Trash2,
+  CreditCard,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -59,6 +60,7 @@ interface CaiDatItem {
 const NHOM_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
   luuTru: { label: 'Lưu trữ ảnh', icon: <HardDrive className="h-4 w-4" /> },
   thongBao: { label: 'Thông báo', icon: <Bell className="h-4 w-4" /> },
+  thanhToan: { label: 'Thanh toán', icon: <CreditCard className="h-4 w-4" /> },
   heThong: { label: 'Hệ thống', icon: <Building2 className="h-4 w-4" /> },
   baoMat: { label: 'Bảo mật', icon: <Lock className="h-4 w-4" /> },
 };
@@ -75,6 +77,31 @@ function SettingInput({
   onChange: (val: string) => void;
 }) {
   const [show, setShow] = useState(false);
+
+  if (item.khoa === 'ngan_hang_ten') {
+    const banks = [
+      'Vietcombank', 'VietinBank', 'BIDV', 'Agribank', 'MBBank', 'Techcombank',
+      'ACB', 'VPBank', 'TPBank', 'Sacombank', 'HDBank', 'VIB', 'MSB', 'OCB',
+      'SHB', 'SeABank', 'LienVietPostBank', 'Eximbank', 'NamABank', 'ABBank',
+      'VietABank', 'BacABank', 'VietBank', 'KienLongBank', 'SCB', 'PGBank',
+      'BaoVietBank', 'VietCapitalBank', 'GPBank', 'NCB', 'CBBank', 'COOPBANK',
+      'SaigonBank', 'DongABank', 'Oceanbank', 'VRB', 'Indovinabank', 'PublicBank',
+      'CIMB', 'ShinhanBank', 'HSBC', 'DBSBank', 'StandardChartered',
+      'Nonghyup', 'HongLeong', 'Woori', 'UnitedOverseas', 'KookminHN', 'KookminHCM',
+    ];
+    return (
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="text-sm">
+          <SelectValue placeholder="Chọn ngân hàng" />
+        </SelectTrigger>
+        <SelectContent className="max-h-64">
+          {banks.map(b => (
+            <SelectItem key={b} value={b}>{b}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
 
   if (item.khoa === 'storage_provider') {
     return (

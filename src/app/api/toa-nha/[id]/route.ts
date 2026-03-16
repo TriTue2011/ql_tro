@@ -16,7 +16,7 @@ const toaNhaSchema = z.object({
     soNha: z.string().min(1, 'Số nhà là bắt buộc'),
     duong: z.string().min(1, 'Tên đường là bắt buộc'),
     phuong: z.string().min(1, 'Phường/xã là bắt buộc'),
-    quan: z.string().min(1, 'Quận/huyện là bắt buộc'),
+    quan: z.string().optional(), // không còn bắt buộc
     thanhPho: z.string().min(1, 'Thành phố là bắt buộc'),
   }),
   moTa: z.string().optional(),
