@@ -348,6 +348,52 @@ export default function CaiDatPage() {
     }
   }
 
+  // --- Zalo getUpdates ---
+  const [updatesLoading, setUpdatesLoading] = useState(false);
+  const [updatesResult, setUpdatesResult] = useState<{
+    ok: boolean;
+    chatId?: string;
+    displayName?: string;
+    eventName?: string;
+    pendingDetected?: number;
+    pendingDetails?: Array<{ hoTen: string; soDienThoai: string; pendingZaloChatId: string }>;
+    error?: string;
+  } | null>(null);
+
+  async function handleGetUpdates() {
+    setUpdatesLoading(true);
+    setUpdatesResult(null);
+    try {
+      const res = await fetch('/api/zalo/updates');
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setUpdatesResult({ ok: false, error: data.error || `HTTP ${res.status}` });
+        toast.error(data.error || 'Lấy updates thất bại');
+        return;
+      }
+      const msg = data.data?.result?.message;
+      if (!msg?.from?.id) {
+        setUpdatesResult({ ok: true, error: 'Chưa có tin nhắn nào. Hãy nhắn bất kỳ cho Zalo Bot rồi thử lại.' });
+        toast.info('Chưa có tin nhắn mới');
+        return;
+      }
+      setUpdatesResult({
+        ok: true,
+        chatId: String(msg.from.id),
+        displayName: msg.from.display_name,
+        eventName: data.data?.result?.event_name,
+        pendingDetected: data.pendingDetected,
+        pendingDetails: data.pendingDetails,
+      });
+      toast.success('Lấy Chat ID thành công');
+    } catch {
+      setUpdatesResult({ ok: false, error: 'Lỗi kết nối máy chủ' });
+      toast.error('Lỗi kết nối máy chủ');
+    } finally {
+      setUpdatesLoading(false);
+    }
+  }
+
   // --- Gửi test Zalo ---
   const [testChatId, setTestChatId] = useState('');
   const [testMessage, setTestMessage] = useState('Tin nhắn test từ hệ thống Quản Lý Trọ 🏠');
@@ -381,6 +427,31 @@ export default function CaiDatPage() {
       toast.error('Lỗi kết nối máy chủ');
     } finally {
       setTestLoading(false);
+    }
+  }
+
+  // --- Kiểm tra kết nối MinIO ---
+  const [minioTestLoading, setMinioTestLoading] = useState(false);
+  const [minioTestResult, setMinioTestResult] = useState<{ ok: boolean; message: string; details?: Record<string, unknown> } | null>(null);
+
+  async function handleTestMinio() {
+    setMinioTestLoading(true);
+    setMinioTestResult(null);
+    try {
+      const res = await fetch('/api/admin/settings/test-minio', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setMinioTestResult({ ok: true, message: data.message, details: data.details });
+        toast.success('Kết nối MinIO thành công');
+      } else {
+        setMinioTestResult({ ok: false, message: data.message });
+        toast.error(data.message);
+      }
+    } catch {
+      setMinioTestResult({ ok: false, message: 'Lỗi kết nối máy chủ' });
+      toast.error('Lỗi kết nối máy chủ');
+    } finally {
+      setMinioTestLoading(false);
     }
   }
 
@@ -514,6 +585,54 @@ export default function CaiDatPage() {
                   )}
                 </div>
 
+                {/* ── Kiểm tra kết nối MinIO ── */}
+                <Card>
+                  <CardHeader className="p-4 md:p-6">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                      <HardDrive className="h-4 w-4" />
+                      Kiểm tra kết nối MinIO
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm">
+                      Lưu cài đặt MinIO trước, sau đó bấm kiểm tra để xác nhận kết nối thành công.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 md:p-6 space-y-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleTestMinio}
+                      disabled={minioTestLoading}
+                      className="w-full"
+                    >
+                      {minioTestLoading
+                        ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        : <CheckCircle className="h-4 w-4 mr-2" />}
+                      Kiểm tra kết nối
+                    </Button>
+                    {minioTestResult && (
+                      <div className={`rounded-md p-3 text-sm flex flex-col gap-1 ${
+                        minioTestResult.ok
+                          ? 'bg-green-50 border border-green-200 text-green-800'
+                          : 'bg-red-50 border border-red-200 text-red-800'
+                      }`}>
+                        <div className="flex items-center gap-2 font-medium">
+                          {minioTestResult.ok
+                            ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
+                            : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                          {minioTestResult.message}
+                        </div>
+                        {minioTestResult.ok && minioTestResult.details && (
+                          <div className="text-xs font-mono text-green-700 mt-1 space-y-0.5 pl-6">
+                            <div>Endpoint: {String(minioTestResult.details.endpoint)}</div>
+                            <div>Bucket: {String(minioTestResult.details.bucket)}</div>
+                            <div>Tổng buckets: {String(minioTestResult.details.totalBuckets)}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
                 {/* ── Gửi test Zalo ── */}
                 <Card>
                   <CardHeader className="p-4 md:p-6">
@@ -565,6 +684,111 @@ export default function CaiDatPage() {
                           ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
                           : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
                         {testResult.message}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* ── Lấy Chat ID từ Zalo getUpdates ── */}
+                <Card>
+                  <CardHeader className="p-4 md:p-6">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                      <Bell className="h-4 w-4" />
+                      Lấy Zalo Chat ID
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm">
+                      Nhắn bất kỳ cho Zalo Bot, sau đó bấm nút bên dưới để lấy Chat ID của người vừa nhắn.
+                      Nếu tên khớp với khách thuê trong hệ thống, sẽ tự động gợi ý liên kết.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 md:p-6 space-y-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleGetUpdates}
+                      disabled={updatesLoading}
+                      className="w-full"
+                    >
+                      {updatesLoading
+                        ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        : <RefreshCw className="h-4 w-4 mr-2" />}
+                      Lấy tin nhắn mới nhất
+                    </Button>
+
+                    {updatesResult && (
+                      <div className={`rounded-md p-3 text-sm space-y-2 ${
+                        updatesResult.ok && updatesResult.chatId
+                          ? 'bg-green-50 border border-green-200'
+                          : updatesResult.ok
+                          ? 'bg-amber-50 border border-amber-200'
+                          : 'bg-red-50 border border-red-200'
+                      }`}>
+                        {!updatesResult.ok || !updatesResult.chatId ? (
+                          <div className="flex items-center gap-2 text-sm">
+                            {updatesResult.ok
+                              ? <CheckCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                              : <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />}
+                            <span className={updatesResult.ok ? 'text-amber-800' : 'text-red-800'}>
+                              {updatesResult.error}
+                            </span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2 font-medium text-green-800">
+                              <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                              Tìm thấy người nhắn tin
+                            </div>
+                            <div className="space-y-1 pl-6">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500 w-24">Chat ID</span>
+                                <code className="bg-white border rounded px-2 py-0.5 text-xs font-mono font-bold text-gray-800 select-all">
+                                  {updatesResult.chatId}
+                                </code>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  title="Sao chép Chat ID"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(updatesResult.chatId!);
+                                    toast.success('Đã sao chép Chat ID');
+                                  }}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              {updatesResult.displayName && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500 w-24">Tên Zalo</span>
+                                  <span className="text-xs text-gray-700">{updatesResult.displayName}</span>
+                                </div>
+                              )}
+                              {updatesResult.eventName && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500 w-24">Sự kiện</span>
+                                  <span className="text-xs text-gray-500 font-mono">{updatesResult.eventName}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {updatesResult.pendingDetected && updatesResult.pendingDetected > 0 ? (
+                              <div className="mt-2 rounded bg-blue-50 border border-blue-200 p-2 text-xs text-blue-800">
+                                <strong>Gợi ý liên kết:</strong> Tìm thấy {updatesResult.pendingDetected} khách thuê tên gần giống.
+                                Vào <strong>Quản lý khách thuê</strong> để xác nhận liên kết Chat ID.
+                                {updatesResult.pendingDetails?.map((p) => (
+                                  <div key={p.pendingZaloChatId} className="mt-1 font-mono">
+                                    → {p.hoTen} ({p.soDienThoai})
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-500 pl-6">
+                                Không tìm thấy khách thuê trùng tên. Sao chép Chat ID và điền thủ công.
+                              </p>
+                            )}
+                          </>
+                        )}
                       </div>
                     )}
                   </CardContent>
