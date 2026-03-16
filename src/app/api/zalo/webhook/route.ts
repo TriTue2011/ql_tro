@@ -8,7 +8,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getKhachThueRepo } from '@/lib/repositories';
 import prisma from '@/lib/prisma';
-import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 
 function normalizeName(name: string): string {
   return name
@@ -84,37 +83,6 @@ async function detectAndStorePending(update: any): Promise<void> {
   }
 }
 
-async function detectNguoiDungPending(update: any): Promise<void> {
-  const msg = update?.message;
-  if (!msg?.from?.id) return;
-
-  const chatId = String(msg.from.id);
-  const displayName: string = msg.from.display_name || '';
-  if (!displayName) return;
-
-  try {
-    const repo = new NguoiDungRepository();
-    const all = await repo.findMany({ limit: 100 });
-    const normalizedSender = normalizeName(displayName);
-
-    const matched = all.data.find(nd => {
-      const normalizedNd = normalizeName(nd.ten);
-      const lastWord = normalizedNd.split(' ').pop() ?? '';
-      return normalizedNd === normalizedSender ||
-        normalizedSender.includes(lastWord) ||
-        normalizedNd.includes(normalizedSender);
-    });
-
-    if (!matched) return;
-    if (matched.zaloChatId === chatId) return;
-    if (matched.pendingZaloChatId === chatId) return;
-
-    await repo.update(matched.id, { pendingZaloChatId: chatId });
-  } catch (err) {
-    console.error('[zalo/webhook] detectNguoiDungPending error:', err);
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
     const secret = await getWebhookSecret();
@@ -143,7 +111,6 @@ export async function POST(request: NextRequest) {
     await Promise.all([
       saveMessage(update),
       detectAndStorePending(update),
-      detectNguoiDungPending(update),
     ]);
 
     return NextResponse.json({ message: 'Success' });
