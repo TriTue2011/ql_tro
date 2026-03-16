@@ -215,8 +215,8 @@ export default function PhongPage() {
     const phongData = phong as any;
     const hopDong = phongData.hopDongHienTai;
     
-    if (hopDong && hopDong.khachThueIds && hopDong.khachThueIds.length > 0) {
-      setViewingTenants(hopDong.khachThueIds);
+    if (hopDong && hopDong.khachThue && hopDong.khachThue.length > 0) {
+      setViewingTenants(hopDong.khachThue);
       setViewingTenantsPhongName(phong.maPhong);
       setIsTenantsViewerOpen(true);
     } else {
@@ -480,9 +480,9 @@ export default function PhongPage() {
                       const phongData = phong as any;
                       const hopDong = phongData.hopDongHienTai;
                       
-                      if (hopDong && hopDong.khachThueIds && hopDong.khachThueIds.length > 0) {
+                      if (hopDong && hopDong.khachThue && hopDong.khachThue.length > 0) {
                         const nguoiDaiDien = hopDong.nguoiDaiDien;
-                        const soLuongKhachThue = hopDong.khachThueIds.length;
+                        const soLuongKhachThue = hopDong.khachThue.length;
                         
                         return (
                           <div className="mb-3 p-2 bg-blue-50 rounded-md border border-blue-200">
