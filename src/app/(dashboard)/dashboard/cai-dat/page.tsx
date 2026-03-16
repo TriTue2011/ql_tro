@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import {
   Tabs,
   TabsContent,
@@ -92,16 +93,21 @@ function SettingInput({
   }
 
   if (item.khoa === 'cloudflare_tunnel') {
+    const isOn = value === 'true';
     return (
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="false">Không dùng Cloudflare Tunnel</SelectItem>
-          <SelectItem value="true">Bật — dùng Cloudflare Tunnel</SelectItem>
-        </SelectContent>
-      </Select>
+      <div className="flex items-center gap-3 py-1">
+        <Switch
+          checked={isOn}
+          onCheckedChange={(checked) => onChange(checked ? 'true' : 'false')}
+          id="cloudflare_tunnel_switch"
+        />
+        <label
+          htmlFor="cloudflare_tunnel_switch"
+          className={`text-sm cursor-pointer select-none ${isOn ? 'text-green-700 font-medium' : 'text-gray-500'}`}
+        >
+          {isOn ? 'Đang bật — ứng dụng chạy qua Cloudflare Tunnel' : 'Đang tắt — không dùng Cloudflare Tunnel'}
+        </label>
+      </div>
     );
   }
 
