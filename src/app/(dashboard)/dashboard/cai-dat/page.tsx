@@ -357,6 +357,9 @@ export default function CaiDatPage() {
     eventName?: string;
     pendingDetected?: number;
     pendingDetails?: Array<{ hoTen: string; soDienThoai: string; pendingZaloChatId: string }>;
+    webhookWasActive?: boolean;
+    webhookRestored?: boolean;
+    webhookRestoreError?: string;
     error?: string;
   } | null>(null);
 
@@ -386,6 +389,9 @@ export default function CaiDatPage() {
         eventName: data.data?.result?.event_name,
         pendingDetected: data.pendingDetected,
         pendingDetails: data.pendingDetails,
+        webhookWasActive: data.webhookWasActive,
+        webhookRestored: data.webhookRestored,
+        webhookRestoreError: data.webhookRestoreError,
       });
       toast.success('Lấy Chat ID thành công');
     } catch (err: any) {
@@ -701,8 +707,8 @@ export default function CaiDatPage() {
                       Lấy Zalo Chat ID
                     </CardTitle>
                     <CardDescription className="text-xs md:text-sm">
-                      Nhắn bất kỳ cho Zalo Bot, sau đó bấm nút bên dưới để lấy Chat ID của người vừa nhắn.
-                      Nếu tên khớp với khách thuê trong hệ thống, sẽ tự động gợi ý liên kết.
+                      Nhắn bất kỳ cho Zalo Bot, sau đó bấm nút bên dưới.
+                      Hệ thống sẽ tự động: <strong>xóa Webhook → lấy tin nhắn → đăng ký lại Webhook</strong>.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 md:p-6 space-y-3">
@@ -788,6 +794,19 @@ export default function CaiDatPage() {
                               <p className="text-xs text-gray-500 pl-6">
                                 Không tìm thấy khách thuê trùng tên. Sao chép Chat ID và điền thủ công.
                               </p>
+                            )}
+
+                            {/* Trạng thái webhook */}
+                            {updatesResult.webhookWasActive && (
+                              <div className={`mt-2 rounded px-2 py-1.5 text-xs ${
+                                updatesResult.webhookRestored
+                                  ? 'bg-green-50 border border-green-200 text-green-800'
+                                  : 'bg-amber-50 border border-amber-200 text-amber-800'
+                              }`}>
+                                {updatesResult.webhookRestored
+                                  ? '✓ Webhook đã được đăng ký lại tự động'
+                                  : `⚠ ${updatesResult.webhookRestoreError || 'Webhook chưa được đăng ký lại — vào tab Webhook để đăng ký lại.'}`}
+                              </div>
                             )}
                           </>
                         )}

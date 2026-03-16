@@ -1,13 +1,12 @@
 /**
  * GET /api/zalo/updates
  * Lấy tin nhắn mới nhất gửi tới bot để tra cứu chat_id.
- * Nếu phát hiện chat_id khác với đã lưu → lưu vào pendingZaloChatId chờ xác nhận.
- * Dùng khi KHÔNG có webhook (polling thủ công).
  *
- * Zalo Bot API: getUpdates trả về 1 update object (không phải array):
- *   result.message.from.id          → chat_id
- *   result.message.from.display_name → tên hiển thị
- *   result.event_name               → loại sự kiện
+ * LƯU Ý ZALO: getUpdates KHÔNG hoạt động khi Webhook đã được đăng ký.
+ * Flow tự động:
+ *   1. deleteWebhook  → xóa webhook hiện tại
+ *   2. getUpdates     → long-poll 30s lấy tin nhắn
+ *   3. setWebhook     → đăng ký lại webhook (nếu trước đó đã có)
  */
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -26,6 +25,41 @@ async function getZaloToken(): Promise<string | null> {
   }
 }
 
+async function getWebhookSecret(): Promise<string | null> {
+  try {
+    const s = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_secret' } });
+    return s?.giaTri?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Lấy webhook URL hiện tại từ Zalo (để đăng ký lại sau khi getUpdates xong). */
+async function getCurrentWebhookUrl(token: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${ZALO_API}/bot${token}/getWebhookInfo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await res.json();
+    return data?.result?.url || null;
+  } catch {
+    return null;
+  }
+}
+
+async function callZalo(token: string, endpoint: string, body: object): Promise<any> {
+  const res = await fetch(`${ZALO_API}/bot${token}/${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
+  });
+  return res.json();
+}
+
 /** Chuẩn hóa tên để so sánh gần đúng (bỏ dấu, chữ thường). */
 function normalizeName(name: string): string {
   return name
@@ -36,17 +70,11 @@ function normalizeName(name: string): string {
     .trim();
 }
 
-/**
- * Phát hiện chat_id từ một update và lưu vào pendingZaloChatId nếu khác với đã lưu.
- * - Khớp theo display_name (gần đúng) với danh sách khách thuê.
- * - KHÔNG tự động ghi đè zaloChatId đã xác thực.
- */
 async function detectAndStorePending(update: any): Promise<{ detected: number; details: any[] }> {
   const msg = update?.message;
   if (!msg?.from?.id) return { detected: 0, details: [] };
 
   const chatId = String(msg.from.id);
-  // Zalo Bot API dùng display_name, không phải first_name
   const displayName: string = msg.from.display_name || '';
   if (!displayName) return { detected: 0, details: [] };
 
@@ -55,7 +83,6 @@ async function detectAndStorePending(update: any): Promise<{ detected: number; d
 
   const normalizedSender = normalizeName(displayName);
 
-  // Tìm khách thuê khớp tên (so sánh tên đầy đủ hoặc họ/tên cuối)
   const matched = allTenants.data.find(kt => {
     const normalizedKt = normalizeName(kt.hoTen);
     const lastWordKt = normalizedKt.split(' ').pop() ?? '';
@@ -65,9 +92,7 @@ async function detectAndStorePending(update: any): Promise<{ detected: number; d
   });
 
   if (!matched) return { detected: 0, details: [] };
-  // Đã là chat_id chính thức rồi
   if (matched.zaloChatId === chatId) return { detected: 0, details: [] };
-  // Đã là pending rồi
   if (matched.pendingZaloChatId === chatId) return { detected: 0, details: [] };
 
   await repo.update(matched.id, { pendingZaloChatId: chatId });
@@ -95,24 +120,65 @@ export async function GET() {
       return NextResponse.json({ error: 'Chưa cấu hình zalo_access_token' }, { status: 503 });
     }
 
-    const response = await fetch(`${ZALO_API}/bot${token}/getUpdates`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ timeout: 30 }),
-      signal: AbortSignal.timeout(40000),
-    });
+    // ── Bước 1: Lấy webhook URL hiện tại (để đăng ký lại sau) ──────────────
+    const existingWebhookUrl = await getCurrentWebhookUrl(token);
 
-    if (!response.ok) {
-      const txt = await response.text();
+    // ── Bước 2: Xóa webhook (bắt buộc trước khi getUpdates) ─────────────────
+    if (existingWebhookUrl) {
+      await callZalo(token, 'deleteWebhook', {});
+    }
+
+    // ── Bước 3: getUpdates (long-poll 30s) ───────────────────────────────────
+    let data: any = null;
+    let getUpdatesError: string | null = null;
+    try {
+      const response = await fetch(`${ZALO_API}/bot${token}/getUpdates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeout: 30 }),
+        signal: AbortSignal.timeout(40000),
+      });
+
+      if (!response.ok) {
+        const txt = await response.text();
+        getUpdatesError = `Zalo API lỗi: ${response.status} — ${txt.slice(0, 200)}`;
+      } else {
+        data = await response.json();
+      }
+    } catch (err: any) {
+      getUpdatesError = err?.name === 'TimeoutError' ? 'Timeout khi gọi Zalo API' : 'Lỗi kết nối Zalo';
+    }
+
+    // ── Bước 4: Đăng ký lại webhook (nếu trước đó đã có) ────────────────────
+    let webhookRestored = false;
+    let webhookRestoreError: string | null = null;
+    if (existingWebhookUrl) {
+      const secret = await getWebhookSecret();
+      if (secret) {
+        try {
+          await callZalo(token, 'setWebhook', { url: existingWebhookUrl, secret_token: secret });
+          webhookRestored = true;
+        } catch {
+          webhookRestoreError = 'Không thể đăng ký lại Webhook tự động. Hãy vào tab Webhook để đăng ký lại.';
+        }
+      } else {
+        webhookRestoreError = 'Thiếu webhook_secret — không thể đăng ký lại Webhook tự động.';
+      }
+    }
+
+    // ── Trả về lỗi nếu getUpdates thất bại ──────────────────────────────────
+    if (getUpdatesError) {
       return NextResponse.json(
-        { error: `Zalo API lỗi: ${response.status} — ${txt.slice(0, 200)}` },
+        {
+          error: getUpdatesError,
+          webhookRestored,
+          webhookRestoreError,
+        },
         { status: 502 }
       );
     }
 
-    const data = await response.json();
-
-    // result là một object update đơn (không phải array)
+    // ── Xử lý kết quả ────────────────────────────────────────────────────────
     const update = data?.result ?? null;
     const pendingInfo = update?.message
       ? await detectAndStorePending(update)
@@ -123,6 +189,9 @@ export async function GET() {
       data,
       pendingDetected: pendingInfo.detected,
       pendingDetails: pendingInfo.details,
+      webhookWasActive: !!existingWebhookUrl,
+      webhookRestored,
+      webhookRestoreError,
     });
   } catch (error: any) {
     if (error?.name === 'TimeoutError') {
