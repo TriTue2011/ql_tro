@@ -16,7 +16,7 @@ model NguoiDung {
   email         String    @unique
   matKhau       String
   soDienThoai   String?
-  vaiTro        String    @default("nhanVien") // admin | chuNha | nhanVien
+  vaiTro        String    @default("nhanVien") // admin | chuNha | quanLy | nhanVien
   anhDaiDien    String?
   trangThai        String    @default("hoatDong") // hoatDong | khoa
   zaloChatId        String?   // Zalo bot chat_id đã xác thực
@@ -27,6 +27,7 @@ model NguoiDung {
 
   // Relations
   toaNha        ToaNha[]
+  toaNhaQuanLy  ToaNhaNguoiQuanLy[]
   chiSo         ChiSoDienNuoc[]
   thanhToan     ThanhToan[]
   suCoXuLy      SuCo[]    @relation("NguoiXuLy")
@@ -48,6 +49,18 @@ model ToaNha {
   ngayCapNhat     DateTime  @updatedAt
 
   phong         Phong[]
+  nguoiQuanLy   ToaNhaNguoiQuanLy[]
+}
+
+// Bảng gán người quản lý cho tòa nhà (role: quanLy)
+model ToaNhaNguoiQuanLy {
+  toaNhaId    String
+  nguoiDungId String
+  toaNha      ToaNha    @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
+  nguoiDung   NguoiDung @relation(fields: [nguoiDungId], references: [id], onDelete: Cascade)
+  ngayTao     DateTime  @default(now())
+
+  @@id([toaNhaId, nguoiDungId])
 }
 
 model Phong {

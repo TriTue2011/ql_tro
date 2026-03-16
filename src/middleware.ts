@@ -125,6 +125,17 @@ export default withAuth(
       );
     }
 
+    // Chặn khachThue truy cập API quản lý
+    const isManagementApi = pathname.startsWith('/api/') &&
+      !pathname.startsWith('/api/auth/') &&
+      !pathname.startsWith('/api/khach-thue/');
+    if (isManagementApi && token?.role === 'khachThue') {
+      return new NextResponse(
+        JSON.stringify({ message: 'Forbidden — khách thuê không có quyền truy cập' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const response = NextResponse.next();
     return addSecurityHeaders(response);
   },
@@ -132,9 +143,17 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
+        const role = (token as Record<string, unknown> | null)?.role as string | undefined;
 
-        // /dashboard/* phải có session
-        if (pathname.startsWith('/dashboard')) return !!token;
+        // /khach-thue/dashboard/* chỉ dành cho khachThue
+        if (pathname.startsWith('/khach-thue/dashboard')) {
+          return !!token && role === 'khachThue';
+        }
+
+        // /dashboard/* chỉ dành cho NguoiDung (không phải khachThue)
+        if (pathname.startsWith('/dashboard')) {
+          return !!token && role !== 'khachThue';
+        }
 
         // /api/admin/create-first không cần session (bootstrap admin đầu tiên)
         if (pathname === '/api/admin/create-first') return true;
@@ -151,6 +170,7 @@ export default withAuth(
 export const config = {
   matcher: [
     '/dashboard/:path*',
+    '/khach-thue/dashboard/:path*',
     '/api/:path*',
   ],
 };

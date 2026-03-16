@@ -30,8 +30,7 @@ interface KhachThue {
 }
 
 function getAuthHeader() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('khachThueToken') : null;
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return {}; // NextAuth session tự động gửi cookie — không cần Bearer token
 }
 
 export default function ThongTinPage() {
