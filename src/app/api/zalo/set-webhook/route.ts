@@ -1,11 +1,14 @@
 /**
- * POST /api/zalo/set-webhook
- * Quản lý Webhook Zalo Bot: đăng ký, xóa, kiểm tra trạng thái.
+ * GET  /api/zalo/set-webhook  → trả về webhook URL gợi ý (từ NEXTAUTH_URL)
+ * POST /api/zalo/set-webhook  → đăng ký / xóa / kiểm tra webhook Zalo Bot
  * Chỉ admin và chuNha được phép.
  *
- * Body: { action: 'setWebhook', webhookUrl: string }
- *     | { action: 'deleteWebhook' }
- *     | { action: 'getWebhookInfo' }
+ * POST body: { action: 'setWebhook', webhookUrl?: string }
+ *          | { action: 'deleteWebhook' }
+ *          | { action: 'getWebhookInfo' }
+ *
+ * Nếu không truyền webhookUrl, server tự dùng NEXTAUTH_URL + /api/zalo/webhook
+ * → hoạt động đúng với Cloudflare Tunnel (NEXTAUTH_URL = public tunnel URL).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -15,10 +18,17 @@ import { z } from 'zod';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
+/** Lấy base URL công khai từ NEXTAUTH_URL (ưu tiên) hoặc APP_URL. */
+function getPublicBaseUrl(): string {
+  const url = process.env.NEXTAUTH_URL || process.env.APP_URL || '';
+  return url.replace(/\/$/, '');
+}
+
 const bodySchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('setWebhook'),
-    webhookUrl: z.string().url('webhookUrl phải là URL hợp lệ'),
+    // Optional — nếu không truyền, server dùng NEXTAUTH_URL
+    webhookUrl: z.string().url('webhookUrl phải là URL hợp lệ').optional(),
   }),
   z.object({ action: z.literal('deleteWebhook') }),
   z.object({ action: z.literal('getWebhookInfo') }),
@@ -40,6 +50,22 @@ async function getWebhookSecret(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** GET: Trả về webhook URL gợi ý dựa trên NEXTAUTH_URL (server-side) */
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!['admin', 'chuNha'].includes(session.user.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const base = getPublicBaseUrl();
+  return NextResponse.json({
+    webhookUrl: base ? `${base}/api/zalo/webhook` : '',
+    baseUrl: base,
+    source: base ? (process.env.NEXTAUTH_URL ? 'NEXTAUTH_URL' : 'APP_URL') : 'unknown',
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -72,11 +98,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Dùng URL do client gửi, hoặc tự tính từ NEXTAUTH_URL
+      const base = getPublicBaseUrl();
+      const finalUrl = parsed.data.webhookUrl || (base ? `${base}/api/zalo/webhook` : null);
+      if (!finalUrl) {
+        return NextResponse.json(
+          { error: 'Không xác định được Webhook URL. Hãy cấu hình NEXTAUTH_URL hoặc nhập URL thủ công.' },
+          { status: 400 }
+        );
+      }
+
       const res = await fetch(`${ZALO_API}/bot${token}/setWebhook`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          url: parsed.data.webhookUrl,
+          url: finalUrl,
           secret_token: secret,
         }),
         signal: AbortSignal.timeout(15000),

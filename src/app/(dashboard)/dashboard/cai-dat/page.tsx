@@ -379,8 +379,31 @@ export default function CaiDatPage() {
   }
 
   // --- Webhook Zalo ---
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookUrlSource, setWebhookUrlSource] = useState('');
   const [webhookStatus, setWebhookStatus] = useState<any>(null);
   const [webhookLoading, setWebhookLoading] = useState<string | null>(null); // 'set' | 'delete' | 'info'
+
+  // Load webhook URL gợi ý từ server (dựa vào NEXTAUTH_URL → đúng khi dùng Cloudflare Tunnel)
+  useEffect(() => {
+    if (!canManage) return;
+    fetch('/api/zalo/set-webhook')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.webhookUrl) {
+          setWebhookUrl(d.webhookUrl);
+          setWebhookUrlSource(d.source || '');
+        } else {
+          // fallback: dùng origin của browser
+          setWebhookUrl(`${window.location.origin}/api/zalo/webhook`);
+          setWebhookUrlSource('browser');
+        }
+      })
+      .catch(() => {
+        setWebhookUrl(`${window.location.origin}/api/zalo/webhook`);
+        setWebhookUrlSource('browser');
+      });
+  }, [canManage]);
 
   async function handleWebhookAction(action: 'setWebhook' | 'deleteWebhook' | 'getWebhookInfo') {
     setWebhookLoading(action === 'setWebhook' ? 'set' : action === 'deleteWebhook' ? 'delete' : 'info');
@@ -388,7 +411,8 @@ export default function CaiDatPage() {
     try {
       const body: any = { action };
       if (action === 'setWebhook') {
-        body.webhookUrl = `${window.location.origin}/api/zalo/webhook`;
+        // Gửi URL do user nhập (hoặc URL đã load từ server)
+        if (webhookUrl.trim()) body.webhookUrl = webhookUrl.trim();
       }
       const res = await fetch('/api/zalo/set-webhook', {
         method: 'POST',
@@ -556,12 +580,26 @@ export default function CaiDatPage() {
                   <CardContent className="p-4 md:p-6 space-y-4">
                     {/* Webhook URL */}
                     <div className="space-y-1">
-                      <Label className="text-xs md:text-sm font-medium">Webhook URL</Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs md:text-sm font-medium">Webhook URL</Label>
+                        {webhookUrlSource && webhookUrlSource !== 'browser' && (
+                          <span className="text-xs text-green-600 font-medium">
+                            ✓ từ {webhookUrlSource} (Cloudflare Tunnel)
+                          </span>
+                        )}
+                        {webhookUrlSource === 'browser' && (
+                          <span className="text-xs text-amber-600 font-medium">
+                            ⚠ URL từ trình duyệt — có thể là localhost
+                          </span>
+                        )}
+                      </div>
                       <div className="flex gap-2">
                         <Input
-                          readOnly
-                          value={typeof window !== 'undefined' ? `${window.location.origin}/api/zalo/webhook` : '/api/zalo/webhook'}
-                          className="text-sm font-mono bg-gray-50"
+                          type="url"
+                          value={webhookUrl}
+                          onChange={(e) => setWebhookUrl(e.target.value)}
+                          placeholder="https://your-domain.com/api/zalo/webhook"
+                          className="text-sm font-mono"
                         />
                         <Button
                           type="button"
@@ -569,8 +607,7 @@ export default function CaiDatPage() {
                           size="icon"
                           title="Sao chép URL"
                           onClick={() => {
-                            const url = `${window.location.origin}/api/zalo/webhook`;
-                            navigator.clipboard.writeText(url);
+                            navigator.clipboard.writeText(webhookUrl);
                             toast.success('Đã sao chép Webhook URL');
                           }}
                         >
@@ -578,7 +615,8 @@ export default function CaiDatPage() {
                         </Button>
                       </div>
                       <p className="text-xs text-gray-500">
-                        Dán URL này vào trang quản lý Zalo Bot khi thiết lập webhook thủ công.
+                        URL được lấy từ <code className="bg-gray-100 px-1 rounded">NEXTAUTH_URL</code>.
+                        Nếu dùng Cloudflare Tunnel, đặt <code className="bg-gray-100 px-1 rounded">NEXTAUTH_URL=https://tunnel-url.com</code> để tự động đúng.
                       </p>
                     </div>
 
