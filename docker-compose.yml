@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  postgresql:
+  postgres:
     image: postgres:16-alpine
     container_name: ql_tro_postgres
     restart: unless-stopped
@@ -12,7 +12,12 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   minio:
     image: minio/minio
@@ -23,11 +28,11 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"   # API
-      - "9001:9001"   # Web console (quản lý MinIO)
+      - "9000:9000"   # S3 API — dùng trong app
+      - "9001:9001"   # Web Console — truy cập qua trình duyệt
     volumes:
-      - miniodata:/data
+      - minio_data:/data
 
 volumes:
-  pgdata:
-  miniodata:
+  postgres_data:
+  minio_data:
