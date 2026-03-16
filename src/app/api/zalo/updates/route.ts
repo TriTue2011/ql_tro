@@ -51,13 +51,19 @@ async function getCurrentWebhookUrl(token: string): Promise<string | null> {
 }
 
 async function callZalo(token: string, endpoint: string, body: object): Promise<any> {
-  const res = await fetch(`${ZALO_API}/bot${token}/${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(15000),
-  });
-  return res.json();
+  try {
+    const res = await fetch(`${ZALO_API}/bot${token}/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return { raw: text }; }
+  } catch (e) {
+    console.error(`[callZalo] ${endpoint} error:`, e);
+    return null;
+  }
 }
 
 /** Chuẩn hóa tên để so sánh gần đúng (bỏ dấu, chữ thường). */
@@ -125,7 +131,11 @@ export async function GET() {
 
     // ── Bước 2: Xóa webhook (bắt buộc trước khi getUpdates) ─────────────────
     if (existingWebhookUrl) {
-      await callZalo(token, 'deleteWebhook', {});
+      try {
+        await callZalo(token, 'deleteWebhook', {});
+      } catch {
+        // Bỏ qua lỗi xóa webhook — vẫn thử getUpdates
+      }
     }
 
     // ── Bước 3: getUpdates (long-poll 30s) ───────────────────────────────────
@@ -194,9 +204,11 @@ export async function GET() {
       webhookRestoreError,
     });
   } catch (error: any) {
+    const msg = error?.message || String(error);
+    console.error('[zalo/updates] Lỗi không xử lý được:', msg);
     if (error?.name === 'TimeoutError') {
       return NextResponse.json({ error: 'Timeout khi gọi Zalo API' }, { status: 504 });
     }
-    return NextResponse.json({ error: 'Lỗi máy chủ' }, { status: 500 });
+    return NextResponse.json({ error: `Lỗi máy chủ: ${msg}` }, { status: 500 });
   }
 }
