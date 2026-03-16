@@ -18,9 +18,11 @@ model NguoiDung {
   soDienThoai   String?
   vaiTro        String    @default("nhanVien") // admin | chuNha | nhanVien
   anhDaiDien    String?
-  trangThai     String    @default("hoatDong") // hoatDong | khoa
-  ngayTao       DateTime  @default(now())
-  ngayCapNhat   DateTime  @updatedAt
+  trangThai        String    @default("hoatDong") // hoatDong | khoa
+  zaloChatId       String?   // Zalo bot chat_id đã xác thực
+  pendingZaloChatId String?  // Zalo bot chat_id chờ xác nhận (từ getUpdates)
+  ngayTao          DateTime  @default(now())
+  ngayCapNhat      DateTime  @updatedAt
 
   // Relations
   toaNha        ToaNha[]
@@ -83,8 +85,9 @@ model KhachThue {
   anhCCCD       Json?     // { matTruoc, matSau }
   ngheNghiep    String?
   matKhau       String?
-  zaloChatId    String?   // Zalo bot chat_id riêng của từng khách
-  trangThai     String    @default("chuaThue") // dangThue | daTraPhong | chuaThue
+  zaloChatId        String?   // Zalo bot chat_id đã xác thực
+  pendingZaloChatId String?   // Zalo bot chat_id chờ xác nhận (phát hiện từ getUpdates)
+  trangThai         String    @default("chuaThue") // dangThue | daTraPhong | chuaThue
   ngayTao       DateTime  @default(now())
   ngayCapNhat   DateTime  @updatedAt
 
