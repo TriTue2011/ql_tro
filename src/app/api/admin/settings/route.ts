@@ -25,6 +25,7 @@ const DEFAULT_SETTINGS = [
   { khoa: 'zalo_webhook_secret', giaTri: '', moTa: 'Zalo Webhook Secret Token', nhom: 'thongBao', laBiMat: true },
   { khoa: 'thong_bao_truoc_han_hop_dong', giaTri: '30', moTa: 'Cảnh báo trước khi hợp đồng hết hạn (ngày)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'thong_bao_qua_han_hoa_don', giaTri: '3', moTa: 'Cảnh báo hóa đơn quá hạn sau (ngày)', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'zalo_tin_nhan_ho_tro', giaTri: 'Cảm ơn bạn đã nhắn tin!\nĐể được hỗ trợ, vui lòng liên hệ:\n📞 Hotline: \n📧 Email: \nChúng tôi sẽ phản hồi sớm nhất có thể.', moTa: 'Tin nhắn trả lời tự động khi khách thuê nhắn bất kỳ (dùng \\n để xuống dòng)', nhom: 'thongBao', laBiMat: false },
   // Hệ thống
   { khoa: 'ten_cong_ty', giaTri: 'Quản Lý Trọ', moTa: 'Tên công ty / nhà trọ', nhom: 'heThong', laBiMat: false },
   { khoa: 'email_lien_he', giaTri: '', moTa: 'Email liên hệ hiển thị trên hóa đơn', nhom: 'heThong', laBiMat: false },

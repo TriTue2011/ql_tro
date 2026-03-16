@@ -11,7 +11,11 @@
  *     b. Nếu tìm thấy  → lưu zaloChatId + bật nhanThongBaoZalo → reply thành công
  *     c. Nếu không tìm → reply "không tìm thấy"
  *     d. Nếu sai định dạng → reply "gửi đúng định dạng"
- *  3. Nếu không phải SĐT → detect tên khớp khách thuê/người dùng (pendingZaloChatId)
+ *  3. Nếu chatId đã là khách thuê đã đăng ký → reply thông tin liên hệ hỗ trợ
+ *     (nội dung cấu hình trong CaiDat: zalo_tin_nhan_ho_tro)
+ *  4. Nếu chưa đăng ký → detect tên khớp → lưu pendingZaloChatId
+ *
+ * Ghi chú: bước 3 là placeholder — sau này có thể tích hợp AI xử lý.
  */
 
 import prisma from '@/lib/prisma';
@@ -20,10 +24,8 @@ import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
-// Regex số điện thoại VN: bắt đầu 0 hoặc +84, tổng 10-11 ký tự số
 const PHONE_REGEX = /^(\+84|0)[0-9]{9}$/;
 
-/** Chuẩn hoá SĐT → luôn dạng 0xxxxxxxxx */
 function normalizePhone(raw: string): string {
   const cleaned = raw.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
   if (cleaned.startsWith('+84')) return '0' + cleaned.slice(3);
@@ -39,7 +41,6 @@ function normalizeName(name: string): string {
     .trim();
 }
 
-/** Gửi tin nhắn phản hồi về cho người nhắn */
 async function sendReply(token: string, chatId: string, text: string): Promise<void> {
   try {
     await fetch(`${ZALO_API}/bot${token}/sendMessage`, {
@@ -48,12 +49,9 @@ async function sendReply(token: string, chatId: string, text: string): Promise<v
       body: JSON.stringify({ chat_id: chatId, text }),
       signal: AbortSignal.timeout(8_000),
     });
-  } catch {
-    // Không dừng xử lý chỉ vì reply thất bại
-  }
+  } catch { /* không dừng xử lý */ }
 }
 
-/** Lưu tin nhắn vào DB */
 async function saveMessage(update: any): Promise<void> {
   try {
     const msg = update?.message;
@@ -71,29 +69,45 @@ async function saveMessage(update: any): Promise<void> {
   } catch { /* không dừng vì lỗi log */ }
 }
 
+/** Lấy nội dung tin nhắn hỗ trợ từ CaiDat */
+async function getHoTroMessage(): Promise<string> {
+  try {
+    const s = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_tin_nhan_ho_tro' } });
+    return s?.giaTri?.trim() || '';
+  } catch {
+    return '';
+  }
+}
+
+/** Kiểm tra chatId có phải khách thuê đã đăng ký không */
+async function findKhachThueByZaloChatId(chatId: string) {
+  try {
+    return await prisma.khachThue.findFirst({
+      where: { zaloChatId: chatId },
+      select: { id: true, hoTen: true },
+    });
+  } catch {
+    return null;
+  }
+}
+
 /** Đăng ký tự động khi khách thuê gửi số điện thoại */
-async function handlePhoneRegistration(
-  token: string,
-  chatId: string,
-  rawText: string,
-): Promise<boolean> {
+async function handlePhoneRegistration(token: string, chatId: string, rawText: string): Promise<boolean> {
   const text = rawText.trim();
 
-  // Kiểm tra có dạng số điện thoại không (chỉ chứa số, +, khoảng trắng)
   const looksLikePhone = /^[\d\s+\-()]{9,15}$/.test(text);
-  if (!looksLikePhone) return false; // Không phải SĐT → để detectAndStorePending xử lý
+  if (!looksLikePhone) return false;
 
   const phone = normalizePhone(text);
 
   if (!PHONE_REGEX.test(phone)) {
-    // Trông như muốn nhập SĐT nhưng sai định dạng
     await sendReply(
       token, chatId,
       '❌ Số điện thoại không đúng định dạng.\n\n' +
       'Vui lòng gửi số điện thoại 10 số bắt đầu bằng 0.\n' +
       'Ví dụ: 0912345678',
     );
-    return true; // Đã xử lý (dù thất bại)
+    return true;
   }
 
   try {
@@ -109,7 +123,6 @@ async function handlePhoneRegistration(
       return true;
     }
 
-    // Đã liên kết chatId này rồi
     if (kt.zaloChatId === chatId && kt.nhanThongBaoZalo) {
       await sendReply(
         token, chatId,
@@ -119,12 +132,7 @@ async function handlePhoneRegistration(
       return true;
     }
 
-    // Lưu chatId + bật thông báo
-    await repo.update(kt.id, {
-      zaloChatId: chatId,
-      pendingZaloChatId: '',
-      nhanThongBaoZalo: true,
-    });
+    await repo.update(kt.id, { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true });
 
     await sendReply(
       token, chatId,
@@ -142,7 +150,22 @@ async function handlePhoneRegistration(
   }
 }
 
-/** Detect tên → lưu pendingZaloChatId (fallback khi không phải SĐT) */
+/**
+ * Gửi thông tin liên hệ hỗ trợ cho khách thuê đã đăng ký.
+ * Trả về true nếu đã xử lý (dù có thông tin hay không).
+ */
+async function handleRegisteredTenant(token: string, chatId: string): Promise<boolean> {
+  const kt = await findKhachThueByZaloChatId(chatId);
+  if (!kt) return false; // chưa đăng ký → không xử lý ở đây
+
+  const hoTroMsg = await getHoTroMessage();
+  if (!hoTroMsg) return true; // đã đăng ký nhưng chưa cấu hình → im lặng
+
+  await sendReply(token, chatId, hoTroMsg);
+  return true;
+}
+
+/** Detect tên → lưu pendingZaloChatId (chỉ cho người chưa đăng ký) */
 async function detectAndStorePending(update: any): Promise<void> {
   const msg = update?.message;
   if (!msg?.from?.id) return;
@@ -192,15 +215,19 @@ export async function handleZaloUpdate(update: any, token: string): Promise<void
   const chatId = String(msg.from.id);
   const text: string = msg.text?.trim() || '';
 
-  // 1. Lưu tin nhắn vào lịch sử
+  // 1. Lưu lịch sử
   await saveMessage(update);
 
-  // 2. Nếu là số điện thoại → đăng ký tự động, không cần detect tên
+  // 2. Số điện thoại → đăng ký
   if (text) {
     const handled = await handlePhoneRegistration(token, chatId, text);
     if (handled) return;
   }
 
-  // 3. Detect tên → pending chatId
+  // 3. Khách thuê đã đăng ký → reply thông tin liên hệ hỗ trợ
+  const isRegistered = await handleRegisteredTenant(token, chatId);
+  if (isRegistered) return;
+
+  // 4. Chưa đăng ký → detect tên → pendingZaloChatId
   await detectAndStorePending(update);
 }
