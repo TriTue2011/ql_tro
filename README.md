@@ -211,8 +211,17 @@ Mở terminal khác:
 ```bash
 curl -X POST http://localhost:3000/api/admin/create-first \
   -H "Content-Type: application/json" \
-  -d '{"ten":"Admin","email":"admin@example.com","matKhau":"admin123"}'
+  -d '{
+    "ten": "Admin",
+    "email": "admin@example.com",
+    "matKhau": "admin123",
+    "soDienThoai": "0901234567",
+    "setupSecret": "your-setup-secret-here"
+  }'
 ```
+
+> `setupSecret` phải khớp với `ADMIN_SETUP_SECRET` trong `.env.local`.
+> API **tự khóa** sau khi đã có admin — không gọi được lần 2.
 
 Truy cập: **http://localhost:3000**
 
@@ -295,10 +304,16 @@ Output build thành công:
 ```bash
 curl -X POST http://localhost:3000/api/admin/create-first \
   -H "Content-Type: application/json" \
-  -d '{"ten":"Admin","email":"admin@example.com","matKhau":"<mat-khau-manh>"}'
+  -d '{
+    "ten": "Admin",
+    "email": "admin@example.com",
+    "matKhau": "<mat-khau-manh>",
+    "soDienThoai": "0901234567",
+    "setupSecret": "<gia-tri-ADMIN_SETUP_SECRET-trong-env>"
+  }'
 ```
 
-> API này **tự khóa** sau khi đã có ít nhất một admin.
+> API **tự khóa** sau khi đã có admin — không gọi được lần 2.
 
 ### Bước 7 — Cấu hình trong UI
 
@@ -371,7 +386,13 @@ pm2 startup
 ```bash
 curl -X POST http://localhost:3000/api/admin/create-first \
   -H "Content-Type: application/json" \
-  -d '{"ten":"Admin","email":"admin@example.com","matKhau":"admin123"}'
+  -d '{
+    "ten": "Admin",
+    "email": "admin@example.com",
+    "matKhau": "admin123",
+    "soDienThoai": "0901234567",
+    "setupSecret": "<gia-tri-ADMIN_SETUP_SECRET-trong-env>"
+  }'
 ```
 
 Sau đó đăng nhập → cấu hình MinIO, Zalo, Cloudflare Tunnel trong **Cài đặt hệ thống**.
@@ -409,6 +430,15 @@ NEXTAUTH_URL=http://localhost:3000
 
 # Sinh bằng: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 NEXTAUTH_SECRET=your-random-secret-here
+
+# ═══════════════════════════════════════════════════════
+# ADMIN SETUP — BẮT BUỘC để tạo admin đầu tiên
+# ═══════════════════════════════════════════════════════
+
+# Chuỗi bí mật dùng 1 lần để bảo vệ endpoint /api/admin/create-first
+# Tự đặt, ví dụ: my-setup-secret-2024
+# Có thể xóa khỏi .env.local sau khi đã tạo admin xong
+ADMIN_SETUP_SECRET=your-setup-secret-here
 ```
 
 > **Không cần** `ZALO_ACCESS_TOKEN`, `DATABASE_PROVIDER`, `MONGODB_URI` hay credentials MinIO/Cloudinary.
@@ -804,7 +834,8 @@ lsof -i :3000 && kill -9 <PID>
 - [ ] `pm2 startup && pm2 save` đã chạy
 
 ### Tài khoản
-- [ ] Admin tạo qua `/api/admin/create-first`
+- [ ] `ADMIN_SETUP_SECRET` đã thêm vào `.env.local`
+- [ ] Admin tạo qua `/api/admin/create-first` (kèm `soDienThoai` + `setupSecret`)
 - [ ] Đăng nhập được tại URL public
 
 ### Lưu trữ ảnh
