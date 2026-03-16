@@ -8,7 +8,7 @@ import { hash } from 'bcryptjs';
 const khachThueSchema = z.object({
   hoTen: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
   soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ'),
-  email: z.string().email('Email không hợp lệ').optional(),
+  email: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
   cccd: z.string().regex(/^[0-9]{12}$/, 'CCCD phải có 12 chữ số'),
   ngaySinh: z.string().min(1, 'Ngày sinh là bắt buộc'),
   gioiTinh: z.enum(['nam', 'nu', 'khac']),
@@ -99,7 +99,7 @@ export async function PUT(
     const updateData: Parameters<typeof repo.update>[1] = {
       hoTen: validatedData.hoTen,
       soDienThoai: validatedData.soDienThoai,
-      email: validatedData.email,
+      email: validatedData.email || undefined,
       ngheNghiep: validatedData.ngheNghiep,
       anhCCCD: validatedData.anhCCCD || { matTruoc: '', matSau: '' },
     };

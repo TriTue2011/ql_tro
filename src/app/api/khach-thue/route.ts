@@ -12,7 +12,7 @@ import { sanitizeText } from '@/lib/sanitize';
 const khachThueSchema = z.object({
   hoTen: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
   soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ'),
-  email: z.string().email('Email không hợp lệ').optional(),
+  email: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
   cccd: z.string().regex(/^[0-9]{12}$/, 'CCCD phải có 12 chữ số'),
   ngaySinh: z.string().min(1, 'Ngày sinh là bắt buộc'),
   gioiTinh: z.enum(['nam', 'nu', 'khac']),
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     const newKhachThue = await repo.create({
       hoTen: sanitizeText(validatedData.hoTen),
       soDienThoai: validatedData.soDienThoai,
-      email: validatedData.email,
+      email: validatedData.email || undefined,
       cccd: validatedData.cccd,
       ngaySinh: new Date(validatedData.ngaySinh),
       gioiTinh: validatedData.gioiTinh,
