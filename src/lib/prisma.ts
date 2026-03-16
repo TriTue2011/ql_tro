@@ -26,6 +26,9 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 if (!globalForPrisma.migrationDone) {
   globalForPrisma.migrationDone = true;
   prisma.$executeRawUnsafe(`
+    ALTER TABLE "KhachThue" ADD COLUMN IF NOT EXISTS "zaloChatId" TEXT
+  `).catch(() => {});
+  prisma.$executeRawUnsafe(`
     ALTER TABLE "KhachThue" ADD COLUMN IF NOT EXISTS "pendingZaloChatId" TEXT
   `).catch(() => {});
   prisma.$executeRawUnsafe(`
