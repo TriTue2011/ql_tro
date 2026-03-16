@@ -8,21 +8,25 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: 'credentials',
       credentials: {
-        email: { label: 'Email', type: 'email' },
+        emailOrPhone: { label: 'Email hoặc SĐT', type: 'text' },
         matKhau: { label: 'Mật khẩu', type: 'password' }
       },
       async authorize(credentials, _req) {
-        if (!credentials?.email || !credentials?.matKhau) {
+        if (!credentials?.emailOrPhone || !credentials?.matKhau) {
           return null;
         }
 
         try {
-          // Không log email người dùng để tránh lộ PII trong server logs
-          const user = await prisma.nguoiDung.findUnique({
-            where: {
-              email: credentials.email.toLowerCase(),
-            }
-          });
+          const login = credentials.emailOrPhone.trim();
+          const isPhone = /^[0-9+\s()-]{8,15}$/.test(login.replace(/\s/g, ''));
+
+          const user = isPhone
+            ? await prisma.nguoiDung.findFirst({
+                where: { soDienThoai: login },
+              })
+            : await prisma.nguoiDung.findUnique({
+                where: { email: login.toLowerCase() },
+              });
 
           if (!user || user.trangThai !== 'hoatDong') {
             return null;

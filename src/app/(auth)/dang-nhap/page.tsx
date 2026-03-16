@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
-  email: z.string().email('Email không hợp lệ'),
+  emailOrPhone: z.string().min(1, 'Vui lòng nhập email hoặc số điện thoại'),
   matKhau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
 });
 
@@ -41,13 +41,13 @@ export default function LoginPage() {
 
     try {
       const result = await signIn('credentials', {
-        email: data.email,
+        emailOrPhone: data.emailOrPhone,
         matKhau: data.matKhau,
         redirect: false,
       });
 
       if (result?.error) {
-        setError('Email hoặc mật khẩu không đúng');
+        setError('Email/SĐT hoặc mật khẩu không đúng');
       } else {
         // Redirect tất cả user về dashboard
         router.push('/dashboard');
@@ -87,16 +87,16 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs md:text-sm">Email</Label>
+                <Label htmlFor="emailOrPhone" className="text-xs md:text-sm">Email hoặc số điện thoại</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="Nhập email"
-                  {...register('email')}
-                  className={`text-sm ${errors.email ? 'border-red-500' : ''}`}
+                  id="emailOrPhone"
+                  type="text"
+                  placeholder="Nhập email hoặc số điện thoại"
+                  {...register('emailOrPhone')}
+                  className={`text-sm ${errors.emailOrPhone ? 'border-red-500' : ''}`}
                 />
-                {errors.email && (
-                  <p className="text-xs md:text-sm text-red-500">{errors.email.message}</p>
+                {errors.emailOrPhone && (
+                  <p className="text-xs md:text-sm text-red-500">{errors.emailOrPhone.message}</p>
                 )}
               </div>
 
