@@ -6,11 +6,18 @@ import { useSession } from 'next-auth/react';
 import { DashboardStats } from '@/types';
 import '@/styles/bs-admin.css';
 
+interface MonthRevenue { month: number; revenue: number; }
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState('');
+
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [revenueData, setRevenueData] = useState<MonthRevenue[]>([]);
+  const [revenueLoading, setRevenueLoading] = useState(false);
 
   useEffect(() => {
     document.title = 'Tổng quan — Phòng Trọ Pro';
@@ -32,6 +39,15 @@ export default function DashboardPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    setRevenueLoading(true);
+    fetch(`/api/dashboard/revenue-monthly?year=${selectedYear}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((res) => { if (res?.success) setRevenueData(res.months); })
+      .catch(() => {})
+      .finally(() => setRevenueLoading(false));
+  }, [selectedYear]);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
@@ -623,83 +639,106 @@ export default function DashboardPage() {
                   <i className="bi bi-bar-chart-fill" />
                   Doanh thu theo tháng
                 </h5>
-                <div className="bs-card-subtitle">6 tháng gần nhất (triệu đồng)</div>
+                <div className="bs-card-subtitle">12 tháng trong năm (triệu đồng)</div>
+              </div>
+              {/* Year selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button
+                  onClick={() => setSelectedYear(y => y - 1)}
+                  style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '2px 8px', background: 'white', cursor: 'pointer', fontSize: 14 }}
+                >‹</button>
+                <span style={{ fontSize: 14, fontWeight: 700, minWidth: 44, textAlign: 'center' }}>{selectedYear}</span>
+                <button
+                  onClick={() => setSelectedYear(y => Math.min(y + 1, currentYear))}
+                  disabled={selectedYear >= currentYear}
+                  style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '2px 8px', background: 'white', cursor: selectedYear >= currentYear ? 'not-allowed' : 'pointer', fontSize: 14, opacity: selectedYear >= currentYear ? 0.4 : 1 }}
+                >›</button>
               </div>
             </div>
             <div className="bs-card-body">
-              {/* Simple CSS bar chart */}
-              {(() => {
-                const months = [
-                  { label: 'T10', value: 68 },
-                  { label: 'T11', value: 74 },
-                  { label: 'T12', value: 80 },
-                  { label: 'T1', value: 72 },
-                  { label: 'T2', value: 85 },
-                  { label: 'T3', value: 92 },
-                ];
-                const max = Math.max(...months.map((m) => m.value));
+              {revenueLoading ? (
+                <div style={{ height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', border: '3px solid #e5e7eb', borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite' }} />
+                </div>
+              ) : (() => {
+                const MONTH_LABELS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+                const currentMonth = selectedYear === currentYear ? new Date().getMonth() : 11;
+                // Show last 6 active months
+                const visibleMonths = revenueData
+                  .filter(m => m.month - 1 <= currentMonth)
+                  .slice(-6);
+                const maxVal = Math.max(...visibleMonths.map(m => m.revenue), 1);
+                const bestMonth = visibleMonths.reduce((a, b) => b.revenue > a.revenue ? b : a, visibleMonths[0]);
                 return (
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', height: 150 }}>
-                    {months.map((m, i) => {
-                      const h = (m.value / max) * 130;
-                      const isLast = i === months.length - 1;
-                      return (
-                        <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: isLast ? '#6366f1' : '#9ca3af' }}>
-                            {m.value}M
-                          </span>
-                          <div
-                            style={{
-                              width: '100%',
-                              height: h,
-                              borderRadius: '6px 6px 0 0',
-                              background: isLast
-                                ? 'linear-gradient(180deg,#6366f1,#8b5cf6)'
-                                : 'linear-gradient(180deg,#e0e7ff,#c7d2fe)',
-                              transition: 'height 0.6s ease',
-                              position: 'relative',
-                            }}
-                          />
-                          <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600 }}>{m.label}</span>
+                  <>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 150 }}>
+                      {visibleMonths.map((m) => {
+                        const h = Math.max((m.revenue / maxVal) * 130, m.revenue > 0 ? 4 : 0);
+                        const isBest = m === bestMonth && m.revenue > 0;
+                        const valM = (m.revenue / 1_000_000).toFixed(1).replace(/\.0$/, '');
+                        return (
+                          <div key={m.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: isBest ? '#6366f1' : '#9ca3af' }}>
+                              {m.revenue > 0 ? `${valM}M` : '—'}
+                            </span>
+                            <div
+                              style={{
+                                width: '100%',
+                                height: h || 3,
+                                borderRadius: '6px 6px 0 0',
+                                background: isBest
+                                  ? 'linear-gradient(180deg,#6366f1,#8b5cf6)'
+                                  : m.revenue > 0
+                                  ? 'linear-gradient(180deg,#e0e7ff,#c7d2fe)'
+                                  : '#f3f4f6',
+                                transition: 'height 0.4s ease',
+                              }}
+                            />
+                            <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600 }}>{MONTH_LABELS[m.month - 1]}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div
+                      className="d-flex justify-content-between align-items-center mt-4 pt-3"
+                      style={{ borderTop: '1px solid #f3f4f6' }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 12, color: '#9ca3af' }}>Tổng doanh thu {selectedYear === currentYear ? 'năm nay' : `năm ${selectedYear}`}</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', letterSpacing: -0.5 }}>
+                          {fmt(revenueData.reduce((s, m) => s + m.revenue, 0))}
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+                      <div className="text-end">
+                        <div style={{ fontSize: 12, color: '#9ca3af' }}>Tháng cao nhất</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#6366f1' }}>
+                          {bestMonth && bestMonth.revenue > 0
+                            ? `${(bestMonth.revenue / 1_000_000).toFixed(1).replace(/\.0$/, '')}M₫`
+                            : '—'}
+                        </div>
+                      </div>
+                      <Link
+                        href="/dashboard/hoa-don"
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: 'white',
+                          background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                          padding: '8px 16px',
+                          borderRadius: 8,
+                          textDecoration: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 5,
+                        }}
+                      >
+                        Chi tiết <i className="bi bi-arrow-right" />
+                      </Link>
+                    </div>
+                  </>
                 );
               })()}
-
-              <div
-                className="d-flex justify-content-between align-items-center mt-4 pt-3"
-                style={{ borderTop: '1px solid #f3f4f6' }}
-              >
-                <div>
-                  <div style={{ fontSize: 12, color: '#9ca3af' }}>Tổng doanh thu năm</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', letterSpacing: -0.5 }}>
-                    {fmt(stats.doanhThuNam)}
-                  </div>
-                </div>
-                <div className="text-end">
-                  <div style={{ fontSize: 12, color: '#9ca3af' }}>Tháng cao nhất</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#6366f1' }}>92M₫</div>
-                </div>
-                <Link
-                  href="/dashboard/hoa-don"
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: 'white',
-                    background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                    padding: '8px 16px',
-                    borderRadius: 8,
-                    textDecoration: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 5,
-                  }}
-                >
-                  Chi tiết <i className="bi bi-arrow-right" />
-                </Link>
-              </div>
             </div>
           </div>
         </div>

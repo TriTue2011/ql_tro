@@ -171,6 +171,7 @@ export interface KhachThueData {
   queQuan: string;
   anhCCCD?: AnhCCCD;
   ngheNghiep?: string;
+  zaloChatId?: string;
   trangThai: TrangThaiKhachThue;
   ngayTao: Date;
   ngayCapNhat: Date;
@@ -197,6 +198,7 @@ export interface UpdateKhachThueInput {
   anhCCCD?: AnhCCCD;
   trangThai?: TrangThaiKhachThue;
   matKhau?: string;
+  zaloChatId?: string;
 }
 
 // ─── HopDong ──────────────────────────────────────────────────
