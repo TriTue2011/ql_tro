@@ -29,6 +29,23 @@ export async function POST() {
         name: 'NguoiDung.pendingZaloChatId',
         sql: `ALTER TABLE "NguoiDung" ADD COLUMN IF NOT EXISTS "pendingZaloChatId" TEXT`,
       },
+      {
+        name: 'ZaloMessage table',
+        sql: `CREATE TABLE IF NOT EXISTS "ZaloMessage" (
+          "id"          TEXT NOT NULL PRIMARY KEY,
+          "chatId"      TEXT NOT NULL,
+          "displayName" TEXT,
+          "content"     TEXT NOT NULL,
+          "role"        TEXT NOT NULL DEFAULT 'user',
+          "eventName"   TEXT,
+          "rawPayload"  JSONB,
+          "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+      },
+      {
+        name: 'ZaloMessage.chatId index',
+        sql: `CREATE INDEX IF NOT EXISTS "ZaloMessage_chatId_createdAt_idx" ON "ZaloMessage"("chatId", "createdAt")`,
+      },
     ];
 
     for (const m of migrations) {

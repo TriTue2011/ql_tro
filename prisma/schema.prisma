@@ -244,6 +244,21 @@ model ThongBaoPhong {
   @@id([thongBaoId, phongId])
 }
 
+// Lịch sử tin nhắn Zalo Bot (webhook inbound + bot outbound)
+model ZaloMessage {
+  id          String   @id @default(cuid())
+  chatId      String   // Zalo ID của người dùng
+  displayName String?  // Tên hiển thị Zalo
+  content     String   // Nội dung tin nhắn
+  role        String   // 'user' | 'bot'
+  eventName   String?  // Loại event Zalo (e.g. "follow", "message")
+  rawPayload  Json?    // Payload gốc từ Zalo (để AI đọc sau)
+  createdAt   DateTime @default(now())
+
+  @@index([chatId, createdAt])
+  @@index([createdAt])
+}
+
 // Cài đặt hệ thống — chỉ admin đọc/ghi qua UI
 model CaiDat {
   id          String   @id @default(cuid())
