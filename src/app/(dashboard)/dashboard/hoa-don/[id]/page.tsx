@@ -548,13 +548,24 @@ export default function ChinhSuaHoaDonPage() {
                   </div>
                 </div>
 
-                <ImageUpload
-                  imageUrl={formData.anhChiSoDien}
-                  onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoDien: url }))}
-                  label="Ảnh đồng hồ điện"
-                  placeholder="Chụp ảnh chỉ số điện"
-                  variant="dien"
-                />
+                {(() => {
+                  const selPhong = phongList.find(p => p.id === (typeof formData.phong === 'string' ? formData.phong : (formData.phong as any)?.id));
+                  const tenToa = (selPhong?.toaNha as any)?.tenToaNha || '';
+                  const thangNam = formData.thang && formData.nam
+                    ? `${formData.nam}-${String(formData.thang).padStart(2, '0')}`
+                    : '';
+                  const uploadFolder = [tenToa, thangNam, selPhong?.maPhong].filter(Boolean).join('/') || undefined;
+                  return (
+                    <ImageUpload
+                      imageUrl={formData.anhChiSoDien}
+                      onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoDien: url }))}
+                      label="Ảnh đồng hồ điện"
+                      placeholder="Chụp ảnh chỉ số điện"
+                      variant="dien"
+                      folder={uploadFolder}
+                    />
+                  );
+                })()}
               </TabsContent>
 
               <TabsContent value="nuoc" className="space-y-4 mt-6">
@@ -614,13 +625,24 @@ export default function ChinhSuaHoaDonPage() {
                   </div>
                 </div>
 
-                <ImageUpload
-                  imageUrl={formData.anhChiSoNuoc}
-                  onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoNuoc: url }))}
-                  label="Ảnh đồng hồ nước"
-                  placeholder="Chụp ảnh chỉ số nước"
-                  variant="nuoc"
-                />
+                {(() => {
+                  const selPhong = phongList.find(p => p.id === (typeof formData.phong === 'string' ? formData.phong : (formData.phong as any)?.id));
+                  const tenToa = (selPhong?.toaNha as any)?.tenToaNha || '';
+                  const thangNam = formData.thang && formData.nam
+                    ? `${formData.nam}-${String(formData.thang).padStart(2, '0')}`
+                    : '';
+                  const uploadFolder = [tenToa, thangNam, selPhong?.maPhong].filter(Boolean).join('/') || undefined;
+                  return (
+                    <ImageUpload
+                      imageUrl={formData.anhChiSoNuoc}
+                      onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoNuoc: url }))}
+                      label="Ảnh đồng hồ nước"
+                      placeholder="Chụp ảnh chỉ số nước"
+                      variant="nuoc"
+                      folder={uploadFolder}
+                    />
+                  );
+                })()}
               </TabsContent>
 
               <TabsContent value="dich-vu" className="space-y-4 mt-6">

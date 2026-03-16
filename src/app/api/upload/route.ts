@@ -67,6 +67,9 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    // folder tùy chọn: toa/thang/phong — sanitize thực tế trong storage.ts
+    const folderRaw = formData.get('folder') as string | null;
+    const folder = folderRaw?.slice(0, 200).replace(/\.\./g, '') || undefined;
 
     if (!file) {
       return NextResponse.json(
@@ -109,7 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Tự động chọn provider: cloudinary | minio | local (theo STORAGE_PROVIDER)
-    const result = await uploadFile(file);
+    const result = await uploadFile(file, folder);
 
     return NextResponse.json({
       success: true,

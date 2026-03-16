@@ -1030,6 +1030,11 @@ function PhongForm({
               onImagesChange={(images: string[]) => setFormData(prev => ({ ...prev, anhPhong: images }))}
               maxImages={10}
               className="w-full"
+              folder={[
+                toaNhaList.find(t => t.id === formData.toaNha)?.tenToaNha || formData.toaNha,
+                'phong',
+                formData.maPhong,
+              ].filter(Boolean).join('/')}
             />
           </div>
         </TabsContent>

@@ -12,13 +12,15 @@ interface SuCoImageUploadProps {
   onImagesChange: (images: string[]) => void;
   className?: string;
   maxImages?: number;
+  folder?: string;
 }
 
-export function SuCoImageUpload({ 
-  images, 
-  onImagesChange, 
+export function SuCoImageUpload({
+  images,
+  onImagesChange,
   className = '',
-  maxImages = 5
+  maxImages = 5,
+  folder,
 }: SuCoImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +50,7 @@ export function SuCoImageUpload({
       const uploadPromises = newFiles.map(async (file) => {
         const formData = new FormData();
         formData.append('file', file);
+        if (folder) formData.append('folder', folder);
 
         const response = await fetch('/api/upload', {
           method: 'POST',

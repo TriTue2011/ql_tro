@@ -877,20 +877,35 @@ export default function ThemMoiHoaDonPage() {
 
                 {/* Ảnh chỉ số đồng hồ */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <ImageUpload
-                    imageUrl={formData.anhChiSoDien}
-                    onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoDien: url }))}
-                    label="Ảnh đồng hồ điện"
-                    placeholder="Chụp ảnh chỉ số điện"
-                    variant="dien"
-                  />
-                  <ImageUpload
-                    imageUrl={formData.anhChiSoNuoc}
-                    onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoNuoc: url }))}
-                    label="Ảnh đồng hồ nước"
-                    placeholder="Chụp ảnh chỉ số nước"
-                    variant="nuoc"
-                  />
+                  {(() => {
+                    const selPhong = phongList.find(p => p.id === formData.phong);
+                    const tenToa = (selPhong?.toaNha as any)?.tenToaNha || '';
+                    const thangNam = formData.thang && formData.nam
+                      ? `${formData.nam}-${String(formData.thang).padStart(2, '0')}`
+                      : '';
+                    const maPhong = selPhong?.maPhong || '';
+                    const folder = [tenToa, thangNam, maPhong].filter(Boolean).join('/') || undefined;
+                    return (
+                      <>
+                        <ImageUpload
+                          imageUrl={formData.anhChiSoDien}
+                          onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoDien: url }))}
+                          label="Ảnh đồng hồ điện"
+                          placeholder="Chụp ảnh chỉ số điện"
+                          variant="dien"
+                          folder={folder}
+                        />
+                        <ImageUpload
+                          imageUrl={formData.anhChiSoNuoc}
+                          onImageChange={(url) => setFormData(prev => ({ ...prev, anhChiSoNuoc: url }))}
+                          label="Ảnh đồng hồ nước"
+                          placeholder="Chụp ảnh chỉ số nước"
+                          variant="nuoc"
+                          folder={folder}
+                        />
+                      </>
+                    );
+                  })()}
                 </div>
               </TabsContent>
 
