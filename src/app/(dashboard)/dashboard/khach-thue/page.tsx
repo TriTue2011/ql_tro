@@ -49,6 +49,7 @@ import { KhachThueDataTable } from './table';
 import { CCCDUpload } from '@/components/ui/cccd-upload';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
 export default function KhachThuePage() {
@@ -509,6 +510,7 @@ function KhachThueForm({
     ngheNghiep: khachThue?.ngheNghiep || '',
     matKhau: '',
     zaloChatId: khachThue?.zaloChatId || '',
+    nhanThongBaoZalo: khachThue?.nhanThongBaoZalo ?? false,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -753,6 +755,16 @@ function KhachThueForm({
               <p className="text-[10px] text-muted-foreground">
                 Chat ID lấy từ bot Zalo khi khách thuê nhắn tin cho bot. Khớp với số điện thoại: <strong>{khachThue.soDienThoai}</strong>
               </p>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-md border">
+              <div className="space-y-0.5">
+                <Label className="text-xs md:text-sm">Gửi thông báo Zalo</Label>
+                <p className="text-[10px] text-muted-foreground">Bật để hệ thống gửi tin nhắn Zalo cho khách thuê này</p>
+              </div>
+              <Switch
+                checked={formData.nhanThongBaoZalo}
+                onCheckedChange={(v) => setFormData(prev => ({ ...prev, nhanThongBaoZalo: v }))}
+              />
             </div>
           </TabsContent>
         )}

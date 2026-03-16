@@ -79,14 +79,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Chỉ admin và chuNha được phép thay đổi Zalo Chat ID
-    const canUpdateZalo = ['admin', 'chuNha'].includes(existingUser.vaiTro);
-
     const updatedUser = await repo.update(existingUser.id, {
       ten: ten ? sanitizeText(ten) : undefined,
       soDienThoai,
       anhDaiDien: anhDaiDien ?? undefined,
-      ...(canUpdateZalo && zaloChatId !== undefined && { zaloChatId: sanitizeText(zaloChatId) }),
+      ...(zaloChatId !== undefined && { zaloChatId: sanitizeText(zaloChatId) }),
     });
 
     if (!updatedUser) {

@@ -26,24 +26,31 @@ async function getZaloToken(): Promise<string | null> {
   }
 }
 
-/** Tra cứu zaloChatId của khách thuê từ số điện thoại */
-async function resolveChatIdKhachThue(phone: string): Promise<string | null> {
+/** Tra cứu zaloChatId của khách thuê từ số điện thoại (chỉ khi bật nhận thông báo) */
+async function resolveChatIdKhachThue(phone: string): Promise<{ chatId: string | null; disabled?: boolean }> {
   try {
     const repo = await getKhachThueRepo();
     const kt = await repo.findBySoDienThoai(phone);
-    return kt?.zaloChatId ?? null;
+    if (!kt) return { chatId: null };
+    if (!kt.nhanThongBaoZalo) return { chatId: null, disabled: true };
+    return { chatId: kt.zaloChatId ?? null };
   } catch {
-    return null;
+    return { chatId: null };
   }
 }
 
-/** Tra cứu zaloChatId của NguoiDung (chủ trọ/admin) từ ID */
-async function resolveChatIdNguoiDung(nguoiDungId: string): Promise<string | null> {
+/** Tra cứu zaloChatId của NguoiDung (chủ trọ/admin/nhân viên) từ ID */
+async function resolveChatIdNguoiDung(nguoiDungId: string): Promise<{ chatId: string | null; disabled?: boolean }> {
   try {
-    const nd = await prisma.nguoiDung.findUnique({ where: { id: nguoiDungId }, select: { zaloChatId: true } });
-    return nd?.zaloChatId ?? null;
+    const nd = await prisma.nguoiDung.findUnique({
+      where: { id: nguoiDungId },
+      select: { zaloChatId: true, nhanThongBaoZalo: true },
+    });
+    if (!nd) return { chatId: null };
+    if (!nd.nhanThongBaoZalo) return { chatId: null, disabled: true };
+    return { chatId: nd.zaloChatId ?? null };
   } catch {
-    return null;
+    return { chatId: null };
   }
 }
 
@@ -99,7 +106,14 @@ export async function POST(request: NextRequest) {
     // Resolve chat_id theo thứ tự ưu tiên: trực tiếp → khách thuê theo SĐT → người dùng theo ID
     let chatId = explicitChatId ?? null;
     if (!chatId && phone) {
-      chatId = await resolveChatIdKhachThue(phone);
+      const result = await resolveChatIdKhachThue(phone);
+      if (result.disabled) {
+        return NextResponse.json(
+          { success: false, message: `Khách thuê số ${phone} đã tắt nhận thông báo Zalo.` },
+          { status: 422 }
+        );
+      }
+      chatId = result.chatId;
       if (!chatId) {
         return NextResponse.json(
           { success: false, message: `Chưa liên kết Zalo Chat ID cho số ${phone}. Vui lòng cập nhật trong hồ sơ khách thuê.` },
@@ -108,7 +122,14 @@ export async function POST(request: NextRequest) {
       }
     }
     if (!chatId && nguoiDungId) {
-      chatId = await resolveChatIdNguoiDung(nguoiDungId);
+      const result = await resolveChatIdNguoiDung(nguoiDungId);
+      if (result.disabled) {
+        return NextResponse.json(
+          { success: false, message: `Người dùng đã tắt nhận thông báo Zalo.` },
+          { status: 422 }
+        );
+      }
+      chatId = result.chatId;
       if (!chatId) {
         return NextResponse.json(
           { success: false, message: `Người dùng chưa liên kết Zalo Chat ID. Vui lòng cập nhật trong hồ sơ.` },

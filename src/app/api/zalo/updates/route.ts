@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getKhachThueRepo } from '@/lib/repositories';
+import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 import prisma from '@/lib/prisma';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
@@ -116,6 +117,37 @@ async function detectAndStorePending(update: any): Promise<{ detected: number; d
   };
 }
 
+async function detectNguoiDungPending(update: any): Promise<void> {
+  const msg = update?.message;
+  if (!msg?.from?.id) return;
+
+  const chatId = String(msg.from.id);
+  const displayName: string = msg.from.display_name || '';
+  if (!displayName) return;
+
+  try {
+    const repo = new NguoiDungRepository();
+    const all = await repo.findMany({ limit: 100 });
+    const normalizedSender = normalizeName(displayName);
+
+    const matched = all.data.find(nd => {
+      const normalizedNd = normalizeName(nd.ten);
+      const lastWord = normalizedNd.split(' ').pop() ?? '';
+      return normalizedNd === normalizedSender ||
+        normalizedSender.includes(lastWord) ||
+        normalizedNd.includes(normalizedSender);
+    });
+
+    if (!matched) return;
+    if (matched.zaloChatId === chatId) return;
+    if (matched.pendingZaloChatId === chatId) return;
+
+    await repo.update(matched.id, { pendingZaloChatId: chatId });
+  } catch (err) {
+    console.error('[zalo/updates] detectNguoiDungPending error:', err);
+  }
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -190,9 +222,10 @@ export async function GET() {
 
     // ── Xử lý kết quả ────────────────────────────────────────────────────────
     const update = data?.result ?? null;
-    const pendingInfo = update?.message
-      ? await detectAndStorePending(update)
-      : { detected: 0, details: [] };
+    const [pendingInfo] = await Promise.all([
+      update?.message ? detectAndStorePending(update) : Promise.resolve({ detected: 0, details: [] }),
+      update?.message ? detectNguoiDungPending(update) : Promise.resolve(),
+    ]);
 
     return NextResponse.json({
       success: true,

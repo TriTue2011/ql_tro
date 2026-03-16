@@ -23,6 +23,7 @@ function normalize(raw: any): KhachThueData {
     ngheNghiep: raw.ngheNghiep ?? undefined,
     zaloChatId: raw.zaloChatId ?? undefined,
     pendingZaloChatId: raw.pendingZaloChatId ?? undefined,
+    nhanThongBaoZalo: raw.nhanThongBaoZalo ?? false,
     trangThai: raw.trangThai as TrangThaiKhachThue,
     ngayTao: raw.ngayTao,
     ngayCapNhat: raw.ngayCapNhat,
@@ -105,6 +106,7 @@ export default class KhachThueRepository {
           ...(data.matKhau !== undefined && { matKhau: data.matKhau }),
           ...(data.zaloChatId !== undefined && { zaloChatId: data.zaloChatId }),
           ...(data.pendingZaloChatId !== undefined && { pendingZaloChatId: data.pendingZaloChatId }),
+          ...(data.nhanThongBaoZalo !== undefined && { nhanThongBaoZalo: data.nhanThongBaoZalo }),
         },
       });
       return normalize(raw);
