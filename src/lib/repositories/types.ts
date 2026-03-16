@@ -63,7 +63,7 @@ export interface DiaChi {
   soNha: string;
   duong: string;
   phuong: string;
-  quan: string;
+  quan?: string; // đã bãi bỏ từ 1/7/2025, giữ optional để tương thích dữ liệu cũ
   thanhPho: string;
 }
 
