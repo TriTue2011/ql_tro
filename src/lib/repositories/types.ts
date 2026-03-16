@@ -189,6 +189,7 @@ export interface KhachThueData {
   zaloChatId?: string;
   pendingZaloChatId?: string;
   nhanThongBaoZalo: boolean;
+  hasMatKhau: boolean;
   trangThai: TrangThaiKhachThue;
   ngayTao: Date;
   ngayCapNhat: Date;

@@ -290,7 +290,7 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
     header: "Tài khoản",
     cell: ({ row }) => {
       const khachThue = row.original as any;
-      const hasPassword = !!khachThue.matKhau;
+      const hasPassword = !!khachThue.hasMatKhau;
       
       return (
         <div className="flex items-center gap-2">

@@ -719,6 +719,68 @@ function PhongForm({
     trangThai: phong?.trangThai || 'trong',
   });
 
+  // Khách thuê hiện tại
+  const currentHopDong = (phong as any)?.hopDong?.find((h: any) => h.trangThai === 'hoatDong');
+  const currentKhachThueName = currentHopDong?.khachThue?.map((k: any) => k.hoTen).join(', ') || '';
+  const [availableKhachThue, setAvailableKhachThue] = useState<{ id: string; hoTen: string; soDienThoai: string }[]>([]);
+  const [selectedKhachThueId, setSelectedKhachThueId] = useState('');
+  const [assigningKhachThue, setAssigningKhachThue] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/khach-thue?limit=200')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          setAvailableKhachThue(d.data
+            .filter((k: any) => k.trangThai === 'chuaThue')
+            .map((k: any) => ({ id: k.id, hoTen: k.hoTen, soDienThoai: k.soDienThoai })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleAssignKhachThue() {
+    if (!selectedKhachThueId || !phong) return;
+    setAssigningKhachThue(true);
+    try {
+      const res = await fetch(`/api/phong/${phong.id}/thue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ khachThueId: selectedKhachThueId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Đã gán khách thuê vào phòng! Hợp đồng tối giản đã được tạo.');
+        onSuccess();
+      } else {
+        toast.error(data.message || 'Không thể gán');
+      }
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setAssigningKhachThue(false);
+    }
+  }
+
+  async function handleUnassignKhachThue() {
+    if (!phong) return;
+    setAssigningKhachThue(true);
+    try {
+      const res = await fetch(`/api/phong/${phong.id}/thue`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Đã hủy gán khách thuê');
+        onSuccess();
+      } else {
+        toast.error(data.message || 'Không thể hủy gán');
+      }
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setAssigningKhachThue(false);
+    }
+  }
+
   // Cập nhật formData khi phong thay đổi
   useEffect(() => {
     if (phong) {
@@ -1037,6 +1099,47 @@ function PhongForm({
               ].filter(Boolean).join('/')}
             />
           </div>
+
+          {/* ── Gán khách thuê ── */}
+          {phong && (
+            <div className="space-y-2 border-t pt-4">
+              <Label className="text-xs md:text-sm font-medium flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" />
+                Khách thuê hiện tại
+              </Label>
+              {currentKhachThueName ? (
+                <div className="flex items-center justify-between rounded-md border bg-green-50 px-3 py-2">
+                  <span className="text-sm font-medium text-green-800">{currentKhachThueName}</span>
+                  <Button type="button" size="sm" variant="outline"
+                    className="h-7 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                    disabled={assigningKhachThue} onClick={handleUnassignKhachThue}>
+                    {assigningKhachThue ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Hủy gán'}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Select value={selectedKhachThueId} onValueChange={setSelectedKhachThueId}>
+                    <SelectTrigger className="text-sm flex-1">
+                      <SelectValue placeholder="Chọn khách thuê..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableKhachThue.length === 0 ? (
+                        <SelectItem value="_none" disabled>Không có khách thuê chưa thuê</SelectItem>
+                      ) : availableKhachThue.map(k => (
+                        <SelectItem key={k.id} value={k.id}>
+                          {k.hoTen} — {k.soDienThoai}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" size="sm" disabled={!selectedKhachThueId || assigningKhachThue} onClick={handleAssignKhachThue}>
+                    {assigningKhachThue ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Gán'}
+                  </Button>
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground">Gán sẽ tạo hợp đồng tối giản. Có thể chỉnh sửa trong mục Hợp đồng.</p>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

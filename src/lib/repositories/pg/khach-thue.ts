@@ -24,6 +24,7 @@ function normalize(raw: any): KhachThueData {
     zaloChatId: raw.zaloChatId ?? undefined,
     pendingZaloChatId: raw.pendingZaloChatId ?? undefined,
     nhanThongBaoZalo: raw.nhanThongBaoZalo ?? false,
+    hasMatKhau: !!raw.matKhau,
     trangThai: raw.trangThai as TrangThaiKhachThue,
     ngayTao: raw.ngayTao,
     ngayCapNhat: raw.ngayCapNhat,

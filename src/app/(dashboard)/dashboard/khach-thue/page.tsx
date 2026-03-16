@@ -513,6 +513,72 @@ function KhachThueForm({
     nhanThongBaoZalo: khachThue?.nhanThongBaoZalo ?? false,
   });
 
+  // Phòng đang thuê
+  const currentPhongId = (khachThue as any)?.hopDongHienTai?.phong?.id || '';
+  const currentPhongName = (khachThue as any)?.hopDongHienTai?.phong
+    ? `${(khachThue as any).hopDongHienTai.phong.maPhong}${(khachThue as any).hopDongHienTai.phong.toaNha?.tenToaNha ? ' — ' + (khachThue as any).hopDongHienTai.phong.toaNha.tenToaNha : ''}`
+    : '';
+  const [availablePhong, setAvailablePhong] = useState<{ id: string; maPhong: string; tenToaNha: string }[]>([]);
+  const [selectedPhongId, setSelectedPhongId] = useState('');
+  const [assigningPhong, setAssigningPhong] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/phong?trangThai=trong')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          setAvailablePhong(d.data.map((p: any) => ({
+            id: p.id,
+            maPhong: p.maPhong,
+            tenToaNha: typeof p.toaNha === 'object' ? p.toaNha?.tenToaNha || '' : '',
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleAssignPhong() {
+    if (!selectedPhongId || !khachThue) return;
+    setAssigningPhong(true);
+    try {
+      const res = await fetch(`/api/phong/${selectedPhongId}/thue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ khachThueId: khachThue.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Đã gán phòng thành công! Hợp đồng tối giản đã được tạo.');
+        onSuccess();
+      } else {
+        toast.error(data.message || 'Không thể gán phòng');
+      }
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setAssigningPhong(false);
+    }
+  }
+
+  async function handleUnassignPhong() {
+    if (!currentPhongId) return;
+    setAssigningPhong(true);
+    try {
+      const res = await fetch(`/api/phong/${currentPhongId}/thue`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Đã hủy gán phòng');
+        onSuccess();
+      } else {
+        toast.error(data.message || 'Không thể hủy gán');
+      }
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setAssigningPhong(false);
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -682,16 +748,92 @@ function KhachThueForm({
               type="password"
               value={formData.matKhau}
               onChange={(e) => setFormData(prev => ({ ...prev, matKhau: e.target.value }))}
-              placeholder={khachThue && khachThue.matKhau ? "Để trống nếu không muốn thay đổi" : "Nhập mật khẩu (tối thiểu 6 ký tự)"}
+              placeholder={khachThue && (khachThue as any).hasMatKhau ? "Để trống nếu không muốn thay đổi" : "Nhập mật khẩu (tối thiểu 6 ký tự)"}
               className="text-sm"
             />
-            <p className="text-[10px] md:text-xs text-muted-foreground">
-              {khachThue && khachThue.matKhau 
-                ? "Khách thuê đã có tài khoản đăng nhập. Để trống nếu không muốn thay đổi mật khẩu."
-                : "Tạo mật khẩu để khách thuê có thể đăng nhập vào hệ thống."
+            {/* Password strength indicator */}
+            {(() => {
+              const pw = formData.matKhau;
+              const hasAccount = khachThue && (khachThue as any).hasMatKhau;
+              if (!pw) {
+                if (hasAccount) {
+                  return <p className="text-[10px] md:text-xs text-muted-foreground">Khách thuê đã có tài khoản đăng nhập. Để trống nếu không muốn thay đổi mật khẩu.</p>;
+                }
+                return (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-500">Chưa tạo</span>
+                    <span className="text-[10px] text-muted-foreground">Tạo mật khẩu để khách thuê có thể đăng nhập.</span>
+                  </div>
+                );
               }
-            </p>
+              const hasLower = /[a-z]/.test(pw);
+              const hasUpper = /[A-Z]/.test(pw);
+              const hasDigit = /[0-9]/.test(pw);
+              const hasSymbol = /[^a-zA-Z0-9]/.test(pw);
+              const variety = [hasLower, hasUpper, hasDigit, hasSymbol].filter(Boolean).length;
+              let level: 'weak' | 'medium' | 'strong';
+              if (pw.length < 8 || variety < 2) level = 'weak';
+              else if (pw.length < 12 || variety < 3) level = 'medium';
+              else level = 'strong';
+              const cfg = {
+                weak:   { label: 'Yếu',       bg: 'bg-red-100',    text: 'text-red-600',    bar: 'bg-red-500',    w: 'w-1/3' },
+                medium: { label: 'Trung bình', bg: 'bg-yellow-100', text: 'text-yellow-700', bar: 'bg-yellow-500', w: 'w-2/3' },
+                strong: { label: 'Mạnh',       bg: 'bg-green-100',  text: 'text-green-700',  bar: 'bg-green-500',  w: 'w-full' },
+              }[level];
+              return (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{pw.length} ký tự</span>
+                  </div>
+                  <div className="h-1 w-full rounded-full bg-gray-100">
+                    <div className={`h-1 rounded-full transition-all ${cfg.bar} ${cfg.w}`} />
+                  </div>
+                </div>
+              );
+            })()}
           </div>
+
+          {/* ── Gán phòng ── */}
+          {khachThue && (
+            <div className="space-y-2 border-t pt-4">
+              <Label className="text-xs md:text-sm font-medium flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" />
+                Phòng đang thuê
+              </Label>
+              {currentPhongId ? (
+                <div className="flex items-center justify-between rounded-md border bg-green-50 px-3 py-2">
+                  <span className="text-sm font-medium text-green-800">{currentPhongName}</span>
+                  <Button type="button" size="sm" variant="outline"
+                    className="h-7 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                    disabled={assigningPhong} onClick={handleUnassignPhong}>
+                    {assigningPhong ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Hủy gán'}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Select value={selectedPhongId} onValueChange={setSelectedPhongId}>
+                    <SelectTrigger className="text-sm flex-1">
+                      <SelectValue placeholder="Chọn phòng trống..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availablePhong.length === 0 ? (
+                        <SelectItem value="_none" disabled>Không có phòng trống</SelectItem>
+                      ) : availablePhong.map(p => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.maPhong}{p.tenToaNha ? ` — ${p.tenToaNha}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" size="sm" disabled={!selectedPhongId || assigningPhong} onClick={handleAssignPhong}>
+                    {assigningPhong ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Gán phòng'}
+                  </Button>
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground">Gán phòng sẽ tạo hợp đồng tối giản. Có thể chỉnh sửa trong mục Hợp đồng.</p>
+            </div>
+          )}
         </TabsContent>
         
         <TabsContent value="anh-cccd" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
