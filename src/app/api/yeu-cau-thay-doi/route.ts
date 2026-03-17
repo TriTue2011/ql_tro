@@ -78,11 +78,23 @@ export async function PUT(request: NextRequest) {
     const sau = noiDung?.sau ?? {};
 
     if (yeuCau.loai === 'thongTin') {
+      // Nếu SĐT thay đổi, kiểm tra không trùng với người khác
+      if (sau.soDienThoai && sau.soDienThoai !== yeuCau.khachThue.soDienThoai) {
+        const existing = await prisma.khachThue.findFirst({
+          where: { soDienThoai: sau.soDienThoai, id: { not: yeuCau.khachThueId } },
+        });
+        if (existing) {
+          return NextResponse.json({ success: false, message: 'Số điện thoại đã được dùng bởi tài khoản khác' }, { status: 400 });
+        }
+      }
       await prisma.khachThue.update({
         where: { id: yeuCau.khachThueId },
         data: {
           ...(sau.hoTen && { hoTen: sau.hoTen }),
+          // SĐT = tài khoản đăng nhập → cập nhật luôn khi được duyệt
+          ...(sau.soDienThoai && { soDienThoai: sau.soDienThoai }),
           ...(sau.email !== undefined && { email: sau.email }),
+          ...(sau.cccd && { cccd: sau.cccd }),
           ...(sau.queQuan && { queQuan: sau.queQuan }),
           ...(sau.ngheNghiep !== undefined && { ngheNghiep: sau.ngheNghiep }),
           ...(sau.gioiTinh && { gioiTinh: sau.gioiTinh }),
