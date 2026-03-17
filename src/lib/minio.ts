@@ -24,6 +24,38 @@ function getEnvConfig(): MinioConfig {
   };
 }
 
+/** Parse endpoint URL → tách hostname, port, useSSL
+ *  Nhận cả 2 dạng: "localhost" hoặc "http://localhost:9000"
+ */
+function parseEndpoint(raw: string, fallbackPort: number, fallbackSSL: boolean): { endpoint: string; port: number; useSSL: boolean } {
+  const s = raw.trim();
+  if (!s) return { endpoint: 'localhost', port: fallbackPort, useSSL: fallbackSSL };
+
+  // Nếu có protocol (http:// hoặc https://) → parse như URL
+  if (s.startsWith('http://') || s.startsWith('https://')) {
+    try {
+      const url = new URL(s);
+      return {
+        endpoint: url.hostname,
+        port: url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80),
+        useSSL: url.protocol === 'https:',
+      };
+    } catch {
+      // URL không hợp lệ, fallback
+    }
+  }
+
+  // Dạng "hostname:port" hoặc chỉ "hostname"
+  const colonIdx = s.lastIndexOf(':');
+  if (colonIdx > 0) {
+    const host = s.slice(0, colonIdx);
+    const port = parseInt(s.slice(colonIdx + 1));
+    return { endpoint: host, port: isNaN(port) ? fallbackPort : port, useSSL: fallbackSSL };
+  }
+
+  return { endpoint: s, port: fallbackPort, useSSL: fallbackSSL };
+}
+
 /** Đọc cấu hình MinIO từ DB (CaiDat), fallback env vars. Cache 30s. */
 export async function getMinioConfig(): Promise<MinioConfig> {
   if (_dbConfig && Date.now() < _cacheExpiry) return _dbConfig;
@@ -34,10 +66,15 @@ export async function getMinioConfig(): Promise<MinioConfig> {
     const settings = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
     const get = (key: string) => settings.find((s) => s.khoa === key)?.giaTri ?? '';
 
+    const endpointRaw = get('minio_endpoint');
+    const { endpoint, port, useSSL } = endpointRaw
+      ? parseEndpoint(endpointRaw, env.port, env.useSSL)
+      : { endpoint: env.endpoint, port: env.port, useSSL: env.useSSL };
+
     _dbConfig = {
-      endpoint: get('minio_endpoint') || env.endpoint,
-      port: env.port,
-      useSSL: env.useSSL,
+      endpoint,
+      port,
+      useSSL,
       accessKey: get('minio_access_key') || env.accessKey,
       secretKey: get('minio_secret_key') || env.secretKey,
       bucket: get('minio_bucket') || env.bucket,
