@@ -85,20 +85,29 @@ async function detectAndStorePending(update: any): Promise<void> {
   }
 }
 
+/** GET: Zalo gọi để xác minh webhook URL còn hoạt động */
+export async function GET(request: NextRequest) {
+  // Một số webhook platform gửi challenge query param để verify
+  const challenge = request.nextUrl.searchParams.get('challenge');
+  if (challenge) {
+    return new NextResponse(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } });
+  }
+  return NextResponse.json({ ok: true, endpoint: 'zalo-webhook' });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const secret = await getWebhookSecret();
     const headerSecret = request.headers.get('X-Bot-Api-Secret-Token');
 
-    if (!secret) {
-      console.warn('[zalo/webhook] zalo_webhook_secret chưa được cấu hình');
-      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 503 });
+    // Nếu đã cấu hình secret thì bắt buộc header phải khớp
+    if (secret) {
+      if (!headerSecret || headerSecret !== secret) {
+        console.warn('[zalo/webhook] X-Bot-Api-Secret-Token không hợp lệ');
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
-
-    if (!headerSecret || headerSecret !== secret) {
-      console.warn('[zalo/webhook] X-Bot-Api-Secret-Token không hợp lệ');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Nếu chưa cấu hình secret → chấp nhận tất cả (mode setup ban đầu)
 
     let body: any;
     try {
