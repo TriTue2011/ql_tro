@@ -33,7 +33,6 @@ const navItems = [
   { label: 'Hóa đơn',        href: '/khach-thue/dashboard/hoa-don',            icon: 'bi-receipt' },
   { label: 'Hợp đồng',       href: '/khach-thue/dashboard/hop-dong',           icon: 'bi-file-earmark-text' },
   { label: 'Sự cố',          href: '/khach-thue/dashboard/su-co',              icon: 'bi-exclamation-triangle' },
-  { label: 'Người cùng phòng', href: '/khach-thue/dashboard/nguoi-cung-phong', icon: 'bi-people' },
   { label: 'Cài đặt',        href: '/khach-thue/dashboard/cai-dat',            icon: 'bi-gear' },
 ];
 

@@ -343,23 +343,28 @@ export default function KhachThueDashboardPage() {
               <i className="bi bi-lightning-fill me-2" style={{ color: '#6366f1' }} />
               Thao tác nhanh
             </h6>
-            <div className="d-flex flex-column gap-2">
-              <Link href="/khach-thue/dashboard/hoa-don" className="bs-quick-btn">
-                <i className="bi bi-receipt" />
-                <span>Xem hóa đơn</span>
-              </Link>
-              <Link href="/khach-thue/dashboard/su-co" className="bs-quick-btn">
-                <i className="bi bi-exclamation-triangle" />
-                <span>Báo sự cố</span>
-              </Link>
-              <Link href="/khach-thue/dashboard/hop-dong" className="bs-quick-btn">
-                <i className="bi bi-file-earmark-text" />
-                <span>Hợp đồng</span>
-              </Link>
-              <Link href="/khach-thue/dashboard/cai-dat" className="bs-quick-btn">
-                <i className="bi bi-gear" />
-                <span>Cài đặt</span>
-              </Link>
+            <div className="row g-2">
+              {[
+                { href: '/khach-thue/dashboard/hoa-don',    icon: 'bi-receipt',               label: 'Hóa đơn',  color: '#6366f1' },
+                { href: '/khach-thue/dashboard/su-co',      icon: 'bi-exclamation-triangle',  label: 'Sự cố',    color: '#f59e0b' },
+                { href: '/khach-thue/dashboard/hop-dong',   icon: 'bi-file-earmark-text',     label: 'Hợp đồng', color: '#10b981' },
+                { href: '/khach-thue/dashboard/thong-bao',  icon: 'bi-bell',                  label: 'Thông báo', color: '#06b6d4' },
+                { href: '/khach-thue/dashboard/nguoi-cung-phong', icon: 'bi-people',          label: 'Cùng phòng', color: '#8b5cf6' },
+                { href: '/khach-thue/dashboard/cai-dat',    icon: 'bi-gear',                  label: 'Cài đặt', color: '#6b7280' },
+              ].map(item => (
+                <div key={item.href} className="col-4">
+                  <Link
+                    href={item.href}
+                    className="d-flex flex-column align-items-center justify-content-center gap-1 rounded-3 text-decoration-none p-2"
+                    style={{ background: '#f9fafb', border: '1px solid #e5e7eb', minHeight: 72, transition: 'background .15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#ede9fe')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '#f9fafb')}
+                  >
+                    <i className={`bi ${item.icon}`} style={{ fontSize: 20, color: item.color }} />
+                    <span style={{ fontSize: 10, color: '#374151', textAlign: 'center', lineHeight: 1.2 }}>{item.label}</span>
+                  </Link>
+                </div>
+              ))}
             </div>
           </div>
         </div>
