@@ -220,6 +220,13 @@ export async function startPolling(): Promise<{ ok: boolean; message: string }> 
   state.lastMessageAt = null;
   state.lastError = null;
 
+  // Lưu vào DB để auto-restart sau khi server reboot
+  prisma.caiDat.upsert({
+    where: { khoa: 'zalo_polling_autostart' },
+    update: { giaTri: 'true' },
+    create: { khoa: 'zalo_polling_autostart', giaTri: 'true' },
+  }).catch(() => {});
+
   // Bắt đầu loop
   scheduleNext(0);
 
@@ -249,6 +256,13 @@ export async function stopPolling(restoreWebhook = false): Promise<{ ok: boolean
       }
     } catch { /* bỏ qua lỗi restore */ }
   }
+
+  // Xóa flag auto-restart
+  prisma.caiDat.upsert({
+    where: { khoa: 'zalo_polling_autostart' },
+    update: { giaTri: 'false' },
+    create: { khoa: 'zalo_polling_autostart', giaTri: 'false' },
+  }).catch(() => {});
 
   const processed = state.messagesProcessed;
   state.startedAt = null;
