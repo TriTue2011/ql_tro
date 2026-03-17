@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getKhachThueRepo } from '@/lib/repositories';
 import prisma from '@/lib/prisma';
 import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
+import { notifyHomeAssistant } from '@/lib/zalo-message-handler';
 
 function normalizeName(name: string): string {
   return name
@@ -148,11 +149,12 @@ export async function POST(request: NextRequest) {
 
     const update = body?.result ?? body;
 
-    // Lưu tin nhắn vào DB + phát hiện chat ID + cleanup song song
+    // Lưu tin nhắn vào DB + phát hiện chat ID + cleanup + notify HA song song
     await Promise.all([
       saveMessage(update),
       detectAndStorePending(update),
       cleanupOldMessages(),
+      notifyHomeAssistant(update),
     ]);
 
     return NextResponse.json({ message: 'Success' });
