@@ -38,35 +38,70 @@ function extractAttachmentUrl(msg: any): string | null {
   return null;
 }
 
+/**
+ * Chuẩn hóa payload từ nhiều nguồn thành { chatId, displayName, content, eventName, attachmentUrl }.
+ *
+ * Format hỗ trợ:
+ *   1. Zalo Bot API:   message.from.id + message.text
+ *   2. Zalo OA API:    sender.id + message.text
+ *   3. Bot server (zca-js / multizlogin):
+ *        data.uidFrom + data.dName/fromD + data.content/msg
+ *   4. Bot server alt: uidFrom + dName + content (flat)
+ */
+function normalizeWebhookPayload(update: any): {
+  chatId: string | null;
+  displayName: string;
+  content: string;
+  eventName: string;
+  attachmentUrl: string | null;
+} {
+  const msg = update?.message;
+  const data = update?.data; // bot server (zca-js) wraps in .data
+
+  // chatId
+  const chatId: string | null =
+    msg?.from?.id ? String(msg.from.id) :
+    update?.sender?.id ? String(update.sender.id) :
+    data?.uidFrom ? String(data.uidFrom) :
+    update?.uidFrom ? String(update.uidFrom) : null;
+
+  // displayName
+  const displayName: string =
+    msg?.from?.display_name ||
+    update?.sender?.display_name ||
+    update?.sender?.name ||
+    data?.dName || data?.fromD || data?.displayName ||
+    update?.dName || update?.fromD || '';
+
+  // content
+  const attachmentUrl = extractAttachmentUrl(msg ?? update);
+  const content: string =
+    msg?.text ||
+    update?.message?.text ||
+    msg?.attachments?.[0]?.description ||
+    data?.content || data?.msg ||
+    update?.content || update?.msg ||
+    (attachmentUrl ? '[hình ảnh]' : '[đính kèm]');
+
+  // eventName
+  const eventName: string =
+    update?.event_name || update?.event || update?.type || 'message';
+
+  return { chatId, displayName, content, eventName, attachmentUrl };
+}
+
 async function saveMessage(update: any): Promise<void> {
   try {
-    const msg = update?.message;
-
-    // Hỗ trợ cả 2 format:
-    // Zalo Bot API: message.from.id
-    // Zalo OA API:  sender.id
-    const chatId: string | undefined =
-      msg?.from?.id ? String(msg.from.id) :
-      update?.sender?.id ? String(update.sender.id) : undefined;
+    const { chatId, displayName, content, eventName, attachmentUrl } = normalizeWebhookPayload(update);
 
     if (!chatId) {
       console.warn('[zalo/webhook] Không tìm thấy chatId, raw:', JSON.stringify(update).slice(0, 300));
       return;
     }
 
-    const displayName: string =
-      msg?.from?.display_name ||
-      update?.sender?.display_name ||
-      update?.sender?.name || '';
+    const eventName_compat = eventName; // alias for log below
 
-    const attachmentUrl = extractAttachmentUrl(msg ?? update);
-    const content: string =
-      msg?.text || update?.message?.text ||
-      msg?.attachments?.[0]?.description ||
-      (attachmentUrl ? '[hình ảnh]' : '[đính kèm]');
-    const eventName: string = update?.event_name || 'message';
-
-    console.log(`[zalo/webhook] chatId=${chatId} event=${eventName} content="${content.slice(0,50)}"`);
+    console.log(`[zalo/webhook] chatId=${chatId} event=${eventName_compat} content="${content.slice(0,50)}"`);
 
     const saved = await prisma.zaloMessage.create({
       data: {
@@ -75,7 +110,7 @@ async function saveMessage(update: any): Promise<void> {
         content,
         attachmentUrl,
         role: 'user',
-        eventName,
+        eventName: eventName_compat,
         rawPayload: update as any,
       },
     });
@@ -86,12 +121,8 @@ async function saveMessage(update: any): Promise<void> {
 }
 
 async function detectAndStorePending(update: any): Promise<void> {
-  const msg = update?.message;
-  if (!msg?.from?.id) return;
-
-  const chatId = String(msg.from.id);
-  const displayName: string = msg.from.display_name || '';
-  if (!displayName) return;
+  const { chatId, displayName } = normalizeWebhookPayload(update);
+  if (!chatId || !displayName) return;
 
   try {
     const repo = await getKhachThueRepo();

@@ -21,6 +21,7 @@
 import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
+import { isBotServerMode, sendMessageViaBotServer } from '@/lib/zalo-bot-client';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
@@ -43,6 +44,10 @@ function normalizeName(name: string): string {
 
 async function sendReply(token: string, chatId: string, text: string): Promise<void> {
   try {
+    if (await isBotServerMode()) {
+      await sendMessageViaBotServer(chatId, text);
+      return;
+    }
     await fetch(`${ZALO_API}/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

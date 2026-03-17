@@ -1,8 +1,13 @@
 /**
  * Internal Zalo notification utility — no HTTP session required.
  * Use this from server-side API routes to send Zalo messages.
+ *
+ * Hỗ trợ 2 chế độ (cài đặt zalo_mode):
+ *   "oa"          — Zalo Official Account Bot API (mặc định)
+ *   "bot_server"  — Docker Zalo Bot server (zca-js / web login cá nhân)
  */
 import prisma from '@/lib/prisma';
+import { isBotServerMode, sendMessageViaBotServer } from '@/lib/zalo-bot-client';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
@@ -13,7 +18,8 @@ async function getZaloToken(): Promise<string | null> {
   } catch { return null; }
 }
 
-async function sendText(token: string, chatId: string, text: string) {
+/** Gửi text qua OA Bot API */
+async function sendTextOA(token: string, chatId: string, text: string) {
   const body = { chat_id: chatId, text: text.length > 2000 ? text.slice(0, 1997) + '...' : text };
   return fetch(`${ZALO_API}/bot${token}/sendMessage`, {
     method: 'POST',
@@ -23,19 +29,26 @@ async function sendText(token: string, chatId: string, text: string) {
   }).catch(() => null);
 }
 
+/** Gửi text — tự chọn OA hoặc bot server theo cài đặt zalo_mode */
+async function sendText(chatId: string, text: string): Promise<boolean> {
+  if (await isBotServerMode()) {
+    return sendMessageViaBotServer(chatId, text);
+  }
+  const token = await getZaloToken();
+  if (!token) return false;
+  const res = await sendTextOA(token, chatId, text);
+  return !!res?.ok;
+}
+
 /** Gửi Zalo cho khách thuê theo ID (kiểm tra nhanThongBaoZalo) */
 export async function notifyKhachThue(khachThueId: string, message: string): Promise<void> {
   try {
-    const token = await getZaloToken();
-    if (!token) return;
-
     const kt = await prisma.khachThue.findUnique({
       where: { id: khachThueId },
       select: { zaloChatId: true, nhanThongBaoZalo: true },
     });
-
     if (!kt?.nhanThongBaoZalo || !kt.zaloChatId) return;
-    await sendText(token, kt.zaloChatId, message);
+    await sendText(kt.zaloChatId, message);
   } catch (e) {
     console.error('[zalo] notifyKhachThue error:', e);
   }
@@ -44,9 +57,6 @@ export async function notifyKhachThue(khachThueId: string, message: string): Pro
 /** Gửi Zalo cho chủ trọ và quản lý của 1 tòa nhà */
 export async function notifyAdminsOfToaNha(toaNhaId: string, message: string): Promise<void> {
   try {
-    const token = await getZaloToken();
-    if (!token) return;
-
     const toaNha = await prisma.toaNha.findUnique({
       where: { id: toaNhaId },
       include: {
@@ -56,19 +66,16 @@ export async function notifyAdminsOfToaNha(toaNhaId: string, message: string): P
         },
       },
     });
-
     if (!toaNha) return;
 
-    const targets: (string | null | undefined)[] = [
+    const targets = [
       toaNha.chuSoHuu.nhanThongBaoZalo ? toaNha.chuSoHuu.zaloChatId : null,
       ...toaNha.nguoiQuanLy
         .filter(q => q.nguoiDung.nhanThongBaoZalo)
         .map(q => q.nguoiDung.zaloChatId),
-    ];
+    ].filter((c): c is string => !!c);
 
-    await Promise.allSettled(
-      targets.filter((c): c is string => !!c).map(chatId => sendText(token, chatId, message))
-    );
+    await Promise.allSettled(targets.map(chatId => sendText(chatId, message)));
   } catch (e) {
     console.error('[zalo] notifyAdminsOfToaNha error:', e);
   }
@@ -77,18 +84,14 @@ export async function notifyAdminsOfToaNha(toaNhaId: string, message: string): P
 /** Gửi Zalo cho người đứng hợp đồng của 1 hợp đồng */
 export async function notifyDaiDienHopDong(hopDongId: string, message: string): Promise<void> {
   try {
-    const token = await getZaloToken();
-    if (!token) return;
-
     const hopDong = await prisma.hopDong.findUnique({
       where: { id: hopDongId },
       include: {
         nguoiDaiDien: { select: { id: true, zaloChatId: true, nhanThongBaoZalo: true } },
       },
     });
-
     if (!hopDong?.nguoiDaiDien.nhanThongBaoZalo || !hopDong.nguoiDaiDien.zaloChatId) return;
-    await sendText(token, hopDong.nguoiDaiDien.zaloChatId, message);
+    await sendText(hopDong.nguoiDaiDien.zaloChatId, message);
   } catch (e) {
     console.error('[zalo] notifyDaiDienHopDong error:', e);
   }
