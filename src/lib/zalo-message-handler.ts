@@ -21,6 +21,7 @@
 import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
+import { isBotServerMode, sendMessageViaBotServer } from '@/lib/zalo-bot-client';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
@@ -43,6 +44,10 @@ function normalizeName(name: string): string {
 
 async function sendReply(token: string, chatId: string, text: string): Promise<void> {
   try {
+    if (await isBotServerMode()) {
+      await sendMessageViaBotServer(chatId, text);
+      return;
+    }
     await fetch(`${ZALO_API}/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -246,6 +251,31 @@ async function detectAndStorePending(update: any): Promise<void> {
       await ndRepo.update(matchedNd.id, { pendingZaloChatId: chatId });
     }
   } catch { /* bỏ qua */ }
+}
+
+/**
+ * Forward tin nhắn Zalo đến Home Assistant webhook nếu đã cấu hình ha_zalo_notify_url.
+ * Fire-and-forget — không block xử lý chính.
+ */
+export async function notifyHomeAssistant(update: any): Promise<void> {
+  try {
+    const s = await prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_notify_url' } });
+    const url = s?.giaTri?.trim();
+    if (!url) return;
+
+    const msg = update?.message;
+    const chatId = msg?.from?.id ? String(msg.from.id) : update?.sender?.id ? String(update.sender.id) : null;
+    const displayName = msg?.from?.display_name || update?.sender?.display_name || update?.sender?.name || '';
+    const content = msg?.text || update?.message?.text || '';
+    const eventName = update?.event_name || 'message';
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'ql_tro_zalo', chat_id: chatId, display_name: displayName, message: content, event_name: eventName }),
+      signal: AbortSignal.timeout(8_000),
+    }).catch(() => {/* bỏ qua lỗi forward */});
+  } catch { /* không ảnh hưởng luồng chính */ }
 }
 
 /**

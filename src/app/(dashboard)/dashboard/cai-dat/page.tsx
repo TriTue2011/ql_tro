@@ -41,6 +41,10 @@ import {
   Copy,
   Trash2,
   CreditCard,
+  Smartphone,
+  QrCode,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -551,6 +555,67 @@ export default function CaiDatPage() {
       toast.error('Lỗi kết nối máy chủ');
     } finally {
       setMinioTestLoading(false);
+    }
+  }
+
+  // --- Zalo Bot Server ---
+  const [botStatus, setBotStatus] = useState<any>(null);
+  const [botStatusLoading, setBotStatusLoading] = useState(false);
+  const [botQR, setBotQR] = useState<string | null>(null);
+  const [botQRLoading, setBotQRLoading] = useState(false);
+  const [botWebhookResult, setBotWebhookResult] = useState<any>(null);
+  const [botWebhookLoading, setBotWebhookLoading] = useState(false);
+
+  async function handleBotStatus() {
+    setBotStatusLoading(true);
+    setBotQR(null);
+    try {
+      const res = await fetch('/api/zalo-bot/status');
+      const data = await res.json();
+      setBotStatus(data);
+      if (!data.ok) toast.error(data.error || 'Không kết nối được bot server');
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setBotStatusLoading(false);
+    }
+  }
+
+  async function handleBotQR() {
+    setBotQRLoading(true);
+    setBotQR(null);
+    try {
+      const res = await fetch('/api/zalo-bot/qr', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok && data.qrCode) {
+        setBotQR(data.qrCode);
+      } else {
+        toast.error(data.error || 'Không lấy được QR code');
+      }
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setBotQRLoading(false);
+    }
+  }
+
+  async function handleBotSetWebhook(ownId?: string) {
+    setBotWebhookLoading(true);
+    setBotWebhookResult(null);
+    try {
+      const res = await fetch('/api/zalo-bot/set-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ownId ? { ownId } : {}),
+      });
+      const data = await res.json();
+      setBotWebhookResult(data);
+      if (data.ok) toast.success('Đã cài webhook trên bot server');
+      else toast.error(data.error || 'Cài webhook thất bại');
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setBotWebhookLoading(false);
     }
   }
 
@@ -1075,6 +1140,118 @@ export default function CaiDatPage() {
                 </div>
               </CardContent>
             </Card>
+            {/* ── Zalo Bot Server (zalo_mode=bot_server) ── */}
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Smartphone className="h-4 w-4" />
+                  Zalo Bot Server (Web Login)
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Quản lý Docker bot server chạy trên Home Assistant (cổng 3000).
+                  Dùng khi <code className="bg-gray-100 px-1 rounded">zalo_mode = bot_server</code>.
+                  Lưu các cài đặt <strong>zalo_bot_server_url</strong>, <strong>zalo_bot_username/password</strong> và <strong>zalo_bot_account_id</strong> trước.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-3">
+
+                {/* Kiểm tra kết nối + danh sách tài khoản */}
+                <Button size="sm" variant="outline" onClick={handleBotStatus} disabled={botStatusLoading} className="w-full">
+                  {botStatusLoading
+                    ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    : <Wifi className="h-4 w-4 mr-2" />}
+                  Kiểm tra kết nối & danh sách tài khoản
+                </Button>
+
+                {botStatus && (
+                  <div className={`rounded-md p-3 text-xs space-y-2 border ${botStatus.ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                    <div className="flex items-center gap-1.5 font-medium">
+                      {botStatus.ok
+                        ? <Wifi className="h-3.5 w-3.5 text-green-600" />
+                        : <WifiOff className="h-3.5 w-3.5 text-red-600" />}
+                      <span className={botStatus.ok ? 'text-green-800' : 'text-red-800'}>
+                        {botStatus.ok ? `Kết nối OK — ${botStatus.serverUrl}` : botStatus.error}
+                      </span>
+                    </div>
+                    {botStatus.ok && botStatus.accounts?.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-gray-500 font-medium">Tài khoản đang đăng nhập ({botStatus.accounts.length}):</p>
+                        {botStatus.accounts.map((acc: any, i: number) => {
+                          const id = acc?.id || acc?.ownId || acc?.userId || acc?.uid || JSON.stringify(acc).slice(0, 40);
+                          const name = acc?.name || acc?.displayName || acc?.zaloName || acc?.dName || '';
+                          const isActive = botStatus.accountId && (acc?.id === botStatus.accountId || acc?.ownId === botStatus.accountId);
+                          return (
+                            <div key={i} className={`flex items-center gap-2 p-1.5 rounded ${isActive ? 'bg-green-100 border border-green-300' : 'bg-white border'}`}>
+                              <code className="font-mono text-[10px] text-gray-600 select-all">{id}</code>
+                              {name && <span className="text-gray-700">{name}</span>}
+                              {isActive && <Badge className="text-[9px] h-4 px-1 bg-green-600">đang dùng</Badge>}
+                              <button type="button" title="Sao chép ID"
+                                className="ml-auto text-gray-400 hover:text-blue-600"
+                                onClick={() => { navigator.clipboard.writeText(String(id)); toast.success('Đã sao chép account ID'); }}>
+                                <Copy className="h-3 w-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {botStatus.ok && botStatus.accounts?.length === 0 && (
+                      <p className="text-amber-700">Chưa có tài khoản Zalo nào đăng nhập — hãy quét QR bên dưới.</p>
+                    )}
+                  </div>
+                )}
+
+                {/* QR Code đăng nhập */}
+                <Button size="sm" variant="outline" onClick={handleBotQR} disabled={botQRLoading} className="w-full">
+                  {botQRLoading
+                    ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    : <QrCode className="h-4 w-4 mr-2" />}
+                  Lấy QR code đăng nhập Zalo
+                </Button>
+
+                {botQR && (
+                  <div className="flex flex-col items-center gap-2 p-3 bg-white border rounded-md">
+                    <p className="text-xs text-gray-500">Mở Zalo trên điện thoại → Quét mã QR bên dưới để đăng nhập</p>
+                    {botQR.startsWith('data:image') ? (
+                      <img src={botQR} alt="QR Code Zalo" className="w-48 h-48 border rounded" />
+                    ) : (
+                      <code className="text-[10px] text-gray-600 break-all">{botQR}</code>
+                    )}
+                    <Button size="sm" variant="ghost" className="text-xs"
+                      onClick={() => { setBotQR(null); handleBotQR(); }}>
+                      <RefreshCw className="h-3 w-3 mr-1" /> Làm mới QR
+                    </Button>
+                  </div>
+                )}
+
+                {/* Cài webhook */}
+                <Button size="sm" onClick={() => handleBotSetWebhook()} disabled={botWebhookLoading} className="w-full">
+                  {botWebhookLoading
+                    ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    : <Webhook className="h-4 w-4 mr-2" />}
+                  Cài Webhook trên Bot Server
+                </Button>
+
+                {botWebhookResult && (
+                  <div className={`rounded-md p-3 text-xs space-y-1 border ${botWebhookResult.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                    <div className="flex items-center gap-1.5 font-medium">
+                      {botWebhookResult.ok
+                        ? <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                        : <XCircle className="h-3.5 w-3.5 text-red-600" />}
+                      {botWebhookResult.ok ? 'Webhook đã được cài đặt thành công' : botWebhookResult.error}
+                    </div>
+                    {botWebhookResult.ok && (
+                      <div className="pl-5 space-y-0.5 text-green-700">
+                        <div>Account ID: <code className="font-mono">{botWebhookResult.ownId}</code></div>
+                        <div>Webhook URL: <code className="font-mono break-all">{botWebhookResult.webhookUrl}</code></div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </CardContent>
+            </Card>
+
           </TabsContent>
         )}
 

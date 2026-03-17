@@ -17,6 +17,7 @@ import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
+import { notifyHomeAssistant } from '@/lib/zalo-message-handler';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
@@ -179,7 +180,7 @@ async function pollOnce(): Promise<void> {
       state.messagesProcessed++;
       state.lastMessageAt = new Date();
       state.lastError = null;
-      await Promise.all([saveMessage(update), detectAndStorePending(update), cleanupOldMessages()]);
+      await Promise.all([saveMessage(update), detectAndStorePending(update), cleanupOldMessages(), notifyHomeAssistant(update)]);
       // Có tin → poll ngay (có thể còn tin tiếp trong queue)
       scheduleNext(0);
     } else {
