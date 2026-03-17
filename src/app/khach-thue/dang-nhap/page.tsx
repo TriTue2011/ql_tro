@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,25 +23,17 @@ export default function KhachThueDangNhapPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/khach-thue/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      const result = await signIn('credentials', {
+        emailOrPhone: formData.soDienThoai,
+        matKhau: formData.matKhau,
+        redirect: false,
       });
 
-      const result = await response.json();
-
-      if (result.success) {
-        // Lưu token vào localStorage
-        localStorage.setItem('khachThueToken', result.data.token);
-        localStorage.setItem('khachThueData', JSON.stringify(result.data.khachThue));
-        
+      if (result?.ok) {
         toast.success('Đăng nhập thành công!');
         router.push('/khach-thue/dashboard');
       } else {
-        toast.error(result.message || 'Đăng nhập thất bại');
+        toast.error('Số điện thoại hoặc mật khẩu không đúng');
       }
     } catch (error) {
       console.error('Error logging in:', error);
@@ -120,4 +113,3 @@ export default function KhachThueDangNhapPage() {
     </div>
   );
 }
-

@@ -349,7 +349,6 @@ export default function KhachThueDashboardPage() {
                 { href: '/khach-thue/dashboard/su-co',      icon: 'bi-exclamation-triangle',  label: 'Sự cố',    color: '#f59e0b' },
                 { href: '/khach-thue/dashboard/hop-dong',   icon: 'bi-file-earmark-text',     label: 'Hợp đồng', color: '#10b981' },
                 { href: '/khach-thue/dashboard/thong-bao',  icon: 'bi-bell',                  label: 'Thông báo', color: '#06b6d4' },
-                { href: '/khach-thue/dashboard/nguoi-cung-phong', icon: 'bi-people',          label: 'Cùng phòng', color: '#8b5cf6' },
                 { href: '/khach-thue/dashboard/cai-dat',    icon: 'bi-gear',                  label: 'Cài đặt', color: '#6b7280' },
               ].map(item => (
                 <div key={item.href} className="col-4">
