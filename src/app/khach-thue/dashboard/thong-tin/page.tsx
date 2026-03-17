@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import {
-  User, Phone, Mail, CreditCard, MapPin, Briefcase,
-  MessageCircle, CheckCircle2, Clock, XCircle,
-} from 'lucide-react';
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CCCDUpload } from '@/components/ui/cccd-upload';
+import { User, Lock, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface KhachThue {
@@ -23,57 +23,66 @@ interface KhachThue {
   gioiTinh: string;
   queQuan: string;
   ngheNghiep?: string;
-  trangThai: string;
-  zaloChatId?: string | null;
-  pendingZaloChatId?: string | null;
-  nhanThongBaoZalo: boolean;
-}
-
-function getAuthHeader() {
-  return {}; // NextAuth session tự động gửi cookie — không cần Bearer token
+  anhCCCD?: { matTruoc: string; matSau: string } | null;
 }
 
 export default function ThongTinPage() {
   const [khachThue, setKhachThue] = useState<KhachThue | null>(null);
   const [loading, setLoading] = useState(true);
-  const [zaloInput, setZaloInput] = useState('');
   const [saving, setSaving] = useState(false);
-  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  // Form thông tin
+  const [form, setForm] = useState({
+    hoTen: '', email: '', queQuan: '', ngheNghiep: '', gioiTinh: 'nam',
+  });
+
+  // Form CCCD
+  const [anhCCCD, setAnhCCCD] = useState({ matTruoc: '', matSau: '' });
+  const [savingCCCD, setSavingCCCD] = useState(false);
+
+  // Form mật khẩu
+  const [pwForm, setPwForm] = useState({ matKhauCu: '', matKhauMoi: '', xacNhan: '' });
+  const [savingPw, setSavingPw] = useState(false);
 
   useEffect(() => {
-    document.title = 'Thông tin cá nhân';
-    fetchInfo();
+    fetch('/api/auth/khach-thue/me')
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          const kt = res.data.khachThue;
+          setKhachThue(kt);
+          setForm({
+            hoTen: kt.hoTen || '',
+            email: kt.email || '',
+            queQuan: kt.queQuan || '',
+            ngheNghiep: kt.ngheNghiep || '',
+            gioiTinh: kt.gioiTinh || 'nam',
+          });
+          const cccd = kt.anhCCCD as { matTruoc?: string; matSau?: string } | null;
+          setAnhCCCD({
+            matTruoc: cccd?.matTruoc || '',
+            matSau: cccd?.matSau || '',
+          });
+        } else {
+          toast.error('Không thể tải thông tin');
+        }
+      })
+      .catch(() => toast.error('Có lỗi xảy ra'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const fetchInfo = async () => {
-    try {
-      const res = await fetch('/api/auth/khach-thue/me', { headers: getAuthHeader() });
-      const result = await res.json();
-      if (result.success) {
-        setKhachThue(result.data.khachThue);
-        setZaloInput(result.data.khachThue.zaloChatId || '');
-      } else {
-        toast.error('Không thể tải thông tin');
-      }
-    } catch {
-      toast.error('Có lỗi xảy ra');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveZalo = async () => {
+  const handleSaveInfo = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/auth/khach-thue/zalo', {
+      const res = await fetch('/api/auth/khach-thue/profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ zaloChatId: zaloInput }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
       });
       const result = await res.json();
       if (result.success) {
-        toast.success('Đã cập nhật Zalo Chat ID');
-        setKhachThue(prev => prev ? { ...prev, zaloChatId: result.zaloChatId } : prev);
+        toast.success('Cập nhật thông tin thành công');
+        setKhachThue(prev => prev ? { ...prev, ...form } : prev);
       } else {
         toast.error(result.message || 'Cập nhật thất bại');
       }
@@ -84,25 +93,49 @@ export default function ThongTinPage() {
     }
   };
 
-  const handleZaloPending = async (action: 'confirm' | 'reject') => {
-    setConfirmLoading(true);
+  const handleSaveCCCD = async () => {
+    setSavingCCCD(true);
     try {
-      const res = await fetch('/api/auth/khach-thue/zalo', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ action }),
+      const res = await fetch('/api/auth/khach-thue/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anhCCCD }),
       });
       const result = await res.json();
       if (result.success) {
-        toast.success(result.message);
-        await fetchInfo();
+        toast.success('Lưu ảnh CCCD thành công');
       } else {
-        toast.error(result.message || 'Thao tác thất bại');
+        toast.error(result.message || 'Lưu thất bại');
       }
     } catch {
       toast.error('Có lỗi xảy ra');
     } finally {
-      setConfirmLoading(false);
+      setSavingCCCD(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!pwForm.matKhauMoi) { toast.error('Vui lòng nhập mật khẩu mới'); return; }
+    if (pwForm.matKhauMoi.length < 6) { toast.error('Mật khẩu mới phải có ít nhất 6 ký tự'); return; }
+    if (pwForm.matKhauMoi !== pwForm.xacNhan) { toast.error('Mật khẩu xác nhận không khớp'); return; }
+    setSavingPw(true);
+    try {
+      const res = await fetch('/api/auth/khach-thue/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matKhauCu: pwForm.matKhauCu, matKhauMoi: pwForm.matKhauMoi }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success(result.message || 'Đổi mật khẩu thành công');
+        setPwForm({ matKhauCu: '', matKhauMoi: '', xacNhan: '' });
+      } else {
+        toast.error(result.message || 'Đổi mật khẩu thất bại');
+      }
+    } catch {
+      toast.error('Có lỗi xảy ra');
+    } finally {
+      setSavingPw(false);
     }
   };
 
@@ -114,171 +147,174 @@ export default function ThongTinPage() {
     );
   }
 
-  if (!khachThue) {
-    return <div className="text-center text-gray-600">Không có dữ liệu</div>;
-  }
+  if (!khachThue) return <div className="text-center text-gray-600">Không có dữ liệu</div>;
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Thông tin cá nhân</h1>
-        <p className="text-gray-600 text-sm">Thông tin hồ sơ và liên kết Zalo của bạn</p>
+        <p className="text-gray-600 text-sm">Quản lý hồ sơ và bảo mật tài khoản</p>
       </div>
 
-      {/* Thông tin cơ bản */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <User className="h-4 w-4" />
-            Thông tin cơ bản
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex items-start gap-2">
-              <User className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">Họ và tên</p>
-                <p className="font-medium text-sm">{khachThue.hoTen}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <Phone className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">Số điện thoại</p>
-                <p className="font-medium text-sm">{khachThue.soDienThoai}</p>
-              </div>
-            </div>
-            {khachThue.email && (
-              <div className="flex items-start gap-2">
-                <Mail className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Email</p>
-                  <p className="font-medium text-sm">{khachThue.email}</p>
+      <Tabs defaultValue="thongtin">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="thongtin" className="flex items-center gap-1.5">
+            <User className="h-4 w-4" /> Thông tin
+          </TabsTrigger>
+          <TabsTrigger value="cccd" className="flex items-center gap-1.5">
+            <CreditCard className="h-4 w-4" /> Ảnh CCCD
+          </TabsTrigger>
+          <TabsTrigger value="matkhau" className="flex items-center gap-1.5">
+            <Lock className="h-4 w-4" /> Mật khẩu
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Tab Thông tin */}
+        <TabsContent value="thongtin">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Thông tin cơ bản</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="hoTen">Họ tên</Label>
+                  <Input
+                    id="hoTen"
+                    value={form.hoTen}
+                    onChange={e => setForm(f => ({ ...f, hoTen: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Số điện thoại</Label>
+                  <Input value={khachThue.soDienThoai} disabled className="bg-gray-50" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={form.email}
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>CCCD</Label>
+                  <Input value={khachThue.cccd} disabled className="bg-gray-50 font-mono" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Ngày sinh</Label>
+                  <Input
+                    value={khachThue.ngaySinh ? new Date(khachThue.ngaySinh).toLocaleDateString('vi-VN') : ''}
+                    disabled
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Giới tính</Label>
+                  <Select value={form.gioiTinh} onValueChange={v => setForm(f => ({ ...f, gioiTinh: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nam">Nam</SelectItem>
+                      <SelectItem value="nu">Nữ</SelectItem>
+                      <SelectItem value="khac">Khác</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="queQuan">Quê quán</Label>
+                  <Input
+                    id="queQuan"
+                    value={form.queQuan}
+                    onChange={e => setForm(f => ({ ...f, queQuan: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ngheNghiep">Nghề nghiệp</Label>
+                  <Input
+                    id="ngheNghiep"
+                    value={form.ngheNghiep}
+                    onChange={e => setForm(f => ({ ...f, ngheNghiep: e.target.value }))}
+                    placeholder="Sinh viên, Kỹ sư..."
+                  />
                 </div>
               </div>
-            )}
-            <div className="flex items-start gap-2">
-              <CreditCard className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">CCCD</p>
-                <p className="font-medium text-sm font-mono">{khachThue.cccd}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">Quê quán</p>
-                <p className="font-medium text-sm">{khachThue.queQuan}</p>
-              </div>
-            </div>
-            {khachThue.ngheNghiep && (
-              <div className="flex items-start gap-2">
-                <Briefcase className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Nghề nghiệp</p>
-                  <p className="font-medium text-sm">{khachThue.ngheNghiep}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Liên kết Zalo */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <MessageCircle className="h-4 w-4 text-blue-500" />
-            Liên kết Zalo
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Liên kết để nhận thông báo hóa đơn, hợp đồng qua Zalo
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Trạng thái hiện tại */}
-          <div className="flex items-center justify-between p-3 rounded-md border bg-gray-50">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-gray-500 shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">Zalo Chat ID hiện tại</p>
-                {khachThue.zaloChatId ? (
-                  <span className="text-sm font-mono flex items-center gap-1 text-green-700">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    {khachThue.zaloChatId}
-                  </span>
-                ) : (
-                  <span className="text-sm text-gray-400">Chưa liên kết</span>
-                )}
-              </div>
-            </div>
-            {khachThue.nhanThongBaoZalo ? (
-              <Badge className="bg-green-100 text-green-700 text-xs">Đang nhận thông báo</Badge>
-            ) : (
-              <Badge variant="secondary" className="text-xs">Tắt thông báo</Badge>
-            )}
-          </div>
-
-          {/* Pending confirm */}
-          {khachThue.pendingZaloChatId && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 space-y-2">
-              <p className="text-xs text-amber-700 flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                Phát hiện Chat ID mới từ bot Zalo:{' '}
-                <span className="font-mono font-semibold">{khachThue.pendingZaloChatId}</span>
-              </p>
-              <p className="text-[10px] text-amber-600">
-                Xác nhận nếu đây là tài khoản Zalo của bạn, từ chối nếu không phải.
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  className="h-7 text-xs px-3 bg-green-600 hover:bg-green-700"
-                  disabled={confirmLoading}
-                  onClick={() => handleZaloPending('confirm')}
-                >
-                  <CheckCircle2 className="h-3 w-3 mr-1" /> Xác nhận
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs px-3 border-red-300 text-red-600 hover:bg-red-50"
-                  disabled={confirmLoading}
-                  onClick={() => handleZaloPending('reject')}
-                >
-                  <XCircle className="h-3 w-3 mr-1" /> Từ chối
+              <div className="flex justify-end pt-2">
+                <Button onClick={handleSaveInfo} disabled={saving}>
+                  {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
                 </Button>
               </div>
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <Separator />
+        {/* Tab CCCD */}
+        <TabsContent value="cccd">
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <CCCDUpload anhCCCD={anhCCCD} onCCCDChange={setAnhCCCD} />
+              <div className="flex justify-end">
+                <Button onClick={handleSaveCCCD} disabled={savingCCCD}>
+                  {savingCCCD ? 'Đang lưu...' : 'Lưu ảnh CCCD'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          {/* Nhập thủ công */}
-          <div className="space-y-2">
-            <Label htmlFor="zalo-input" className="text-sm">
-              Nhập Zalo Chat ID thủ công
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id="zalo-input"
-                value={zaloInput}
-                onChange={(e) => setZaloInput(e.target.value)}
-                placeholder="Nhập Chat ID từ bot Zalo..."
-                className="text-sm font-mono flex-1"
-                maxLength={64}
-              />
-              <Button size="sm" onClick={handleSaveZalo} disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Chat ID lấy bằng cách nhắn tin cho bot Zalo — bot sẽ tự phát hiện và hiện Chat ID của bạn ở trên.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Tab Mật khẩu */}
+        <TabsContent value="matkhau">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Đổi mật khẩu
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="matKhauCu">Mật khẩu hiện tại</Label>
+                <Input
+                  id="matKhauCu"
+                  type="password"
+                  value={pwForm.matKhauCu}
+                  onChange={e => setPwForm(f => ({ ...f, matKhauCu: e.target.value }))}
+                  placeholder="Nhập mật khẩu hiện tại"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="matKhauMoi">Mật khẩu mới</Label>
+                <Input
+                  id="matKhauMoi"
+                  type="password"
+                  value={pwForm.matKhauMoi}
+                  onChange={e => setPwForm(f => ({ ...f, matKhauMoi: e.target.value }))}
+                  placeholder="Ít nhất 6 ký tự"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="xacNhan">Xác nhận mật khẩu mới</Label>
+                <Input
+                  id="xacNhan"
+                  type="password"
+                  value={pwForm.xacNhan}
+                  onChange={e => setPwForm(f => ({ ...f, xacNhan: e.target.value }))}
+                  placeholder="Nhập lại mật khẩu mới"
+                />
+              </div>
+              {pwForm.matKhauMoi && pwForm.xacNhan && pwForm.matKhauMoi !== pwForm.xacNhan && (
+                <p className="text-sm text-red-500">Mật khẩu xác nhận không khớp</p>
+              )}
+              <div className="flex justify-end pt-2">
+                <Button onClick={handleChangePassword} disabled={savingPw}>
+                  {savingPw ? 'Đang đổi...' : 'Đổi mật khẩu'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

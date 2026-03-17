@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getHoaDonRepo, getHopDongRepo } from '@/lib/repositories';
 import { parsePage, parseLimit } from '@/lib/parse-query';
+import { notifyKhachThue } from '@/lib/send-zalo';
 import { PhiDichVu } from '@/types';
 
 // GET - Lấy danh sách hóa đơn
@@ -260,6 +261,13 @@ export async function POST(request: NextRequest) {
       anhChiSoDien: anhChiSoDien || undefined,
       anhChiSoNuoc: anhChiSoNuoc || undefined,
     });
+
+    // Thông báo Zalo cho khách thuê về hóa đơn mới
+    if (hopDongData.nguoiDaiDienId) {
+      const fmt = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+      const msg = `📄 Hóa đơn tháng ${thang}/${nam} đã được tạo!\nTổng tiền: ${fmt(tongTien)}\nHạn thanh toán: ${new Date(hoaDon.hanThanhToan).toLocaleDateString('vi-VN')}\nVui lòng đăng nhập để xem chi tiết.`;
+      notifyKhachThue(hopDongData.nguoiDaiDienId, msg).catch(() => {});
+    }
 
     return NextResponse.json({
       success: true,

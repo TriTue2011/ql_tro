@@ -1,250 +1,479 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Home, FileText, AlertCircle, MapPin, Calendar, DollarSign, Phone, Mail } from 'lucide-react';
-import { toast } from 'sonner';
+import Link from 'next/link';
+import '@/styles/bs-admin.css';
+
+interface ChartPoint {
+  month: number;
+  year: number;
+  label: string;
+  tongTien: number;
+  tienDien: number;
+  tienNuoc: number;
+  soDien: number;
+  soNuoc: number;
+}
+
+interface LienHe { ten: string; soDienThoai?: string | null; email?: string | null }
+
+interface DashboardData {
+  khachThue: { id: string; hoTen: string; soDienThoai: string; email?: string; trangThai: string; nhanThongBaoZalo: boolean };
+  hopDongHienTai: any;
+  soHoaDonChuaThanhToan: number;
+  soSuCoMoi: number;
+  soSuCoDangXuLy: number;
+  yeuCauChoDuyet: number;
+  daysUntilExpiry: number | null;
+  lienHeQuanLy: LienHe | null;
+  chartData: ChartPoint[];
+  suCoGanNhat: { id: string; tieuDe: string; trangThai: string; loaiSuCo: string; ngayBaoCao: string }[];
+  hoaDonGanNhat: { thang: number; nam: number; tongTien: number; tienDien: number; tienNuoc: number; soDien: number; soNuoc: number } | null;
+}
+
+const fmt = (n: number) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+
+const fmtDate = (d: string) => new Date(d).toLocaleDateString('vi-VN');
+
+function barHeightPct(val: number, max: number) {
+  if (!max) return 0;
+  return Math.round((val / max) * 100);
+}
+
+const suCoTrangThaiLabel: Record<string, { label: string; cls: string }> = {
+  moi:       { label: 'Mới',        cls: 'bg-primary' },
+  dangXuLy:  { label: 'Đang xử lý', cls: 'bg-warning text-dark' },
+  daXong:    { label: 'Đã xong',    cls: 'bg-success' },
+  daHuy:     { label: 'Đã hủy',     cls: 'bg-secondary' },
+};
 
 export default function KhachThueDashboardPage() {
-  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
+    document.title = 'Tổng quan — Cổng Khách Thuê';
+    fetch('/api/auth/khach-thue/dashboard')
+      .then((r) => r.json())
+      .then((res) => { if (res.success) setData(res.data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      const response = await fetch('/api/auth/khach-thue/me');
-
-      const result = await response.json();
-      if (result.success) {
-        setDashboardData(result.data);
-      } else {
-        toast.error('Không thể tải thông tin');
-      }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Có lỗi xảy ra');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div>
+        <div className="rounded-4 mb-4" style={{ height: 130, background: 'var(--brand-gradient)', opacity: 0.4 }} />
+        <div className="row g-3 mb-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="col-6 col-lg-3">
+              <div className="rounded-3" style={{ height: 100, background: '#e5e7eb' }} />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
-  if (!dashboardData) {
-    return <div className="text-center text-gray-600">Không có dữ liệu</div>;
-  }
+  if (!data) return null;
 
-  const { khachThue, hopDongHienTai, soHoaDonChuaThanhToan, hoaDonGanNhat } = dashboardData;
+  const { khachThue, hopDongHienTai, soHoaDonChuaThanhToan, soSuCoMoi, soSuCoDangXuLy, yeuCauChoDuyet, daysUntilExpiry, chartData, suCoGanNhat, hoaDonGanNhat, lienHeQuanLy } = data;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(amount);
-  };
+  const firstName = khachThue.hoTen.split(' ').pop() ?? khachThue.hoTen;
+  const now = new Date();
+  const nowStr = now.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('vi-VN');
-  };
+  // Chart data — last 6 months for invoice bar, last 6 for consumption
+  const last6 = chartData.slice(-6);
+  const maxTong = Math.max(...last6.map((d) => d.tongTien), 1);
+  const maxDien = Math.max(...last6.map((d) => d.soDien), 1);
+  const maxNuoc = Math.max(...last6.map((d) => d.soNuoc), 1);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Tổng quan</h1>
-        <p className="text-gray-600">Xin chào {khachThue.hoTen}, đây là thông tin của bạn</p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Phòng đang thuê</CardTitle>
-            <Home className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {hopDongHienTai?.phong?.maPhong || 'Chưa thuê'}
-            </div>
-            {hopDongHienTai?.phong?.toaNha && (
-              <p className="text-xs text-muted-foreground">
-                {hopDongHienTai.phong.toaNha.tenToaNha}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Hóa đơn chưa thanh toán</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{soHoaDonChuaThanhToan}</div>
-            <p className="text-xs text-muted-foreground">
-              {soHoaDonChuaThanhToan > 0 ? 'Cần thanh toán' : 'Đã thanh toán hết'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Trạng thái</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {khachThue.trangThai === 'dangThue' ? (
-                <Badge className="bg-green-600">Đang thuê</Badge>
-              ) : khachThue.trangThai === 'daTraPhong' ? (
-                <Badge variant="secondary">Đã trả phòng</Badge>
-              ) : (
-                <Badge variant="outline">Chưa thuê</Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Thông tin phòng */}
-      {hopDongHienTai && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Home className="h-5 w-5" />
-              Thông tin phòng đang thuê
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-semibold mb-4">Thông tin phòng</h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-2">
-                  <Home className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Mã phòng</p>
-                    <p className="font-medium">{hopDongHienTai.phong.maPhong}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Tòa nhà</p>
-                    <p className="font-medium">{hopDongHienTai.phong.toaNha.tenToaNha}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {hopDongHienTai.phong.toaNha.diaChi?.duong}, {hopDongHienTai.phong.toaNha.diaChi?.phuong}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <DollarSign className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Giá thuê/tháng</p>
-                    <p className="font-medium text-green-600">{formatCurrency(hopDongHienTai.phong.giaThue)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold mb-4">Thông tin hợp đồng</h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-2">
-                  <FileText className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Mã hợp đồng</p>
-                    <p className="font-medium">{hopDongHienTai.maHopDong}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Calendar className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Thời gian thuê</p>
-                    <p className="font-medium">
-                      {formatDate(hopDongHienTai.ngayBatDau)} - {formatDate(hopDongHienTai.ngayKetThuc)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <DollarSign className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Tiền cọc</p>
-                    <p className="font-medium text-orange-600">{formatCurrency(hopDongHienTai.tienCoc)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <div>
+      {/* ── Contract expiry warning ─────────────────────────────────────── */}
+      {daysUntilExpiry !== null && daysUntilExpiry <= 60 && (
+        <div
+          className={`alert mb-4 d-flex align-items-center gap-2 rounded-3 ${daysUntilExpiry <= 15 ? 'alert-danger' : 'alert-warning'}`}
+          style={{ fontSize: 14 }}
+        >
+          <i className={`bi ${daysUntilExpiry <= 15 ? 'bi-exclamation-octagon-fill' : 'bi-clock-history'} fs-5`} />
+          <div>
+            <strong>Hợp đồng sắp hết hạn!</strong> Còn <strong>{daysUntilExpiry}</strong> ngày
+            {hopDongHienTai?.ngayKetThuc && ` (${fmtDate(hopDongHienTai.ngayKetThuc)})`}.{' '}
+            <Link href="/khach-thue/dashboard/hop-dong" style={{ textDecoration: 'underline' }}>Xem chi tiết</Link>
+          </div>
+        </div>
       )}
 
-      {/* Hóa đơn gần nhất */}
-      {hoaDonGanNhat && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Hóa đơn gần nhất
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Mã hóa đơn</p>
-                <p className="font-medium">{hoaDonGanNhat.maHoaDon}</p>
+      {/* ── Hero banner ─────────────────────────────────────────────────── */}
+      <div
+        className="rounded-4 mb-4 p-4 d-flex align-items-center justify-content-between"
+        style={{
+          background: 'var(--brand-gradient)',
+          minHeight: 120,
+          overflow: 'hidden',
+          position: 'relative',
+        }}
+      >
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <h4 className="fw-bold text-white mb-1" style={{ fontSize: 22 }}>
+            Xin chào, {firstName}! 👋
+          </h4>
+          <p className="text-white mb-0" style={{ opacity: 0.85, fontSize: 13 }}>{nowStr}</p>
+          {hopDongHienTai && (
+            <div className="mt-2 d-flex align-items-center gap-2 flex-wrap">
+              <span
+                className="badge rounded-pill text-white"
+                style={{ background: 'rgba(255,255,255,0.2)', fontSize: 12, padding: '4px 10px' }}
+              >
+                <i className="bi bi-door-open me-1" />
+                Phòng {hopDongHienTai.phong?.maPhong}
+              </span>
+              <span
+                className="badge rounded-pill text-white"
+                style={{ background: 'rgba(255,255,255,0.2)', fontSize: 12, padding: '4px 10px' }}
+              >
+                <i className="bi bi-building me-1" />
+                {hopDongHienTai.phong?.toaNha?.tenToaNha}
+              </span>
+            </div>
+          )}
+        </div>
+        {/* Decorative circle */}
+        <div style={{
+          position: 'absolute', right: -30, top: -30,
+          width: 160, height: 160, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.07)',
+        }} />
+        <div style={{
+          position: 'absolute', right: 60, bottom: -40,
+          width: 100, height: 100, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.05)',
+        }} />
+      </div>
+
+      {/* ── Stat cards ──────────────────────────────────────────────────── */}
+      <div className="row g-3 mb-4">
+        {/* Unpaid invoices */}
+        <div className="col-6 col-lg-3">
+          <div className="bs-stat-card">
+            <div className="bs-stat-icon" style={{ background: soHoaDonChuaThanhToan > 0 ? 'rgba(239,68,68,.12)' : 'rgba(99,102,241,.1)' }}>
+              <i className="bi bi-receipt" style={{ color: soHoaDonChuaThanhToan > 0 ? '#ef4444' : '#6366f1', fontSize: 22 }} />
+            </div>
+            <div className="bs-stat-value" style={{ color: soHoaDonChuaThanhToan > 0 ? '#ef4444' : undefined }}>
+              {soHoaDonChuaThanhToan}
+            </div>
+            <div className="bs-stat-label">Hóa đơn chưa thanh toán</div>
+            <div className="bs-stat-sub">
+              <Link href="/khach-thue/dashboard/hoa-don" className="text-decoration-none" style={{ color: '#6366f1' }}>
+                Xem hóa đơn →
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* New incidents */}
+        <div className="col-6 col-lg-3">
+          <div className="bs-stat-card">
+            <div className="bs-stat-icon" style={{ background: soSuCoMoi > 0 ? 'rgba(245,158,11,.12)' : 'rgba(99,102,241,.1)' }}>
+              <i className="bi bi-exclamation-triangle" style={{ color: soSuCoMoi > 0 ? '#f59e0b' : '#6366f1', fontSize: 22 }} />
+            </div>
+            <div className="bs-stat-value" style={{ color: soSuCoMoi > 0 ? '#f59e0b' : undefined }}>
+              {soSuCoMoi}
+            </div>
+            <div className="bs-stat-label">Sự cố chưa tiếp nhận</div>
+            <div className="bs-stat-sub">
+              <Link href="/khach-thue/dashboard/su-co" className="text-decoration-none" style={{ color: '#6366f1' }}>
+                Xem sự cố →
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Processing incidents */}
+        <div className="col-6 col-lg-3">
+          <div className="bs-stat-card">
+            <div className="bs-stat-icon" style={{ background: 'rgba(6,182,212,.1)' }}>
+              <i className="bi bi-tools" style={{ color: '#06b6d4', fontSize: 22 }} />
+            </div>
+            <div className="bs-stat-value">{soSuCoDangXuLy}</div>
+            <div className="bs-stat-label">Sự cố đang xử lý</div>
+            <div className="bs-stat-sub">
+              <Link href="/khach-thue/dashboard/su-co" className="text-decoration-none" style={{ color: '#6366f1' }}>
+                Theo dõi →
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Pending requests */}
+        <div className="col-6 col-lg-3">
+          <div className="bs-stat-card">
+            <div className="bs-stat-icon" style={{ background: yeuCauChoDuyet > 0 ? 'rgba(139,92,246,.12)' : 'rgba(99,102,241,.1)' }}>
+              <i className="bi bi-hourglass-split" style={{ color: '#8b5cf6', fontSize: 22 }} />
+            </div>
+            <div className="bs-stat-value">{yeuCauChoDuyet}</div>
+            <div className="bs-stat-label">Yêu cầu chờ duyệt</div>
+            <div className="bs-stat-sub">
+              <Link href="/khach-thue/dashboard/cai-dat" className="text-decoration-none" style={{ color: '#6366f1' }}>
+                Xem yêu cầu →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Row: Charts + Quick actions ─────────────────────────────────── */}
+      <div className="row g-3 mb-4">
+        {/* Invoice bar chart */}
+        <div className="col-12 col-lg-5">
+          <div className="bs-card h-100">
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <h6 className="fw-bold mb-0" style={{ fontSize: 14 }}>
+                <i className="bi bi-bar-chart-fill me-2" style={{ color: '#6366f1' }} />
+                Hóa đơn 6 tháng gần nhất
+              </h6>
+            </div>
+            <div className="d-flex align-items-end gap-2" style={{ height: 120 }}>
+              {last6.map((d) => (
+                <div key={`${d.month}-${d.year}`} className="flex-fill d-flex flex-column align-items-center gap-1">
+                  <div style={{ fontSize: 9, color: '#9ca3af', whiteSpace: 'nowrap' }}>
+                    {d.tongTien > 0 ? `${Math.round(d.tongTien / 1000)}k` : ''}
+                  </div>
+                  <div
+                    style={{
+                      width: '100%',
+                      height: `${barHeightPct(d.tongTien, maxTong)}%`,
+                      minHeight: d.tongTien > 0 ? 4 : 0,
+                      background: 'var(--brand-gradient)',
+                      borderRadius: '4px 4px 0 0',
+                      transition: 'height .3s',
+                    }}
+                    title={fmt(d.tongTien)}
+                  />
+                  <div style={{ fontSize: 10, color: '#6b7280' }}>{d.label}</div>
+                </div>
+              ))}
+            </div>
+            {hoaDonGanNhat && (
+              <div className="mt-3 pt-3 border-top d-flex justify-content-between" style={{ fontSize: 12, color: '#6b7280' }}>
+                <span>Tháng {hoaDonGanNhat.thang}/{hoaDonGanNhat.nam}</span>
+                <span className="fw-semibold" style={{ color: '#111827' }}>{fmt(hoaDonGanNhat.tongTien)}</span>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Tháng</p>
-                <p className="font-medium">{hoaDonGanNhat.thang}/{hoaDonGanNhat.nam}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Electricity + water chart */}
+        <div className="col-12 col-lg-4">
+          <div className="bs-card h-100">
+            <h6 className="fw-bold mb-3" style={{ fontSize: 14 }}>
+              <i className="bi bi-lightning-charge-fill me-2" style={{ color: '#f59e0b' }} />
+              Tiêu thụ điện &amp; nước
+            </h6>
+            {/* Electricity */}
+            <div className="mb-3">
+              <div className="d-flex justify-content-between mb-1" style={{ fontSize: 12 }}>
+                <span style={{ color: '#6b7280' }}>Điện (kWh)</span>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Tổng tiền</p>
-                <p className="font-medium text-green-600">{formatCurrency(hoaDonGanNhat.tongTien)}</p>
+              <div className="d-flex align-items-end gap-1" style={{ height: 50 }}>
+                {last6.map((d) => (
+                  <div key={`d-${d.month}-${d.year}`} className="flex-fill d-flex flex-column align-items-center gap-1">
+                    <div
+                      style={{
+                        width: '100%',
+                        height: `${barHeightPct(d.soDien, maxDien)}%`,
+                        minHeight: d.soDien > 0 ? 3 : 0,
+                        background: '#f59e0b',
+                        borderRadius: '3px 3px 0 0',
+                        opacity: 0.85,
+                      }}
+                      title={`${d.soDien} kWh`}
+                    />
+                    <div style={{ fontSize: 9, color: '#9ca3af' }}>{d.label}</div>
+                  </div>
+                ))}
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Trạng thái</p>
-                {hoaDonGanNhat.trangThai === 'daThanhToan' ? (
-                  <Badge className="bg-green-600">Đã thanh toán</Badge>
-                ) : hoaDonGanNhat.trangThai === 'chuaThanhToan' ? (
-                  <Badge variant="outline">Chưa thanh toán</Badge>
-                ) : hoaDonGanNhat.trangThai === 'quaHan' ? (
-                  <Badge variant="destructive">Quá hạn</Badge>
-                ) : (
-                  <Badge variant="secondary">Thanh toán một phần</Badge>
+            </div>
+            {/* Water */}
+            <div>
+              <div className="d-flex justify-content-between mb-1" style={{ fontSize: 12 }}>
+                <span style={{ color: '#6b7280' }}>Nước (m³)</span>
+              </div>
+              <div className="d-flex align-items-end gap-1" style={{ height: 50 }}>
+                {last6.map((d) => (
+                  <div key={`n-${d.month}-${d.year}`} className="flex-fill d-flex flex-column align-items-center gap-1">
+                    <div
+                      style={{
+                        width: '100%',
+                        height: `${barHeightPct(d.soNuoc, maxNuoc)}%`,
+                        minHeight: d.soNuoc > 0 ? 3 : 0,
+                        background: '#06b6d4',
+                        borderRadius: '3px 3px 0 0',
+                        opacity: 0.85,
+                      }}
+                      title={`${d.soNuoc} m³`}
+                    />
+                    <div style={{ fontSize: 9, color: '#9ca3af' }}>{d.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick actions */}
+        <div className="col-12 col-lg-3">
+          <div className="bs-card h-100">
+            <h6 className="fw-bold mb-3" style={{ fontSize: 14 }}>
+              <i className="bi bi-lightning-fill me-2" style={{ color: '#6366f1' }} />
+              Thao tác nhanh
+            </h6>
+            <div className="d-flex flex-column gap-2">
+              <Link href="/khach-thue/dashboard/hoa-don" className="bs-quick-btn">
+                <i className="bi bi-receipt" />
+                <span>Xem hóa đơn</span>
+              </Link>
+              <Link href="/khach-thue/dashboard/su-co" className="bs-quick-btn">
+                <i className="bi bi-exclamation-triangle" />
+                <span>Báo sự cố</span>
+              </Link>
+              <Link href="/khach-thue/dashboard/hop-dong" className="bs-quick-btn">
+                <i className="bi bi-file-earmark-text" />
+                <span>Hợp đồng</span>
+              </Link>
+              <Link href="/khach-thue/dashboard/cai-dat" className="bs-quick-btn">
+                <i className="bi bi-gear" />
+                <span>Cài đặt</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Row: Contract info + Recent incidents ───────────────────────── */}
+      <div className="row g-3 mb-4">
+        {/* Contract info */}
+        {hopDongHienTai && (
+          <div className="col-12 col-md-5">
+            <div className="bs-card h-100">
+              <h6 className="fw-bold mb-3" style={{ fontSize: 14 }}>
+                <i className="bi bi-file-earmark-check-fill me-2" style={{ color: '#6366f1' }} />
+                Hợp đồng hiện tại
+              </h6>
+              <div className="d-flex flex-column gap-2" style={{ fontSize: 13 }}>
+                <div className="d-flex justify-content-between">
+                  <span style={{ color: '#6b7280' }}>Mã HĐ</span>
+                  <span className="fw-medium">{hopDongHienTai.maHopDong}</span>
+                </div>
+                <div className="d-flex justify-content-between">
+                  <span style={{ color: '#6b7280' }}>Phòng</span>
+                  <span className="fw-medium">{hopDongHienTai.phong?.maPhong}</span>
+                </div>
+                <div className="d-flex justify-content-between">
+                  <span style={{ color: '#6b7280' }}>Giá thuê</span>
+                  <span className="fw-medium text-success">{fmt(hopDongHienTai.phong?.giaThue ?? 0)}</span>
+                </div>
+                <div className="d-flex justify-content-between">
+                  <span style={{ color: '#6b7280' }}>Tiền cọc</span>
+                  <span className="fw-medium" style={{ color: '#f59e0b' }}>{fmt(hopDongHienTai.tienCoc ?? 0)}</span>
+                </div>
+                <div className="d-flex justify-content-between">
+                  <span style={{ color: '#6b7280' }}>Hết hạn</span>
+                  <span className="fw-medium">{fmtDate(hopDongHienTai.ngayKetThuc)}</span>
+                </div>
+                {daysUntilExpiry !== null && (
+                  <div className="d-flex justify-content-between">
+                    <span style={{ color: '#6b7280' }}>Còn lại</span>
+                    <span
+                      className="fw-semibold"
+                      style={{ color: daysUntilExpiry <= 30 ? '#ef4444' : daysUntilExpiry <= 60 ? '#f59e0b' : '#10b981' }}
+                    >
+                      {daysUntilExpiry} ngày
+                    </span>
+                  </div>
+                )}
+                {hopDongHienTai.nguoiDaiDien && (
+                  <div className="d-flex justify-content-between">
+                    <span style={{ color: '#6b7280' }}>Đại diện HĐ</span>
+                    <span className="fw-medium">{hopDongHienTai.nguoiDaiDien.hoTen}</span>
+                  </div>
+                )}
+                {lienHeQuanLy && (lienHeQuanLy.soDienThoai || lienHeQuanLy.email) && (
+                  <>
+                    <div className="d-flex justify-content-between">
+                      <span style={{ color: '#6b7280' }}>Quản lý</span>
+                      <span className="fw-medium">{lienHeQuanLy.ten}</span>
+                    </div>
+                    {lienHeQuanLy.soDienThoai && (
+                      <div className="d-flex justify-content-between">
+                        <span style={{ color: '#6b7280' }}>Hotline</span>
+                        <a href={`tel:${lienHeQuanLy.soDienThoai}`} className="fw-medium text-decoration-none" style={{ color: '#6366f1' }}>
+                          {lienHeQuanLy.soDienThoai}
+                        </a>
+                      </div>
+                    )}
+                    {lienHeQuanLy.email && (
+                      <div className="d-flex justify-content-between">
+                        <span style={{ color: '#6b7280' }}>Email</span>
+                        <a href={`mailto:${lienHeQuanLy.email}`} className="fw-medium text-decoration-none" style={{ color: '#6366f1', wordBreak: 'break-all' }}>
+                          {lienHeQuanLy.email}
+                        </a>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        )}
 
-      {/* Thông tin liên hệ */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Thông tin liên hệ</CardTitle>
-          <CardDescription>Vui lòng liên hệ quản lý nếu có thắc mắc</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">Hotline: 0123-456-789</span>
+        {/* Recent incidents */}
+        <div className={`col-12 ${hopDongHienTai ? 'col-md-7' : ''}`}>
+          <div className="bs-card h-100">
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <h6 className="fw-bold mb-0" style={{ fontSize: 14 }}>
+                <i className="bi bi-exclamation-triangle-fill me-2" style={{ color: '#f59e0b' }} />
+                Sự cố gần đây
+              </h6>
+              <Link href="/khach-thue/dashboard/su-co" style={{ fontSize: 12, color: '#6366f1', textDecoration: 'none' }}>
+                Xem tất cả →
+              </Link>
+            </div>
+            {suCoGanNhat.length === 0 ? (
+              <div className="text-center py-3" style={{ color: '#9ca3af', fontSize: 13 }}>
+                <i className="bi bi-check-circle fs-4 d-block mb-1" />
+                Không có sự cố nào
+              </div>
+            ) : (
+              <div className="d-flex flex-column gap-2">
+                {suCoGanNhat.map((sc) => {
+                  const st = suCoTrangThaiLabel[sc.trangThai] ?? { label: sc.trangThai, cls: 'bg-secondary' };
+                  return (
+                    <div
+                      key={sc.id}
+                      className="d-flex align-items-center justify-content-between gap-2 p-2 rounded-3"
+                      style={{ background: '#f9fafb', fontSize: 13 }}
+                    >
+                      <div className="flex-fill" style={{ minWidth: 0 }}>
+                        <div className="fw-medium text-truncate">{sc.tieuDe}</div>
+                        <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                          {sc.ngayBaoCao ? fmtDate(sc.ngayBaoCao) : ''}
+                        </div>
+                      </div>
+                      <span className={`badge rounded-pill ${st.cls}`} style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                        {st.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">Email: support@phongtro.com</span>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
-
