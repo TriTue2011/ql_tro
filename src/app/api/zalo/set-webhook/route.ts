@@ -32,6 +32,7 @@ const bodySchema = z.discriminatedUnion('action', [
   }),
   z.object({ action: z.literal('deleteWebhook') }),
   z.object({ action: z.literal('getWebhookInfo') }),
+  z.object({ action: z.literal('testWebhook') }),
 ]);
 
 async function getZaloToken(): Promise<string | null> {
@@ -141,6 +142,65 @@ export async function POST(request: NextRequest) {
       });
       const data = await res.json();
       return NextResponse.json({ success: true, action, result: data });
+    }
+
+    if (action === 'testWebhook') {
+      const secret = await getWebhookSecret();
+      if (!secret) {
+        return NextResponse.json({ error: 'Chưa cấu hình zalo_webhook_secret' }, { status: 400 });
+      }
+
+      // Gửi POST giả lập đến chính webhook endpoint (qua localhost)
+      const base = getPublicBaseUrl() || 'http://localhost:3000';
+      const webhookUrl = `${base}/api/zalo/webhook`;
+      const fakePayload = {
+        event_name: 'message',
+        message: {
+          from: { id: 'test_000', display_name: 'Webhook Test' },
+          text: `[TEST] kiểm tra webhook lúc ${new Date().toLocaleTimeString('vi-VN')}`,
+        },
+      };
+
+      let sendOk = false;
+      let sendStatus = 0;
+      let sendBody = '';
+      try {
+        const res = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Bot-Api-Secret-Token': secret,
+          },
+          body: JSON.stringify(fakePayload),
+          signal: AbortSignal.timeout(10000),
+        });
+        sendStatus = res.status;
+        sendBody = await res.text();
+        sendOk = res.ok;
+      } catch (err: any) {
+        sendBody = err?.message || String(err);
+      }
+
+      if (!sendOk) {
+        return NextResponse.json({
+          success: false,
+          webhookUrl,
+          status: sendStatus,
+          response: sendBody,
+          hint: sendStatus === 401
+            ? 'Secret token không khớp — kiểm tra lại zalo_webhook_secret'
+            : sendStatus === 503
+            ? 'Webhook secret chưa cấu hình trên server'
+            : 'Webhook không phản hồi OK',
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        webhookUrl,
+        status: sendStatus,
+        message: 'Webhook nhận tin thành công — tin nhắn test đã được lưu vào DB',
+      });
     }
 
     return NextResponse.json({ error: 'action không hợp lệ' }, { status: 400 });
