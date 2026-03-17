@@ -1,7 +1,7 @@
 /**
  * GET  /api/zalo/polling  → trả trạng thái polling worker
- * POST /api/zalo/polling  → khởi động polling (body: {} )
- * DELETE /api/zalo/polling → dừng polling  (body: { restoreWebhook?: boolean })
+ * POST /api/zalo/polling  → khởi động polling
+ * DELETE /api/zalo/polling → dừng polling (luôn tự khôi phục webhook)
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -38,12 +38,8 @@ export async function DELETE(request: NextRequest) {
   const deny = requireAdmin(session);
   if (deny) return deny;
 
-  let restoreWebhook = false;
-  try {
-    const body = await request.json();
-    restoreWebhook = !!body?.restoreWebhook;
-  } catch { /* body optional */ }
-
-  const result = await stopPolling(restoreWebhook);
+  // Bỏ qua body — stopPolling luôn tự khôi phục webhook
+  void request;
+  const result = await stopPolling();
   return NextResponse.json(result);
 }
