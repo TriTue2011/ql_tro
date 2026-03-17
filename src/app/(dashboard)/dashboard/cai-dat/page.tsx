@@ -581,6 +581,36 @@ export default function CaiDatPage() {
     }
   }
 
+  // SSE: tự động cập nhật khi có tin nhắn mới (không cần bấm nút)
+  useEffect(() => {
+    if (!canManage) return;
+    // Load lần đầu
+    loadWebhookMessages();
+
+    const es = new EventSource('/api/zalo/messages/stream');
+    es.onmessage = (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        if (payload.type !== 'messages') return;
+        const newMsgs: any[] = payload.data;
+        setWebhookMessages(prev => {
+          const map = new Map(prev.map((m: any) => [m.chatId, m]));
+          for (const m of newMsgs) {
+            const existing = map.get(m.chatId);
+            if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
+              map.set(m.chatId, m);
+            }
+          }
+          return Array.from(map.values()).sort(
+            (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
+      } catch { /* ignore */ }
+    };
+    return () => es.close();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage]);
+
   // Load webhook URL gợi ý từ server (dựa vào NEXTAUTH_URL → đúng khi dùng Cloudflare Tunnel)
   useEffect(() => {
     if (!canManage) return;
