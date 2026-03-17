@@ -16,6 +16,7 @@
 import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
+import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
@@ -84,9 +85,10 @@ async function saveMessage(update: any): Promise<void> {
     const displayName: string = msg.from.display_name || '';
     const content: string = msg.text || msg.attachments?.[0]?.description || '[đính kèm]';
     const eventName: string = update?.event_name || 'message';
-    await prisma.zaloMessage.create({
+    const saved = await prisma.zaloMessage.create({
       data: { chatId, displayName: displayName || null, content, role: 'user', eventName, rawPayload: update as any },
     });
+    emitNewMessage({ ...saved });
   } catch {
     // Không dừng worker vì lỗi lưu message
   }
@@ -165,11 +167,12 @@ async function pollOnce(): Promise<void> {
       state.messagesProcessed++;
       state.lastMessageAt = new Date();
       state.lastError = null;
-      await Promise.all([saveMessage(update), detectAndStorePending(update)]);
+      await Promise.all([saveMessage(update), detectAndStorePending(update), cleanupOldMessages()]);
       // Có tin → poll ngay (có thể còn tin tiếp)
       scheduleNext(0);
     } else {
       // Không có tin → poll lại sau 500ms
+      cleanupOldMessages(); // chạy nền, không await để không trì hoãn polling
       scheduleNext(500);
     }
   } catch (err: any) {
