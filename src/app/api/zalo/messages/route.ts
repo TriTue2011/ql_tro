@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   if (searchParams.get('conversations') === '1') {
     const rows = await prisma.$queryRaw<any[]>`
       SELECT DISTINCT ON ("chatId")
-        "id", "chatId", "displayName", "content", "role", "createdAt"
+        "id", "chatId", "displayName", "content", "attachmentUrl", "role", "createdAt"
       FROM "ZaloMessage"
       ORDER BY "chatId", "createdAt" DESC
     `;

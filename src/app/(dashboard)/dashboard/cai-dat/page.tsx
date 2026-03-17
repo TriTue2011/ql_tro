@@ -908,13 +908,13 @@ export default function CaiDatPage() {
               <CardHeader className="p-4 md:p-6">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                   <RefreshCw className="h-4 w-4" />
-                  Polling Worker (thay thế Webhook)
+                  Polling Worker (dự phòng khi không dùng Webhook)
                 </CardTitle>
                 <CardDescription className="text-xs md:text-sm">
-                  Khi Webhook bị lỗi, dùng Polling để nhận tin nhắn liên tục từ nhiều người.
-                  Worker chạy nền trong server — không cần giữ trình duyệt mở.
+                  Mặc định hệ thống dùng <strong>Webhook</strong> (bot.zapps.me push về server).
+                  Chỉ bật Polling khi không thể dùng Webhook.
                   <span className="block mt-1 text-amber-600 font-medium">
-                    ⚠ Polling và Webhook không thể chạy cùng lúc. Bật Polling sẽ tự xóa Webhook.
+                    ⚠ Polling và Webhook không thể chạy cùng lúc.
                   </span>
                 </CardDescription>
               </CardHeader>
@@ -1069,6 +1069,10 @@ export default function CaiDatPage() {
                                 <Badge variant="outline" className="text-[9px] h-4 px-1">{msg.eventName}</Badge>
                               )}
                             </div>
+                            {msg.attachmentUrl && (
+                              <img src={msg.attachmentUrl} alt="ảnh" className="mt-1 rounded max-h-20 max-w-[160px] object-contain border"
+                                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            )}
                             <p className="text-gray-600 mt-0.5 truncate">{msg.content}</p>
                             <p className="text-gray-400 text-[10px] mt-0.5">{new Date(msg.createdAt).toLocaleString('vi-VN')}</p>
                           </div>

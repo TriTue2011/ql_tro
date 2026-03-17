@@ -16,6 +16,7 @@ export interface ZaloMessageEvent {
   chatId: string;
   displayName: string | null;
   content: string;
+  attachmentUrl?: string | null;
   role: string;
   eventName: string;
   createdAt: Date;

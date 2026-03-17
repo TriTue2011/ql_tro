@@ -28,21 +28,51 @@ async function getWebhookSecret(): Promise<string | null> {
   }
 }
 
+function extractAttachmentUrl(msg: any): string | null {
+  const attachments: any[] = msg?.attachments ?? [];
+  for (const att of attachments) {
+    const url = att?.payload?.url || att?.payload?.thumbnail || att?.url;
+    if (url && typeof url === 'string') return url;
+  }
+  return null;
+}
+
 async function saveMessage(update: any): Promise<void> {
   try {
     const msg = update?.message;
-    if (!msg?.from?.id) return;
 
-    const chatId = String(msg.from.id);
-    const displayName: string = msg.from.display_name || '';
-    const content: string = msg.text || msg.attachments?.[0]?.description || '[đính kèm]';
+    // Hỗ trợ cả 2 format:
+    // Zalo Bot API: message.from.id
+    // Zalo OA API:  sender.id
+    const chatId: string | undefined =
+      msg?.from?.id ? String(msg.from.id) :
+      update?.sender?.id ? String(update.sender.id) : undefined;
+
+    if (!chatId) {
+      console.warn('[zalo/webhook] Không tìm thấy chatId, raw:', JSON.stringify(update).slice(0, 300));
+      return;
+    }
+
+    const displayName: string =
+      msg?.from?.display_name ||
+      update?.sender?.display_name ||
+      update?.sender?.name || '';
+
+    const attachmentUrl = extractAttachmentUrl(msg ?? update);
+    const content: string =
+      msg?.text || update?.message?.text ||
+      msg?.attachments?.[0]?.description ||
+      (attachmentUrl ? '[hình ảnh]' : '[đính kèm]');
     const eventName: string = update?.event_name || 'message';
+
+    console.log(`[zalo/webhook] chatId=${chatId} event=${eventName} content="${content.slice(0,50)}"`);
 
     const saved = await prisma.zaloMessage.create({
       data: {
         chatId,
         displayName: displayName || null,
         content,
+        attachmentUrl,
         role: 'user',
         eventName,
         rawPayload: update as any,

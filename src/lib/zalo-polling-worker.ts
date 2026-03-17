@@ -77,16 +77,26 @@ async function callZalo(token: string, endpoint: string, body: object): Promise<
   }
 }
 
+function extractAttachmentUrl(msg: any): string | null {
+  const attachments: any[] = msg?.attachments ?? [];
+  for (const att of attachments) {
+    const url = att?.payload?.url || att?.payload?.thumbnail || att?.url;
+    if (url && typeof url === 'string') return url;
+  }
+  return null;
+}
+
 async function saveMessage(update: any): Promise<void> {
   try {
     const msg = update?.message;
     if (!msg?.from?.id) return;
     const chatId = String(msg.from.id);
     const displayName: string = msg.from.display_name || '';
-    const content: string = msg.text || msg.attachments?.[0]?.description || '[đính kèm]';
+    const attachmentUrl = extractAttachmentUrl(msg);
+    const content: string = msg.text || msg.attachments?.[0]?.description || (attachmentUrl ? '[hình ảnh]' : '[đính kèm]');
     const eventName: string = update?.event_name || 'message';
     const saved = await prisma.zaloMessage.create({
-      data: { chatId, displayName: displayName || null, content, role: 'user', eventName, rawPayload: update as any },
+      data: { chatId, displayName: displayName || null, content, attachmentUrl, role: 'user', eventName, rawPayload: update as any },
     });
     emitNewMessage({ ...saved });
   } catch {
@@ -146,12 +156,14 @@ async function pollOnce(): Promise<void> {
   }
 
   try {
-    // Long-poll 5s → trả ngay nếu có tin, chờ 5s nếu không có
+    // Long-poll 25s — Zalo giữ kết nối, trả về NGAY khi có tin nhắn.
+    // Khi không có tin, Zalo trả về sau 25s → poll lại ngay → không bận CPU.
+    // Kết quả: nhận tin gần như tức thì (<1s) mà chỉ ~2 request/phút khi idle.
     const res = await fetch(`${ZALO_API}/bot${token}/getUpdates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ timeout: 5 }),
-      signal: AbortSignal.timeout(10_000),
+      body: JSON.stringify({ timeout: 25 }),
+      signal: AbortSignal.timeout(35_000),
     });
 
     if (!res.ok) {
@@ -168,16 +180,17 @@ async function pollOnce(): Promise<void> {
       state.lastMessageAt = new Date();
       state.lastError = null;
       await Promise.all([saveMessage(update), detectAndStorePending(update), cleanupOldMessages()]);
-      // Có tin → poll ngay (có thể còn tin tiếp)
+      // Có tin → poll ngay (có thể còn tin tiếp trong queue)
       scheduleNext(0);
     } else {
-      // Không có tin → poll lại sau 500ms
-      cleanupOldMessages(); // chạy nền, không await để không trì hoãn polling
-      scheduleNext(500);
+      // Không có tin (Zalo đã giữ 25s) → poll lại ngay, Zalo sẽ giữ tiếp
+      cleanupOldMessages();
+      scheduleNext(0);
     }
   } catch (err: any) {
     const isTimeout = err?.name === 'TimeoutError';
     state.lastError = isTimeout ? null : `Lỗi kết nối: ${err?.message || ''}`;
+    // Timeout bình thường (35s) → poll lại ngay; lỗi mạng → chờ 3s
     scheduleNext(isTimeout ? 0 : 3000);
   }
 }
