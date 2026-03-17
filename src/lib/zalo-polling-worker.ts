@@ -77,16 +77,26 @@ async function callZalo(token: string, endpoint: string, body: object): Promise<
   }
 }
 
+function extractAttachmentUrl(msg: any): string | null {
+  const attachments: any[] = msg?.attachments ?? [];
+  for (const att of attachments) {
+    const url = att?.payload?.url || att?.payload?.thumbnail || att?.url;
+    if (url && typeof url === 'string') return url;
+  }
+  return null;
+}
+
 async function saveMessage(update: any): Promise<void> {
   try {
     const msg = update?.message;
     if (!msg?.from?.id) return;
     const chatId = String(msg.from.id);
     const displayName: string = msg.from.display_name || '';
-    const content: string = msg.text || msg.attachments?.[0]?.description || '[đính kèm]';
+    const attachmentUrl = extractAttachmentUrl(msg);
+    const content: string = msg.text || msg.attachments?.[0]?.description || (attachmentUrl ? '[hình ảnh]' : '[đính kèm]');
     const eventName: string = update?.event_name || 'message';
     const saved = await prisma.zaloMessage.create({
-      data: { chatId, displayName: displayName || null, content, role: 'user', eventName, rawPayload: update as any },
+      data: { chatId, displayName: displayName || null, content, attachmentUrl, role: 'user', eventName, rawPayload: update as any },
     });
     emitNewMessage({ ...saved });
   } catch {

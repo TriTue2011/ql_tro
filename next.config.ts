@@ -46,8 +46,8 @@ const nextConfig: NextConfig = {
           : "script-src 'self' 'unsafe-inline'",
       // Style: self + inline (CSS-in-JS / Tailwind) + Bootstrap CDN cho dashboard
       "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-      // Ảnh: self + data URI + blob + Cloudinary + MinIO
-      "img-src 'self' data: blob: https://res.cloudinary.com",
+      // Ảnh: self + data URI + blob + Cloudinary + MinIO + Zalo CDN
+      "img-src 'self' data: blob: https://res.cloudinary.com https://*.zaloapp.com https://*.zadn.vn https://zalo.me",
       // Font: self + Bootstrap Icons CDN (font files)
       "font-src 'self' data: https://cdn.jsdelivr.net",
       // Kết nối API: self + jsDelivr (browser tự tải source map của Bootstrap)

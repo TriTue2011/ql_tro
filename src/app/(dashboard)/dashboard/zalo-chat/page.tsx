@@ -11,6 +11,7 @@ interface ZaloMessage {
   chatId: string;
   displayName: string | null;
   content: string;
+  attachmentUrl?: string | null;
   role: 'user' | 'bot';
   eventName: string | null;
   createdAt: string;
@@ -270,7 +271,17 @@ export default function ZaloChatPage() {
                             : 'bg-blue-500 text-white'
                           : 'bg-white text-gray-800 border'
                       }`}>
-                        {msg.content}
+                        {msg.attachmentUrl && (
+                          <img
+                            src={msg.attachmentUrl}
+                            alt="hình ảnh"
+                            className="rounded-lg max-w-[240px] max-h-[320px] object-contain mb-1"
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        )}
+                        {msg.content && msg.content !== '[hình ảnh]' && (
+                          <span>{msg.content}</span>
+                        )}
                         {msg.eventName === 'bot_reply_failed' && (
                           <span className="ml-1 text-xs">⚠ gửi lỗi</span>
                         )}

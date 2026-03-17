@@ -40,6 +40,10 @@ export async function register() {
         name: 'ToaNha.lienHePhuTrach',
         sql: `ALTER TABLE "ToaNha" ADD COLUMN IF NOT EXISTS "lienHePhuTrach" JSONB NOT NULL DEFAULT '[]'::jsonb`,
       },
+      {
+        name: 'ZaloMessage.attachmentUrl',
+        sql: `ALTER TABLE "ZaloMessage" ADD COLUMN IF NOT EXISTS "attachmentUrl" TEXT`,
+      },
     ];
 
     for (const m of migrations) {

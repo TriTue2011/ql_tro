@@ -1069,6 +1069,10 @@ export default function CaiDatPage() {
                                 <Badge variant="outline" className="text-[9px] h-4 px-1">{msg.eventName}</Badge>
                               )}
                             </div>
+                            {msg.attachmentUrl && (
+                              <img src={msg.attachmentUrl} alt="ảnh" className="mt-1 rounded max-h-20 max-w-[160px] object-contain border"
+                                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            )}
                             <p className="text-gray-600 mt-0.5 truncate">{msg.content}</p>
                             <p className="text-gray-400 text-[10px] mt-0.5">{new Date(msg.createdAt).toLocaleString('vi-VN')}</p>
                           </div>
