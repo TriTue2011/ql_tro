@@ -35,12 +35,12 @@ export async function GET() {
     prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_url' } }),
   ]);
 
-  // 3. Số tin nhắn trong DB (24h gần nhất)
+  // 3. Số tin nhắn trong DB
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const [totalMessages, recentMessages] = await Promise.all([
+  const [totalMessages, messages24h, recentMessages] = await Promise.all([
     prisma.zaloMessage.count(),
+    prisma.zaloMessage.count({ where: { createdAt: { gte: since24h } } }),
     prisma.zaloMessage.findMany({
-      where: { createdAt: { gte: since24h } },
       orderBy: { createdAt: 'desc' },
       take: 5,
       select: { id: true, chatId: true, displayName: true, content: true, role: true, createdAt: true },
@@ -60,6 +60,7 @@ export async function GET() {
     polling,
     database: {
       totalMessages,
+      last24hMessages: messages24h,
       last5Messages: recentMessages,
     },
     sse: {
