@@ -28,18 +28,22 @@ function getInitials(name: string) {
 }
 
 const navItems = [
-  { label: 'Tổng quan',  href: '/khach-thue/dashboard',           icon: 'bi-grid-1x2-fill' },
-  { label: 'Hóa đơn',   href: '/khach-thue/dashboard/hoa-don',   icon: 'bi-receipt' },
-  { label: 'Hợp đồng',  href: '/khach-thue/dashboard/hop-dong',  icon: 'bi-file-earmark-text' },
-  { label: 'Sự cố',     href: '/khach-thue/dashboard/su-co',     icon: 'bi-exclamation-triangle' },
-  { label: 'Cài đặt',   href: '/khach-thue/dashboard/cai-dat',   icon: 'bi-gear' },
+  { label: 'Tổng quan',       href: '/khach-thue/dashboard',                    icon: 'bi-grid-1x2-fill' },
+  { label: 'Thông báo',       href: '/khach-thue/dashboard/thong-bao',          icon: 'bi-bell' },
+  { label: 'Hóa đơn',        href: '/khach-thue/dashboard/hoa-don',            icon: 'bi-receipt' },
+  { label: 'Hợp đồng',       href: '/khach-thue/dashboard/hop-dong',           icon: 'bi-file-earmark-text' },
+  { label: 'Sự cố',          href: '/khach-thue/dashboard/su-co',              icon: 'bi-exclamation-triangle' },
+  { label: 'Người cùng phòng', href: '/khach-thue/dashboard/nguoi-cung-phong', icon: 'bi-people' },
+  { label: 'Cài đặt',        href: '/khach-thue/dashboard/cai-dat',            icon: 'bi-gear' },
 ];
 
 const breadcrumbMap: Record<string, string> = {
-  'hoa-don':  'Hóa đơn',
-  'hop-dong': 'Hợp đồng',
-  'su-co':    'Sự cố',
-  'cai-dat':  'Cài đặt',
+  'thong-bao':        'Thông báo',
+  'hoa-don':          'Hóa đơn',
+  'hop-dong':         'Hợp đồng',
+  'su-co':            'Sự cố',
+  'nguoi-cung-phong': 'Người cùng phòng',
+  'cai-dat':          'Cài đặt',
 };
 
 export default function KhachThueDashboardLayout({ children }: { children: React.ReactNode }) {

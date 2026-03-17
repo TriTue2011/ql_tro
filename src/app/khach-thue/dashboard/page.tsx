@@ -51,13 +51,14 @@ const suCoTrangThaiLabel: Record<string, { label: string; cls: string }> = {
 export default function KhachThueDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     document.title = 'Tổng quan — Cổng Khách Thuê';
     fetch('/api/auth/khach-thue/dashboard')
       .then((r) => r.json())
-      .then((res) => { if (res.success) setData(res.data); })
-      .catch(() => {})
+      .then((res) => { if (res.success) setData(res.data); else setError(true); })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -76,7 +77,18 @@ export default function KhachThueDashboardPage() {
     );
   }
 
-  if (!data) return null;
+  if (error || !data) {
+    return (
+      <div className="bs-card text-center py-5">
+        <i className="bi bi-wifi-off fs-1 mb-3 d-block" style={{ color: '#d1d5db' }} />
+        <p className="fw-semibold mb-1" style={{ color: '#374151' }}>Không thể tải dữ liệu</p>
+        <p className="mb-3" style={{ fontSize: 13, color: '#9ca3af' }}>Vui lòng thử lại sau</p>
+        <button className="btn btn-sm btn-primary" onClick={() => { setError(false); setLoading(true); setData(null); fetch('/api/auth/khach-thue/dashboard').then(r => r.json()).then(res => { if (res.success) setData(res.data); else setError(true); }).catch(() => setError(true)).finally(() => setLoading(false)); }}>
+          <i className="bi bi-arrow-clockwise me-1" /> Thử lại
+        </button>
+      </div>
+    );
+  }
 
   const { khachThue, hopDongHienTai, soHoaDonChuaThanhToan, soSuCoMoi, soSuCoDangXuLy, yeuCauChoDuyet, daysUntilExpiry, chartData, suCoGanNhat, hoaDonGanNhat, lienHeQuanLy } = data;
 
