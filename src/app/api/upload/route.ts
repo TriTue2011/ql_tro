@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 import { uploadFile } from '@/lib/storage';
 import jwt from 'jsonwebtoken';
 
@@ -39,19 +38,17 @@ function getExtension(filename: string): string {
   return idx >= 0 ? filename.slice(idx).toLowerCase() : '';
 }
 
-// Giới hạn body size ở tầng framework (chặn trước khi đọc vào memory)
-export const config = {
-  api: { bodyParser: false },
-};
+export const runtime = 'nodejs';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB — khớp với giới hạn phía client
 
 export async function POST(request: NextRequest) {
   try {
-    // Hỗ trợ cả NextAuth session (admin/quanLy) và custom JWT Bearer token (khachThue)
-    const session = await getServerSession(authOptions);
-    let authorized = !!session;
+    // Ưu tiên NextAuth JWT (tương thích Next.js 15)
+    const nextAuthToken = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    let authorized = !!nextAuthToken;
 
+    // Fallback: custom Bearer JWT (legacy)
     if (!authorized) {
       try {
         const authHeader = request.headers.get('authorization');
