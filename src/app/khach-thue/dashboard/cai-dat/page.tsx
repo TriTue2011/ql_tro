@@ -96,7 +96,7 @@ export default function CaiDatPage() {
   const [yeuCaus, setYeuCaus] = useState<YeuCau[]>([]);
 
   // forms
-  const [infoForm, setInfoForm] = useState({ hoTen: '', email: '', queQuan: '', ngheNghiep: '', gioiTinh: 'nam' });
+  const [infoForm, setInfoForm] = useState({ hoTen: '', soDienThoai: '', email: '', cccd: '', queQuan: '', ngheNghiep: '', gioiTinh: 'nam' });
   const [anhCCCD, setAnhCCCD] = useState({ matTruoc: '', matSau: '' });
   const [pwForm, setPwForm] = useState({ matKhauCu: '', matKhauMoi: '', xacNhan: '' });
   const [zaloOn, setZaloOn] = useState(false);
@@ -126,7 +126,7 @@ export default function CaiDatPage() {
     if (meRes.success) {
       const d = meRes.data.khachThue;
       setKt(d);
-      setInfoForm({ hoTen: d.hoTen, email: d.email || '', queQuan: d.queQuan, ngheNghiep: d.ngheNghiep || '', gioiTinh: d.gioiTinh });
+      setInfoForm({ hoTen: d.hoTen, soDienThoai: d.soDienThoai || '', email: d.email || '', cccd: d.cccd || '', queQuan: d.queQuan, ngheNghiep: d.ngheNghiep || '', gioiTinh: d.gioiTinh });
       const cccd = d.anhCCCD as { matTruoc?: string; matSau?: string } | null;
       setAnhCCCD({ matTruoc: cccd?.matTruoc || '', matSau: cccd?.matSau || '' });
       setZaloOn(d.nhanThongBaoZalo);
@@ -311,8 +311,16 @@ export default function CaiDatPage() {
                   <Input value={infoForm.hoTen} onChange={e => setInfoForm(f => ({ ...f, hoTen: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Số điện thoại</Label>
-                  <Input value={kt?.soDienThoai || ''} disabled className="bg-gray-50" />
+                  <Label className="flex items-center gap-1">
+                    Số điện thoại
+                    <span className="text-xs text-blue-500 font-normal">(= tài khoản đăng nhập)</span>
+                  </Label>
+                  <Input
+                    type="tel"
+                    value={infoForm.soDienThoai}
+                    onChange={e => setInfoForm(f => ({ ...f, soDienThoai: e.target.value }))}
+                    placeholder="0912345678"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Email</Label>
@@ -320,7 +328,12 @@ export default function CaiDatPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>CCCD</Label>
-                  <Input value={kt?.cccd || ''} disabled className="bg-gray-50 font-mono" />
+                  <Input
+                    value={infoForm.cccd}
+                    onChange={e => setInfoForm(f => ({ ...f, cccd: e.target.value }))}
+                    placeholder="012345678901"
+                    className="font-mono"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Ngày sinh</Label>
@@ -346,10 +359,23 @@ export default function CaiDatPage() {
                   <Input value={infoForm.ngheNghiep} onChange={e => setInfoForm(f => ({ ...f, ngheNghiep: e.target.value }))} placeholder="Sinh viên, Kỹ sư..." />
                 </div>
               </div>
+              {(infoForm.soDienThoai !== kt?.soDienThoai || infoForm.email !== (kt?.email || '')) && (
+                <div className="rounded-md bg-blue-50 border border-blue-200 p-2.5 text-xs text-blue-700 flex items-start gap-2">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    {infoForm.soDienThoai !== kt?.soDienThoai
+                      ? 'Thay đổi số điện thoại sẽ cập nhật tài khoản đăng nhập của bạn.'
+                      : 'Thay đổi email sẽ được cập nhật vào hồ sơ của bạn.'}
+                  </span>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">* Thay đổi sẽ được gửi cho quản lý/chủ trọ xem xét trước khi áp dụng.</p>
               <div className="flex justify-end">
                 <Button
-                  onClick={() => submitYeuCau('thongTin', infoForm, { hoTen: kt?.hoTen, email: kt?.email, queQuan: kt?.queQuan, ngheNghiep: kt?.ngheNghiep, gioiTinh: kt?.gioiTinh })}
+                  onClick={() => submitYeuCau('thongTin', infoForm, {
+                    hoTen: kt?.hoTen, soDienThoai: kt?.soDienThoai, email: kt?.email,
+                    cccd: kt?.cccd, queQuan: kt?.queQuan, ngheNghiep: kt?.ngheNghiep, gioiTinh: kt?.gioiTinh,
+                  })}
                   disabled={saving === 'thongTin'}
                 >
                   {saving === 'thongTin' ? 'Đang gửi...' : 'Gửi yêu cầu thay đổi'}
