@@ -1,6 +1,7 @@
-// Layout bảo vệ khu vực khách thuê.
-// Việc kiểm tra auth đã được xử lý tại middleware.ts (NextAuth session).
-// Layout này chỉ render children, không cần kiểm tra localStorage nữa.
+'use client';
+
+import { SessionProvider } from 'next-auth/react';
+
 export default function KhachThueLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <SessionProvider>{children}</SessionProvider>;
 }
