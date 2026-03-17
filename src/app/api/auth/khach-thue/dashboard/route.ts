@@ -30,7 +30,16 @@ export async function GET(_request: NextRequest) {
       include: {
         phong: {
           include: {
-            toaNha: { select: { tenToaNha: true, diaChi: true, lienHePhuTrach: true } },
+            toaNha: {
+              select: {
+                tenToaNha: true, diaChi: true, lienHePhuTrach: true,
+                chuSoHuu: { select: { ten: true, soDienThoai: true, email: true } },
+                toaNhaQuanLy: {
+                  select: { nguoiDung: { select: { ten: true, soDienThoai: true, email: true } } },
+                  take: 1,
+                },
+              },
+            },
           },
         },
         nguoiDaiDien: { select: { id: true, hoTen: true, soDienThoai: true } },
@@ -100,6 +109,21 @@ export async function GET(_request: NextRequest) {
     });
   }
 
+  // Thông tin liên hệ: ưu tiên quản lý, nếu không có thì chủ trọ
+  let lienHeQuanLy: { ten: string; soDienThoai?: string | null; email?: string | null } | null = null;
+  if (hopDongHienTai) {
+    const toaNha = (hopDongHienTai.phong as any)?.toaNha;
+    const quanLy = toaNha?.toaNhaQuanLy?.[0]?.nguoiDung;
+    if (quanLy && (quanLy.soDienThoai || quanLy.email)) {
+      lienHeQuanLy = { ten: quanLy.ten, soDienThoai: quanLy.soDienThoai, email: quanLy.email };
+    } else {
+      const chu = toaNha?.chuSoHuu;
+      if (chu && (chu.soDienThoai || chu.email)) {
+        lienHeQuanLy = { ten: chu.ten, soDienThoai: chu.soDienThoai, email: chu.email };
+      }
+    }
+  }
+
   return NextResponse.json({
     success: true,
     data: {
@@ -113,6 +137,7 @@ export async function GET(_request: NextRequest) {
       chartData,
       suCoGanNhat: suCoList,
       hoaDonGanNhat,
+      lienHeQuanLy,
     },
   });
 }

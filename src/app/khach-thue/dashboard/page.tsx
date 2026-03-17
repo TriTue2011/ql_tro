@@ -15,6 +15,8 @@ interface ChartPoint {
   soNuoc: number;
 }
 
+interface LienHe { ten: string; soDienThoai?: string | null; email?: string | null }
+
 interface DashboardData {
   khachThue: { id: string; hoTen: string; soDienThoai: string; email?: string; trangThai: string; nhanThongBaoZalo: boolean };
   hopDongHienTai: any;
@@ -23,6 +25,7 @@ interface DashboardData {
   soSuCoDangXuLy: number;
   yeuCauChoDuyet: number;
   daysUntilExpiry: number | null;
+  lienHeQuanLy: LienHe | null;
   chartData: ChartPoint[];
   suCoGanNhat: { id: string; tieuDe: string; trangThai: string; loaiSuCo: string; ngayBaoCao: string }[];
   hoaDonGanNhat: { thang: number; nam: number; tongTien: number; tienDien: number; tienNuoc: number; soDien: number; soNuoc: number } | null;
@@ -75,7 +78,7 @@ export default function KhachThueDashboardPage() {
 
   if (!data) return null;
 
-  const { khachThue, hopDongHienTai, soHoaDonChuaThanhToan, soSuCoMoi, soSuCoDangXuLy, yeuCauChoDuyet, daysUntilExpiry, chartData, suCoGanNhat, hoaDonGanNhat } = data;
+  const { khachThue, hopDongHienTai, soHoaDonChuaThanhToan, soSuCoMoi, soSuCoDangXuLy, yeuCauChoDuyet, daysUntilExpiry, chartData, suCoGanNhat, hoaDonGanNhat, lienHeQuanLy } = data;
 
   const firstName = khachThue.hoTen.split(' ').pop() ?? khachThue.hoTen;
   const now = new Date();
@@ -398,11 +401,29 @@ export default function KhachThueDashboardPage() {
                     <span className="fw-medium">{hopDongHienTai.nguoiDaiDien.hoTen}</span>
                   </div>
                 )}
-                {hopDongHienTai.phong?.toaNha?.lienHePhuTrach && (
-                  <div className="d-flex justify-content-between">
-                    <span style={{ color: '#6b7280' }}>Liên hệ</span>
-                    <span className="fw-medium">{hopDongHienTai.phong.toaNha.lienHePhuTrach}</span>
-                  </div>
+                {lienHeQuanLy && (lienHeQuanLy.soDienThoai || lienHeQuanLy.email) && (
+                  <>
+                    <div className="d-flex justify-content-between">
+                      <span style={{ color: '#6b7280' }}>Quản lý</span>
+                      <span className="fw-medium">{lienHeQuanLy.ten}</span>
+                    </div>
+                    {lienHeQuanLy.soDienThoai && (
+                      <div className="d-flex justify-content-between">
+                        <span style={{ color: '#6b7280' }}>Hotline</span>
+                        <a href={`tel:${lienHeQuanLy.soDienThoai}`} className="fw-medium text-decoration-none" style={{ color: '#6366f1' }}>
+                          {lienHeQuanLy.soDienThoai}
+                        </a>
+                      </div>
+                    )}
+                    {lienHeQuanLy.email && (
+                      <div className="d-flex justify-content-between">
+                        <span style={{ color: '#6b7280' }}>Email</span>
+                        <a href={`mailto:${lienHeQuanLy.email}`} className="fw-medium text-decoration-none" style={{ color: '#6366f1', wordBreak: 'break-all' }}>
+                          {lienHeQuanLy.email}
+                        </a>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
