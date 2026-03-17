@@ -12,7 +12,7 @@ export async function POST() {
   try {
     const config = await getMinioConfig();
 
-    if (!config.endpoint || config.endpoint === 'localhost') {
+    if (!config.endpoint) {
       return NextResponse.json({
         success: false,
         message: 'Chưa cấu hình MinIO Endpoint URL',
