@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
+import { notifyKhachThue, notifyDaiDienHopDong } from '@/lib/send-zalo';
 
 function isAdmin(role?: string) {
   return ['admin', 'chuNha', 'quanLy'].includes(role ?? '');
@@ -95,18 +97,23 @@ export async function PUT(request: NextRequest) {
       // Thêm thành viên mới vào hợp đồng
       if (sau.action === 'them') {
         const newMember = sau.thanhVien;
-        // Tạo KhachThue mới
+        const age = Math.floor((Date.now() - new Date(newMember.ngaySinh).getTime()) / (365.25 * 24 * 3600 * 1000));
+        const isUnder18 = age < 18;
+        // Mật khẩu mặc định admin123 nếu 18+
+        const defaultPw = isUnder18 ? null : await bcrypt.hash('admin123', 10);
+
+        const sdt = newMember.soDienThoai || `PENDING_${Date.now()}`;
         const created = await prisma.khachThue.create({
           data: {
             hoTen: newMember.hoTen,
-            soDienThoai: newMember.soDienThoai || `PENDING_${Date.now()}`,
+            soDienThoai: sdt,
             cccd: newMember.cccd || `PENDING_${Date.now()}`,
             ngaySinh: new Date(newMember.ngaySinh),
             gioiTinh: newMember.gioiTinh,
             queQuan: newMember.queQuan,
             ngheNghiep: newMember.ngheNghiep,
             trangThai: 'chuaThue',
-            matKhau: null, // Tài khoản đăng nhập cần admin cấp riêng
+            matKhau: defaultPw,
           },
         });
         // Liên kết với hợp đồng
@@ -115,6 +122,11 @@ export async function PUT(request: NextRequest) {
             where: { id: sau.hopDongId },
             data: { khachThue: { connect: { id: created.id } } },
           });
+          // Thông báo cho người đứng hợp đồng
+          if (!isUnder18) {
+            const loginMsg = `🎉 Tài khoản cho ${newMember.hoTen} đã được phê duyệt!\n📱 Tài khoản: ${sdt.startsWith('PENDING_') ? '(chưa có SĐT)' : sdt}\n🔑 Mật khẩu mặc định: admin123\n⚠️ Vui lòng đăng nhập và đổi mật khẩu ngay tại mục Cài đặt > Bảo mật.`;
+            notifyDaiDienHopDong(sau.hopDongId, loginMsg).catch(() => {});
+          }
         }
       } else if (sau.action === 'sua') {
         await prisma.khachThue.update({
@@ -143,6 +155,17 @@ export async function PUT(request: NextRequest) {
       ghiChuPheDuyet: ghiChuPheDuyet || null,
     },
   });
+
+  // Thông báo Zalo cho khách thuê về kết quả phê duyệt
+  const loaiLabel: Record<string, string> = {
+    thongTin: 'thông tin cá nhân', anhCCCD: 'ảnh CCCD',
+    nguoiCungPhong: 'người cùng phòng', thongBao: 'cài đặt thông báo',
+  };
+  if (trangThai === 'daPheduyet') {
+    notifyKhachThue(yeuCau.khachThueId, `✅ Yêu cầu thay đổi ${loaiLabel[yeuCau.loai] ?? yeuCau.loai} của bạn đã được phê duyệt.`).catch(() => {});
+  } else {
+    notifyKhachThue(yeuCau.khachThueId, `❌ Yêu cầu thay đổi ${loaiLabel[yeuCau.loai] ?? yeuCau.loai} của bạn bị từ chối.${ghiChuPheDuyet ? `\nLý do: ${ghiChuPheDuyet}` : ''}`).catch(() => {});
+  }
 
   return NextResponse.json({
     success: true,

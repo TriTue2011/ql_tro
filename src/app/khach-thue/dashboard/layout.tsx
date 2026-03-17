@@ -1,121 +1,172 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Home, FileText, AlertCircle, LogOut, Menu, X, Users, Settings } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import '@/styles/bs-admin.css';
 
-export default function KhachThueDashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function BootstrapCDN() {
+  return (
+    <>
+      <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+        crossOrigin="anonymous"
+      />
+      <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      />
+    </>
+  );
+}
+
+function getInitials(name: string) {
+  return name.split(' ').map((w) => w[0]).slice(-2).join('').toUpperCase();
+}
+
+const navItems = [
+  { label: 'Tổng quan',  href: '/khach-thue/dashboard',           icon: 'bi-grid-1x2-fill' },
+  { label: 'Hóa đơn',   href: '/khach-thue/dashboard/hoa-don',   icon: 'bi-receipt' },
+  { label: 'Hợp đồng',  href: '/khach-thue/dashboard/hop-dong',  icon: 'bi-file-earmark-text' },
+  { label: 'Sự cố',     href: '/khach-thue/dashboard/su-co',     icon: 'bi-exclamation-triangle' },
+  { label: 'Cài đặt',   href: '/khach-thue/dashboard/cai-dat',   icon: 'bi-gear' },
+];
+
+const breadcrumbMap: Record<string, string> = {
+  'hoa-don':  'Hóa đơn',
+  'hop-dong': 'Hợp đồng',
+  'su-co':    'Sự cố',
+  'cai-dat':  'Cài đặt',
+};
+
+export default function KhachThueDashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Middleware đã bảo vệ route này, nhưng fallback cho an toàn
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (!session || session.user.role !== 'khachThue') {
+      router.replace('/dang-nhap');
+    }
+  }, [session, status, router]);
+
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f4f6fb' }}>
+        <div className="text-center">
+          <div className="spinner-border" style={{ color: '#6366f1', width: 40, height: 40 }} role="status" />
+          <p className="mt-3" style={{ color: '#6b7280', fontSize: 14 }}>Đang tải...</p>
+        </div>
       </div>
     );
   }
 
-  if (!session || session.user.role !== 'khachThue') {
-    router.replace('/dang-nhap');
-    return null;
-  }
+  if (!session || session.user.role !== 'khachThue') return null;
 
-  const navigation = [
-    { name: 'Tổng quan', href: '/khach-thue/dashboard', icon: Home },
-    { name: 'Hóa đơn', href: '/khach-thue/dashboard/hoa-don', icon: FileText },
-    { name: 'Hợp đồng', href: '/khach-thue/dashboard/hop-dong', icon: FileText },
-    { name: 'Sự cố', href: '/khach-thue/dashboard/su-co', icon: AlertCircle },
-    { name: 'Cài đặt', href: '/khach-thue/dashboard/cai-dat', icon: Settings },
-  ];
+  const userName = session.user.name ?? 'Khách thuê';
+  const segments = pathname.replace('/khach-thue/dashboard', '').split('/').filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="bg-white shadow-lg"
-        >
-          {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
-      </div>
+    <>
+      <BootstrapCDN />
+      <div className="bs-admin-shell">
+        {/* Mobile overlay */}
+        {mobileOpen && (
+          <div
+            className="bs-sidebar-overlay"
+            style={{ display: 'block' }}
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
 
-      {/* Sidebar */}
-      <aside className={`
-        fixed top-0 left-0 z-40 w-64 h-screen transition-transform bg-white border-r
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        <div className="h-full px-4 py-6 overflow-y-auto flex flex-col">
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-            <h2 className="text-lg font-bold text-blue-900">Xin chào,</h2>
-            <p className="text-sm text-blue-700 font-medium">{session.user.name}</p>
-            <p className="text-xs text-blue-600 mt-1">{session.user.phone}</p>
-          </div>
+        {/* Sidebar */}
+        <aside className={`bs-sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
+          {/* Brand */}
+          <Link href="/khach-thue/dashboard" className="bs-sidebar-brand">
+            <div className="brand-icon">
+              <i className="bi bi-house-heart-fill" />
+            </div>
+            <div className="brand-text">
+              <div className="brand-name">Phòng Trọ Pro</div>
+              <div className="brand-sub">Cổng khách thuê</div>
+            </div>
+          </Link>
 
-          <nav className="space-y-1 flex-1">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
+          {/* Nav */}
+          <div className="bs-nav-body">
+            {navItems.map((item) => {
+              const isActive = item.href === '/khach-thue/dashboard'
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
               return (
                 <Link
-                  key={item.name}
+                  key={item.href}
                   href={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`
-                    flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
-                    ${isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }
-                  `}
+                  className={`bs-nav-item ${isActive ? 'active' : ''}`}
+                  onClick={() => setMobileOpen(false)}
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
-                  <span className="font-medium text-sm">{item.name}</span>
+                  <i className={`bi ${item.icon}`} />
+                  <span className="nav-label">{item.label}</span>
                 </Link>
               );
             })}
-          </nav>
-
-          <div className="pt-6 border-t mt-4">
-            <Button
-              variant="outline"
-              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={() => signOut({ callbackUrl: '/dang-nhap' })}
-            >
-              <LogOut className="h-5 w-5 mr-3" />
-              Đăng xuất
-            </Button>
           </div>
-        </div>
-      </aside>
 
-      {/* Main content */}
-      <main className="lg:ml-64 min-h-screen">
-        <div className="p-4 lg:p-8 pt-20 lg:pt-8">
-          {children}
-        </div>
-      </main>
+          {/* User footer */}
+          <div className="bs-sidebar-footer">
+            <div className="bs-user-card" onClick={() => signOut({ callbackUrl: '/dang-nhap' })} style={{ cursor: 'pointer' }}>
+              <div className="bs-user-avatar">{getInitials(userName)}</div>
+              <div className="bs-user-info">
+                <div className="bs-user-name">{userName}</div>
+                <div className="bs-user-role">Khách thuê</div>
+              </div>
+              <i className="bi bi-box-arrow-right" style={{ color: 'rgba(139,148,158,0.6)', fontSize: 15 }} />
+            </div>
+          </div>
+        </aside>
 
-      {/* Mobile menu overlay */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black bg-opacity-50 lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
-    </div>
+        {/* Main content */}
+        <div className="bs-main-content">
+          {/* Topbar */}
+          <header className="bs-topbar">
+            <button className="bs-topbar-toggle d-flex d-md-none" onClick={() => setMobileOpen(true)}>
+              <i className="bi bi-list" />
+            </button>
+
+            <nav className="bs-breadcrumb">
+              <ol className="breadcrumb mb-0">
+                <li className="breadcrumb-item">
+                  <Link href="/khach-thue/dashboard" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>
+                    <i className="bi bi-house me-1" />Tổng quan
+                  </Link>
+                </li>
+                {segments.map((seg, i) => (
+                  <li
+                    key={seg}
+                    className={`breadcrumb-item${i === segments.length - 1 ? ' active' : ''}`}
+                    style={{ fontSize: 13 }}
+                  >
+                    {breadcrumbMap[seg] ?? seg}
+                  </li>
+                ))}
+              </ol>
+            </nav>
+
+            <div className="bs-topbar-actions">
+              <div className="bs-topbar-avatar" title={userName}>
+                {getInitials(userName)}
+              </div>
+            </div>
+          </header>
+
+          <main className="bs-page">{children}</main>
+        </div>
+      </div>
+    </>
   );
 }

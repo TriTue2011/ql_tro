@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSuCoRepo } from '@/lib/repositories';
+import { notifyKhachThue } from '@/lib/send-zalo';
 import { z } from 'zod';
 
 const updateSuCoSchema = z.object({
@@ -74,6 +75,9 @@ export async function PUT(
 
     const repo = await getSuCoRepo();
 
+    // Lấy trạng thái cũ để so sánh
+    const suCoCu = await repo.findById(id);
+
     const suCo = await repo.update(id, {
       trangThai: validatedData.trangThai,
       nguoiXuLyId: validatedData.nguoiXuLy,
@@ -86,6 +90,19 @@ export async function PUT(
         { message: 'Sự cố không tồn tại' },
         { status: 404 }
       );
+    }
+
+    // Gửi Zalo thông báo cho khách thuê khi trạng thái thay đổi
+    if (validatedData.trangThai && suCoCu && validatedData.trangThai !== suCoCu.trangThai) {
+      const msgMap: Record<string, string> = {
+        dangXuLy: `✅ Sự cố "${suCo.tieuDe}" của bạn đã được tiếp nhận và đang xử lý.`,
+        daXong: `🎉 Sự cố "${suCo.tieuDe}" đã được xử lý xong!${validatedData.ghiChuXuLy ? `\nGhi chú: ${validatedData.ghiChuXuLy}` : ''}`,
+        daHuy: `ℹ️ Sự cố "${suCo.tieuDe}" đã được đóng/hủy.`,
+      };
+      const msg = msgMap[validatedData.trangThai];
+      if (msg) {
+        notifyKhachThue((suCo as any).khachThueId, msg).catch(() => {});
+      }
     }
 
     return NextResponse.json({
