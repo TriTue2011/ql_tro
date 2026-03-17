@@ -76,13 +76,14 @@ export default function NguoiCungPhongPage() {
       fd.append('file', file);
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const result = await res.json();
-      if (result.secure_url) {
+      const url = result.data?.secure_url;
+      if (url) {
         setAddForm(f => side === 'truoc'
-          ? { ...f, anhCCCDMatTruoc: result.secure_url }
-          : { ...f, anhCCCDMatSau: result.secure_url }
+          ? { ...f, anhCCCDMatTruoc: url }
+          : { ...f, anhCCCDMatSau: url }
         );
       } else {
-        toast.error('Upload ảnh thất bại');
+        toast.error(result.message || 'Upload ảnh thất bại');
       }
     } catch {
       toast.error('Lỗi upload ảnh');

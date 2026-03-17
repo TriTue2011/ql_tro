@@ -128,7 +128,8 @@ export default withAuth(
     // Chặn khachThue truy cập API quản lý
     const isManagementApi = pathname.startsWith('/api/') &&
       !pathname.startsWith('/api/auth/') &&
-      !pathname.startsWith('/api/khach-thue/');
+      !pathname.startsWith('/api/khach-thue/') &&
+      pathname !== '/api/upload';
     if (isManagementApi && token?.role === 'khachThue') {
       return new NextResponse(
         JSON.stringify({ message: 'Forbidden — khách thuê không có quyền truy cập' }),

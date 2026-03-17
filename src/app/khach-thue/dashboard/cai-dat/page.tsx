@@ -100,6 +100,9 @@ export default function CaiDatPage() {
   const [anhCCCD, setAnhCCCD] = useState({ matTruoc: '', matSau: '' });
   const [pwForm, setPwForm] = useState({ matKhauCu: '', matKhauMoi: '', xacNhan: '' });
   const [zaloOn, setZaloOn] = useState(false);
+  const [zaloHoaDon, setZaloHoaDon] = useState(true);
+  const [zaloSuCo, setZaloSuCo] = useState(true);
+  const [zaloHopDong, setZaloHopDong] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
 
   // dialog thêm/sửa thành viên
@@ -125,6 +128,12 @@ export default function CaiDatPage() {
       const cccd = d.anhCCCD as { matTruoc?: string; matSau?: string } | null;
       setAnhCCCD({ matTruoc: cccd?.matTruoc || '', matSau: cccd?.matSau || '' });
       setZaloOn(d.nhanThongBaoZalo);
+      const cfg = d.thongBaoConfig as { hoaDon?: boolean; suCo?: boolean; hopDong?: boolean } | null;
+      if (cfg) {
+        setZaloHoaDon(cfg.hoaDon !== false);
+        setZaloSuCo(cfg.suCo !== false);
+        setZaloHopDong(cfg.hopDong !== false);
+      }
     }
     if (membersRes.success) {
       setMembers(membersRes.data.members);
@@ -468,33 +477,90 @@ export default function CaiDatPage() {
         </TabsContent>
 
         {/* ── Tab Thông báo ── */}
-        <TabsContent value="thongbao">
+        <TabsContent value="thongbao" className="space-y-4">
+          {pendingByLoai('thongBao') && (
+            <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2 flex items-center gap-1">
+              <Clock className="h-3 w-3" /> Thay đổi cài đặt thông báo đang chờ duyệt
+            </div>
+          )}
+
+          {/* Thông báo trong ứng dụng */}
           <Card>
-            <CardHeader><CardTitle className="text-base">Cài đặt thông báo</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Nhận thông báo qua Zalo</p>
-                  <p className="text-xs text-muted-foreground">Nhận thông báo hóa đơn, sự cố qua Zalo bot</p>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bell className="h-4 w-4 text-blue-500" /> Thông báo trong ứng dụng
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Luôn bật — bạn sẽ thấy thông báo khi đăng nhập</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                { label: 'Hóa đơn mới / đến hạn', desc: 'Khi có hóa đơn được tạo hoặc sắp đến hạn' },
+                { label: 'Cập nhật sự cố', desc: 'Khi sự cố bạn báo được xử lý' },
+                { label: 'Hợp đồng & yêu cầu', desc: 'Khi có thay đổi hợp đồng hoặc yêu cầu được duyệt' },
+              ].map(item => (
+                <div key={item.label} className="flex items-center justify-between py-1">
+                  <div>
+                    <p className="text-sm font-medium">{item.label}</p>
+                    <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  </div>
+                  <Switch checked disabled />
                 </div>
-                <Switch checked={zaloOn} onCheckedChange={setZaloOn} />
-              </div>
-              {pendingByLoai('thongBao') && (
-                <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2 flex items-center gap-1">
-                  <Clock className="h-3 w-3" /> Thay đổi cài đặt thông báo đang chờ duyệt
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">* Thay đổi sẽ gửi cho quản lý/chủ trọ xem xét.</p>
-              <div className="flex justify-end">
-                <Button
-                  onClick={() => submitYeuCau('thongBao', { nhanThongBaoZalo: zaloOn }, { nhanThongBaoZalo: kt?.nhanThongBaoZalo })}
-                  disabled={saving === 'thongBao'}
-                >
-                  {saving === 'thongBao' ? 'Đang gửi...' : 'Lưu cài đặt'}
-                </Button>
-              </div>
+              ))}
             </CardContent>
           </Card>
+
+          {/* Thông báo qua Zalo */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <span className="inline-flex items-center justify-center h-5 w-5 rounded text-white text-xs font-bold" style={{ background: '#0068ff' }}>Z</span>
+                Thông báo qua Zalo
+              </CardTitle>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Bật/tắt toàn bộ thông báo Zalo</p>
+                <Switch checked={zaloOn} onCheckedChange={v => {
+                  setZaloOn(v);
+                  if (!v) { setZaloHoaDon(false); setZaloSuCo(false); setZaloHopDong(false); }
+                  else { setZaloHoaDon(true); setZaloSuCo(true); setZaloHopDong(true); }
+                }} />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                { key: 'hoaDon', label: 'Hóa đơn', desc: 'Nhắc thanh toán, hóa đơn mới', val: zaloHoaDon, set: setZaloHoaDon },
+                { key: 'suCo', label: 'Sự cố', desc: 'Cập nhật tiến độ xử lý sự cố', val: zaloSuCo, set: setZaloSuCo },
+                { key: 'hopDong', label: 'Hợp đồng & yêu cầu', desc: 'Phê duyệt yêu cầu, hết hạn hợp đồng', val: zaloHopDong, set: setZaloHopDong },
+              ].map(item => (
+                <div key={item.key} className={`flex items-center justify-between py-1 ${!zaloOn ? 'opacity-40 pointer-events-none' : ''}`}>
+                  <div>
+                    <p className="text-sm font-medium">{item.label}</p>
+                    <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  </div>
+                  <Switch
+                    checked={item.val && zaloOn}
+                    disabled={!zaloOn}
+                    onCheckedChange={v => {
+                      item.set(v);
+                      if (v && !zaloOn) setZaloOn(true);
+                    }}
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <p className="text-xs text-muted-foreground">* Thay đổi sẽ gửi cho quản lý/chủ trọ xem xét trước khi áp dụng.</p>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => submitYeuCau('thongBao',
+                { nhanThongBaoZalo: zaloOn, thongBaoConfig: { hoaDon: zaloHoaDon, suCo: zaloSuCo, hopDong: zaloHopDong } },
+                { nhanThongBaoZalo: kt?.nhanThongBaoZalo }
+              )}
+              disabled={saving === 'thongBao'}
+            >
+              {saving === 'thongBao' ? 'Đang gửi...' : 'Lưu cài đặt'}
+            </Button>
+          </div>
         </TabsContent>
       </Tabs>
 
