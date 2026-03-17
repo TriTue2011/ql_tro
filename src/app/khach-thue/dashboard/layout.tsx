@@ -41,7 +41,6 @@ const breadcrumbMap: Record<string, string> = {
   'hoa-don':          'Hóa đơn',
   'hop-dong':         'Hợp đồng',
   'su-co':            'Sự cố',
-  'nguoi-cung-phong': 'Người cùng phòng',
   'cai-dat':          'Cài đặt',
 };
 
