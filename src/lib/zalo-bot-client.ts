@@ -135,6 +135,84 @@ export async function sendImageViaBotServer(
   }
 }
 
+/** Gửi file qua bot server (POST /api/sendFileByAccount) */
+export async function sendFileViaBotServer(
+  chatId: string,
+  fileUrl: string,
+  caption?: string,
+): Promise<boolean> {
+  try {
+    const config = await getBotConfig();
+    if (!config || !config.accountId) return false;
+
+    const authHeaders = await loginToBotServer(config);
+    if (!authHeaders) return false;
+
+    const payload: Record<string, any> = {
+      fileUrl,
+      threadId: chatId,
+      accountSelection: config.accountId,
+      type: 0,
+      ttl: 0,
+    };
+    if (caption) payload.message = caption.slice(0, 1024);
+
+    const res = await fetch(`${config.serverUrl}/api/sendFileByAccount`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Gửi video qua bot server (POST /api/sendVideoByAccount) */
+export async function sendVideoViaBotServer(
+  chatId: string,
+  videoUrl: string,
+  opts?: {
+    thumbnailUrl?: string;
+    durationMs?: number; // mặc định 10000ms
+    width?: number;
+    height?: number;
+  },
+): Promise<boolean> {
+  try {
+    const config = await getBotConfig();
+    if (!config || !config.accountId) return false;
+
+    const authHeaders = await loginToBotServer(config);
+    if (!authHeaders) return false;
+
+    const payload = {
+      threadId: chatId,
+      accountSelection: config.accountId,
+      type: 0,
+      options: {
+        videoUrl,
+        thumbnailUrl: opts?.thumbnailUrl ?? '',
+        duration: opts?.durationMs ?? 10_000,
+        width: opts?.width ?? 1280,
+        height: opts?.height ?? 720,
+        ttl: 0,
+      },
+    };
+
+    const res = await fetch(`${config.serverUrl}/api/sendVideoByAccount`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(60_000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Gửi tin nhắn văn bản qua bot server */
 export async function sendMessageViaBotServer(chatId: string, text: string): Promise<boolean> {
   try {
