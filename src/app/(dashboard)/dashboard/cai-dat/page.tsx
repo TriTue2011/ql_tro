@@ -479,14 +479,10 @@ export default function CaiDatPage() {
     }
   }
 
-  async function handleStopPolling(restoreWebhook: boolean) {
+  async function handleStopPolling(_unused?: boolean) {
     setPollingLoading(true);
     try {
-      const res = await fetch('/api/zalo/polling', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ restoreWebhook }),
-      });
+      const res = await fetch('/api/zalo/polling', { method: 'DELETE' });
       const data = await res.json();
       toast.success(data.message);
       await fetchPollingStatus();
@@ -955,21 +951,13 @@ export default function CaiDatPage() {
                     {pollingLoading ? 'Đang khởi động…' : 'Bật Polling Worker'}
                   </Button>
                 ) : (
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handleStopPolling(false)} disabled={pollingLoading}
-                      className="flex-1 border-red-300 text-red-600 hover:bg-red-50">
-                      {pollingLoading ? 'Đang dừng…' : 'Dừng Polling'}
-                    </Button>
-                    {pollingStatus.webhookWillRestore && (
-                      <Button size="sm" variant="outline" onClick={() => handleStopPolling(true)} disabled={pollingLoading}
-                        className="flex-1 border-blue-300 text-blue-600 hover:bg-blue-50">
-                        Dừng & Bật lại Webhook
-                      </Button>
-                    )}
-                  </div>
+                  <Button size="sm" variant="outline" onClick={() => handleStopPolling(false)} disabled={pollingLoading}
+                    className="w-full border-red-300 text-red-600 hover:bg-red-50">
+                    {pollingLoading ? 'Đang dừng…' : 'Dừng Polling (tự khôi phục Webhook)'}
+                  </Button>
                 )}
                 <p className="text-[11px] text-muted-foreground">
-                  Worker dừng khi server khởi động lại. Sau khi restart, bấm "Bật Polling Worker" lại nếu cần.
+                  Khi dừng Polling, hệ thống tự đăng ký lại Webhook.
                 </p>
               </CardContent>
             </Card>

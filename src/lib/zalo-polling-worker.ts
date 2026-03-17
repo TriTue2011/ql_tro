@@ -246,9 +246,9 @@ export async function startPolling(): Promise<{ ok: boolean; message: string }> 
   return { ok: true, message: 'Polling worker đã khởi động' };
 }
 
-export async function stopPolling(restoreWebhook = false): Promise<{ ok: boolean; message: string }> {
+export async function stopPolling(): Promise<{ ok: boolean; message: string; webhookRestored: boolean }> {
   if (!state.running) {
-    return { ok: true, message: 'Worker không chạy' };
+    return { ok: true, message: 'Worker không chạy', webhookRestored: false };
   }
 
   state.running = false;
@@ -257,18 +257,28 @@ export async function stopPolling(restoreWebhook = false): Promise<{ ok: boolean
     state.timerId = null;
   }
 
-  // Đăng ký lại webhook nếu cần
-  if (restoreWebhook && state.webhookWasActive) {
-    try {
-      const token = await getZaloToken();
-      if (token) {
-        const secret = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_secret' } });
-        if (secret?.giaTri) {
-          await callZalo(token, 'setWebhook', { url: state.webhookWasActive, secret_token: secret.giaTri.trim() });
-        }
+  // Luôn thử đăng ký lại webhook khi tắt polling
+  // Ưu tiên: URL cũ (lưu lúc start) → fallback URL từ biến môi trường
+  let webhookRestored = false;
+  try {
+    const token = await getZaloToken();
+    if (token) {
+      const [secretRow, baseUrlRow] = await Promise.all([
+        prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_secret' } }),
+        prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_url' } }),
+      ]);
+      const secret = secretRow?.giaTri?.trim();
+      const webhookUrl =
+        state.webhookWasActive ||
+        baseUrlRow?.giaTri?.trim() ||
+        (process.env.NEXTAUTH_URL ? `${process.env.NEXTAUTH_URL.replace(/\/$/, '')}/api/zalo/webhook` : null);
+
+      if (secret && webhookUrl) {
+        const res = await callZalo(token, 'setWebhook', { url: webhookUrl, secret_token: secret });
+        webhookRestored = res?.error_code === 0 || !!res?.ok;
       }
-    } catch { /* bỏ qua lỗi restore */ }
-  }
+    }
+  } catch { /* bỏ qua lỗi restore */ }
 
   // Xóa flag auto-restart
   prisma.caiDat.upsert({
@@ -281,7 +291,10 @@ export async function stopPolling(restoreWebhook = false): Promise<{ ok: boolean
   state.startedAt = null;
   state.webhookWasActive = null;
 
-  return { ok: true, message: `Đã dừng polling. Đã xử lý ${processed} tin nhắn.` };
+  const msg = webhookRestored
+    ? `Đã dừng polling, đã khôi phục Webhook. Xử lý ${processed} tin.`
+    : `Đã dừng polling. Xử lý ${processed} tin. (Webhook chưa được khôi phục — kiểm tra lại cài đặt)`;
+  return { ok: true, message: msg, webhookRestored };
 }
 
 export function getPollingStatus() {
