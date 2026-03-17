@@ -30,8 +30,9 @@ model NguoiDung {
   toaNhaQuanLy  ToaNhaNguoiQuanLy[]
   chiSo         ChiSoDienNuoc[]
   thanhToan     ThanhToan[]
-  suCoXuLy      SuCo[]    @relation("NguoiXuLy")
-  thongBaoGui   ThongBao[]
+  suCoXuLy          SuCo[]          @relation("NguoiXuLy")
+  thongBaoGui       ThongBao[]
+  yeuCauPheDuyet    YeuCauThayDoi[]
 }
 
 model ToaNha {
@@ -111,6 +112,7 @@ model KhachThue {
   daiDienHopDong  HopDong[] @relation("NguoiDaiDien")
   hoaDon          HoaDon[]
   suCo            SuCo[]
+  yeuCauThayDoi   YeuCauThayDoi[]
 }
 
 model HopDong {
@@ -285,4 +287,19 @@ model CaiDat {
   laBiMat     Boolean  @default(false)   // true → che giá trị khi trả về client
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
+}
+
+// Yêu cầu thay đổi của khách thuê — chờ quản lý/chủ trọ phê duyệt
+model YeuCauThayDoi {
+  id              String     @id @default(cuid())
+  khachThueId     String
+  khachThue       KhachThue  @relation(fields: [khachThueId], references: [id])
+  loai            String     // thongTin | anhCCCD | nguoiCungPhong | thongBao
+  noiDung         Json       // { truoc: {...}, sau: {...}, moTa: "..." }
+  trangThai       String     @default("choPheduyet") // choPheduyet | daPheduyet | tuChoi
+  nguoiPheDuyetId String?
+  nguoiPheDuyet   NguoiDung? @relation(fields: [nguoiPheDuyetId], references: [id])
+  ghiChuPheDuyet  String?
+  ngayTao         DateTime   @default(now())
+  ngayCapNhat     DateTime   @updatedAt
 }

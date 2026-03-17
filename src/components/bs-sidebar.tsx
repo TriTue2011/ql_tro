@@ -60,6 +60,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         items: [
           { label: 'Hóa đơn', href: '/dashboard/hoa-don' },
           { label: 'Sự cố', href: '/dashboard/su-co' },
+          { label: 'Yêu cầu duyệt', href: '/dashboard/yeu-cau-duyet' },
           { label: 'Thông báo', href: '/dashboard/thong-bao' },
           { label: 'Xem Web', href: '/dashboard/xem-web' },
         ],
@@ -96,6 +97,7 @@ function buildNavGroups(role: Role): NavGroup[] {
       icon: 'bi-tools',
       items: [
         { label: 'Sự cố', href: '/dashboard/su-co' },
+        { label: 'Yêu cầu duyệt', href: '/dashboard/yeu-cau-duyet' },
         { label: 'Thông báo', href: '/dashboard/thong-bao' },
         { label: 'Xem Web', href: '/dashboard/xem-web' },
       ],

@@ -3,7 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Home, FileText, AlertCircle, User, LogOut, Menu, X, Users } from 'lucide-react';
+import { Home, FileText, AlertCircle, LogOut, Menu, X, Users, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -36,8 +36,7 @@ export default function KhachThueDashboardLayout({
     { name: 'Hóa đơn', href: '/khach-thue/dashboard/hoa-don', icon: FileText },
     { name: 'Hợp đồng', href: '/khach-thue/dashboard/hop-dong', icon: FileText },
     { name: 'Sự cố', href: '/khach-thue/dashboard/su-co', icon: AlertCircle },
-    { name: 'Người cùng phòng', href: '/khach-thue/dashboard/nguoi-cung-phong', icon: Users },
-    { name: 'Thông tin cá nhân', href: '/khach-thue/dashboard/thong-tin', icon: User },
+    { name: 'Cài đặt', href: '/khach-thue/dashboard/cai-dat', icon: Settings },
   ];
 
   return (
