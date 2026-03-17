@@ -275,15 +275,17 @@ export default function CaiDatPage() {
       )}
 
       <Tabs defaultValue="thongtin">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className={`grid w-full ${isDaiDien ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <TabsTrigger value="thongtin" className="flex items-center gap-1 text-xs sm:text-sm">
             <User className="h-3.5 w-3.5" /><span className="hidden sm:inline">Thông tin</span>
             {pendingByLoai('thongTin') && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-yellow-400 inline-block" />}
           </TabsTrigger>
-          <TabsTrigger value="nguoiphong" className="flex items-center gap-1 text-xs sm:text-sm">
-            <Users className="h-3.5 w-3.5" /><span className="hidden sm:inline">Cùng phòng</span>
-            {pendingByLoai('nguoiCungPhong') && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-yellow-400 inline-block" />}
-          </TabsTrigger>
+          {isDaiDien && (
+            <TabsTrigger value="nguoiphong" className="flex items-center gap-1 text-xs sm:text-sm">
+              <Users className="h-3.5 w-3.5" /><span className="hidden sm:inline">Cùng phòng</span>
+              {pendingByLoai('nguoiCungPhong') && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-yellow-400 inline-block" />}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="baomat" className="flex items-center gap-1 text-xs sm:text-sm">
             <Lock className="h-3.5 w-3.5" /><span className="hidden sm:inline">Bảo mật</span>
           </TabsTrigger>
