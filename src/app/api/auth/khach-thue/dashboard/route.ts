@@ -34,7 +34,7 @@ export async function GET(_request: NextRequest) {
               select: {
                 tenToaNha: true, diaChi: true, lienHePhuTrach: true,
                 chuSoHuu: { select: { ten: true, soDienThoai: true, email: true } },
-                toaNhaQuanLy: {
+                nguoiQuanLy: {
                   select: { nguoiDung: { select: { ten: true, soDienThoai: true, email: true } } },
                   take: 1,
                 },
@@ -113,7 +113,7 @@ export async function GET(_request: NextRequest) {
   let lienHeQuanLy: { ten: string; soDienThoai?: string | null; email?: string | null } | null = null;
   if (hopDongHienTai) {
     const toaNha = (hopDongHienTai.phong as any)?.toaNha;
-    const quanLy = toaNha?.toaNhaQuanLy?.[0]?.nguoiDung;
+    const quanLy = toaNha?.nguoiQuanLy?.[0]?.nguoiDung;
     if (quanLy && (quanLy.soDienThoai || quanLy.email)) {
       lienHeQuanLy = { ten: quanLy.ten, soDienThoai: quanLy.soDienThoai, email: quanLy.email };
     } else {
