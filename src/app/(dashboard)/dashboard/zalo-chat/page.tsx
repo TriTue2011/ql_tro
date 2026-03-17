@@ -69,60 +69,58 @@ export default function ZaloChatPage() {
       .then(data => setMessages(data.data ?? []));
   }, [selectedChatId]);
 
-  // ─── SSE: nhận tin nhắn mới theo thời gian thực ─────────────────────────
+  // ─── SSE: nhận TẤT CẢ tin nhắn mới theo thời gian thực ────────────────
+  // Dùng 1 kết nối không lọc chatId để cả conversations lẫn messages
+  // đều cập nhật ngay khi có tin từ bất kỳ ai.
+  const selectedChatIdRef = useRef<string | null>(null);
+  useEffect(() => { selectedChatIdRef.current = selectedChatId; }, [selectedChatId]);
+
   useEffect(() => {
-    // Đóng kết nối cũ
-    sseRef.current?.close();
-
-    const url = selectedChatId
-      ? `/api/zalo/messages/stream?chatId=${selectedChatId}`
-      : `/api/zalo/messages/stream`;
-
-    const es = new EventSource(url);
+    const es = new EventSource('/api/zalo/messages/stream');
     sseRef.current = es;
 
     es.onmessage = (e) => {
       try {
         const payload = JSON.parse(e.data);
-        if (payload.type === 'messages') {
-          const newMsgs: ZaloMessage[] = payload.data;
+        if (payload.type !== 'messages') return;
+        const newMsgs: ZaloMessage[] = payload.data;
 
-          // Cập nhật tin nhắn trong cuộc hội thoại đang mở
-          if (selectedChatId) {
-            const relevant = newMsgs.filter(m => m.chatId === selectedChatId);
-            if (relevant.length > 0) {
-              setMessages(prev => {
-                const existIds = new Set(prev.map(m => m.id));
-                return [...prev, ...relevant.filter(m => !existIds.has(m.id))];
+        // Cập nhật tin nhắn trong cuộc hội thoại đang mở
+        const currentChatId = selectedChatIdRef.current;
+        if (currentChatId) {
+          const relevant = newMsgs.filter(m => m.chatId === currentChatId);
+          if (relevant.length > 0) {
+            setMessages(prev => {
+              const existIds = new Set(prev.map(m => m.id));
+              return [...prev, ...relevant.filter(m => !existIds.has(m.id))];
+            });
+          }
+        }
+
+        // Cập nhật preview danh sách bên trái (tất cả chatId)
+        setConversations(prev => {
+          const map = new Map(prev.map(c => [c.chatId, c]));
+          for (const m of newMsgs) {
+            const existing = map.get(m.chatId);
+            if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
+              map.set(m.chatId, {
+                chatId: m.chatId,
+                displayName: m.displayName,
+                content: m.content,
+                role: m.role,
+                createdAt: m.createdAt,
               });
             }
           }
-
-          // Cập nhật preview trong danh sách cuộc hội thoại
-          setConversations(prev => {
-            const map = new Map(prev.map(c => [c.chatId, c]));
-            for (const m of newMsgs) {
-              const existing = map.get(m.chatId);
-              if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
-                map.set(m.chatId, {
-                  chatId: m.chatId,
-                  displayName: m.displayName,
-                  content: m.content,
-                  role: m.role,
-                  createdAt: m.createdAt,
-                });
-              }
-            }
-            return Array.from(map.values()).sort(
-              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            );
-          });
-        }
+          return Array.from(map.values()).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
       } catch { /* ignore parse errors */ }
     };
 
     return () => { es.close(); };
-  }, [selectedChatId]);
+  }, []); // mount 1 lần duy nhất, không reconnect khi đổi chatId
 
   // ─── Auto-scroll khi có tin mới ─────────────────────────────────────────
   useEffect(() => {
