@@ -50,5 +50,17 @@ export async function register() {
       }
     }
     console.log('[migration] Schema migrations checked ✓');
+
+    // Auto-start Zalo polling nếu user đã bật trước khi server restart
+    try {
+      const autostartRow = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_polling_autostart' } });
+      if (autostartRow?.giaTri === 'true') {
+        const { startPolling } = await import('@/lib/zalo-polling-worker');
+        const result = await startPolling();
+        console.log(`[zalo-polling] Auto-start: ${result.message}`);
+      }
+    } catch (e: any) {
+      console.warn(`[zalo-polling] Auto-start failed: ${e.message}`);
+    }
   }
 }
