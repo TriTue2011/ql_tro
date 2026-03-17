@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS = [
   { khoa: 'cloudinary_api_secret', giaTri: '', moTa: 'Cloudinary API Secret', nhom: 'luuTru', laBiMat: true },
   { khoa: 'cloudinary_upload_preset', giaTri: '', moTa: 'Cloudinary Upload Preset', nhom: 'luuTru', laBiMat: false },
   { khoa: 'minio_endpoint', giaTri: '', moTa: 'MinIO Endpoint URL', nhom: 'luuTru', laBiMat: false },
-  { khoa: 'minio_access_key', giaTri: '', moTa: 'MinIO Username', nhom: 'luuTru', laBiMat: false },
+  { khoa: 'minio_access_key', giaTri: '', moTa: 'MinIO User', nhom: 'luuTru', laBiMat: false },
   { khoa: 'minio_secret_key', giaTri: '', moTa: 'MinIO Password', nhom: 'luuTru', laBiMat: true },
   { khoa: 'minio_bucket', giaTri: 'ql-tro', moTa: 'MinIO Bucket Name', nhom: 'luuTru', laBiMat: false },
   { khoa: 'upload_max_size_mb', giaTri: '10', moTa: 'Kích thước tối đa file upload (MB)', nhom: 'luuTru', laBiMat: false },
@@ -56,12 +56,12 @@ export async function GET() {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
-    // Seed mặc định nếu chưa có
+    // Seed mặc định nếu chưa có; luôn đồng bộ moTa/nhom/laBiMat từ code
     for (const setting of DEFAULT_SETTINGS) {
       await prisma.caiDat.upsert({
         where: { khoa: setting.khoa },
         create: setting,
-        update: {}, // không ghi đè giá trị đã có
+        update: { moTa: setting.moTa, nhom: setting.nhom, laBiMat: setting.laBiMat },
       });
     }
 
