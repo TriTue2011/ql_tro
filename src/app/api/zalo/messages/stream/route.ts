@@ -1,13 +1,17 @@
 /**
  * GET /api/zalo/messages/stream?chatId=xxx&after=<ISO>
  * SSE endpoint — đẩy tin nhắn mới về client theo thời gian thực.
- * Poll DB mỗi 3 giây, gửi event nếu có tin nhắn mới hơn cursor.
- * Thiết kế sẵn cho AI: mỗi event gồm đủ thông tin để AI xử lý.
+ *
+ * Cơ chế:
+ *  1. Lắng nghe EventEmitter (zaloMessageEmitter) → nhận ngay khi có tin mới (< 100ms)
+ *  2. Fallback poll DB mỗi 10s → đảm bảo không bỏ sót nếu process restart
+ *  3. Heartbeat mỗi 25s → tránh timeout proxy
  */
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { zaloMessageEmitter, ZaloMessageEvent } from '@/lib/zalo-message-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,14 +27,40 @@ export async function GET(request: NextRequest) {
 
   const encoder = new TextEncoder();
   let cursor = afterParam ? new Date(afterParam) : new Date(Date.now() - 5000);
-  let timer: ReturnType<typeof setInterval>;
 
   const stream = new ReadableStream({
     start(controller) {
+      let closed = false;
+
+      function send(messages: ZaloMessageEvent[]) {
+        if (closed) return;
+        try {
+          const payload = `data: ${JSON.stringify({ type: 'messages', data: messages })}\n\n`;
+          controller.enqueue(encoder.encode(payload));
+        } catch {
+          closed = true;
+        }
+      }
+
       // Heartbeat ngay lập tức để client biết kết nối thành công
       controller.enqueue(encoder.encode(': connected\n\n'));
 
-      timer = setInterval(async () => {
+      // ── 1. Lắng nghe event real-time ────────────────────────────────────────
+      function onMessage(msg: ZaloMessageEvent) {
+        if (closed) return;
+        // Lọc theo chatId nếu client chỉ quan tâm 1 cuộc trò chuyện
+        if (chatId && msg.chatId !== chatId) return;
+        if (msg.createdAt <= cursor) return;
+        cursor = msg.createdAt;
+        send([msg]);
+      }
+
+      const eventChannel = chatId ? `message:${chatId}` : 'message';
+      zaloMessageEmitter.on(eventChannel, onMessage);
+
+      // ── 2. Fallback poll DB mỗi 10s (phòng process restart / missed events) ─
+      const pollTimer = setInterval(async () => {
+        if (closed) return;
         try {
           const messages = await prisma.zaloMessage.findMany({
             where: {
@@ -43,31 +73,32 @@ export async function GET(request: NextRequest) {
 
           if (messages.length > 0) {
             cursor = messages[messages.length - 1].createdAt;
-            const payload = `data: ${JSON.stringify({ type: 'messages', data: messages })}\n\n`;
-            controller.enqueue(encoder.encode(payload));
+            send(messages as unknown as ZaloMessageEvent[]);
           }
         } catch {
-          // DB error - tiếp tục polling
+          // DB error — tiếp tục
         }
-      }, 3000);
+      }, 10_000);
 
-      // Heartbeat mỗi 25s để tránh timeout proxy
+      // ── 3. Heartbeat mỗi 25s ────────────────────────────────────────────────
       const heartbeat = setInterval(() => {
+        if (closed) { clearInterval(heartbeat); return; }
         try {
           controller.enqueue(encoder.encode(': ping\n\n'));
         } catch {
+          closed = true;
           clearInterval(heartbeat);
         }
-      }, 25000);
+      }, 25_000);
 
+      // ── Cleanup khi client đóng kết nối ─────────────────────────────────────
       request.signal.addEventListener('abort', () => {
-        clearInterval(timer);
+        closed = true;
+        zaloMessageEmitter.off(eventChannel, onMessage);
+        clearInterval(pollTimer);
         clearInterval(heartbeat);
         try { controller.close(); } catch {}
       });
-    },
-    cancel() {
-      clearInterval(timer);
     },
   });
 

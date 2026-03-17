@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getKhachThueRepo } from '@/lib/repositories';
 import prisma from '@/lib/prisma';
+import { emitNewMessage } from '@/lib/zalo-message-events';
 
 function normalizeName(name: string): string {
   return name
@@ -37,7 +38,7 @@ async function saveMessage(update: any): Promise<void> {
     const content: string = msg.text || msg.attachments?.[0]?.description || '[đính kèm]';
     const eventName: string = update?.event_name || 'message';
 
-    await prisma.zaloMessage.create({
+    const saved = await prisma.zaloMessage.create({
       data: {
         chatId,
         displayName: displayName || null,
@@ -47,6 +48,7 @@ async function saveMessage(update: any): Promise<void> {
         rawPayload: update as any,
       },
     });
+    emitNewMessage({ ...saved });
   } catch (err) {
     console.error('[zalo/webhook] saveMessage error:', err);
   }
