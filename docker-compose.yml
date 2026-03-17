@@ -42,7 +42,10 @@ services:
   # network_mode: host bắt buộc (Zalo Web dùng WebSocket).
   # Vì host mode không cho map port, dùng biến PORT để đổi port mặc định 3000.
   zalo:
-    image: ghcr.io/smarthomeblack/zalobot-amd64:latest
+    build:
+      context: .
+      dockerfile: zalobot.Dockerfile
+    image: ql_tro/zalobot:local
     container_name: zalo
     restart: unless-stopped
     network_mode: host
