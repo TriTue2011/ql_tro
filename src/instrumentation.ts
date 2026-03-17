@@ -55,10 +55,16 @@ export async function register() {
     }
     console.log('[migration] Schema migrations checked ✓');
 
-    // Auto-start Zalo polling nếu user đã bật trước khi server restart
+    // Auto-start Zalo polling khi server khởi động
+    // Điều kiện: có token VÀ chưa bị tắt tường minh (zalo_polling_autostart != 'false')
     try {
-      const autostartRow = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_polling_autostart' } });
-      if (autostartRow?.giaTri === 'true') {
+      const [tokenRow, autostartRow] = await Promise.all([
+        prisma.caiDat.findFirst({ where: { khoa: 'zalo_access_token' } }),
+        prisma.caiDat.findFirst({ where: { khoa: 'zalo_polling_autostart' } }),
+      ]);
+      const hasToken = !!tokenRow?.giaTri?.trim();
+      const disabled = autostartRow?.giaTri === 'false';
+      if (hasToken && !disabled) {
         const { startPolling } = await import('@/lib/zalo-polling-worker');
         const result = await startPolling();
         console.log(`[zalo-polling] Auto-start: ${result.message}`);
