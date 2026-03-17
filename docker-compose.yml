@@ -33,6 +33,26 @@ services:
     volumes:
       - minio_data:/data
 
+  # ── Zalo Bot Server ─────────────────────────────────────────────────────────
+  # Bot Zalo Web (đăng nhập cá nhân bằng QR, không cần OA).
+  # Truy cập: http://localhost:3000  (admin/admin)
+  # Đăng nhập lần đầu: vào Cài đặt → tab Thông báo → "Lấy QR code" rồi quét.
+  #
+  # Thay "amd64" bằng kiến trúc máy chủ nếu cần:
+  #   amd64 | aarch64 | armv7 | armhf | i386
+  zalobot:
+    image: ghcr.io/smarthomeblack/zalobot-amd64
+    container_name: ql_tro_zalobot
+    restart: unless-stopped
+    # host_network cần thiết để Zalo Web protocol hoạt động ổn định.
+    # App ql_tro truy cập bot qua http://localhost:3000.
+    network_mode: host
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    volumes:
+      - zalobot_data:/data
+
 volumes:
   postgres_data:
   minio_data:
+  zalobot_data:

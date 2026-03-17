@@ -4,6 +4,11 @@ import { authOptions } from '@/lib/auth';
 import { getKhachThueRepo } from '@/lib/repositories';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import {
+  isBotServerMode,
+  sendMessageViaBotServer,
+  sendImageViaBotServer,
+} from '@/lib/zalo-bot-client';
 
 const schema = z.object({
   phone: z.string().min(9, 'Số điện thoại không hợp lệ').optional(),
@@ -95,14 +100,6 @@ export async function POST(request: NextRequest) {
 
     const { phone, chatId: explicitChatId, nguoiDungId, message, imageUrl } = parsed.data;
 
-    const token = await getZaloToken();
-    if (!token) {
-      return NextResponse.json(
-        { success: false, message: 'Chưa cấu hình Zalo Bot Token trong Cài đặt hệ thống (zalo_access_token)' },
-        { status: 503 }
-      );
-    }
-
     // Resolve chat_id theo thứ tự ưu tiên: trực tiếp → khách thuê theo SĐT → người dùng theo ID
     let chatId = explicitChatId ?? null;
     if (!chatId && phone) {
@@ -139,6 +136,37 @@ export async function POST(request: NextRequest) {
     }
     if (!chatId) {
       return NextResponse.json({ success: false, message: 'Thiếu chatId' }, { status: 422 });
+    }
+
+    // ── Bot server mode ───────────────────────────────────────────────────────
+    if (await isBotServerMode()) {
+      if (imageUrl) {
+        const ok = await sendImageViaBotServer(chatId, imageUrl, message);
+        if (!ok) {
+          return NextResponse.json(
+            { success: false, message: 'Bot server lỗi khi gửi ảnh — kiểm tra kết nối và cài đặt.' },
+            { status: 502 }
+          );
+        }
+        return NextResponse.json({ success: true, message: 'Đã gửi hình ảnh Zalo thành công (bot server)' });
+      }
+      const ok = await sendMessageViaBotServer(chatId, message!);
+      if (!ok) {
+        return NextResponse.json(
+          { success: false, message: 'Bot server lỗi khi gửi tin nhắn — kiểm tra kết nối và cài đặt.' },
+          { status: 502 }
+        );
+      }
+      return NextResponse.json({ success: true, message: 'Đã gửi tin nhắn Zalo thành công (bot server)' });
+    }
+
+    // ── OA Bot API mode ───────────────────────────────────────────────────────
+    const token = await getZaloToken();
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: 'Chưa cấu hình Zalo Bot Token (zalo_access_token) hoặc chuyển sang zalo_mode=bot_server.' },
+        { status: 503 }
+      );
     }
 
     // Gửi hình ảnh (có thể kèm caption là message)

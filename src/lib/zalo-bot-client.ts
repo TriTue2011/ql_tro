@@ -101,6 +101,40 @@ async function loginToBotServer(config: BotConfig): Promise<Record<string, strin
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+/** Gửi hình ảnh qua bot server (POST /api/sendImageByAccount) */
+export async function sendImageViaBotServer(
+  chatId: string,
+  imageUrl: string,
+  caption?: string,
+): Promise<boolean> {
+  try {
+    const config = await getBotConfig();
+    if (!config || !config.accountId) return false;
+
+    const authHeaders = await loginToBotServer(config);
+    if (!authHeaders) return false;
+
+    const payload: Record<string, any> = {
+      imageUrl,
+      threadId: chatId,
+      accountSelection: config.accountId,
+      type: 0,
+      ttl: 0,
+    };
+    if (caption) payload.message = caption.slice(0, 1024);
+
+    const res = await fetch(`${config.serverUrl}/api/sendImageByAccount`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(20_000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Gửi tin nhắn văn bản qua bot server */
 export async function sendMessageViaBotServer(chatId: string, text: string): Promise<boolean> {
   try {
