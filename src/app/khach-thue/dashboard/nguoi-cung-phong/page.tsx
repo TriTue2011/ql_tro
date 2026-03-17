@@ -26,6 +26,7 @@ interface Member {
   ngheNghiep?: string;
   trangThai: string;
   coTaiKhoan: boolean;
+  thieuAnhCCCD: boolean;
 }
 
 interface Data {
@@ -37,6 +38,7 @@ interface Data {
 const emptyForm = {
   hoTen: '', soDienThoai: '', cccd: '', ngaySinh: '',
   gioiTinh: 'nam', queQuan: '', ngheNghiep: '',
+  anhCCCDMatTruoc: '', anhCCCDMatSau: '',
 };
 
 function calcAge(ngaySinh: string) {
@@ -50,6 +52,7 @@ export default function NguoiCungPhongPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [editTarget, setEditTarget] = useState<Member | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingCCCD, setUploadingCCCD] = useState<'truoc' | 'sau' | null>(null);
   const [addForm, setAddForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState({ hoTen: '', queQuan: '', ngheNghiep: '', gioiTinh: 'nam' });
 
@@ -66,6 +69,28 @@ export default function NguoiCungPhongPage() {
 
   useEffect(() => { fetchData(); }, []);
 
+  const uploadCCCD = async (file: File, side: 'truoc' | 'sau') => {
+    setUploadingCCCD(side);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const result = await res.json();
+      if (result.secure_url) {
+        setAddForm(f => side === 'truoc'
+          ? { ...f, anhCCCDMatTruoc: result.secure_url }
+          : { ...f, anhCCCDMatSau: result.secure_url }
+        );
+      } else {
+        toast.error('Upload ảnh thất bại');
+      }
+    } catch {
+      toast.error('Lỗi upload ảnh');
+    } finally {
+      setUploadingCCCD(null);
+    }
+  };
+
   const handleAdd = async () => {
     if (!addForm.hoTen.trim() || !addForm.ngaySinh || !addForm.gioiTinh || !addForm.queQuan.trim()) {
       toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
@@ -81,7 +106,12 @@ export default function NguoiCungPhongPage() {
       const res = await fetch('/api/auth/khach-thue/nguoi-cung-phong', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(addForm),
+        body: JSON.stringify({
+          ...addForm,
+          anhCCCD: (addForm.anhCCCDMatTruoc || addForm.anhCCCDMatSau)
+            ? { matTruoc: addForm.anhCCCDMatTruoc || null, matSau: addForm.anhCCCDMatSau || null }
+            : undefined,
+        }),
       });
       const result = await res.json();
       if (result.success) {
@@ -183,7 +213,7 @@ export default function NguoiCungPhongPage() {
                           <User className="h-5 w-5 text-blue-600" />
                         </div>
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-semibold">{m.hoTen}</p>
                             {isUnder18 && (
                               <Badge variant="outline" className="text-xs">Trẻ em</Badge>
@@ -194,6 +224,11 @@ export default function NguoiCungPhongPage() {
                               <Badge variant="secondary" className="text-xs">Không cấp TK</Badge>
                             ) : (
                               <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">Chờ phê duyệt TK</Badge>
+                            )}
+                            {m.thieuAnhCCCD && (
+                              <Badge variant="outline" className="text-xs text-red-600 border-red-300">
+                                Thiếu ảnh CCCD
+                              </Badge>
                             )}
                           </div>
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -280,10 +315,26 @@ export default function NguoiCungPhongPage() {
               <Label>Nghề nghiệp</Label>
               <Input value={addForm.ngheNghiep} onChange={e => setAddForm(f => ({ ...f, ngheNghiep: e.target.value }))} placeholder="Sinh viên..." />
             </div>
+            <div className="space-y-1.5">
+              <Label>Ảnh CCCD mặt trước</Label>
+              <div className="flex items-center gap-2">
+                <Input type="file" accept="image/*" disabled={uploadingCCCD === 'truoc'} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCCCD(f, 'truoc'); }} className="flex-1" />
+                {uploadingCCCD === 'truoc' && <span className="text-xs text-gray-400">Đang tải...</span>}
+                {addForm.anhCCCDMatTruoc && <span className="text-xs text-green-600">✓ Đã tải</span>}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ảnh CCCD mặt sau</Label>
+              <div className="flex items-center gap-2">
+                <Input type="file" accept="image/*" disabled={uploadingCCCD === 'sau'} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCCCD(f, 'sau'); }} className="flex-1" />
+                {uploadingCCCD === 'sau' && <span className="text-xs text-gray-400">Đang tải...</span>}
+                {addForm.anhCCCDMatSau && <span className="text-xs text-green-600">✓ Đã tải</span>}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdd(false)}>Hủy</Button>
-            <Button onClick={handleAdd} disabled={submitting}>
+            <Button onClick={handleAdd} disabled={submitting || uploadingCCCD !== null}>
               {submitting ? 'Đang thêm...' : 'Thêm'}
             </Button>
           </DialogFooter>

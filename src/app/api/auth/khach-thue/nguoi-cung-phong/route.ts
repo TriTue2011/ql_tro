@@ -18,7 +18,7 @@ async function getActiveHopDong(khachThueId: string) {
         select: {
           id: true, hoTen: true, soDienThoai: true, ngaySinh: true,
           gioiTinh: true, cccd: true, queQuan: true, ngheNghiep: true,
-          trangThai: true, matKhau: true,
+          trangThai: true, matKhau: true, anhCCCD: true,
         },
       },
       nguoiDaiDien: { select: { id: true } },
@@ -38,10 +38,14 @@ export async function GET(_request: NextRequest) {
   }
 
   const isDaiDien = hopDong.nguoiDaiDienId === session.user.id;
-  const members = hopDong.khachThue.map(({ matKhau, ...rest }) => ({
-    ...rest,
-    coTaiKhoan: !!matKhau,
-  }));
+  // Loại bỏ user hiện tại khỏi danh sách
+  const members = hopDong.khachThue
+    .filter((kt) => kt.id !== session.user.id)
+    .map(({ matKhau, anhCCCD, ...rest }) => ({
+      ...rest,
+      coTaiKhoan: !!matKhau,
+      thieuAnhCCCD: !anhCCCD || !(anhCCCD as any)?.matTruoc,
+    }));
 
   return NextResponse.json({
     success: true,
@@ -64,7 +68,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { hoTen, soDienThoai, cccd, ngaySinh, gioiTinh, queQuan, ngheNghiep } = await request.json();
+  const { hoTen, soDienThoai, cccd, ngaySinh, gioiTinh, queQuan, ngheNghiep, anhCCCD } = await request.json();
 
   if (!hoTen || !ngaySinh || !gioiTinh || !queQuan) {
     return NextResponse.json({ success: false, message: 'Thiếu thông tin bắt buộc' }, { status: 400 });
@@ -99,6 +103,7 @@ export async function POST(request: NextRequest) {
       gioiTinh,
       queQuan,
       ngheNghiep,
+      ...(anhCCCD && { anhCCCD }),
       trangThai: 'chuaThue',
       // Dưới 18 tuổi hoặc không có SĐT → không cấp tài khoản
       matKhau: null,
