@@ -1,6 +1,7 @@
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
 /**
  * Middleware bảo mật cho QL-Trọ.
@@ -94,10 +95,17 @@ const RATE_LIMITED_PATHS = [
 // ─── withAuth (bảo vệ /dashboard/*) ───────────────────────────────────────────
 
 export default withAuth(
-  function middleware(req) {
+  async function middleware(req) {
     const { pathname } = req.nextUrl;
     const token = req.nextauth?.token as Record<string, unknown> | null | undefined;
     const ip = getRealIP(req);
+
+    // Redirect khách thuê về đúng trang đăng nhập khi chưa auth
+    if (pathname.startsWith('/khach-thue/dashboard') && (!token || token.role !== 'khachThue')) {
+      const loginUrl = req.nextUrl.clone();
+      loginUrl.pathname = '/khach-thue/dang-nhap';
+      return NextResponse.redirect(loginUrl);
+    }
 
     cleanupRateLimitEntries();
 

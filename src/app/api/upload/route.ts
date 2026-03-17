@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { uploadFile } from '@/lib/storage';
+import jwt from 'jsonwebtoken';
 
 /**
  * Kiểm tra magic bytes thực tế của file để chặn backdoor upload.
@@ -47,9 +48,22 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB — khớp với giới hạn phí
 
 export async function POST(request: NextRequest) {
   try {
+    // Hỗ trợ cả NextAuth session (admin/quanLy) và custom JWT Bearer token (khachThue)
     const session = await getServerSession(authOptions);
+    let authorized = !!session;
 
-    if (!session) {
+    if (!authorized) {
+      try {
+        const authHeader = request.headers.get('authorization');
+        if (authHeader?.startsWith('Bearer ')) {
+          const token = authHeader.substring(7);
+          const decoded: any = jwt.verify(token, process.env.NEXTAUTH_SECRET!);
+          authorized = !!decoded?.id;
+        }
+      } catch { /* token lỗi → không authorized */ }
+    }
+
+    if (!authorized) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }

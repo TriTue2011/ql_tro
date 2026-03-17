@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { CCCDUpload } from '@/components/ui/cccd-upload';
 import {
   User, Users, Lock, Bell, Plus, Edit, Phone, AlertCircle,
-  Clock, CheckCircle2, XCircle,
+  Clock, CheckCircle2, XCircle, Upload, Loader2, Image as ImageIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -111,6 +111,8 @@ export default function CaiDatPage() {
   const [editTarget, setEditTarget] = useState<Member | null>(null);
   const emptyAdd = { hoTen: '', soDienThoai: '', cccd: '', ngaySinh: '', gioiTinh: 'nam', queQuan: '', ngheNghiep: '' };
   const [addForm, setAddForm] = useState(emptyAdd);
+  const [addCCCD, setAddCCCD] = useState({ matTruoc: '', matSau: '' });
+  const [uploadingCCCD, setUploadingCCCD] = useState<'truoc' | 'sau' | null>(null);
   const [editForm, setEditForm] = useState({ hoTen: '', queQuan: '', ngheNghiep: '', gioiTinh: 'nam' });
 
   /* fetch all data */
@@ -188,6 +190,28 @@ export default function CaiDatPage() {
     finally { setSaving(null); }
   };
 
+  /* Upload ảnh CCCD cho thành viên mới */
+  const handleUploadMemberCCCD = async (file: File, side: 'truoc' | 'sau') => {
+    setUploadingCCCD(side);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const result = await res.json();
+      const url = result.data?.secure_url;
+      if (url) {
+        setAddCCCD(prev => side === 'truoc' ? { ...prev, matTruoc: url } : { ...prev, matSau: url });
+        toast.success(`Upload ảnh CCCD ${side === 'truoc' ? 'mặt trước' : 'mặt sau'} thành công`);
+      } else {
+        toast.error(result.message || 'Upload ảnh thất bại');
+      }
+    } catch {
+      toast.error('Lỗi upload ảnh');
+    } finally {
+      setUploadingCCCD(null);
+    }
+  };
+
   /* Thêm thành viên */
   const handleAddMember = async () => {
     if (!addForm.hoTen || !addForm.ngaySinh || !addForm.queQuan) {
@@ -197,11 +221,17 @@ export default function CaiDatPage() {
     await submitYeuCau('nguoiCungPhong', {
       action: 'them',
       hopDongId,
-      thanhVien: addForm,
+      thanhVien: {
+        ...addForm,
+        anhCCCD: (addCCCD.matTruoc || addCCCD.matSau)
+          ? { matTruoc: addCCCD.matTruoc || null, matSau: addCCCD.matSau || null }
+          : undefined,
+      },
       isUnder18: age < 18,
     });
     setShowAdd(false);
     setAddForm(emptyAdd);
+    setAddCCCD({ matTruoc: '', matSau: '' });
   };
 
   /* Sửa thành viên */
@@ -606,6 +636,40 @@ export default function CaiDatPage() {
             <div className="space-y-1.5"><Label>Nghề nghiệp</Label>
               <Input value={addForm.ngheNghiep} onChange={e => setAddForm(f => ({ ...f, ngheNghiep: e.target.value }))} />
             </div>
+
+            {/* CCCD upload */}
+            <div className="space-y-2 pt-1 border-t">
+              <Label className="text-xs font-medium text-muted-foreground">Ảnh CCCD (tùy chọn)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {(['truoc', 'sau'] as const).map(side => {
+                  const url = side === 'truoc' ? addCCCD.matTruoc : addCCCD.matSau;
+                  const label = side === 'truoc' ? 'Mặt trước' : 'Mặt sau';
+                  return (
+                    <div key={side} className="space-y-1.5">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <label className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${url ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-indigo-300 bg-gray-50'}`} style={{ minHeight: 80 }}>
+                        {uploadingCCCD === side ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        ) : url ? (
+                          <img src={url} alt={label} className="w-full h-20 object-cover rounded-lg" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 p-2">
+                            <ImageIcon className="h-5 w-5 text-gray-400" />
+                            <span className="text-xs text-gray-400">Tải lên</span>
+                          </div>
+                        )}
+                        <input
+                          type="file" accept="image/*" className="hidden"
+                          disabled={!!uploadingCCCD}
+                          onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadMemberCCCD(f, side); e.target.value = ''; }}
+                        />
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <p className="text-xs text-muted-foreground">* Yêu cầu sẽ được gửi cho quản lý/chủ trọ phê duyệt trước khi thêm vào hệ thống.</p>
           </div>
           <DialogFooter>
