@@ -35,9 +35,12 @@ services:
 
   # ── Zalo Bot Server ─────────────────────────────────────────────────────────
   # Bot Zalo Web (đăng nhập cá nhân bằng QR, không cần OA).
-  # Truy cập: http://localhost:3000  (admin/admin)
+  # Truy cập: http://localhost:3001  (admin/admin)
   # Đăng nhập lần đầu: vào Cài đặt → tab Thông báo → "Lấy QR code" rồi quét.
-  # Cài đặt ql_tro: zalo_mode=bot_server, zalo_bot_server_url=http://localhost:3000
+  # Cài đặt ql_tro: zalo_mode=bot_server, zalo_bot_server_url=http://localhost:3001
+  #
+  # network_mode: host bắt buộc (Zalo Web dùng WebSocket).
+  # Vì host mode không cho map port, dùng biến PORT để đổi port mặc định 3000.
   zalo:
     image: ghcr.io/smarthomeblack/zalobot-amd64:latest
     container_name: zalo
@@ -45,6 +48,7 @@ services:
     network_mode: host
     environment:
       - TZ=Asia/Ho_Chi_Minh
+      - PORT=3001
     volumes:
       - /opt/zalo_bot:/app/data
       - /opt/zalo_bot/www/zalo_bot:/config/www/zalo_bot
