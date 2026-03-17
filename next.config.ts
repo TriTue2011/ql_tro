@@ -38,17 +38,22 @@ const nextConfig: NextConfig = {
     const CSP = [
       "default-src 'self'",
       // Script: production bỏ unsafe-eval, dev giữ để hot-reload hoạt động
+      // Khi dùng Cloudflare Tunnel, CF tự inject beacon script từ static.cloudflareinsights.com
       isDev
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-        : "script-src 'self' 'unsafe-inline'",
+        : isBehindHttps
+          ? "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com"
+          : "script-src 'self' 'unsafe-inline'",
       // Style: self + inline (CSS-in-JS / Tailwind) + Bootstrap CDN cho dashboard
       "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
       // Ảnh: self + data URI + blob + Cloudinary + MinIO
       "img-src 'self' data: blob: https://res.cloudinary.com",
       // Font: self + Bootstrap Icons CDN (font files)
       "font-src 'self' data: https://cdn.jsdelivr.net",
-      // Kết nối API: chỉ same-origin
-      "connect-src 'self'",
+      // Kết nối API: self + jsDelivr (browser tự tải source map của Bootstrap)
+      isBehindHttps
+        ? "connect-src 'self' https://cdn.jsdelivr.net https://cloudflareinsights.com"
+        : "connect-src 'self' https://cdn.jsdelivr.net",
       // Không cho phép <object>, <embed>, <applet>
       "object-src 'none'",
       // Không cho phép <base> tag bị hijack
