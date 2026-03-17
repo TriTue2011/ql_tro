@@ -109,6 +109,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Luôn tắt polling TRƯỚC khi đăng ký webhook (dù API có thành công hay không)
+      // Điều này đảm bảo server restart sẽ không auto-start polling và xóa mất webhook
+      await prisma.caiDat.upsert({
+        where: { khoa: 'zalo_polling_autostart' },
+        update: { giaTri: 'false' },
+        create: { khoa: 'zalo_polling_autostart', giaTri: 'false' },
+      });
+      const { stopPolling } = await import('@/lib/zalo-polling-worker');
+      await stopPolling(false);
+
       const res = await fetch(`${ZALO_API}/bot${token}/setWebhook`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -119,19 +129,6 @@ export async function POST(request: NextRequest) {
         signal: AbortSignal.timeout(15000),
       });
       const data = await res.json();
-
-      if (data?.error_code === 0 || data?.ok) {
-        // Webhook đăng ký thành công → tắt auto-start polling để server
-        // restart không xóa mất webhook
-        await prisma.caiDat.upsert({
-          where: { khoa: 'zalo_polling_autostart' },
-          update: { giaTri: 'false' },
-          create: { khoa: 'zalo_polling_autostart', giaTri: 'false' },
-        });
-        // Dừng polling đang chạy (nếu có) để không conflict với webhook
-        const { stopPolling } = await import('@/lib/zalo-polling-worker');
-        await stopPolling(false);
-      }
 
       return NextResponse.json({ success: true, action, result: data });
     }
