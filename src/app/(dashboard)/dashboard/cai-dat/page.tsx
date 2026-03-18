@@ -35,7 +35,6 @@ import {
   EyeOff,
   RefreshCw,
   Webhook,
-  Link2,
   CheckCircle,
   XCircle,
   Copy,
@@ -45,6 +44,11 @@ import {
   QrCode,
   Wifi,
   WifiOff,
+  Image,
+  FileText,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -379,62 +383,6 @@ export default function CaiDatPage() {
     }
   }
 
-  // --- Zalo getUpdates ---
-  const [updatesLoading, setUpdatesLoading] = useState(false);
-  const [updatesResult, setUpdatesResult] = useState<{
-    ok: boolean;
-    chatId?: string;
-    displayName?: string;
-    eventName?: string;
-    pendingDetected?: number;
-    pendingDetails?: Array<{ hoTen: string; soDienThoai: string; pendingZaloChatId: string }>;
-    webhookWasActive?: boolean;
-    webhookRestored?: boolean;
-    webhookRestoreError?: string;
-    error?: string;
-  } | null>(null);
-
-  async function handleGetUpdates() {
-    setUpdatesLoading(true);
-    setUpdatesResult(null);
-    try {
-      const res = await fetch('/api/zalo/updates', {
-        signal: AbortSignal.timeout(45000),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setUpdatesResult({ ok: false, error: data.error || `HTTP ${res.status}` });
-        toast.error(data.error || 'Lấy updates thất bại');
-        return;
-      }
-      const msg = data.data?.result?.message;
-      if (!msg?.from?.id) {
-        setUpdatesResult({ ok: true, error: 'Chưa có tin nhắn nào. Hãy nhắn bất kỳ cho Zalo Bot rồi thử lại.' });
-        toast.info('Chưa có tin nhắn mới');
-        return;
-      }
-      setUpdatesResult({
-        ok: true,
-        chatId: String(msg.from.id),
-        displayName: msg.from.display_name,
-        eventName: data.data?.result?.event_name,
-        pendingDetected: data.pendingDetected,
-        pendingDetails: data.pendingDetails,
-        webhookWasActive: data.webhookWasActive,
-        webhookRestored: data.webhookRestored,
-        webhookRestoreError: data.webhookRestoreError,
-      });
-      toast.success('Lấy Chat ID thành công');
-    } catch (err: any) {
-      const isTimeout = err?.name === 'TimeoutError' || err?.name === 'AbortError';
-      const msg = isTimeout ? 'Quá thời gian chờ (45s). Thử lại sau.' : 'Lỗi kết nối máy chủ';
-      setUpdatesResult({ ok: false, error: msg });
-      toast.error(msg);
-    } finally {
-      setUpdatesLoading(false);
-    }
-  }
-
   // --- Polling worker ---
   const [pollingStatus, setPollingStatus] = useState<{
     running: boolean;
@@ -500,26 +448,38 @@ export default function CaiDatPage() {
   // --- Gửi test Zalo ---
   const [testChatId, setTestChatId] = useState('');
   const [testMessage, setTestMessage] = useState('Tin nhắn test từ hệ thống Quản Lý Trọ 🏠');
+  const [testType, setTestType] = useState<'text' | 'image' | 'file'>('text');
+  const [testImageUrl, setTestImageUrl] = useState('');
+  const [testFileUrl, setTestFileUrl] = useState('');
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   async function handleSendTest() {
-    if (!testChatId.trim()) {
-      toast.error('Vui lòng nhập Chat ID');
-      return;
-    }
+    if (!testChatId.trim()) { toast.error('Vui lòng nhập Chat ID'); return; }
+    if (testType === 'image' && !testImageUrl.trim()) { toast.error('Vui lòng nhập URL hình ảnh'); return; }
+    if (testType === 'file' && !testFileUrl.trim()) { toast.error('Vui lòng nhập URL file'); return; }
     setTestLoading(true);
     setTestResult(null);
     try {
+      const payload: Record<string, string> = { chatId: testChatId.trim() };
+      if (testType === 'image') {
+        payload.imageUrl = testImageUrl.trim();
+        if (testMessage) payload.message = testMessage;
+      } else if (testType === 'file') {
+        payload.fileUrl = testFileUrl.trim();
+        if (testMessage) payload.message = testMessage;
+      } else {
+        payload.message = testMessage || 'Test message';
+      }
       const res = await fetch('/api/gui-zalo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId: testChatId.trim(), message: testMessage || 'Test message' }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok && data.success !== false) {
-        setTestResult({ ok: true, message: 'Gửi thành công!' });
-        toast.success('Đã gửi tin nhắn test thành công');
+        setTestResult({ ok: true, message: data.message || 'Gửi thành công!' });
+        toast.success('Đã gửi thành công');
       } else {
         const errMsg = data.error || data.message || `HTTP ${res.status}`;
         setTestResult({ ok: false, message: errMsg });
@@ -531,6 +491,18 @@ export default function CaiDatPage() {
     } finally {
       setTestLoading(false);
     }
+  }
+
+  // --- Theo dõi tin nhắn: expand raw payload ---
+  const [expandedMsgId, setExpandedMsgId] = useState<string | null>(null);
+
+  async function handleClearMessages() {
+    if (!confirm('Xóa tất cả tin nhắn đã nhận?')) return;
+    try {
+      await fetch('/api/zalo/messages', { method: 'DELETE' });
+      setWebhookMessages([]);
+      toast.success('Đã xóa tất cả tin nhắn');
+    } catch { toast.error('Lỗi xóa tin nhắn'); }
   }
 
   // --- Kiểm tra kết nối MinIO ---
@@ -565,6 +537,17 @@ export default function CaiDatPage() {
   const [botQRLoading, setBotQRLoading] = useState(false);
   const [botWebhookResult, setBotWebhookResult] = useState<any>(null);
   const [botWebhookLoading, setBotWebhookLoading] = useState(false);
+  const [botWebhookUrl, setBotWebhookUrl] = useState('');
+
+  // Load gợi ý webhook URL cho bot server
+  useEffect(() => {
+    if (!canManage) return;
+    fetch('/api/zalo/set-webhook')
+      .then(r => r.json())
+      .then(d => { if (d.webhookUrl) setBotWebhookUrl(d.webhookUrl); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage]);
 
   async function handleBotStatus() {
     setBotStatusLoading(true);
@@ -603,27 +586,28 @@ export default function CaiDatPage() {
     setBotWebhookLoading(true);
     setBotWebhookResult(null);
     try {
+      const body: any = {};
+      if (ownId) body.ownId = ownId;
+      if (botWebhookUrl.trim()) body.webhookUrl = botWebhookUrl.trim();
       const res = await fetch('/api/zalo-bot/set-webhook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ownId ? { ownId } : {}),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       setBotWebhookResult(data);
-      if (data.ok) toast.success('Đã cài webhook trên bot server');
-      else toast.error(data.error || 'Cài webhook thất bại');
+      if (data.ok) {
+        toast.success('Đã cài webhook trên bot server');
+        if (data.webhookUrl) setBotWebhookUrl(data.webhookUrl);
+      } else {
+        toast.error(data.error || 'Cài webhook thất bại');
+      }
     } catch {
       toast.error('Lỗi kết nối');
     } finally {
       setBotWebhookLoading(false);
     }
   }
-
-  // --- Webhook Zalo ---
-  const [webhookUrl, setWebhookUrl] = useState('');
-  const [webhookUrlSource, setWebhookUrlSource] = useState('');
-  const [webhookStatus, setWebhookStatus] = useState<any>(null);
-  const [webhookLoading, setWebhookLoading] = useState<string | null>(null); // 'set' | 'delete' | 'info'
 
   // --- Tin nhắn webhook nhận được ---
   const [webhookMessages, setWebhookMessages] = useState<any[]>([]);
@@ -671,58 +655,6 @@ export default function CaiDatPage() {
     return () => es.close();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage]);
-
-  // Load webhook URL gợi ý từ server (dựa vào NEXTAUTH_URL → đúng khi dùng Cloudflare Tunnel)
-  useEffect(() => {
-    if (!canManage) return;
-    fetch('/api/zalo/set-webhook')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.webhookUrl) {
-          setWebhookUrl(d.webhookUrl);
-          setWebhookUrlSource(d.source || '');
-        } else {
-          // fallback: dùng origin của browser
-          setWebhookUrl(`${window.location.origin}/api/zalo/webhook`);
-          setWebhookUrlSource('browser');
-        }
-      })
-      .catch(() => {
-        setWebhookUrl(`${window.location.origin}/api/zalo/webhook`);
-        setWebhookUrlSource('browser');
-      });
-  }, [canManage]);
-
-  async function handleWebhookAction(action: 'setWebhook' | 'deleteWebhook' | 'getWebhookInfo') {
-    setWebhookLoading(action === 'setWebhook' ? 'set' : action === 'deleteWebhook' ? 'delete' : 'info');
-    setWebhookStatus(null);
-    try {
-      const body: any = { action };
-      if (action === 'setWebhook') {
-        // Gửi URL do user nhập (hoặc URL đã load từ server)
-        if (webhookUrl.trim()) body.webhookUrl = webhookUrl.trim();
-      }
-      const res = await fetch('/api/zalo/set-webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setWebhookStatus({ ok: true, result: data.result });
-        if (action === 'setWebhook') toast.success('Đã đăng ký Webhook thành công');
-        else if (action === 'deleteWebhook') toast.success('Đã xóa Webhook');
-      } else {
-        setWebhookStatus({ ok: false, error: data.error || data.message });
-        toast.error(data.error || data.message || 'Thao tác thất bại');
-      }
-    } catch {
-      toast.error('Lỗi kết nối máy chủ');
-      setWebhookStatus({ ok: false, error: 'Lỗi kết nối máy chủ' });
-    } finally {
-      setWebhookLoading(null);
-    }
-  }
 
   // Nhóm các cài đặt
   const settingsByGroup = systemSettings.reduce<Record<string, CaiDatItem[]>>((acc, s) => {
@@ -831,36 +763,61 @@ export default function CaiDatPage() {
               <CardHeader className="p-4 md:p-6">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                   <Bell className="h-4 w-4" />
-                  Gửi tin nhắn Zalo test
+                  Gửi test Zalo
                 </CardTitle>
                 <CardDescription className="text-xs md:text-sm">
-                  Kiểm tra kết nối Zalo Bot bằng cách gửi tin nhắn đến một Chat ID cụ thể.
+                  Kiểm tra kết nối Zalo Bot — gửi tin nhắn, hình ảnh hoặc file đến Chat ID.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
-                <div className="space-y-1">
-                  <Label className="text-xs md:text-sm font-medium">Chat ID người nhận</Label>
-                  <Input
-                    type="text"
-                    placeholder="Nhập Zalo Chat ID (vd: 1234567890)"
-                    value={testChatId}
-                    onChange={(e) => setTestChatId(e.target.value)}
-                    className="text-sm font-mono"
-                  />
+                {/* Loại gửi */}
+                <div className="flex gap-2">
+                  {(['text', 'image', 'file'] as const).map(t => (
+                    <button key={t} type="button"
+                      onClick={() => setTestType(t)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                        testType === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                      }`}>
+                      {t === 'text' && <MessageSquare className="h-3.5 w-3.5" />}
+                      {t === 'image' && <Image className="h-3.5 w-3.5" />}
+                      {t === 'file' && <FileText className="h-3.5 w-3.5" />}
+                      {t === 'text' ? 'Văn bản' : t === 'image' ? 'Hình ảnh' : 'File'}
+                    </button>
+                  ))}
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs md:text-sm font-medium">Nội dung tin nhắn</Label>
-                  <Input
-                    type="text"
-                    value={testMessage}
-                    onChange={(e) => setTestMessage(e.target.value)}
-                    className="text-sm"
-                    maxLength={500}
-                  />
+                  <Label className="text-xs md:text-sm font-medium">Chat ID người nhận (Thread ID)</Label>
+                  <Input type="text" placeholder="VD: 6643404425553198601"
+                    value={testChatId} onChange={(e) => setTestChatId(e.target.value)}
+                    className="text-sm font-mono" />
+                </div>
+                {testType === 'image' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs md:text-sm font-medium">URL hình ảnh</Label>
+                    <Input type="url" placeholder="https://example.com/image.jpg"
+                      value={testImageUrl} onChange={(e) => setTestImageUrl(e.target.value)}
+                      className="text-sm" />
+                  </div>
+                )}
+                {testType === 'file' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs md:text-sm font-medium">URL file</Label>
+                    <Input type="url" placeholder="https://example.com/document.pdf"
+                      value={testFileUrl} onChange={(e) => setTestFileUrl(e.target.value)}
+                      className="text-sm" />
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <Label className="text-xs md:text-sm font-medium">
+                    {testType === 'text' ? 'Nội dung tin nhắn' : 'Caption / mô tả (tuỳ chọn)'}
+                  </Label>
+                  <Input type="text"
+                    value={testMessage} onChange={(e) => setTestMessage(e.target.value)}
+                    className="text-sm" maxLength={500} />
                 </div>
                 <Button size="sm" onClick={handleSendTest} disabled={testLoading} className="w-full">
                   {testLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
-                  Gửi tin nhắn test
+                  Gửi test
                 </Button>
                 {testResult && (
                   <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${
@@ -873,92 +830,71 @@ export default function CaiDatPage() {
               </CardContent>
             </Card>
 
-            {/* ── Lấy Chat ID từ Zalo getUpdates ── */}
+            {/* ── Theo dõi tin nhắn Zalo Bot (thread ID) ── */}
             <Card>
               <CardHeader className="p-4 md:p-6">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <Bell className="h-4 w-4" />
-                  Lấy Zalo Chat ID
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Nhắn bất kỳ cho Zalo Bot, sau đó bấm nút bên dưới.
-                  Hệ thống sẽ tự động: <strong>xóa Webhook → lấy tin nhắn → đăng ký lại Webhook</strong>.
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                      <MessageSquare className="h-4 w-4" />
+                      Theo dõi tin nhắn Zalo Bot
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm mt-1">
+                      Hiển thị tin nhắn đến theo thời gian thực — lấy <strong>Thread ID</strong> để điền vào hồ sơ khách thuê.
+                    </CardDescription>
+                  </div>
+                  <Button type="button" size="sm" variant="outline" className="text-xs text-red-600 border-red-200 hover:bg-red-50 shrink-0"
+                    onClick={handleClearMessages}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    Xóa tất cả
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent className="p-4 md:p-6 space-y-3">
-                <Button size="sm" variant="outline" onClick={handleGetUpdates} disabled={updatesLoading} className="w-full">
-                  <RefreshCw className={`h-4 w-4 mr-2 ${updatesLoading ? 'animate-spin' : ''}`} />
-                  {updatesLoading ? 'Đang chờ (tối đa 30s)…' : 'Lấy tin nhắn mới nhất'}
-                </Button>
-                {updatesResult && (
-                  <div className={`rounded-md p-3 text-sm space-y-2 ${
-                    updatesResult.ok && updatesResult.chatId
-                      ? 'bg-green-50 border border-green-200'
-                      : updatesResult.ok
-                      ? 'bg-amber-50 border border-amber-200'
-                      : 'bg-red-50 border border-red-200'
-                  }`}>
-                    {!updatesResult.ok || !updatesResult.chatId ? (
-                      <div className="flex items-center gap-2 text-sm">
-                        {updatesResult.ok
-                          ? <CheckCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                          : <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />}
-                        <span className={updatesResult.ok ? 'text-amber-800' : 'text-red-800'}>{updatesResult.error}</span>
+              <CardContent className="p-4 md:p-6 pt-0 space-y-2">
+                {webhookMessages.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic text-center py-6">
+                    {webhookMsgLoading ? 'Đang tải...' : 'Chưa có tin nhắn nào. Nhắn vào Zalo Bot để xem Thread ID tại đây.'}
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {webhookMessages.map((msg: any) => (
+                      <div key={msg.id} className="rounded-lg border bg-blue-50 border-blue-100 p-3 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-blue-700">Thread ID:</span>
+                            <code className="font-bold text-blue-900 select-all">{msg.chatId}</code>
+                            <button type="button" title="Sao chép Thread ID"
+                              className="text-blue-400 hover:text-blue-700"
+                              onClick={() => { navigator.clipboard.writeText(msg.chatId); toast.success('Đã sao chép Thread ID'); }}>
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <button type="button"
+                            className="text-gray-400 hover:text-gray-700 shrink-0"
+                            onClick={() => setExpandedMsgId(expandedMsgId === msg.id ? null : msg.id)}
+                            title={expandedMsgId === msg.id ? 'Thu gọn' : 'Xem raw payload'}>
+                            {expandedMsgId === msg.id
+                              ? <ChevronUp className="h-4 w-4" />
+                              : <ChevronDown className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        {msg.displayName && (
+                          <div className="text-gray-600">
+                            <span className="font-medium">{msg.displayName}</span>
+                          </div>
+                        )}
+                        {msg.attachmentUrl && (
+                          <img src={msg.attachmentUrl} alt="ảnh" className="rounded max-h-20 max-w-[160px] object-contain border" />
+                        )}
+                        <p className="text-gray-700 truncate">{msg.content}</p>
+                        <p className="text-gray-400 text-[10px]">Nhận lúc: {new Date(msg.createdAt).toLocaleString('vi-VN')}</p>
+                        {expandedMsgId === msg.id && msg.rawPayload && (
+                          <pre className="mt-2 p-2 bg-white border rounded text-[10px] text-gray-600 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
+                            {JSON.stringify(msg.rawPayload, null, 2)}
+                          </pre>
+                        )}
                       </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-2 font-medium text-green-800">
-                          <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
-                          Tìm thấy người nhắn tin
-                        </div>
-                        <div className="space-y-1 pl-6">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500 w-24">Chat ID</span>
-                            <code className="bg-white border rounded px-2 py-0.5 text-xs font-mono font-bold text-gray-800 select-all">
-                              {updatesResult.chatId}
-                            </code>
-                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6" title="Sao chép Chat ID"
-                              onClick={() => { navigator.clipboard.writeText(updatesResult.chatId!); toast.success('Đã sao chép Chat ID'); }}>
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          {updatesResult.displayName && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-500 w-24">Tên Zalo</span>
-                              <span className="text-xs text-gray-700">{updatesResult.displayName}</span>
-                            </div>
-                          )}
-                          {updatesResult.eventName && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-500 w-24">Sự kiện</span>
-                              <span className="text-xs text-gray-500 font-mono">{updatesResult.eventName}</span>
-                            </div>
-                          )}
-                        </div>
-                        {updatesResult.pendingDetected && updatesResult.pendingDetected > 0 ? (
-                          <div className="mt-2 rounded bg-blue-50 border border-blue-200 p-2 text-xs text-blue-800">
-                            <strong>Gợi ý liên kết:</strong> Tìm thấy {updatesResult.pendingDetected} khách thuê tên gần giống.
-                            Vào <strong>Quản lý khách thuê</strong> để xác nhận liên kết Chat ID.
-                            {updatesResult.pendingDetails?.map((p) => (
-                              <div key={p.pendingZaloChatId} className="mt-1 font-mono">→ {p.hoTen} ({p.soDienThoai})</div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500 pl-6">Không tìm thấy khách thuê trùng tên. Sao chép Chat ID và điền thủ công.</p>
-                        )}
-                        {updatesResult.webhookWasActive && (
-                          <div className={`mt-2 rounded px-2 py-1.5 text-xs ${
-                            updatesResult.webhookRestored
-                              ? 'bg-green-50 border border-green-200 text-green-800'
-                              : 'bg-amber-50 border border-amber-200 text-amber-800'
-                          }`}>
-                            {updatesResult.webhookRestored
-                              ? '✓ Webhook đã được đăng ký lại tự động'
-                              : `⚠ ${updatesResult.webhookRestoreError || 'Webhook chưa được đăng ký lại — vào tab Webhook để đăng ký lại.'}`}
-                          </div>
-                        )}
-                      </>
-                    )}
+                    ))}
                   </div>
                 )}
               </CardContent>
@@ -1027,122 +963,6 @@ export default function CaiDatPage() {
               </CardContent>
             </Card>
 
-            {/* ── Webhook Zalo ── */}
-            <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <Webhook className="h-4 w-4" />
-                  Zalo Webhook
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Zalo sẽ gửi HTTP POST đến Webhook URL khi có tin nhắn từ người dùng.
-                  Hãy lưu <strong>Secret Token</strong> trong phần cài đặt bên trên trước, sau đó nhấn&nbsp;
-                  <em>Đăng ký Webhook</em>.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6 space-y-4">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs md:text-sm font-medium">Webhook URL</Label>
-                    {webhookUrlSource === 'saved' && (
-                      <span className="text-xs text-green-600 font-medium">✓ URL đã đăng ký</span>
-                    )}
-                    {webhookUrlSource && webhookUrlSource !== 'browser' && webhookUrlSource !== 'saved' && (
-                      <span className="text-xs text-green-600 font-medium">✓ từ {webhookUrlSource}</span>
-                    )}
-                    {webhookUrlSource === 'browser' && (
-                      <span className="text-xs text-amber-600 font-medium">⚠ URL từ trình duyệt — có thể là localhost</span>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      type="url"
-                      value={webhookUrl}
-                      onChange={(e) => setWebhookUrl(e.target.value)}
-                      placeholder="https://your-domain.com/api/zalo/webhook"
-                      className="text-sm font-mono"
-                    />
-                    <Button type="button" variant="outline" size="icon" title="Sao chép URL"
-                      onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success('Đã sao chép Webhook URL'); }}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    URL được lấy từ <code className="bg-gray-100 px-1 rounded">NEXTAUTH_URL</code>.
-                    Nếu dùng Cloudflare Tunnel, đặt <code className="bg-gray-100 px-1 rounded">NEXTAUTH_URL=https://tunnel-url.com</code> để tự động đúng.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => handleWebhookAction('setWebhook')} disabled={!!webhookLoading}>
-                    {webhookLoading === 'set' ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Link2 className="h-4 w-4 mr-2" />}
-                    Đăng ký Webhook
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleWebhookAction('getWebhookInfo')} disabled={!!webhookLoading}>
-                    {webhookLoading === 'info' ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                    Kiểm tra trạng thái
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleWebhookAction('deleteWebhook')} disabled={!!webhookLoading}>
-                    {webhookLoading === 'delete' ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                    Xóa Webhook
-                  </Button>
-                </div>
-                {webhookStatus && (
-                  <div className={`rounded-md p-3 text-sm font-mono whitespace-pre-wrap break-all ${
-                    webhookStatus.ok ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-1 font-sans font-medium text-xs">
-                      {webhookStatus.ok
-                        ? <><CheckCircle className="h-3.5 w-3.5 text-green-600" /><span className="text-green-700">Thành công</span></>
-                        : <><XCircle className="h-3.5 w-3.5 text-red-600" /><span className="text-red-700">Lỗi</span></>}
-                    </div>
-                    {webhookStatus.ok ? JSON.stringify(webhookStatus.result, null, 2) : webhookStatus.error}
-                  </div>
-                )}
-
-                {/* ── Tin nhắn webhook nhận được ── */}
-                <div className="space-y-2 pt-2 border-t">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-gray-700">Tin nhắn nhận qua Webhook</span>
-                    <Button type="button" size="sm" variant="outline" className="h-7 text-xs px-2"
-                      disabled={webhookMsgLoading} onClick={loadWebhookMessages}>
-                      <RefreshCw className={`h-3 w-3 mr-1 ${webhookMsgLoading ? 'animate-spin' : ''}`} />
-                      Tải tin nhắn
-                    </Button>
-                  </div>
-                  {webhookMessages.length === 0 ? (
-                    <p className="text-xs text-gray-400 italic">
-                      {webhookMsgLoading ? 'Đang tải...' : 'Nhấn "Tải tin nhắn" để xem các tin nhắn bot đã nhận'}
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                      {webhookMessages.map((msg: any) => (
-                        <div key={msg.id} className="flex items-start gap-2 p-2 rounded border bg-gray-50 text-xs">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-medium text-gray-800 truncate">{msg.displayName || 'Ẩn danh'}</span>
-                              <span className="font-mono text-gray-400 text-[10px]">{msg.chatId}</span>
-                              {msg.eventName && msg.eventName !== 'message' && (
-                                <Badge variant="outline" className="text-[9px] h-4 px-1">{msg.eventName}</Badge>
-                              )}
-                            </div>
-                            {msg.attachmentUrl && (
-                              <img src={msg.attachmentUrl} alt="ảnh" className="mt-1 rounded max-h-20 max-w-[160px] object-contain border"
-                                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                            )}
-                            <p className="text-gray-600 mt-0.5 truncate">{msg.content}</p>
-                            <p className="text-gray-400 text-[10px] mt-0.5">{new Date(msg.createdAt).toLocaleString('vi-VN')}</p>
-                          </div>
-                          <button type="button" title="Sao chép Chat ID" className="shrink-0 text-gray-400 hover:text-blue-600"
-                            onClick={() => { navigator.clipboard.writeText(msg.chatId); toast.success('Đã sao chép Chat ID'); }}>
-                            <Copy className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
             {/* ── Zalo Bot Server (zalo_mode=bot_server) ── */}
             <Card>
               <CardHeader className="p-4 md:p-6">
@@ -1228,12 +1048,27 @@ export default function CaiDatPage() {
                 )}
 
                 {/* Cài webhook */}
-                <Button size="sm" onClick={() => handleBotSetWebhook()} disabled={botWebhookLoading} className="w-full">
-                  {botWebhookLoading
-                    ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    : <Webhook className="h-4 w-4 mr-2" />}
-                  Cài Webhook trên Bot Server
-                </Button>
+                <div className="space-y-2 pt-2 border-t">
+                  <Label className="text-xs font-medium text-gray-700">Webhook URL (ql_tro nhận tin nhắn)</Label>
+                  <div className="flex gap-2">
+                    <Input type="url" placeholder="https://your-domain.com/api/zalo/webhook"
+                      value={botWebhookUrl} onChange={e => setBotWebhookUrl(e.target.value)}
+                      className="text-xs font-mono" />
+                    <Button type="button" variant="outline" size="icon" title="Sao chép"
+                      onClick={() => { navigator.clipboard.writeText(botWebhookUrl); toast.success('Đã sao chép'); }}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Tự động lấy từ URL đã lưu hoặc <code>NEXTAUTH_URL</code>. Sửa nếu cần dùng URL khác.
+                  </p>
+                  <Button size="sm" onClick={() => handleBotSetWebhook()} disabled={botWebhookLoading} className="w-full">
+                    {botWebhookLoading
+                      ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      : <Webhook className="h-4 w-4 mr-2" />}
+                    Cài Webhook trên Bot Server
+                  </Button>
+                </div>
 
                 {botWebhookResult && (
                   <div className={`rounded-md p-3 text-xs space-y-1 border ${botWebhookResult.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>

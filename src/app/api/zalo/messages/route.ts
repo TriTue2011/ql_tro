@@ -4,6 +4,9 @@
  *
  * GET  /api/zalo/messages?conversations=1
  *   → Lấy danh sách cuộc hội thoại (tin nhắn cuối mỗi chatId)
+ *
+ * DELETE /api/zalo/messages
+ *   → Xóa tất cả tin nhắn (Xóa tất cả trong theo dõi)
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -20,7 +23,7 @@ export async function GET(request: NextRequest) {
   if (searchParams.get('conversations') === '1') {
     const rows = await prisma.$queryRaw<any[]>`
       SELECT DISTINCT ON ("chatId")
-        "id", "chatId", "displayName", "content", "attachmentUrl", "role", "createdAt"
+        "id", "chatId", "displayName", "content", "attachmentUrl", "role", "createdAt", "rawPayload", "eventName"
       FROM "ZaloMessage"
       ORDER BY "chatId", "createdAt" DESC
     `;
@@ -46,4 +49,15 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.json({ data: messages.reverse() });
+}
+
+export async function DELETE() {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!['admin', 'chuNha'].includes(session.user.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { count } = await prisma.zaloMessage.deleteMany({});
+  return NextResponse.json({ success: true, deleted: count });
 }

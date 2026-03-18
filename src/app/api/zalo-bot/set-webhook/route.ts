@@ -1,16 +1,24 @@
 /**
  * POST /api/zalo-bot/set-webhook
  * Cài đặt webhook trên bot server để nhận tin nhắn Zalo.
- * Body: { ownId?: string }  — nếu không truyền, dùng zalo_bot_account_id từ DB.
+ * Body: { ownId?: string, webhookUrl?: string }
  * Chỉ admin / chuNha.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { setWebhookOnBotServer, getBotConfig } from '@/lib/zalo-bot-client';
+import prisma from '@/lib/prisma';
 
 function getPublicBaseUrl(): string {
   return (process.env.NEXTAUTH_URL || process.env.APP_URL || '').replace(/\/$/, '');
+}
+
+async function getSavedWebhookUrl(): Promise<string | null> {
+  try {
+    const row = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_url' } });
+    return row?.giaTri?.trim() || null;
+  } catch { return null; }
 }
 
 export async function POST(request: NextRequest) {
@@ -30,13 +38,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Cần nhập Zalo Account ID (zalo_bot_account_id) trong Cài đặt' });
   }
 
-  const base = getPublicBaseUrl() || `http://localhost:3000`;
-  const webhookUrl = `${base}/api/zalo/webhook`;
+  // Ưu tiên: 1) URL do user nhập, 2) URL đã lưu trong DB, 3) NEXTAUTH_URL
+  const base = getPublicBaseUrl() || 'http://localhost:3000';
+  const saved = await getSavedWebhookUrl();
+  const webhookUrl: string =
+    (body?.webhookUrl?.trim()) ||
+    saved ||
+    `${base}/api/zalo/webhook`;
 
   const result = await setWebhookOnBotServer(ownId, webhookUrl);
-  return NextResponse.json({
-    ...result,
-    webhookUrl,
-    ownId,
-  });
+
+  // Lưu URL vào DB để form load lại đúng
+  if (result.ok) {
+    await prisma.caiDat.upsert({
+      where: { khoa: 'zalo_webhook_url' },
+      update: { giaTri: webhookUrl },
+      create: { khoa: 'zalo_webhook_url', giaTri: webhookUrl },
+    }).catch(() => {});
+  }
+
+  return NextResponse.json({ ...result, webhookUrl, ownId });
 }
