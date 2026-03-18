@@ -255,6 +255,7 @@ async function detectAndStorePending(update: any): Promise<void> {
 
 /**
  * Forward tin nhắn Zalo đến Home Assistant webhook nếu đã cấu hình ha_zalo_notify_url.
+ * Hỗ trợ cả Zalo OA Bot API format và Bot Server (zca-js) format.
  * Fire-and-forget — không block xử lý chính.
  */
 export async function notifyHomeAssistant(update: any): Promise<void> {
@@ -264,10 +265,27 @@ export async function notifyHomeAssistant(update: any): Promise<void> {
     if (!url) return;
 
     const msg = update?.message;
-    const chatId = msg?.from?.id ? String(msg.from.id) : update?.sender?.id ? String(update.sender.id) : null;
-    const displayName = msg?.from?.display_name || update?.sender?.display_name || update?.sender?.name || '';
-    const content = msg?.text || update?.message?.text || '';
-    const eventName = update?.event_name || 'message';
+    const data = update?.data; // bot server (zca-js) wraps payload in .data
+
+    // Hỗ trợ cả 3 format: OA Bot API, Zalo OA API, Bot Server
+    const chatId =
+      msg?.from?.id ? String(msg.from.id) :
+      update?.sender?.id ? String(update.sender.id) :
+      data?.uidFrom ? String(data.uidFrom) :
+      update?.uidFrom ? String(update.uidFrom) : null;
+
+    const displayName =
+      msg?.from?.display_name ||
+      update?.sender?.display_name || update?.sender?.name ||
+      data?.dName || data?.fromD || data?.displayName ||
+      update?.dName || update?.fromD || '';
+
+    const content =
+      msg?.text ||
+      data?.content || data?.msg ||
+      update?.content || update?.msg || '';
+
+    const eventName = update?.event_name || update?.event || String(update?.type ?? 'message');
 
     fetch(url, {
       method: 'POST',

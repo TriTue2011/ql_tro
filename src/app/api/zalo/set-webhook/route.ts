@@ -53,13 +53,22 @@ async function getWebhookSecret(): Promise<string | null> {
   }
 }
 
-/** GET: Trả về webhook URL gợi ý dựa trên NEXTAUTH_URL (server-side) */
+/** GET: Trả về webhook URL — ưu tiên URL đã lưu trong DB, fallback về NEXTAUTH_URL */
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!['admin', 'chuNha'].includes(session.user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  // Ưu tiên URL đã đăng ký trước đó (lưu khi setWebhook)
+  try {
+    const row = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_url' } });
+    const savedUrl = row?.giaTri?.trim();
+    if (savedUrl) {
+      return NextResponse.json({ webhookUrl: savedUrl, source: 'saved' });
+    }
+  } catch { /* bỏ qua, dùng fallback */ }
 
   const base = getPublicBaseUrl();
   return NextResponse.json({
