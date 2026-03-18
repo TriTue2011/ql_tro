@@ -1044,8 +1044,11 @@ export default function CaiDatPage() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs md:text-sm font-medium">Webhook URL</Label>
-                    {webhookUrlSource && webhookUrlSource !== 'browser' && (
-                      <span className="text-xs text-green-600 font-medium">✓ từ {webhookUrlSource} (Cloudflare Tunnel)</span>
+                    {webhookUrlSource === 'saved' && (
+                      <span className="text-xs text-green-600 font-medium">✓ URL đã đăng ký</span>
+                    )}
+                    {webhookUrlSource && webhookUrlSource !== 'browser' && webhookUrlSource !== 'saved' && (
+                      <span className="text-xs text-green-600 font-medium">✓ từ {webhookUrlSource}</span>
                     )}
                     {webhookUrlSource === 'browser' && (
                       <span className="text-xs text-amber-600 font-medium">⚠ URL từ trình duyệt — có thể là localhost</span>

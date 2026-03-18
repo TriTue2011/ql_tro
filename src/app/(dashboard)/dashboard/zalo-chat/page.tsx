@@ -67,7 +67,8 @@ export default function ZaloChatPage() {
 
     fetch(`/api/zalo/messages?chatId=${selectedChatId}&limit=50`)
       .then(r => r.json())
-      .then(data => setMessages(data.data ?? []));
+      .then(data => setMessages(data.data ?? []))
+      .catch(() => setMessages([]));
   }, [selectedChatId]);
 
   // ─── SSE: nhận TẤT CẢ tin nhắn mới theo thời gian thực ────────────────
@@ -77,10 +78,25 @@ export default function ZaloChatPage() {
   useEffect(() => { selectedChatIdRef.current = selectedChatId; }, [selectedChatId]);
 
   useEffect(() => {
-    const es = new EventSource('/api/zalo/messages/stream');
-    sseRef.current = es;
+    let retryTimeout: ReturnType<typeof setTimeout>;
+    let retryDelay = 2000;
 
-    es.onmessage = (e) => {
+    function connect() {
+      const es = new EventSource('/api/zalo/messages/stream');
+      sseRef.current = es;
+
+      es.onerror = () => {
+        es.close();
+        // Tự reconnect với exponential backoff (tối đa 30s)
+        retryTimeout = setTimeout(() => {
+          retryDelay = Math.min(retryDelay * 2, 30_000);
+          connect();
+        }, retryDelay);
+      };
+
+      es.onopen = () => { retryDelay = 2000; }; // reset delay khi kết nối lại
+
+      es.onmessage = (e) => {
       try {
         const payload = JSON.parse(e.data);
         if (payload.type !== 'messages') return;
@@ -120,7 +136,13 @@ export default function ZaloChatPage() {
       } catch { /* ignore parse errors */ }
     };
 
-    return () => { es.close(); };
+    }
+
+    connect();
+    return () => {
+      clearTimeout(retryTimeout);
+      sseRef.current?.close();
+    };
   }, []); // mount 1 lần duy nhất, không reconnect khi đổi chatId
 
   // ─── Auto-scroll khi có tin mới ─────────────────────────────────────────
@@ -168,7 +190,12 @@ export default function ZaloChatPage() {
         ));
       } else {
         // Thay tin tạm bằng tin thật từ DB
-        setMessages(prev => prev.map(m => m.id === tempId ? { ...data.saved, role: 'bot' } : m));
+        // Dùng filter+check thay vì map để tránh duplicate khi SSE đã thêm realId trước
+        setMessages(prev => {
+          const withoutTemp = prev.filter(m => m.id !== tempId);
+          const alreadyAdded = withoutTemp.some(m => m.id === data.saved.id);
+          return alreadyAdded ? withoutTemp : [...withoutTemp, { ...data.saved, role: 'bot' }];
+        });
       }
     } catch (err: any) {
       setSendError(err?.message || 'Lỗi kết nối');

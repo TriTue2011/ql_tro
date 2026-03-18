@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { emitNewMessage } from '@/lib/zalo-message-events';
+import { isBotServerMode, sendMessageViaBotServer } from '@/lib/zalo-bot-client';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
@@ -37,26 +39,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'chatId và message là bắt buộc' }, { status: 400 });
   }
 
-  const token = await getZaloToken();
-  if (!token) {
-    return NextResponse.json({ error: 'Chưa cấu hình zalo_access_token' }, { status: 503 });
-  }
-
-  // Gửi qua Zalo Bot API
   let zalOk = false;
   let zaloError: string | null = null;
+
   try {
-    const res = await fetch(`${ZALO_API}/bot${token}/sendmessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipient: { id: chatId }, message: { text: message.trim() } }),
-      signal: AbortSignal.timeout(15000),
-    });
-    const data = await res.json();
-    if (data?.error === 0 || data?.error_code === 0) {
+    if (await isBotServerMode()) {
+      // Bot server mode (Docker zca-js)
+      await sendMessageViaBotServer(chatId, message.trim());
       zalOk = true;
     } else {
-      zaloError = data?.message || data?.error_message || `Zalo lỗi ${data?.error}`;
+      // Zalo OA Bot API
+      const token = await getZaloToken();
+      if (!token) {
+        return NextResponse.json({ error: 'Chưa cấu hình zalo_access_token' }, { status: 503 });
+      }
+      const res = await fetch(`${ZALO_API}/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: message.trim() }),
+        signal: AbortSignal.timeout(15000),
+      });
+      const data = await res.json();
+      if (data?.error === 0 || data?.error_code === 0) {
+        zalOk = true;
+      } else {
+        zaloError = data?.message || data?.error_message || `Zalo lỗi ${data?.error}`;
+      }
     }
   } catch (e: any) {
     zaloError = e?.message || 'Timeout gửi Zalo';
@@ -72,6 +80,9 @@ export async function POST(request: NextRequest) {
       eventName: zalOk ? 'bot_reply' : 'bot_reply_failed',
     },
   });
+
+  // Emit để SSE stream cập nhật real-time
+  emitNewMessage({ ...saved });
 
   if (!zalOk) {
     return NextResponse.json({ success: false, error: zaloError, saved }, { status: 502 });
