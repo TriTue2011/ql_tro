@@ -522,6 +522,48 @@ export default function CaiDatPage() {
     } catch { toast.error('Lỗi xóa tin nhắn'); }
   }
 
+  // --- Test webhook nhận tin ---
+  const [webhookTestLoading, setWebhookTestLoading] = useState(false);
+  const [webhookTestResult, setWebhookTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function handleTestWebhook() {
+    setWebhookTestLoading(true);
+    setWebhookTestResult(null);
+    try {
+      // Gửi một POST giả lập đến chính webhook của hệ thống
+      const fakePayload = {
+        type: 0,
+        threadId: 'test_thread_' + Date.now(),
+        isSelf: false,
+        data: {
+          uidFrom: 'test_user',
+          dName: '[Test] Webhook Check',
+          msgType: 'webchat',
+          content: 'Tin nhắn test webhook — kiểm tra nhận thành công!',
+          ts: String(Date.now()),
+        },
+        _accountId: 'test',
+      };
+      const res = await fetch('/api/zalo/webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fakePayload),
+      });
+      if (res.ok) {
+        setWebhookTestResult({ ok: true, message: 'Webhook nhận được! Kiểm tra phần "Theo dõi tin nhắn" để xem tin test.' });
+        toast.success('Webhook đang hoạt động');
+      } else {
+        setWebhookTestResult({ ok: false, message: `HTTP ${res.status} — webhook không phản hồi` });
+        toast.error('Webhook không phản hồi');
+      }
+    } catch {
+      setWebhookTestResult({ ok: false, message: 'Lỗi kết nối' });
+      toast.error('Lỗi kết nối');
+    } finally {
+      setWebhookTestLoading(false);
+    }
+  }
+
   // --- Kiểm tra kết nối MinIO ---
   const [minioTestLoading, setMinioTestLoading] = useState(false);
   const [minioTestResult, setMinioTestResult] = useState<{ ok: boolean; message: string; details?: Record<string, unknown> } | null>(null);
@@ -1115,38 +1157,76 @@ export default function CaiDatPage() {
               </CardContent>
             </Card>
 
-            {/* ── HA Webhook config info ── */}
+            {/* ── Webhook nhận tin nhắn ── */}
             <Card>
               <CardHeader className="p-4 md:p-6">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                   <Webhook className="h-4 w-4" />
-                  Cấu hình HA Webhook Trigger
+                  Webhook nhận tin nhắn Zalo
                 </CardTitle>
                 <CardDescription className="text-xs md:text-sm">
-                  Thêm vào <code className="bg-gray-100 px-1 rounded">configuration.yaml</code> của Home Assistant để nhận tin nhắn Zalo.
+                  Đây là URL webhook của hệ thống — cấu hình Bot Server gửi tin về đây.
+                  Dùng nút Test để kiểm tra webhook có nhận được không.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-4 md:p-6">
-                <pre className="bg-gray-50 border rounded-lg p-3 text-xs text-gray-700 overflow-x-auto whitespace-pre-wrap">{`trigger:
-  - trigger: webhook
-    allowed_methods:
-      - POST
-    local_only: true
-    webhook_id: 8Dc2ZrsRANchqBy1HZx7gytMJzcYy90cHueBIR8NZv4
+              <CardContent className="p-4 md:p-6 space-y-3">
+                {/* Hiển thị URL */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-700">Webhook URL</Label>
+                  <div className="flex gap-2">
+                    <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-blue-800 overflow-x-auto whitespace-nowrap">
+                      {botWebhookUrl || '(chưa cấu hình — lưu webhook URL trong mục Bot Server)'}
+                    </code>
+                    {botWebhookUrl && (
+                      <Button type="button" variant="outline" size="icon" title="Sao chép"
+                        onClick={() => { navigator.clipboard.writeText(botWebhookUrl); toast.success('Đã sao chép'); }}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
 
-# Dữ liệu nhận được (trigger.json):
-# {
-#   "source": "ql_tro_zalo",
-#   "thread_id": "...",      ← Thread ID Zalo
-#   "type": "user|group",   ← Loại (người/nhóm)
-#   "display_name": "...",  ← Tên người gửi
-#   "msg_type": "webchat|chat.photo|share.file",
-#   "message": "...",       ← Nội dung
-#   "attachment_url": "...",← URL file/ảnh (nếu có)
-#   "file_name": "...",     ← Tên file (nếu có)
-#   "ttl": 86400000,        ← TTL tin nhắn (ms)
-#   "event_name": "..."
-# }`}</pre>
+                {/* Nút test */}
+                <Button size="sm" variant="outline" onClick={handleTestWebhook} disabled={webhookTestLoading} className="w-full">
+                  {webhookTestLoading
+                    ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    : <Webhook className="h-4 w-4 mr-2" />}
+                  Gửi tin test đến webhook
+                </Button>
+
+                {webhookTestResult && (
+                  <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${
+                    webhookTestResult.ok
+                      ? 'bg-green-50 border border-green-200 text-green-800'
+                      : 'bg-red-50 border border-red-200 text-red-800'
+                  }`}>
+                    {webhookTestResult.ok
+                      ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
+                      : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                    {webhookTestResult.message}
+                  </div>
+                )}
+
+                {/* Định dạng payload bot server gửi vào */}
+                <details className="group">
+                  <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700 select-none">
+                    Xem định dạng payload bot server (zca-js) →
+                  </summary>
+                  <pre className="mt-2 bg-gray-50 border rounded-lg p-3 text-xs text-gray-700 overflow-x-auto whitespace-pre-wrap">{`// Bot server gửi POST về webhook URL:
+{
+  "type": 0,          // 0 = user, 1 = group
+  "threadId": "...",  // Thread ID (dùng để gửi phản hồi)
+  "isSelf": false,
+  "data": {
+    "uidFrom": "...",   // Zalo User ID người gửi
+    "dName": "...",     // Tên hiển thị
+    "msgType": "webchat | chat.photo | share.file",
+    "content": "...",   // Văn bản, hoặc object { href, thumb, title }
+    "ts": "1234567890"  // Timestamp ms
+  },
+  "_accountId": "..."   // Account ID bot
+}`}</pre>
+                </details>
               </CardContent>
             </Card>
 
