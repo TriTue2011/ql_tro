@@ -95,6 +95,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             url: "/dashboard/zalo-chat",
           },
           {
+            title: "Zalo Monitor",
+            url: "/dashboard/zalo-monitor",
+          },
+          {
             title: "Xem Web",
             url: "/dashboard/xem-web",
           },
