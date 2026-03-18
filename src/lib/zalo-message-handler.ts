@@ -256,23 +256,47 @@ async function detectAndStorePending(update: any): Promise<void> {
 /**
  * Forward tin nhắn Zalo đến Home Assistant webhook nếu đã cấu hình ha_zalo_notify_url.
  * Hỗ trợ cả Zalo OA Bot API format và Bot Server (zca-js) format.
+ * Lọc theo: ha_zalo_allowed_threads (danh sách thread ID, trống = tất cả)
+ *           ha_zalo_type_filter ('all'/'user'/'group')
  * Fire-and-forget — không block xử lý chính.
  */
 export async function notifyHomeAssistant(update: any): Promise<void> {
   try {
-    const s = await prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_notify_url' } });
-    const url = s?.giaTri?.trim();
+    const [urlRow, threadsRow, typeRow] = await Promise.all([
+      prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_notify_url' } }),
+      prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_allowed_threads' } }),
+      prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_type_filter' } }),
+    ]);
+
+    const url = urlRow?.giaTri?.trim();
     if (!url) return;
 
     const msg = update?.message;
     const data = update?.data; // bot server (zca-js) wraps payload in .data
 
     // Hỗ trợ cả 3 format: OA Bot API, Zalo OA API, Bot Server
-    const chatId =
+    const threadId: string =
+      update?.threadId ? String(update.threadId) :
       msg?.from?.id ? String(msg.from.id) :
       update?.sender?.id ? String(update.sender.id) :
       data?.uidFrom ? String(data.uidFrom) :
-      update?.uidFrom ? String(update.uidFrom) : null;
+      update?.uidFrom ? String(update.uidFrom) : '';
+
+    // Type: 0 = user, 1 = group (bot server), fallback = 'user'
+    const rawType = update?.type;
+    const isGroup = rawType === 1;
+
+    // Lọc theo loại (user/group)
+    const typeFilter = typeRow?.giaTri?.trim() || 'all';
+    if (typeFilter === 'user' && isGroup) return;
+    if (typeFilter === 'group' && !isGroup) return;
+
+    // Lọc theo thread ID whitelist
+    const allowedThreadsRaw = threadsRow?.giaTri?.trim() || '';
+    if (allowedThreadsRaw) {
+      const allowed = allowedThreadsRaw.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+      if (allowed.length > 0 && !allowed.includes(threadId)) return;
+    }
 
     const displayName =
       msg?.from?.display_name ||
@@ -280,17 +304,44 @@ export async function notifyHomeAssistant(update: any): Promise<void> {
       data?.dName || data?.fromD || data?.displayName ||
       update?.dName || update?.fromD || '';
 
-    const content =
-      msg?.text ||
-      data?.content || data?.msg ||
-      update?.content || update?.msg || '';
+    const msgType = data?.msgType || 'webchat';
+    let content = '';
+    let attachmentUrl: string | null = null;
+    let fileName: string | null = null;
+
+    if (msgType === 'chat.photo') {
+      const c = data?.content ?? {};
+      attachmentUrl = typeof c === 'object' ? (c.href || c.thumb || null) : null;
+      content = typeof c === 'object' ? (c.description || c.title || '[hình ảnh]') : '[hình ảnh]';
+    } else if (msgType === 'share.file') {
+      const c = data?.content ?? {};
+      attachmentUrl = typeof c === 'object' ? (c.href || null) : null;
+      fileName = typeof c === 'object' ? (c.title || 'file') : 'file';
+      content = fileName;
+    } else {
+      content =
+        msg?.text ||
+        (typeof data?.content === 'string' ? data.content : '') ||
+        update?.content || update?.msg || '';
+    }
 
     const eventName = update?.event_name || update?.event || String(update?.type ?? 'message');
 
     fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: 'ql_tro_zalo', chat_id: chatId, display_name: displayName, message: content, event_name: eventName }),
+      body: JSON.stringify({
+        source: 'ql_tro_zalo',
+        thread_id: threadId,
+        type: isGroup ? 'group' : 'user',
+        display_name: displayName,
+        msg_type: msgType,
+        message: content,
+        attachment_url: attachmentUrl,
+        file_name: fileName,
+        event_name: eventName,
+        ttl: data?.ttl ?? null,
+      }),
       signal: AbortSignal.timeout(8_000),
     }).catch(() => {/* bỏ qua lỗi forward */});
   } catch { /* không ảnh hưởng luồng chính */ }

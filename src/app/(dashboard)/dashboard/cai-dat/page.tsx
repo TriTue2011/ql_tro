@@ -383,66 +383,42 @@ export default function CaiDatPage() {
     }
   }
 
-  // --- Polling worker ---
-  const [pollingStatus, setPollingStatus] = useState<{
-    running: boolean;
-    startedAt: string | null;
-    messagesProcessed: number;
-    lastMessageAt: string | null;
-    lastError: string | null;
-    webhookWillRestore: boolean;
-  } | null>(null);
-  const [pollingLoading, setPollingLoading] = useState(false);
-
-  async function fetchPollingStatus() {
-    try {
-      const res = await fetch('/api/zalo/polling');
-      if (res.ok) setPollingStatus(await res.json());
-    } catch { /* bỏ qua */ }
-  }
+  // --- HA forward filter ---
+  const [haAllowedThreads, setHaAllowedThreads] = useState('');
+  const [haTypeFilter, setHaTypeFilter] = useState('all');
+  const [haFilterSaving, setHaFilterSaving] = useState(false);
 
   useEffect(() => {
-    fetchPollingStatus();
-    const interval = setInterval(() => {
-      setPollingStatus(prev => {
-        if (prev?.running) fetchPollingStatus();
-        return prev;
-      });
-    }, 5000);
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function handleStartPolling() {
-    setPollingLoading(true);
-    try {
-      const res = await fetch('/api/zalo/polling', { method: 'POST' });
-      const data = await res.json();
-      if (data.ok) {
-        toast.success(data.message);
-        await fetchPollingStatus();
-      } else {
-        toast.error(data.message || 'Không thể khởi động');
+    if (!canManage) return;
+    Promise.all([
+      fetch('/api/admin/settings').then(r => r.json()),
+    ]).then(([d]) => {
+      if (d.success) {
+        const vals: Record<string, string> = {};
+        for (const s of d.data) vals[s.khoa] = s.giaTri ?? '';
+        if (vals.ha_zalo_allowed_threads !== undefined) setHaAllowedThreads(vals.ha_zalo_allowed_threads);
+        if (vals.ha_zalo_type_filter !== undefined) setHaTypeFilter(vals.ha_zalo_type_filter || 'all');
       }
-    } catch {
-      toast.error('Lỗi kết nối');
-    } finally {
-      setPollingLoading(false);
-    }
-  }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage]);
 
-  async function handleStopPolling(_unused?: boolean) {
-    setPollingLoading(true);
+  async function handleSaveHaFilter() {
+    setHaFilterSaving(true);
     try {
-      const res = await fetch('/api/zalo/polling', { method: 'DELETE' });
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: [
+          { khoa: 'ha_zalo_allowed_threads', giaTri: haAllowedThreads },
+          { khoa: 'ha_zalo_type_filter', giaTri: haTypeFilter },
+        ]}),
+      });
       const data = await res.json();
-      toast.success(data.message);
-      await fetchPollingStatus();
-    } catch {
-      toast.error('Lỗi kết nối');
-    } finally {
-      setPollingLoading(false);
-    }
+      if (data.success) toast.success('Đã lưu bộ lọc HA');
+      else toast.error(data.message || 'Lưu thất bại');
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setHaFilterSaving(false); }
   }
 
   // --- Gửi test Zalo ---
@@ -453,6 +429,47 @@ export default function CaiDatPage() {
   const [testFileUrl, setTestFileUrl] = useState('');
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  // MinIO file browser
+  const [minioBrowserOpen, setMinioBrowserOpen] = useState(false);
+  const [minioFiles, setMinioFiles] = useState<{ name: string; size: number; lastModified: Date; url: string }[]>([]);
+  const [minioFilesLoading, setMinioFilesLoading] = useState(false);
+  const [minioPrefix, setMinioPrefix] = useState('');
+
+  async function loadMinioFiles(prefix = minioPrefix) {
+    setMinioFilesLoading(true);
+    try {
+      const res = await fetch(`/api/minio/files?prefix=${encodeURIComponent(prefix)}&limit=100`);
+      const data = await res.json();
+      if (data.success) setMinioFiles(data.files ?? []);
+      else toast.error(data.error || 'Lỗi tải file MinIO');
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setMinioFilesLoading(false); }
+  }
+
+  function openMinioBrowser() {
+    setMinioBrowserOpen(true);
+    loadMinioFiles();
+  }
+
+  function selectMinioFile(file: { name: string; url: string }) {
+    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(file.name);
+    if (testType === 'image' || isImage) {
+      setTestImageUrl(file.url);
+      if (isImage) setTestType('image');
+    } else {
+      setTestFileUrl(file.url);
+      setTestType('file');
+    }
+    setMinioBrowserOpen(false);
+    toast.success(`Đã chọn: ${file.name.split('/').pop()}`);
+  }
+
+  function formatBytes(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   async function handleSendTest() {
     if (!testChatId.trim()) { toast.error('Vui lòng nhập Chat ID'); return; }
@@ -629,30 +646,42 @@ export default function CaiDatPage() {
   // SSE: tự động cập nhật khi có tin nhắn mới (không cần bấm nút)
   useEffect(() => {
     if (!canManage) return;
-    // Load lần đầu
     loadWebhookMessages();
 
-    const es = new EventSource('/api/zalo/messages/stream');
-    es.onmessage = (e) => {
-      try {
-        const payload = JSON.parse(e.data);
-        if (payload.type !== 'messages') return;
-        const newMsgs: any[] = payload.data;
-        setWebhookMessages(prev => {
-          const map = new Map(prev.map((m: any) => [m.chatId, m]));
-          for (const m of newMsgs) {
-            const existing = map.get(m.chatId);
-            if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
-              map.set(m.chatId, m);
+    let retryDelay = 2000;
+    let timer: ReturnType<typeof setTimeout>;
+
+    function connect() {
+      const es = new EventSource('/api/zalo/messages/stream');
+      es.onopen = () => { retryDelay = 2000; };
+      es.onerror = () => {
+        es.close();
+        timer = setTimeout(() => { retryDelay = Math.min(retryDelay * 2, 30_000); connect(); }, retryDelay);
+      };
+      es.onmessage = (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.type !== 'messages') return;
+          const newMsgs: any[] = payload.data;
+          setWebhookMessages(prev => {
+            const map = new Map(prev.map((m: any) => [m.chatId, m]));
+            for (const m of newMsgs) {
+              const existing = map.get(m.chatId);
+              if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
+                map.set(m.chatId, m);
+              }
             }
-          }
-          return Array.from(map.values()).sort(
-            (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-        });
-      } catch { /* ignore */ }
-    };
-    return () => es.close();
+            return Array.from(map.values()).sort(
+              (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+          });
+        } catch { /* ignore */ }
+      };
+      return es;
+    }
+
+    const es = connect();
+    return () => { clearTimeout(timer); es.close(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage]);
 
@@ -758,6 +787,50 @@ export default function CaiDatPage() {
               />
             )}
 
+            {/* ── HA Forward Filter ── */}
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Webhook className="h-4 w-4" />
+                  Bộ lọc chuyển tiếp Home Assistant
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Giới hạn tin nhắn được forward đến HA webhook theo Thread ID và loại (user/nhóm).
+                  Trống = chuyển tiếp tất cả.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs md:text-sm font-medium">Thread ID được phép (mỗi ID một dòng hoặc cách nhau bởi dấu phẩy)</Label>
+                  <textarea
+                    className="w-full text-xs font-mono border rounded-md p-2 h-20 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={"6643404425553198601\n8845089824387263227"}
+                    value={haAllowedThreads}
+                    onChange={e => setHaAllowedThreads(e.target.value)}
+                  />
+                  <p className="text-[11px] text-gray-400">Để trống để cho phép tất cả thread ID.</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs md:text-sm font-medium">Loại được phép chuyển tiếp</Label>
+                  <div className="flex gap-2">
+                    {(['all', 'user', 'group'] as const).map(t => (
+                      <button key={t} type="button"
+                        onClick={() => setHaTypeFilter(t)}
+                        className={`px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                          haTypeFilter === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                        }`}>
+                        {t === 'all' ? 'Tất cả' : t === 'user' ? 'Người dùng' : 'Nhóm'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button size="sm" onClick={handleSaveHaFilter} disabled={haFilterSaving} className="w-full">
+                  {haFilterSaving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Lưu bộ lọc
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* ── Gửi test Zalo ── */}
             <Card>
               <CardHeader className="p-4 md:p-6">
@@ -793,15 +866,30 @@ export default function CaiDatPage() {
                 </div>
                 {testType === 'image' && (
                   <div className="space-y-1">
-                    <Label className="text-xs md:text-sm font-medium">URL hình ảnh</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs md:text-sm font-medium">URL hình ảnh</Label>
+                      <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                        onClick={openMinioBrowser}>
+                        <HardDrive className="h-3 w-3" /> Chọn từ MinIO
+                      </button>
+                    </div>
                     <Input type="url" placeholder="https://example.com/image.jpg"
                       value={testImageUrl} onChange={(e) => setTestImageUrl(e.target.value)}
                       className="text-sm" />
+                    {testImageUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(testImageUrl) && (
+                      <img src={testImageUrl} alt="preview" className="rounded max-h-24 max-w-xs object-contain border mt-1" />
+                    )}
                   </div>
                 )}
                 {testType === 'file' && (
                   <div className="space-y-1">
-                    <Label className="text-xs md:text-sm font-medium">URL file</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs md:text-sm font-medium">URL file</Label>
+                      <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                        onClick={openMinioBrowser}>
+                        <HardDrive className="h-3 w-3" /> Chọn từ MinIO
+                      </button>
+                    </div>
                     <Input type="url" placeholder="https://example.com/document.pdf"
                       value={testFileUrl} onChange={(e) => setTestFileUrl(e.target.value)}
                       className="text-sm" />
@@ -897,69 +985,6 @@ export default function CaiDatPage() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* ── Polling Worker ── */}
-            <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <RefreshCw className="h-4 w-4" />
-                  Polling Worker (dự phòng khi không dùng Webhook)
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Mặc định hệ thống dùng <strong>Webhook</strong> (bot.zapps.me push về server).
-                  Chỉ bật Polling khi không thể dùng Webhook.
-                  <span className="block mt-1 text-amber-600 font-medium">
-                    ⚠ Polling và Webhook không thể chạy cùng lúc.
-                  </span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6 space-y-3">
-                {pollingStatus && (
-                  <div className={`rounded-md border p-3 text-sm space-y-1.5 ${
-                    pollingStatus.running ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-                  }`}>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-700">Trạng thái</span>
-                      {pollingStatus.running ? (
-                        <Badge className="bg-green-600 text-xs">Đang chạy</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs">Dừng</Badge>
-                      )}
-                    </div>
-                    {pollingStatus.running && pollingStatus.startedAt && (
-                      <div className="text-xs text-gray-500">
-                        Bắt đầu: {new Date(pollingStatus.startedAt).toLocaleTimeString('vi-VN')}
-                      </div>
-                    )}
-                    <div className="text-xs text-gray-600">
-                      Tin nhắn đã xử lý: <strong>{pollingStatus.messagesProcessed}</strong>
-                    </div>
-                    {pollingStatus.lastMessageAt && (
-                      <div className="text-xs text-gray-500">
-                        Tin cuối: {new Date(pollingStatus.lastMessageAt).toLocaleTimeString('vi-VN')}
-                      </div>
-                    )}
-                    {pollingStatus.lastError && (
-                      <div className="text-xs text-red-600">Lỗi: {pollingStatus.lastError}</div>
-                    )}
-                  </div>
-                )}
-                {!pollingStatus?.running ? (
-                  <Button size="sm" onClick={handleStartPolling} disabled={pollingLoading} className="w-full bg-green-600 hover:bg-green-700">
-                    <RefreshCw className={`h-4 w-4 mr-2 ${pollingLoading ? 'animate-spin' : ''}`} />
-                    {pollingLoading ? 'Đang khởi động…' : 'Bật Polling Worker'}
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => handleStopPolling(false)} disabled={pollingLoading}
-                    className="w-full border-red-300 text-red-600 hover:bg-red-50">
-                    {pollingLoading ? 'Đang dừng…' : 'Dừng Polling (tự khôi phục Webhook)'}
-                  </Button>
-                )}
-                <p className="text-[11px] text-muted-foreground">
-                  Khi dừng Polling, hệ thống tự đăng ký lại Webhook.
-                </p>
               </CardContent>
             </Card>
 
@@ -1087,6 +1112,41 @@ export default function CaiDatPage() {
                   </div>
                 )}
 
+              </CardContent>
+            </Card>
+
+            {/* ── HA Webhook config info ── */}
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Webhook className="h-4 w-4" />
+                  Cấu hình HA Webhook Trigger
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Thêm vào <code className="bg-gray-100 px-1 rounded">configuration.yaml</code> của Home Assistant để nhận tin nhắn Zalo.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6">
+                <pre className="bg-gray-50 border rounded-lg p-3 text-xs text-gray-700 overflow-x-auto whitespace-pre-wrap">{`trigger:
+  - trigger: webhook
+    allowed_methods:
+      - POST
+    local_only: true
+    webhook_id: 8Dc2ZrsRANchqBy1HZx7gytMJzcYy90cHueBIR8NZv4
+
+# Dữ liệu nhận được (trigger.json):
+# {
+#   "source": "ql_tro_zalo",
+#   "thread_id": "...",      ← Thread ID Zalo
+#   "type": "user|group",   ← Loại (người/nhóm)
+#   "display_name": "...",  ← Tên người gửi
+#   "msg_type": "webchat|chat.photo|share.file",
+#   "message": "...",       ← Nội dung
+#   "attachment_url": "...",← URL file/ảnh (nếu có)
+#   "file_name": "...",     ← Tên file (nếu có)
+#   "ttl": 86400000,        ← TTL tin nhắn (ms)
+#   "event_name": "..."
+# }`}</pre>
               </CardContent>
             </Card>
 
@@ -1288,6 +1348,76 @@ export default function CaiDatPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ── MinIO File Browser Modal ── */}
+      {minioBrowserOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold text-base flex items-center gap-2">
+                <HardDrive className="h-4 w-4" />
+                Chọn file từ MinIO
+              </h3>
+              <button type="button" className="text-gray-400 hover:text-gray-700 text-lg leading-none"
+                onClick={() => setMinioBrowserOpen(false)}>✕</button>
+            </div>
+            <div className="p-3 border-b flex gap-2">
+              <Input
+                type="text" placeholder="Tìm kiếm theo tên hoặc thư mục..."
+                value={minioPrefix} onChange={e => setMinioPrefix(e.target.value)}
+                className="text-sm flex-1"
+                onKeyDown={e => e.key === 'Enter' && loadMinioFiles(minioPrefix)}
+              />
+              <Button size="sm" variant="outline" onClick={() => loadMinioFiles(minioPrefix)} disabled={minioFilesLoading}>
+                {minioFilesLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {minioFilesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
+                  <span className="ml-2 text-sm text-gray-500">Đang tải...</span>
+                </div>
+              ) : minioFiles.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-8">Không có file nào.</p>
+              ) : (
+                <div className="space-y-1">
+                  {minioFiles.map((f, i) => {
+                    const name = f.name.split('/').pop() || f.name;
+                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(name);
+                    const ttlMs = (f as any).ttl;
+                    return (
+                      <button key={i} type="button"
+                        className="w-full text-left flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 border hover:border-blue-200 transition-colors"
+                        onClick={() => selectMinioFile(f)}>
+                        {isImage ? (
+                          <img src={f.url} alt="" className="h-10 w-10 rounded object-contain border shrink-0"
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        ) : (
+                          <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center shrink-0">
+                            <FileText className="h-5 w-5 text-gray-500" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{name}</p>
+                          <p className="text-[10px] text-gray-400">
+                            {formatBytes(f.size)} · {new Date(f.lastModified).toLocaleDateString('vi-VN')}
+                            {f.name.includes('/') && <span className="ml-1 text-gray-300">{f.name.replace('/' + name, '')}</span>}
+                          </p>
+                          {ttlMs > 0 && (
+                            <p className="text-[10px] text-amber-600">TTL: {ttlMs >= 86400000 ? `${Math.round(ttlMs / 86400000)} ngày` : `${Math.round(ttlMs / 3600000)} giờ`}</p>
+                          )}
+                        </div>
+                        <span className="text-xs text-blue-600 shrink-0">Chọn</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
