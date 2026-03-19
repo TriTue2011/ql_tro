@@ -987,44 +987,69 @@ export default function CaiDatPage() {
                   </p>
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {webhookMessages.map((msg: any) => (
-                      <div key={msg.id} className="rounded-lg border bg-blue-50 border-blue-100 p-3 text-xs space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-blue-700">Thread ID:</span>
-                            <code className="font-bold text-blue-900 select-all">{msg.chatId}</code>
-                            <button type="button" title="Sao chép Thread ID"
-                              className="text-blue-400 hover:text-blue-700"
-                              onClick={() => { navigator.clipboard.writeText(msg.chatId); toast.success('Đã sao chép Thread ID'); }}>
-                              <Copy className="h-3.5 w-3.5" />
+                    {webhookMessages.map((msg: any) => {
+                      const room = msg.roomInfo;
+                      const raw = msg.rawPayload as any;
+                      const threadId = raw?.threadId || msg.chatId;
+                      const isGroup = raw?.type === 1;
+                      return (
+                        <div key={msg.id} className="rounded-lg border bg-blue-50 border-blue-100 p-3 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className={`text-[9px] px-1 ${isGroup ? 'border-purple-300 text-purple-700' : 'border-blue-300 text-blue-700'}`}>
+                                {isGroup ? 'Nhóm' : 'Người dùng'}
+                              </Badge>
+                              <span className="font-semibold text-blue-700">Thread ID:</span>
+                              <code className="font-bold text-blue-900 select-all">{threadId}</code>
+                              <button type="button" title="Sao chép Thread ID"
+                                className="text-blue-400 hover:text-blue-700"
+                                onClick={() => { navigator.clipboard.writeText(threadId); toast.success('Đã sao chép Thread ID'); }}>
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <button type="button"
+                              className="text-gray-400 hover:text-gray-700 shrink-0"
+                              onClick={() => setExpandedMsgId(expandedMsgId === msg.id ? null : msg.id)}
+                              title={expandedMsgId === msg.id ? 'Thu gọn' : 'Xem raw payload'}>
+                              {expandedMsgId === msg.id
+                                ? <ChevronUp className="h-4 w-4" />
+                                : <ChevronDown className="h-4 w-4" />}
                             </button>
                           </div>
-                          <button type="button"
-                            className="text-gray-400 hover:text-gray-700 shrink-0"
-                            onClick={() => setExpandedMsgId(expandedMsgId === msg.id ? null : msg.id)}
-                            title={expandedMsgId === msg.id ? 'Thu gọn' : 'Xem raw payload'}>
-                            {expandedMsgId === msg.id
-                              ? <ChevronUp className="h-4 w-4" />
-                              : <ChevronDown className="h-4 w-4" />}
-                          </button>
+                          {msg.displayName && (
+                            <div className="text-gray-600">
+                              <span className="font-medium">{msg.displayName}</span>
+                            </div>
+                          )}
+                          {/* Thông tin phòng / tòa nhà */}
+                          {room && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className="text-[9px] px-1 border-green-300 text-green-700 bg-green-50">
+                                Phòng {room.maPhong} (Tầng {room.tang})
+                              </Badge>
+                              <Badge variant="outline" className="text-[9px] px-1 border-orange-300 text-orange-700 bg-orange-50">
+                                {room.tenToaNha}
+                              </Badge>
+                              {room.diaChi && typeof room.diaChi === 'object' && (
+                                <span className="text-[10px] text-gray-400">
+                                  {[room.diaChi.soNha, room.diaChi.duong, room.diaChi.phuong, room.diaChi.quan].filter(Boolean).join(', ')}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {msg.attachmentUrl && (
+                            <img src={msg.attachmentUrl} alt="ảnh" className="rounded max-h-20 max-w-[160px] object-contain border" />
+                          )}
+                          <p className="text-gray-700 truncate">{msg.content}</p>
+                          <p className="text-gray-400 text-[10px]">Nhận lúc: {new Date(msg.createdAt).toLocaleString('vi-VN')}</p>
+                          {expandedMsgId === msg.id && msg.rawPayload && (
+                            <pre className="mt-2 p-2 bg-white border rounded text-[10px] text-gray-600 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
+                              {JSON.stringify(msg.rawPayload, null, 2)}
+                            </pre>
+                          )}
                         </div>
-                        {msg.displayName && (
-                          <div className="text-gray-600">
-                            <span className="font-medium">{msg.displayName}</span>
-                          </div>
-                        )}
-                        {msg.attachmentUrl && (
-                          <img src={msg.attachmentUrl} alt="ảnh" className="rounded max-h-20 max-w-[160px] object-contain border" />
-                        )}
-                        <p className="text-gray-700 truncate">{msg.content}</p>
-                        <p className="text-gray-400 text-[10px]">Nhận lúc: {new Date(msg.createdAt).toLocaleString('vi-VN')}</p>
-                        {expandedMsgId === msg.id && msg.rawPayload && (
-                          <pre className="mt-2 p-2 bg-white border rounded text-[10px] text-gray-600 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
-                            {JSON.stringify(msg.rawPayload, null, 2)}
-                          </pre>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
