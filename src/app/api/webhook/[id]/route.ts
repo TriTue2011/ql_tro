@@ -31,15 +31,23 @@ function normalizeWebhookPayload(update: any): {
   content: string;
   eventName: string;
   attachmentUrl: string | null;
+  isGroup: boolean;
+  senderUid: string | null;
 } {
   const msg = update?.message;
   const data = update?.data;
+  const isGroup = update?.type === 1;
 
-  const chatId: string | null =
+  // Với nhóm: chatId = threadId (ID nhóm), senderUid = uidFrom (người gửi)
+  // Với user: chatId = uidFrom hoặc msg.from.id
+  const senderUid: string | null =
+    data?.uidFrom ? String(data.uidFrom) :
     msg?.from?.id ? String(msg.from.id) :
     update?.sender?.id ? String(update.sender.id) :
-    data?.uidFrom ? String(data.uidFrom) :
     update?.uidFrom ? String(update.uidFrom) : null;
+
+  const chatId: string | null =
+    (isGroup && update?.threadId) ? String(update.threadId) : senderUid;
 
   const displayName: string =
     msg?.from?.display_name ||
@@ -48,17 +56,30 @@ function normalizeWebhookPayload(update: any): {
     update?.dName || update?.fromD || '';
 
   const attachmentUrl = extractAttachmentUrl(msg ?? update);
-  const content: string =
-    msg?.text || update?.message?.text ||
-    msg?.attachments?.[0]?.description ||
-    data?.content || data?.msg ||
-    update?.content || update?.msg ||
-    (attachmentUrl ? '[hình ảnh]' : '[đính kèm]');
+
+  // Xử lý content theo msgType
+  const msgType: string = data?.msgType || '';
+  let content: string;
+  if (msgType === 'chat.photo') {
+    const c = data?.content ?? {};
+    content = typeof c === 'object' ? (c.title || c.description || '[hình ảnh]') : '[hình ảnh]';
+  } else if (msgType === 'share.file') {
+    const c = data?.content ?? {};
+    content = typeof c === 'object' ? (c.title || 'file') : 'file';
+  } else {
+    content =
+      msg?.text || update?.message?.text ||
+      msg?.attachments?.[0]?.description ||
+      (typeof data?.content === 'string' ? data.content : '') ||
+      data?.msg ||
+      update?.content || update?.msg ||
+      (attachmentUrl ? '[hình ảnh]' : '[đính kèm]');
+  }
 
   const eventName: string =
-    update?.event_name || update?.event || update?.type || 'message';
+    update?.event_name || update?.event || String(update?.type ?? 'message');
 
-  return { chatId, displayName, content, eventName, attachmentUrl };
+  return { chatId, displayName, content, eventName, attachmentUrl, isGroup, senderUid };
 }
 
 // ─── Lưu tin nhắn ────────────────────────────────────────────────────────────
@@ -97,8 +118,8 @@ function normalizeName(name: string): string {
 }
 
 async function detectAndStorePending(update: any): Promise<void> {
-  const { chatId, displayName } = normalizeWebhookPayload(update);
-  if (!chatId || !displayName) return;
+  const { chatId, displayName, isGroup } = normalizeWebhookPayload(update);
+  if (!chatId || !displayName || isGroup) return; // Bỏ qua nhóm — chỉ match tên cho user
 
   try {
     const allTenants = await prisma.khachThue.findMany({
