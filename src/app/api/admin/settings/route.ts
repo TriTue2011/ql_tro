@@ -38,6 +38,20 @@ const DEFAULT_SETTINGS = [
   // ha_zalo_allowed_threads và ha_zalo_type_filter được quản lý riêng trong UI (không hiện trong form generic)
   { khoa: 'thong_bao_truoc_han_hop_dong', giaTri: '30', moTa: 'Cảnh báo trước khi hợp đồng hết hạn (ngày)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'thong_bao_qua_han_hoa_don', giaTri: '3', moTa: 'Cảnh báo hóa đơn quá hạn sau (ngày)', nhom: 'thongBao', laBiMat: false },
+  // Cảnh báo hóa đơn quá hạn - 3 lần
+  { khoa: 'hoa_don_canh_bao_lan_1', giaTri: '0', moTa: 'Cảnh báo hóa đơn quá hạn lần 1: sau N ngày kể từ ngày đến hạn', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'hoa_don_canh_bao_lan_2', giaTri: '3', moTa: 'Cảnh báo hóa đơn quá hạn lần 2: sau N ngày kể từ lần cảnh báo 1', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'hoa_don_canh_bao_lan_3', giaTri: '7', moTa: 'Cảnh báo hóa đơn quá hạn lần 3: sau N ngày kể từ lần cảnh báo 2', nhom: 'thongBao', laBiMat: false },
+  // Cảnh báo hợp đồng sắp hết hạn - 3 lần
+  { khoa: 'hop_dong_canh_bao_lan_1', giaTri: '30', moTa: 'Cảnh báo hợp đồng sắp hết hạn lần 1: trước N ngày', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'hop_dong_canh_bao_lan_2', giaTri: '15', moTa: 'Cảnh báo hợp đồng sắp hết hạn lần 2: trước N ngày', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'hop_dong_canh_bao_lan_3', giaTri: '7', moTa: 'Cảnh báo hợp đồng sắp hết hạn lần 3: trước N ngày', nhom: 'thongBao', laBiMat: false },
+  // Nhắc nhở chốt chỉ số điện nước
+  { khoa: 'chot_chi_so_truoc_ngay', giaTri: '3', moTa: 'Nhắc nhở chốt chỉ số: trước N ngày so với ngày chốt', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'chot_chi_so_ngay_trong_thang', giaTri: '15', moTa: 'Ngày chốt chỉ số điện nước trong tháng (1-31)', nhom: 'thongBao', laBiMat: false },
+  // Nhắc nhở sự cố (không áp dụng khách thuê)
+  { khoa: 'su_co_chua_nhan_gio', giaTri: '2', moTa: 'Nhắc nhở sự cố chưa được nhận sau N giờ', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'su_co_chua_xu_ly_gio', giaTri: '24', moTa: 'Nhắc nhở sự cố chưa được xử lý sau N giờ', nhom: 'thongBao', laBiMat: false },
   // Hệ thống
   { khoa: 'app_local_url', giaTri: '', moTa: 'URL ứng dụng qua IP LAN (vd: http://172.16.10.200:3000) — dùng cho webhook nội bộ', nhom: 'heThong', laBiMat: false },
   { khoa: 'app_domain_url', giaTri: '', moTa: 'URL ứng dụng qua domain (vd: https://qlpt.vhtatn.io.vn) — dùng cho webhook qua internet', nhom: 'heThong', laBiMat: false },
