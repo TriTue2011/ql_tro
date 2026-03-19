@@ -27,7 +27,7 @@ import {
 import { HoaDon, HopDong, Phong, KhachThue } from '@/types';
 import { toast } from 'sonner';
 import { ImageUpload } from '@/components/ui/image-upload';
-import { buildUploadFolder } from '@/lib/storage';
+import { buildUploadFolder } from '@/lib/upload-path';
 
 // Helper functions
 const getPhongName = (phongId: string | Phong, phongList: Phong[]) => {
