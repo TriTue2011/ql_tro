@@ -525,8 +525,9 @@ export default function CaiDatPage() {
   // --- Webhook ID (giống HA) ---
   const [currentWebhookId, setCurrentWebhookId] = useState<string | null>(null);
   const [webhookIdGenerating, setWebhookIdGenerating] = useState(false);
+  const [webhookBaseUrl, setWebhookBaseUrl] = useState('');
 
-  // Load webhook ID hiện tại
+  // Load webhook ID hiện tại + init base URL từ app_local_url
   useEffect(() => {
     if (!canManage) return;
     fetch('/api/webhook/generate')
@@ -536,14 +537,47 @@ export default function CaiDatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage]);
 
-  // Tính webhook full URL từ app_local_url hoặc window.location
-  const webhookFullUrl = currentWebhookId
-    ? (settingValues['app_local_url']?.trim()
-        ? `${settingValues['app_local_url'].trim().replace(/\/$/, '')}/api/webhook/${currentWebhookId}`
-        : typeof window !== 'undefined'
-          ? `${window.location.origin}/api/webhook/${currentWebhookId}`
-          : '')
+  // Sync webhookBaseUrl khi settingValues load xong
+  useEffect(() => {
+    const saved = settingValues['app_local_url']?.trim();
+    if (saved) {
+      setWebhookBaseUrl(saved.replace(/\/$/, ''));
+    } else if (typeof window !== 'undefined') {
+      // Nếu đang truy cập qua IP LAN (không phải domain) → auto-detect
+      const host = window.location.hostname;
+      const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === 'localhost';
+      if (isIP) {
+        setWebhookBaseUrl(window.location.origin);
+      }
+      // Nếu qua domain (Cloudflare) → để trống, bắt user nhập IP LAN
+    }
+  }, [settingValues]);
+
+  // Tính webhook full URL
+  const webhookFullUrl = currentWebhookId && webhookBaseUrl
+    ? `${webhookBaseUrl}/api/webhook/${currentWebhookId}`
     : '';
+
+  // Lưu app_local_url khi user thay đổi base URL
+  async function handleSaveBaseUrl(url: string) {
+    const clean = url.trim().replace(/\/$/, '');
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: [{ khoa: 'app_local_url', giaTri: clean }] }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSettingValues(prev => ({ ...prev, app_local_url: clean }));
+        toast.success('Đã lưu URL LAN');
+      } else {
+        toast.error(data.message || 'Lưu thất bại');
+      }
+    } catch {
+      toast.error('Lỗi lưu cài đặt');
+    }
+  }
 
   async function handleGenerateWebhookId() {
     if (currentWebhookId && !confirm('Tạo ID mới sẽ vô hiệu URL cũ. Tiếp tục?')) return;
@@ -1245,12 +1279,32 @@ export default function CaiDatPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
+                {/* Base URL (IP LAN) */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-700">URL gốc (IP LAN)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1 text-xs font-mono"
+                      placeholder="http://172.16.10.27:3000"
+                      value={webhookBaseUrl}
+                      onChange={(e) => setWebhookBaseUrl(e.target.value.trim())}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim().replace(/\/$/, '');
+                        if (v && v !== settingValues['app_local_url']?.trim()) handleSaveBaseUrl(v);
+                      }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Nhập IP LAN của server (vd: <code>http://172.16.10.27:3000</code>). Tự động lưu khi rời ô.
+                  </p>
+                </div>
+
                 {/* Webhook URL dạng HA */}
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-gray-700">Webhook URL (qua IP LAN)</Label>
                   <div className="flex gap-2">
                     <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-blue-800 overflow-x-auto whitespace-nowrap">
-                      {webhookFullUrl || '(bấm "Tạo Webhook ID" để tạo URL mới)'}
+                      {webhookFullUrl || (currentWebhookId ? '(nhập URL gốc ở trên)' : '(bấm "Tạo Webhook ID" để tạo URL mới)')}
                     </code>
                     {webhookFullUrl && (
                       <Button type="button" variant="outline" size="icon" title="Sao chép"
@@ -1259,9 +1313,6 @@ export default function CaiDatPage() {
                       </Button>
                     )}
                   </div>
-                  <p className="text-[11px] text-gray-400">
-                    Cài <code>app_local_url</code> trong Hệ thống (vd: <code>http://172.16.10.200:3000</code>) để dùng IP LAN.
-                  </p>
                 </div>
 
                 {/* Webhook cũ (qua /api/zalo/webhook) */}

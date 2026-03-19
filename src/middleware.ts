@@ -1,4 +1,3 @@
-import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
@@ -11,7 +10,13 @@ import { getToken } from 'next-auth/jwt';
  * 2. Thêm security headers cho mọi response (Cloudflare Tunnel safe)
  * 3. Từ chối truy cập /api/admin/* nếu không phải admin
  * 4. Ghi nhận IP thực qua CF-Connecting-IP khi dùng Cloudflare Tunnel
+ *
+ * Không dùng withAuth vì cần cookie name cố định (không phụ thuộc NEXTAUTH_URL)
+ * để hoạt động cả HTTP LAN lẫn HTTPS Cloudflare.
  */
+
+// Cookie name cố định — phải khớp với auth.ts cookies config
+const SESSION_COOKIE = 'next-auth.session-token';
 
 // ─── Cloudflare Tunnel helpers ─────────────────────────────────────────────────
 
@@ -110,93 +115,100 @@ const RATE_LIMITED_PATHS = [
   '/api/auth/khach-thue/login',
 ];
 
-// ─── withAuth (bảo vệ /dashboard/*) ───────────────────────────────────────────
+// ─── Main middleware ────────────────────────────────────────────────────────────
 
-export default withAuth(
-  async function middleware(req) {
-    const { pathname } = req.nextUrl;
-    const token = req.nextauth?.token as Record<string, unknown> | null | undefined;
-    const ip = getRealIP(req);
+export default async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const ip = getRealIP(req);
 
-    // Redirect khách thuê về đúng trang đăng nhập khi chưa auth
-    if (pathname.startsWith('/khach-thue/dashboard') && (!token || token.role !== 'khachThue')) {
+  // Lấy token từ cookie — luôn dùng cookie name cố định (không có __Secure- prefix)
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+    cookieName: SESSION_COOKIE,
+  }) as Record<string, unknown> | null;
+
+  const role = token?.role as string | undefined;
+
+  // ── Authorization checks ──────────────────────────────────────────────────
+
+  // /api/webhook/* không cần session (public endpoint)
+  if (pathname.startsWith('/api/webhook/')) {
+    const response = NextResponse.next();
+    return addSecurityHeaders(response, req);
+  }
+
+  // /api/admin/create-first không cần session (bootstrap admin đầu tiên)
+  if (pathname === '/api/admin/create-first') {
+    const response = NextResponse.next();
+    return addSecurityHeaders(response, req);
+  }
+
+  // /khach-thue/dashboard/* chỉ dành cho khachThue
+  if (pathname.startsWith('/khach-thue/dashboard')) {
+    if (!token || role !== 'khachThue') {
       const loginUrl = req.nextUrl.clone();
       loginUrl.pathname = '/khach-thue/dang-nhap';
       return NextResponse.redirect(loginUrl);
     }
-
-    cleanupRateLimitEntries();
-
-    // Rate limit cho endpoint đăng nhập, upload (NextAuth + khách thuê)
-    const isNextAuthLogin =
-      pathname.startsWith('/api/auth') &&
-      (pathname.includes('callback') || pathname.includes('signin'));
-    const isKhachThueLogin = RATE_LIMITED_PATHS.some(p => pathname === p);
-    const isUpload = pathname === '/api/upload';
-
-    if (isNextAuthLogin || isKhachThueLogin || isUpload) {
-      if (!checkRateLimit(ip)) {
-        return new NextResponse(
-          JSON.stringify({ message: 'Quá nhiều yêu cầu, thử lại sau 1 phút' }),
-          { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' } }
-        );
-      }
-    }
-
-    // Chặn /api/admin/* nếu không phải admin (trừ create-first)
-    if (pathname.startsWith('/api/admin') && pathname !== '/api/admin/create-first' && token?.role !== 'admin') {
-      return new NextResponse(
-        JSON.stringify({ message: 'Forbidden — chỉ admin mới có quyền truy cập' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Chặn khachThue truy cập API quản lý
-    const isManagementApi = pathname.startsWith('/api/') &&
-      !pathname.startsWith('/api/auth/') &&
-      !pathname.startsWith('/api/khach-thue/') &&
-      !pathname.startsWith('/api/webhook/') &&
-      pathname !== '/api/upload';
-    if (isManagementApi && token?.role === 'khachThue') {
-      return new NextResponse(
-        JSON.stringify({ message: 'Forbidden — khách thuê không có quyền truy cập' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, req);
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const { pathname } = req.nextUrl;
-        const role = (token as Record<string, unknown> | null)?.role as string | undefined;
-
-        // /khach-thue/dashboard/* chỉ dành cho khachThue
-        if (pathname.startsWith('/khach-thue/dashboard')) {
-          return !!token && role === 'khachThue';
-        }
-
-        // /dashboard/* chỉ dành cho NguoiDung (không phải khachThue)
-        if (pathname.startsWith('/dashboard')) {
-          return !!token && role !== 'khachThue';
-        }
-
-        // /api/webhook/* không cần session (public endpoint giống HA)
-        if (pathname.startsWith('/api/webhook/')) return true;
-
-        // /api/admin/create-first không cần session (bootstrap admin đầu tiên)
-        if (pathname === '/api/admin/create-first') return true;
-
-        // /api/admin/* phải có session (role check là trong middleware function trên)
-        if (pathname.startsWith('/api/admin')) return !!token;
-
-        return true;
-      },
-    },
   }
-);
+
+  // /dashboard/* chỉ dành cho NguoiDung (không phải khachThue)
+  if (pathname.startsWith('/dashboard')) {
+    if (!token || role === 'khachThue') {
+      // Redirect đến login trên cùng origin (LAN hoặc Cloudflare)
+      const loginUrl = req.nextUrl.clone();
+      loginUrl.pathname = '/dang-nhap';
+      loginUrl.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
+  // ── Rate limit ────────────────────────────────────────────────────────────
+
+  cleanupRateLimitEntries();
+
+  const isNextAuthLogin =
+    pathname.startsWith('/api/auth') &&
+    (pathname.includes('callback') || pathname.includes('signin'));
+  const isKhachThueLogin = RATE_LIMITED_PATHS.some(p => pathname === p);
+  const isUpload = pathname === '/api/upload';
+
+  if (isNextAuthLogin || isKhachThueLogin || isUpload) {
+    if (!checkRateLimit(ip)) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Quá nhiều yêu cầu, thử lại sau 1 phút' }),
+        { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' } }
+      );
+    }
+  }
+
+  // ── API access control ────────────────────────────────────────────────────
+
+  // Chặn /api/admin/* nếu không phải admin (trừ create-first đã xử lý ở trên)
+  if (pathname.startsWith('/api/admin') && token?.role !== 'admin') {
+    return new NextResponse(
+      JSON.stringify({ message: 'Forbidden — chỉ admin mới có quyền truy cập' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Chặn khachThue truy cập API quản lý
+  const isManagementApi = pathname.startsWith('/api/') &&
+    !pathname.startsWith('/api/auth/') &&
+    !pathname.startsWith('/api/khach-thue/') &&
+    !pathname.startsWith('/api/webhook/') &&
+    pathname !== '/api/upload';
+  if (isManagementApi && token?.role === 'khachThue') {
+    return new NextResponse(
+      JSON.stringify({ message: 'Forbidden — khách thuê không có quyền truy cập' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const response = NextResponse.next();
+  return addSecurityHeaders(response, req);
+}
 
 export const config = {
   matcher: [
