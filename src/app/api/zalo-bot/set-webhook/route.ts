@@ -46,13 +46,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Cần nhập Zalo Account ID (zalo_bot_account_id) trong Cài đặt' });
   }
 
-  // Ưu tiên: 1) URL do user nhập, 2) URL đã lưu trong DB, 3) app_local_url (IP LAN), 4) NEXTAUTH_URL
+  // Ưu tiên: 1) URL do user nhập, 2) URL đã lưu trong DB (validate), 3) app_local_url (IP LAN), 4) NEXTAUTH_URL
   const localBase = await getLocalBaseUrl();
   const base = localBase || getPublicBaseUrl() || 'http://localhost:3000';
   const saved = await getSavedWebhookUrl();
+  const validSaved = saved && (saved.startsWith('http://') || saved.startsWith('https://')) ? saved : null;
   const webhookUrl: string =
     (body?.webhookUrl?.trim()) ||
-    saved ||
+    validSaved ||
     `${base}/api/zalo/webhook`;
 
   const result = await setWebhookOnBotServer(ownId, webhookUrl);

@@ -676,15 +676,28 @@ export default function CaiDatPage() {
   const [botWebhookLoading, setBotWebhookLoading] = useState(false);
   const [botWebhookUrl, setBotWebhookUrl] = useState('');
 
-  // Load gợi ý webhook URL cho bot server
+  // Load gợi ý webhook URL cho bot server (domain-based, chỉ dùng làm fallback)
   useEffect(() => {
     if (!canManage) return;
     fetch('/api/zalo/set-webhook')
       .then(r => r.json())
-      .then(d => { if (d.webhookUrl) setBotWebhookUrl(d.webhookUrl); })
+      .then(d => {
+        const url = d.webhookUrl || '';
+        // Chỉ set nếu là URL hợp lệ (tránh giá trị rác trong DB)
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          setBotWebhookUrl(url);
+        }
+      })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage]);
+
+  // Khi webhookFullUrl thay đổi (IP LAN + webhook ID), cập nhật botWebhookUrl
+  useEffect(() => {
+    if (webhookFullUrl) {
+      setBotWebhookUrl(webhookFullUrl);
+    }
+  }, [webhookFullUrl]);
 
   async function handleBotStatus() {
     setBotStatusLoading(true);
@@ -1225,18 +1238,16 @@ export default function CaiDatPage() {
                 <div className="space-y-2 pt-2 border-t">
                   <Label className="text-xs font-medium text-gray-700">Webhook URL (ql_tro nhận tin nhắn)</Label>
                   <div className="flex gap-2">
-                    <Input type="text" placeholder="http://172.16.10.200:3000/api/webhook/..."
-                      value={webhookFullUrl || botWebhookUrl} onChange={e => setBotWebhookUrl(e.target.value)}
+                    <Input type="text" placeholder="http://172.16.10.27:3000/api/webhook/..."
+                      value={botWebhookUrl} onChange={e => setBotWebhookUrl(e.target.value)}
                       className="text-xs font-mono" />
                     <Button type="button" variant="outline" size="icon" title="Sao chép"
-                      onClick={() => { navigator.clipboard.writeText(webhookFullUrl || botWebhookUrl); toast.success('Đã sao chép'); }}>
+                      onClick={() => { navigator.clipboard.writeText(botWebhookUrl); toast.success('Đã sao chép'); }}>
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                   <p className="text-[11px] text-gray-400">
-                    {webhookFullUrl
-                      ? <>Dùng webhook ID qua IP LAN. Sửa nếu cần URL khác.</>
-                      : <>Tự động lấy từ URL đã lưu hoặc <code>NEXTAUTH_URL</code>. Sửa nếu cần dùng URL khác.</>}
+                    Dùng webhook ID qua IP LAN. Sửa nếu cần URL khác.
                   </p>
                   <Button size="sm" onClick={() => handleBotSetWebhook()} disabled={botWebhookLoading} className="w-full">
                     {botWebhookLoading
@@ -1315,8 +1326,8 @@ export default function CaiDatPage() {
                   </div>
                 </div>
 
-                {/* Webhook cũ (qua /api/zalo/webhook) */}
-                {botWebhookUrl && (
+                {/* Webhook cũ (qua /api/zalo/webhook) — chỉ hiện nếu là URL hợp lệ */}
+                {botWebhookUrl && botWebhookUrl.startsWith('http') && (
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-gray-700">Webhook URL cũ (qua domain)</Label>
                     <div className="flex gap-2">
