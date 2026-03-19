@@ -106,6 +106,7 @@ export async function sendImageViaBotServer(
   chatId: string,
   imageUrl: string,
   caption?: string,
+  threadType: 0 | 1 = 0,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const config = await getBotConfig();
@@ -118,7 +119,7 @@ export async function sendImageViaBotServer(
       imageUrl,
       threadId: chatId,
       accountSelection: config.accountId,
-      type: 0,
+      type: threadType,
       ttl: 0,
     };
     if (caption) payload.message = caption.slice(0, 1024);
@@ -144,6 +145,7 @@ export async function sendFileViaBotServer(
   chatId: string,
   fileUrl: string,
   caption?: string,
+  threadType: 0 | 1 = 0,
 ): Promise<boolean> {
   try {
     const config = await getBotConfig();
@@ -156,7 +158,7 @@ export async function sendFileViaBotServer(
       fileUrl,
       threadId: chatId,
       accountSelection: config.accountId,
-      type: 0,
+      type: threadType,
       ttl: 0,
     };
     if (caption) payload.message = caption.slice(0, 1024);
@@ -182,6 +184,7 @@ export async function sendVideoViaBotServer(
     durationMs?: number; // mặc định 10000ms
     width?: number;
     height?: number;
+    threadType?: 0 | 1;
   },
 ): Promise<boolean> {
   try {
@@ -194,7 +197,7 @@ export async function sendVideoViaBotServer(
     const payload = {
       threadId: chatId,
       accountSelection: config.accountId,
-      type: 0,
+      type: opts?.threadType ?? 0,
       options: {
         videoUrl,
         thumbnailUrl: opts?.thumbnailUrl ?? '',
@@ -218,7 +221,7 @@ export async function sendVideoViaBotServer(
 }
 
 /** Gửi tin nhắn văn bản qua bot server */
-export async function sendMessageViaBotServer(chatId: string, text: string): Promise<boolean> {
+export async function sendMessageViaBotServer(chatId: string, text: string, threadType: 0 | 1 = 0): Promise<boolean> {
   try {
     const config = await getBotConfig();
     if (!config || !config.accountId) return false;
@@ -233,7 +236,7 @@ export async function sendMessageViaBotServer(chatId: string, text: string): Pro
       },
       threadId: chatId,
       accountSelection: config.accountId,
-      type: 0, // 0 = user, 1 = group
+      type: threadType, // 0 = user, 1 = group
     };
 
     const res = await fetch(`${config.serverUrl}/api/sendMessageByAccount`, {
