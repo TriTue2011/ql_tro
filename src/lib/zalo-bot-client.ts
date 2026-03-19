@@ -14,7 +14,7 @@
  *   DELETE /api/account-webhook/:id  — xóa webhook
  */
 
-import prisma from '@/lib/prisma';
+import prisma from "@/lib/prisma";
 
 interface BotConfig {
   serverUrl: string;
@@ -32,24 +32,26 @@ export async function getBotConfig(): Promise<BotConfig | null> {
       where: {
         khoa: {
           in: [
-            'zalo_bot_server_url',
-            'zalo_bot_username',
-            'zalo_bot_password',
-            'zalo_bot_account_id',
-            'zalo_bot_ttl',
+            "zalo_bot_server_url",
+            "zalo_bot_username",
+            "zalo_bot_password",
+            "zalo_bot_account_id",
+            "zalo_bot_ttl",
           ],
         },
       },
     });
-    const map = Object.fromEntries(rows.map((r) => [r.khoa, r.giaTri?.trim() ?? '']));
-    const url = map['zalo_bot_server_url'];
+    const map = Object.fromEntries(
+      rows.map((r) => [r.khoa, r.giaTri?.trim() ?? ""]),
+    );
+    const url = map["zalo_bot_server_url"];
     if (!url) return null;
     return {
-      serverUrl: url.replace(/\/$/, ''),
-      username: map['zalo_bot_username'] || 'admin',
-      password: map['zalo_bot_password'] || 'admin',
-      accountId: map['zalo_bot_account_id'] || '',
-      ttl: parseInt(map['zalo_bot_ttl'] || '0', 10) || 0,
+      serverUrl: url.replace(/\/$/, ""),
+      username: map["zalo_bot_username"] || "admin",
+      password: map["zalo_bot_password"] || "admin",
+      accountId: map["zalo_bot_account_id"] || "",
+      ttl: parseInt(map["zalo_bot_ttl"] || "0", 10) || 0,
     };
   } catch {
     return null;
@@ -58,8 +60,8 @@ export async function getBotConfig(): Promise<BotConfig | null> {
 
 export async function isBotServerMode(): Promise<boolean> {
   try {
-    const row = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_mode' } });
-    return row?.giaTri?.trim() === 'bot_server';
+    const row = await prisma.caiDat.findFirst({ where: { khoa: "zalo_mode" } });
+    return row?.giaTri?.trim() === "bot_server";
   } catch {
     return false;
   }
@@ -71,12 +73,17 @@ export async function isBotServerMode(): Promise<boolean> {
  * Đăng nhập vào bot server, trả về header Authorization hoặc Cookie dùng
  * cho các request tiếp theo.
  */
-async function loginToBotServer(config: BotConfig): Promise<Record<string, string> | null> {
+async function loginToBotServer(
+  config: BotConfig,
+): Promise<Record<string, string> | null> {
   try {
     const res = await fetch(`${config.serverUrl}/api/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: config.username, password: config.password }),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: config.username,
+        password: config.password,
+      }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return null;
@@ -88,10 +95,10 @@ async function loginToBotServer(config: BotConfig): Promise<Record<string, strin
     }
 
     // Fallback: dùng Set-Cookie
-    const setCookie = res.headers.get('set-cookie');
+    const setCookie = res.headers.get("set-cookie");
     if (setCookie) {
       // Lấy phần key=value đầu tiên của cookie
-      const cookiePart = setCookie.split(';')[0];
+      const cookiePart = setCookie.split(";")[0];
       return { Cookie: cookiePart };
     }
 
@@ -104,6 +111,33 @@ async function loginToBotServer(config: BotConfig): Promise<Record<string, strin
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+async function callBotServer(
+  config: BotConfig,
+  authHeaders: Record<string, string>,
+  endpoint: string,
+  payload: Record<string, any>,
+  timeoutMs: number,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${config.serverUrl}${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return {
+        ok: false,
+        error: `Bot server HTTP ${res.status}: ${text.slice(0, 250)}`,
+      };
+    }
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Lỗi kết nối bot server" };
+  }
+}
+
 /** Gửi hình ảnh qua bot server (POST /api/sendImageByAccount) */
 export async function sendImageViaBotServer(
   chatId: string,
@@ -113,33 +147,42 @@ export async function sendImageViaBotServer(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const config = await getBotConfig();
-    if (!config || !config.accountId) return { ok: false, error: 'Chưa cấu hình bot server (zalo_bot_server_url / zalo_bot_account_id)' };
+    if (!config || !config.accountId)
+      return {
+        ok: false,
+        error:
+          "Chưa cấu hình bot server (zalo_bot_server_url / zalo_bot_account_id)",
+      };
 
     const authHeaders = await loginToBotServer(config);
-    if (!authHeaders) return { ok: false, error: 'Không đăng nhập được bot server' };
+    if (!authHeaders)
+      return { ok: false, error: "Không đăng nhập được bot server" };
 
+    const normalizedCaption = caption?.slice(0, 1024);
     const payload: Record<string, any> = {
       imageUrl,
+      imagePath: imageUrl,
+      url: imageUrl,
       threadId: chatId,
+      thread_id: chatId,
       accountSelection: config.accountId,
       type: threadType,
       ttl: config.ttl,
     };
-    if (caption) payload.message = caption.slice(0, 1024);
-
-    const res = await fetch(`${config.serverUrl}/api/sendImageByAccount`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      return { ok: false, error: `Bot server HTTP ${res.status}: ${text.slice(0, 200)}` };
+    if (normalizedCaption) {
+      payload.message = normalizedCaption;
+      payload.caption = normalizedCaption;
     }
-    return { ok: true };
+
+    return callBotServer(
+      config,
+      authHeaders,
+      "/api/sendImageByAccount",
+      payload,
+      20_000,
+    );
   } catch (err: any) {
-    return { ok: false, error: err?.message || 'Lỗi kết nối bot server' };
+    return { ok: false, error: err?.message || "Lỗi kết nối bot server" };
   }
 }
 
@@ -149,32 +192,45 @@ export async function sendFileViaBotServer(
   fileUrl: string,
   caption?: string,
   threadType: 0 | 1 = 0,
-): Promise<boolean> {
+): Promise<{ ok: boolean; error?: string }> {
   try {
     const config = await getBotConfig();
-    if (!config || !config.accountId) return false;
+    if (!config || !config.accountId)
+      return {
+        ok: false,
+        error:
+          "Chưa cấu hình bot server (zalo_bot_server_url / zalo_bot_account_id)",
+      };
 
     const authHeaders = await loginToBotServer(config);
-    if (!authHeaders) return false;
+    if (!authHeaders)
+      return { ok: false, error: "Không đăng nhập được bot server" };
 
+    const normalizedCaption = caption?.slice(0, 1024);
     const payload: Record<string, any> = {
       fileUrl,
+      filePath: fileUrl,
+      url: fileUrl,
       threadId: chatId,
+      thread_id: chatId,
       accountSelection: config.accountId,
       type: threadType,
       ttl: config.ttl,
     };
-    if (caption) payload.message = caption.slice(0, 1024);
+    if (normalizedCaption) {
+      payload.message = normalizedCaption;
+      payload.caption = normalizedCaption;
+    }
 
-    const res = await fetch(`${config.serverUrl}/api/sendFileByAccount`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(30_000),
-    });
-    return res.ok;
-  } catch {
-    return false;
+    return callBotServer(
+      config,
+      authHeaders,
+      "/api/sendFileByAccount",
+      payload,
+      30_000,
+    );
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Lỗi kết nối bot server" };
   }
 }
 
@@ -189,21 +245,29 @@ export async function sendVideoViaBotServer(
     height?: number;
     threadType?: 0 | 1;
   },
-): Promise<boolean> {
+): Promise<{ ok: boolean; error?: string }> {
   try {
     const config = await getBotConfig();
-    if (!config || !config.accountId) return false;
+    if (!config || !config.accountId)
+      return {
+        ok: false,
+        error:
+          "Chưa cấu hình bot server (zalo_bot_server_url / zalo_bot_account_id)",
+      };
 
     const authHeaders = await loginToBotServer(config);
-    if (!authHeaders) return false;
+    if (!authHeaders)
+      return { ok: false, error: "Không đăng nhập được bot server" };
 
     const payload = {
       threadId: chatId,
+      thread_id: chatId,
       accountSelection: config.accountId,
       type: opts?.threadType ?? 0,
       options: {
         videoUrl,
-        thumbnailUrl: opts?.thumbnailUrl ?? '',
+        videoPath: videoUrl,
+        thumbnailUrl: opts?.thumbnailUrl ?? "",
         duration: opts?.durationMs ?? 10_000,
         width: opts?.width ?? 1280,
         height: opts?.height ?? 720,
@@ -211,46 +275,62 @@ export async function sendVideoViaBotServer(
       },
     };
 
-    const res = await fetch(`${config.serverUrl}/api/sendVideoByAccount`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(60_000),
-    });
-    return res.ok;
-  } catch {
-    return false;
+    return callBotServer(
+      config,
+      authHeaders,
+      "/api/sendVideoByAccount",
+      payload as Record<string, any>,
+      60_000,
+    );
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Lỗi kết nối bot server" };
   }
 }
 
 /** Gửi tin nhắn văn bản qua bot server */
-export async function sendMessageViaBotServer(chatId: string, text: string, threadType: 0 | 1 = 0): Promise<boolean> {
+export async function sendMessageViaBotServer(
+  chatId: string,
+  text: string,
+  threadType: 0 | 1 = 0,
+): Promise<{ ok: boolean; error?: string }> {
   try {
     const config = await getBotConfig();
-    if (!config || !config.accountId) return false;
+    if (!config || !config.accountId)
+      return {
+        ok: false,
+        error:
+          "Chưa cấu hình bot server (zalo_bot_server_url / zalo_bot_account_id)",
+      };
 
     const authHeaders = await loginToBotServer(config);
-    if (!authHeaders) return false;
+    if (!authHeaders)
+      return { ok: false, error: "Không đăng nhập được bot server" };
 
+    const truncated = text.length > 2000 ? text.slice(0, 1997) + "..." : text;
     const payload = {
       message: {
-        msg: text.length > 2000 ? text.slice(0, 1997) + '...' : text,
+        msg: truncated,
+        text: truncated,
         ttl: config.ttl,
       },
+      msg: truncated,
+      text: truncated,
+      content: truncated,
       threadId: chatId,
+      thread_id: chatId,
       accountSelection: config.accountId,
       type: threadType, // 0 = user, 1 = group
     };
 
-    const res = await fetch(`${config.serverUrl}/api/sendMessageByAccount`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15_000),
-    });
-    return res.ok;
-  } catch {
-    return false;
+    return callBotServer(
+      config,
+      authHeaders,
+      "/api/sendMessageByAccount",
+      payload,
+      15_000,
+    );
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Lỗi kết nối bot server" };
   }
 }
 
@@ -261,12 +341,21 @@ export async function getAccountsFromBotServer(): Promise<{
   error?: string;
 }> {
   const config = await getBotConfig();
-  if (!config) return { serverUrl: '', accounts: [], error: 'Chưa cấu hình zalo_bot_server_url' };
+  if (!config)
+    return {
+      serverUrl: "",
+      accounts: [],
+      error: "Chưa cấu hình zalo_bot_server_url",
+    };
 
   try {
     const authHeaders = await loginToBotServer(config);
     if (!authHeaders) {
-      return { serverUrl: config.serverUrl, accounts: [], error: 'Đăng nhập thất bại — kiểm tra username/password' };
+      return {
+        serverUrl: config.serverUrl,
+        accounts: [],
+        error: "Đăng nhập thất bại — kiểm tra username/password",
+      };
     }
 
     const res = await fetch(`${config.serverUrl}/api/accounts`, {
@@ -274,28 +363,41 @@ export async function getAccountsFromBotServer(): Promise<{
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      return { serverUrl: config.serverUrl, accounts: [], error: `HTTP ${res.status}` };
+      return {
+        serverUrl: config.serverUrl,
+        accounts: [],
+        error: `HTTP ${res.status}`,
+      };
     }
 
     const data = await res.json();
-    const accounts = Array.isArray(data) ? data : (data?.data ?? data?.accounts ?? []);
+    const accounts = Array.isArray(data)
+      ? data
+      : (data?.data ?? data?.accounts ?? []);
     return { serverUrl: config.serverUrl, accounts };
   } catch (e: any) {
-    return { serverUrl: config.serverUrl, accounts: [], error: e?.message || 'Lỗi kết nối đến bot server' };
+    return {
+      serverUrl: config.serverUrl,
+      accounts: [],
+      error: e?.message || "Lỗi kết nối đến bot server",
+    };
   }
 }
 
 /** Lấy QR code để quét đăng nhập Zalo */
-export async function getQRCodeFromBotServer(): Promise<{ qrCode?: string; error?: string }> {
+export async function getQRCodeFromBotServer(): Promise<{
+  qrCode?: string;
+  error?: string;
+}> {
   const config = await getBotConfig();
-  if (!config) return { error: 'Chưa cấu hình zalo_bot_server_url' };
+  if (!config) return { error: "Chưa cấu hình zalo_bot_server_url" };
 
   try {
     const authHeaders = await loginToBotServer(config);
 
     const res = await fetch(`${config.serverUrl}/zalo-login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(authHeaders ?? {}) },
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(authHeaders ?? {}) },
       signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) return { error: `HTTP ${res.status}` };
@@ -307,10 +409,11 @@ export async function getQRCodeFromBotServer(): Promise<{ qrCode?: string; error
       data?.data?.qrCodeImage ||
       data?.image;
 
-    if (!qrCode) return { error: 'Bot server không trả về QR code — thử lại sau' };
+    if (!qrCode)
+      return { error: "Bot server không trả về QR code — thử lại sau" };
     return { qrCode };
   } catch (e: any) {
-    return { error: e?.message || 'Lỗi kết nối đến bot server' };
+    return { error: e?.message || "Lỗi kết nối đến bot server" };
   }
 }
 
@@ -320,24 +423,24 @@ export async function setWebhookOnBotServer(
   messageWebhookUrl: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const config = await getBotConfig();
-  if (!config) return { ok: false, error: 'Chưa cấu hình zalo_bot_server_url' };
+  if (!config) return { ok: false, error: "Chưa cấu hình zalo_bot_server_url" };
 
   try {
     const authHeaders = await loginToBotServer(config);
-    if (!authHeaders) return { ok: false, error: 'Đăng nhập thất bại' };
+    if (!authHeaders) return { ok: false, error: "Đăng nhập thất bại" };
 
     const res = await fetch(`${config.serverUrl}/api/account-webhook`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders },
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({ ownId, messageWebhookUrl }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
+      const text = await res.text().catch(() => "");
       return { ok: false, error: `HTTP ${res.status}: ${text.slice(0, 100)}` };
     }
     return { ok: true };
   } catch (e: any) {
-    return { ok: false, error: e?.message || 'Lỗi kết nối' };
+    return { ok: false, error: e?.message || "Lỗi kết nối" };
   }
 }

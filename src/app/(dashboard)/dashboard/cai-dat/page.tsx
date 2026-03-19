@@ -1,26 +1,27 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useSession } from 'next-auth/react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import {
   Settings,
   Type,
@@ -51,8 +52,10 @@ import {
   ChevronUp,
   Plus,
   Upload,
-} from 'lucide-react';
-import { toast } from 'sonner';
+  User,
+  Users,
+} from "lucide-react";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,11 +71,11 @@ interface CaiDatItem {
 // ─── Nhóm cài đặt ─────────────────────────────────────────────────────────────
 
 const NHOM_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
-  luuTru: { label: 'Lưu trữ ảnh', icon: <HardDrive className="h-4 w-4" /> },
-  thongBao: { label: 'Thông báo', icon: <Bell className="h-4 w-4" /> },
-  thanhToan: { label: 'Thanh toán', icon: <CreditCard className="h-4 w-4" /> },
-  heThong: { label: 'Hệ thống', icon: <Building2 className="h-4 w-4" /> },
-  baoMat: { label: 'Bảo mật', icon: <Lock className="h-4 w-4" /> },
+  luuTru: { label: "Lưu trữ ảnh", icon: <HardDrive className="h-4 w-4" /> },
+  thongBao: { label: "Thông báo", icon: <Bell className="h-4 w-4" /> },
+  thanhToan: { label: "Thanh toán", icon: <CreditCard className="h-4 w-4" /> },
+  heThong: { label: "Hệ thống", icon: <Building2 className="h-4 w-4" /> },
+  baoMat: { label: "Bảo mật", icon: <Lock className="h-4 w-4" /> },
 };
 
 // ─── Component: Ô nhập cài đặt ────────────────────────────────────────────────
@@ -88,16 +91,57 @@ function SettingInput({
 }) {
   const [show, setShow] = useState(false);
 
-  if (item.khoa === 'ngan_hang_ten') {
+  if (item.khoa === "ngan_hang_ten") {
     const banks = [
-      'Vietcombank', 'VietinBank', 'BIDV', 'Agribank', 'MBBank', 'Techcombank',
-      'ACB', 'VPBank', 'TPBank', 'Sacombank', 'HDBank', 'VIB', 'MSB', 'OCB',
-      'SHB', 'SeABank', 'LienVietPostBank', 'Eximbank', 'NamABank', 'ABBank',
-      'VietABank', 'BacABank', 'VietBank', 'KienLongBank', 'SCB', 'PGBank',
-      'BaoVietBank', 'VietCapitalBank', 'GPBank', 'NCB', 'CBBank', 'COOPBANK',
-      'SaigonBank', 'DongABank', 'Oceanbank', 'VRB', 'Indovinabank', 'PublicBank',
-      'CIMB', 'ShinhanBank', 'HSBC', 'DBSBank', 'StandardChartered',
-      'Nonghyup', 'HongLeong', 'Woori', 'UnitedOverseas', 'KookminHN', 'KookminHCM',
+      "Vietcombank",
+      "VietinBank",
+      "BIDV",
+      "Agribank",
+      "MBBank",
+      "Techcombank",
+      "ACB",
+      "VPBank",
+      "TPBank",
+      "Sacombank",
+      "HDBank",
+      "VIB",
+      "MSB",
+      "OCB",
+      "SHB",
+      "SeABank",
+      "LienVietPostBank",
+      "Eximbank",
+      "NamABank",
+      "ABBank",
+      "VietABank",
+      "BacABank",
+      "VietBank",
+      "KienLongBank",
+      "SCB",
+      "PGBank",
+      "BaoVietBank",
+      "VietCapitalBank",
+      "GPBank",
+      "NCB",
+      "CBBank",
+      "COOPBANK",
+      "SaigonBank",
+      "DongABank",
+      "Oceanbank",
+      "VRB",
+      "Indovinabank",
+      "PublicBank",
+      "CIMB",
+      "ShinhanBank",
+      "HSBC",
+      "DBSBank",
+      "StandardChartered",
+      "Nonghyup",
+      "HongLeong",
+      "Woori",
+      "UnitedOverseas",
+      "KookminHN",
+      "KookminHCM",
     ];
     return (
       <Select value={value} onValueChange={onChange}>
@@ -105,15 +149,17 @@ function SettingInput({
           <SelectValue placeholder="Chọn ngân hàng" />
         </SelectTrigger>
         <SelectContent className="max-h-64">
-          {banks.map(b => (
-            <SelectItem key={b} value={b}>{b}</SelectItem>
+          {banks.map((b) => (
+            <SelectItem key={b} value={b}>
+              {b}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
     );
   }
 
-  if (item.khoa === 'storage_provider') {
+  if (item.khoa === "storage_provider") {
     return (
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="text-sm">
@@ -129,20 +175,22 @@ function SettingInput({
     );
   }
 
-  if (item.khoa === 'cloudflare_tunnel') {
-    const isOn = value === 'true';
+  if (item.khoa === "cloudflare_tunnel") {
+    const isOn = value === "true";
     return (
       <div className="flex items-center gap-3 py-1">
         <Switch
           checked={isOn}
-          onCheckedChange={(checked) => onChange(checked ? 'true' : 'false')}
+          onCheckedChange={(checked) => onChange(checked ? "true" : "false")}
           id="cloudflare_tunnel_switch"
         />
         <label
           htmlFor="cloudflare_tunnel_switch"
-          className={`text-sm cursor-pointer select-none ${isOn ? 'text-green-700 font-medium' : 'text-gray-500'}`}
+          className={`text-sm cursor-pointer select-none ${isOn ? "text-green-700 font-medium" : "text-gray-500"}`}
         >
-          {isOn ? 'Đang bật — ứng dụng chạy qua Cloudflare Tunnel' : 'Đang tắt — không dùng Cloudflare Tunnel'}
+          {isOn
+            ? "Đang bật — ứng dụng chạy qua Cloudflare Tunnel"
+            : "Đang tắt — không dùng Cloudflare Tunnel"}
         </label>
       </div>
     );
@@ -152,7 +200,7 @@ function SettingInput({
     return (
       <div className="relative">
         <Input
-          type={show ? 'text' : 'password'}
+          type={show ? "text" : "password"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={`Nhập ${item.moTa}`}
@@ -197,7 +245,10 @@ function SettingGroupCard({
   onSave: (nhom: string) => void;
   saving: boolean;
 }) {
-  const meta = NHOM_LABELS[nhom] ?? { label: nhom, icon: <Settings className="h-4 w-4" /> };
+  const meta = NHOM_LABELS[nhom] ?? {
+    label: nhom,
+    icon: <Settings className="h-4 w-4" />,
+  };
 
   return (
     <Card>
@@ -221,7 +272,7 @@ function SettingGroupCard({
             </Label>
             <SettingInput
               item={item}
-              value={values[item.khoa] ?? ''}
+              value={values[item.khoa] ?? ""}
               onChange={(val) => onChange(item.khoa, val)}
             />
           </div>
@@ -232,7 +283,11 @@ function SettingGroupCard({
           onClick={() => onSave(nhom)}
           disabled={saving}
         >
-          {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+          {saving ? (
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
           Lưu {meta.label}
         </Button>
       </CardContent>
@@ -244,24 +299,27 @@ function SettingGroupCard({
 
 export default function CaiDatPage() {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === 'admin';
+  const isAdmin = session?.user?.role === "admin";
   // Chủ trọ và admin đều có thể xem/thay đổi cài đặt hệ thống (Zalo, thông báo, ...)
-  const canManage = isAdmin || session?.user?.role === 'chuNha';
+  const canManage = isAdmin || session?.user?.role === "chuNha";
 
   // --- Cài đặt giao diện (cho tất cả users) ---
   const [fontSettings, setFontSettings] = useState({
-    fontFamily: 'Inter',
-    fontSize: 'medium',
-    lineHeight: 'normal',
-    fontWeight: 'normal',
+    fontFamily: "Inter",
+    fontSize: "medium",
+    lineHeight: "normal",
+    fontWeight: "normal",
   });
-  const [uiSettings, setUiSettings] = useState({ theme: 'light', density: 'comfortable' });
+  const [uiSettings, setUiSettings] = useState({
+    theme: "light",
+    density: "comfortable",
+  });
 
   useEffect(() => {
-    document.title = 'Cài đặt';
-    const savedFont = localStorage.getItem('fontSettings');
+    document.title = "Cài đặt";
+    const savedFont = localStorage.getItem("fontSettings");
     if (savedFont) setFontSettings(JSON.parse(savedFont));
-    const savedUi = localStorage.getItem('uiSettings');
+    const savedUi = localStorage.getItem("uiSettings");
     if (savedUi) {
       const ui = JSON.parse(savedUi);
       setUiSettings(ui);
@@ -270,54 +328,75 @@ export default function CaiDatPage() {
     }
   }, []);
 
-  useEffect(() => { applyFontSettings(); }, [fontSettings]);
+  useEffect(() => {
+    applyFontSettings();
+  }, [fontSettings]);
 
   function applyFontSettings() {
-    const fontSizeMap: Record<string, string> = { small: '14px', medium: '16px', large: '18px', 'extra-large': '20px' };
-    const lineHeightMap: Record<string, string> = { tight: '1.2', normal: '1.5', relaxed: '1.75', loose: '2' };
+    const fontSizeMap: Record<string, string> = {
+      small: "14px",
+      medium: "16px",
+      large: "18px",
+      "extra-large": "20px",
+    };
+    const lineHeightMap: Record<string, string> = {
+      tight: "1.2",
+      normal: "1.5",
+      relaxed: "1.75",
+      loose: "2",
+    };
     document.body.style.fontFamily = fontSettings.fontFamily;
     document.body.style.fontSize = fontSizeMap[fontSettings.fontSize];
     document.body.style.lineHeight = lineHeightMap[fontSettings.lineHeight];
   }
 
   function applyTheme(theme: string) {
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else if (theme === 'light') document.documentElement.classList.remove('dark');
+    if (theme === "dark") document.documentElement.classList.add("dark");
+    else if (theme === "light")
+      document.documentElement.classList.remove("dark");
     else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.classList.toggle('dark', prefersDark);
+      const prefersDark = window.matchMedia(
+        "(prefers-color-scheme: dark)",
+      ).matches;
+      document.documentElement.classList.toggle("dark", prefersDark);
     }
   }
 
   function applyDensity(density: string) {
-    document.body.classList.remove('density-compact', 'density-comfortable', 'density-spacious');
+    document.body.classList.remove(
+      "density-compact",
+      "density-comfortable",
+      "density-spacious",
+    );
     document.body.classList.add(`density-${density}`);
   }
 
   function handleSaveFontSettings() {
-    localStorage.setItem('fontSettings', JSON.stringify(fontSettings));
-    toast.success('Đã lưu cài đặt font chữ');
+    localStorage.setItem("fontSettings", JSON.stringify(fontSettings));
+    toast.success("Đã lưu cài đặt font chữ");
   }
 
   function handleThemeChange(theme: string) {
     const newUi = { ...uiSettings, theme };
     setUiSettings(newUi);
     applyTheme(theme);
-    localStorage.setItem('uiSettings', JSON.stringify(newUi));
-    toast.success('Đã lưu giao diện');
+    localStorage.setItem("uiSettings", JSON.stringify(newUi));
+    toast.success("Đã lưu giao diện");
   }
 
   function handleDensityChange(density: string) {
     const newUi = { ...uiSettings, density };
     setUiSettings(newUi);
     applyDensity(density);
-    localStorage.setItem('uiSettings', JSON.stringify(newUi));
-    toast.success('Đã lưu mật độ hiển thị');
+    localStorage.setItem("uiSettings", JSON.stringify(newUi));
+    toast.success("Đã lưu mật độ hiển thị");
   }
 
   // --- Cài đặt hệ thống (chỉ admin) ---
   const [systemSettings, setSystemSettings] = useState<CaiDatItem[]>([]);
-  const [settingValues, setSettingValues] = useState<Record<string, string>>({});
+  const [settingValues, setSettingValues] = useState<Record<string, string>>(
+    {},
+  );
   const [loadingSystem, setLoadingSystem] = useState(false);
   const [errorSystem, setErrorSystem] = useState<string | null>(null);
   const [savingGroup, setSavingGroup] = useState<string | null>(null);
@@ -330,23 +409,29 @@ export default function CaiDatPage() {
     setLoadingSystem(true);
     setErrorSystem(null);
     try {
-      const res = await fetch('/api/admin/settings');
+      const res = await fetch("/api/admin/settings");
       const data = await res.json();
       if (data.success) {
         setSystemSettings(data.data);
         const vals: Record<string, string> = {};
-        for (const s of data.data) vals[s.khoa] = s.giaTri ?? '';
+        for (const s of data.data) vals[s.khoa] = s.giaTri ?? "";
         setSettingValues(vals);
       } else if (res.status === 403) {
-        setErrorSystem('Không có quyền truy cập (403). Vui lòng đăng xuất và đăng nhập lại.');
-        toast.error('Không có quyền truy cập cài đặt hệ thống');
+        setErrorSystem(
+          "Không có quyền truy cập (403). Vui lòng đăng xuất và đăng nhập lại.",
+        );
+        toast.error("Không có quyền truy cập cài đặt hệ thống");
       } else {
-        setErrorSystem(`Lỗi máy chủ (HTTP ${res.status}): ${data.message ?? 'Không xác định'}. Kiểm tra log PM2.`);
+        setErrorSystem(
+          `Lỗi máy chủ (HTTP ${res.status}): ${data.message ?? "Không xác định"}. Kiểm tra log PM2.`,
+        );
         toast.error(`Lỗi tải cài đặt (${res.status})`);
       }
     } catch {
-      setErrorSystem('Không thể kết nối cơ sở dữ liệu. Kiểm tra PostgreSQL đang chạy.');
-      toast.error('Lỗi kết nối cơ sở dữ liệu');
+      setErrorSystem(
+        "Không thể kết nối cơ sở dữ liệu. Kiểm tra PostgreSQL đang chạy.",
+      );
+      toast.error("Lỗi kết nối cơ sở dữ liệu");
     } finally {
       setLoadingSystem(false);
     }
@@ -362,12 +447,12 @@ export default function CaiDatPage() {
       const groupItems = systemSettings.filter((s) => s.nhom === nhom);
       const payload = groupItems.map((s) => ({
         khoa: s.khoa,
-        giaTri: settingValues[s.khoa] ?? '',
+        giaTri: settingValues[s.khoa] ?? "",
       }));
 
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: payload }),
       });
       const data = await res.json();
@@ -376,84 +461,117 @@ export default function CaiDatPage() {
         // Reload để cập nhật mask cho bí mật
         await fetchSystemSettings();
       } else {
-        toast.error(data.message || 'Lưu thất bại');
+        toast.error(data.message || "Lưu thất bại");
       }
     } catch {
-      toast.error('Lỗi khi lưu cài đặt');
+      toast.error("Lỗi khi lưu cài đặt");
     } finally {
       setSavingGroup(null);
     }
   }
 
   // --- HA forward filter ---
-  const [haThreadEntries, setHaThreadEntries] = useState<{ threadId: string; type: number }[]>([]);
+  const [haThreadEntries, setHaThreadEntries] = useState<
+    { threadId: string; type: number }[]
+  >([]);
   const [haFilterSaving, setHaFilterSaving] = useState(false);
 
   useEffect(() => {
     if (!canManage) return;
-    fetch('/api/admin/settings').then(r => r.json()).then(d => {
-      if (d.success) {
-        const vals: Record<string, string> = {};
-        for (const s of d.data) vals[s.khoa] = s.giaTri ?? '';
-        // Parse JSON array hoặc migrate từ format cũ (comma/newline separated)
-        const raw = vals.ha_zalo_allowed_threads || '';
-        if (raw.startsWith('[')) {
-          try { setHaThreadEntries(JSON.parse(raw)); } catch { /* ignore */ }
-        } else if (raw.trim()) {
-          // Migrate: format cũ → mỗi ID mặc định type 0 (người dùng)
-          const ids = raw.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
-          setHaThreadEntries(ids.map(id => ({ threadId: id, type: 0 })));
+    fetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          const vals: Record<string, string> = {};
+          for (const s of d.data) vals[s.khoa] = s.giaTri ?? "";
+          // Parse JSON array hoặc migrate từ format cũ (comma/newline separated)
+          const raw = vals.ha_zalo_allowed_threads || "";
+          if (raw.startsWith("[")) {
+            try {
+              setHaThreadEntries(JSON.parse(raw));
+            } catch {
+              /* ignore */
+            }
+          } else if (raw.trim()) {
+            // Migrate: format cũ → mỗi ID mặc định type 0 (người dùng)
+            const ids = raw
+              .split(/[,\n]+/)
+              .map((s) => s.trim())
+              .filter(Boolean);
+            setHaThreadEntries(ids.map((id) => ({ threadId: id, type: 0 })));
+          }
         }
-      }
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage]);
 
   function addHaThread() {
-    setHaThreadEntries(prev => [...prev, { threadId: '', type: 0 }]);
+    setHaThreadEntries((prev) => [...prev, { threadId: "", type: 0 }]);
   }
   function removeHaThread(index: number) {
-    setHaThreadEntries(prev => prev.filter((_, i) => i !== index));
+    setHaThreadEntries((prev) => prev.filter((_, i) => i !== index));
   }
-  function updateHaThread(index: number, field: 'threadId' | 'type', value: string | number) {
-    setHaThreadEntries(prev => prev.map((e, i) => i === index ? { ...e, [field]: value } : e));
+  function updateHaThread(
+    index: number,
+    field: "threadId" | "type",
+    value: string | number,
+  ) {
+    setHaThreadEntries((prev) =>
+      prev.map((e, i) => (i === index ? { ...e, [field]: value } : e)),
+    );
   }
 
   async function handleSaveHaFilter() {
     // Lọc bỏ entry trống
-    const entries = haThreadEntries.filter(e => e.threadId.trim());
+    const entries = haThreadEntries.filter((e) => e.threadId.trim());
     setHaFilterSaving(true);
     try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings: [
-          { khoa: 'ha_zalo_allowed_threads', giaTri: entries.length > 0 ? JSON.stringify(entries) : '' },
-        ]}),
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          settings: [
+            {
+              khoa: "ha_zalo_allowed_threads",
+              giaTri: entries.length > 0 ? JSON.stringify(entries) : "",
+            },
+          ],
+        }),
       });
       const data = await res.json();
       if (data.success) {
         setHaThreadEntries(entries);
-        toast.success('Đã lưu bộ lọc HA');
-      } else toast.error(data.message || 'Lưu thất bại');
-    } catch { toast.error('Lỗi kết nối'); }
-    finally { setHaFilterSaving(false); }
+        toast.success("Đã lưu bộ lọc HA");
+      } else toast.error(data.message || "Lưu thất bại");
+    } catch {
+      toast.error("Lỗi kết nối");
+    } finally {
+      setHaFilterSaving(false);
+    }
   }
 
   // --- Gửi test Zalo ---
-  const [testChatId, setTestChatId] = useState('');
-  const [testMessage, setTestMessage] = useState('Tin nhắn test từ hệ thống Quản Lý Trọ 🏠');
-  const [testType, setTestType] = useState<'text' | 'image' | 'file'>('text');
-  function switchTestType(type: 'text' | 'image' | 'file') {
+  const [testChatId, setTestChatId] = useState("");
+  const [testMessage, setTestMessage] = useState(
+    "Tin nhắn test từ hệ thống Quản Lý Trọ 🏠",
+  );
+  const [testType, setTestType] = useState<"text" | "image" | "file">("text");
+  const [testThreadType, setTestThreadType] = useState<0 | 1>(0);
+  function switchTestType(type: "text" | "image" | "file") {
     setTestType(type);
     // Xóa caption mặc định khi chuyển sang tab hình ảnh/file
-    if (type !== 'text') setTestMessage('');
-    else if (!testMessage) setTestMessage('Tin nhắn test từ hệ thống Quản Lý Trọ 🏠');
+    if (type !== "text") setTestMessage("");
+    else if (!testMessage)
+      setTestMessage("Tin nhắn test từ hệ thống Quản Lý Trọ 🏠");
   }
-  const [testImageUrl, setTestImageUrl] = useState('');
-  const [testFileUrl, setTestFileUrl] = useState('');
+  const [testImageUrl, setTestImageUrl] = useState("");
+  const [testFileUrl, setTestFileUrl] = useState("");
   const [testLoading, setTestLoading] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
   const [testUploading, setTestUploading] = useState(false);
   const testFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -464,42 +582,52 @@ export default function CaiDatPage() {
     setTestUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', 'test');
-      if (testType === 'file') formData.append('type', 'file');
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      formData.append("file", file);
+      formData.append("folder", "test");
+      if (testType === "file") formData.append("type", "file");
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
       const data = await res.json();
       if (!res.ok || !data?.data?.secure_url) {
-        toast.error(data?.message || 'Upload thất bại');
+        toast.error(data?.message || "Upload thất bại");
         return;
       }
       const url = data.data.secure_url;
-      if (testType === 'image') setTestImageUrl(url);
+      if (testType === "image") setTestImageUrl(url);
       else setTestFileUrl(url);
-      toast.success('Upload thành công — đã lưu vào MinIO');
+      toast.success("Upload thành công — đã lưu vào MinIO");
     } catch (err: any) {
-      toast.error(err?.message || 'Lỗi upload');
+      toast.error(err?.message || "Lỗi upload");
     } finally {
       setTestUploading(false);
-      if (testFileInputRef.current) testFileInputRef.current.value = '';
+      if (testFileInputRef.current) testFileInputRef.current.value = "";
     }
   }
 
   // MinIO file browser
   const [minioBrowserOpen, setMinioBrowserOpen] = useState(false);
-  const [minioFiles, setMinioFiles] = useState<{ name: string; size: number; lastModified: Date; url: string }[]>([]);
+  const [minioFiles, setMinioFiles] = useState<
+    { name: string; size: number; lastModified: Date; url: string }[]
+  >([]);
   const [minioFilesLoading, setMinioFilesLoading] = useState(false);
-  const [minioPrefix, setMinioPrefix] = useState('');
+  const [minioPrefix, setMinioPrefix] = useState("");
 
   async function loadMinioFiles(prefix = minioPrefix) {
     setMinioFilesLoading(true);
     try {
-      const res = await fetch(`/api/minio/files?prefix=${encodeURIComponent(prefix)}&limit=100`);
+      const res = await fetch(
+        `/api/minio/files?prefix=${encodeURIComponent(prefix)}&limit=100`,
+      );
       const data = await res.json();
       if (data.success) setMinioFiles(data.files ?? []);
-      else toast.error(data.error || 'Lỗi tải file MinIO');
-    } catch { toast.error('Lỗi kết nối'); }
-    finally { setMinioFilesLoading(false); }
+      else toast.error(data.error || "Lỗi tải file MinIO");
+    } catch {
+      toast.error("Lỗi kết nối");
+    } finally {
+      setMinioFilesLoading(false);
+    }
   }
 
   function openMinioBrowser() {
@@ -509,15 +637,15 @@ export default function CaiDatPage() {
 
   function selectMinioFile(file: { name: string; url: string }) {
     const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(file.name);
-    if (testType === 'image' || isImage) {
+    if (testType === "image" || isImage) {
       setTestImageUrl(file.url);
-      if (isImage) setTestType('image');
+      if (isImage) setTestType("image");
     } else {
       setTestFileUrl(file.url);
-      setTestType('file');
+      setTestType("file");
     }
     setMinioBrowserOpen(false);
-    toast.success(`Đã chọn: ${file.name.split('/').pop()}`);
+    toast.success(`Đã chọn: ${file.name.split("/").pop()}`);
   }
 
   function formatBytes(bytes: number) {
@@ -527,39 +655,51 @@ export default function CaiDatPage() {
   }
 
   async function handleSendTest() {
-    if (!testChatId.trim()) { toast.error('Vui lòng nhập Chat ID'); return; }
-    if (testType === 'image' && !testImageUrl.trim()) { toast.error('Vui lòng nhập URL hình ảnh'); return; }
-    if (testType === 'file' && !testFileUrl.trim()) { toast.error('Vui lòng nhập URL file'); return; }
+    if (!testChatId.trim()) {
+      toast.error("Vui lòng nhập Chat ID");
+      return;
+    }
+    if (testType === "image" && !testImageUrl.trim()) {
+      toast.error("Vui lòng nhập URL hình ảnh");
+      return;
+    }
+    if (testType === "file" && !testFileUrl.trim()) {
+      toast.error("Vui lòng nhập URL file");
+      return;
+    }
     setTestLoading(true);
     setTestResult(null);
     try {
-      const payload: Record<string, string> = { chatId: testChatId.trim() };
-      if (testType === 'image') {
+      const payload: Record<string, string | number> = {
+        chatId: testChatId.trim(),
+        threadType: testThreadType,
+      };
+      if (testType === "image") {
         payload.imageUrl = testImageUrl.trim();
         if (testMessage) payload.message = testMessage;
-      } else if (testType === 'file') {
+      } else if (testType === "file") {
         payload.fileUrl = testFileUrl.trim();
         if (testMessage) payload.message = testMessage;
       } else {
-        payload.message = testMessage || 'Test message';
+        payload.message = testMessage || "Test message";
       }
-      const res = await fetch('/api/gui-zalo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/gui-zalo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok && data.success !== false) {
-        setTestResult({ ok: true, message: data.message || 'Gửi thành công!' });
-        toast.success('Đã gửi thành công');
+        setTestResult({ ok: true, message: data.message || "Gửi thành công!" });
+        toast.success("Đã gửi thành công");
       } else {
         const errMsg = data.error || data.message || `HTTP ${res.status}`;
         setTestResult({ ok: false, message: errMsg });
         toast.error(`Gửi thất bại: ${errMsg}`);
       }
     } catch {
-      setTestResult({ ok: false, message: 'Lỗi kết nối máy chủ' });
-      toast.error('Lỗi kết nối máy chủ');
+      setTestResult({ ok: false, message: "Lỗi kết nối máy chủ" });
+      toast.error("Lỗi kết nối máy chủ");
     } finally {
       setTestLoading(false);
     }
@@ -569,48 +709,52 @@ export default function CaiDatPage() {
   const [expandedMsgId, setExpandedMsgId] = useState<string | null>(null);
 
   async function handleClearMessages() {
-    if (!confirm('Xóa tất cả tin nhắn đã nhận?')) return;
+    if (!confirm("Xóa tất cả tin nhắn đã nhận?")) return;
     try {
-      await fetch('/api/zalo/messages', { method: 'DELETE' });
+      await fetch("/api/zalo/messages", { method: "DELETE" });
       setWebhookMessages([]);
-      toast.success('Đã xóa tất cả tin nhắn');
-    } catch { toast.error('Lỗi xóa tin nhắn'); }
+      toast.success("Đã xóa tất cả tin nhắn");
+    } catch {
+      toast.error("Lỗi xóa tin nhắn");
+    }
   }
 
   // --- Webhook ID (giống HA) ---
   const [currentWebhookId, setCurrentWebhookId] = useState<string | null>(null);
   const [webhookIdGenerating, setWebhookIdGenerating] = useState(false);
-  const [webhookBaseUrl, setWebhookBaseUrl] = useState('');
-  const [webhookDomainUrl, setWebhookDomainUrl] = useState('');
+  const [webhookBaseUrl, setWebhookBaseUrl] = useState("");
+  const [webhookDomainUrl, setWebhookDomainUrl] = useState("");
 
   // Load webhook ID hiện tại + init base URL từ app_local_url
   useEffect(() => {
     if (!canManage) return;
-    fetch('/api/webhook/generate')
-      .then(r => r.json())
-      .then(d => { if (d.webhookId) setCurrentWebhookId(d.webhookId); })
+    fetch("/api/webhook/generate")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.webhookId) setCurrentWebhookId(d.webhookId);
+      })
       .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage]);
 
   // Sync webhookBaseUrl + webhookDomainUrl khi settingValues load xong
   useEffect(() => {
-    const savedLocal = settingValues['app_local_url']?.trim();
-    const savedDomain = settingValues['app_domain_url']?.trim();
+    const savedLocal = settingValues["app_local_url"]?.trim();
+    const savedDomain = settingValues["app_domain_url"]?.trim();
     if (savedLocal) {
-      setWebhookBaseUrl(savedLocal.replace(/\/$/, ''));
-    } else if (typeof window !== 'undefined') {
+      setWebhookBaseUrl(savedLocal.replace(/\/$/, ""));
+    } else if (typeof window !== "undefined") {
       const host = window.location.hostname;
-      const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === 'localhost';
+      const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === "localhost";
       if (isIP) {
         setWebhookBaseUrl(window.location.origin);
       }
     }
     if (savedDomain) {
-      setWebhookDomainUrl(savedDomain.replace(/\/$/, ''));
-    } else if (typeof window !== 'undefined') {
+      setWebhookDomainUrl(savedDomain.replace(/\/$/, ""));
+    } else if (typeof window !== "undefined") {
       const host = window.location.hostname;
-      const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === 'localhost';
+      const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === "localhost";
       if (!isIP) {
         // Đang truy cập qua domain → auto-detect domain
         setWebhookDomainUrl(window.location.origin);
@@ -619,76 +763,89 @@ export default function CaiDatPage() {
   }, [settingValues]);
 
   // Tính webhook full URL (IP LAN)
-  const webhookFullUrl = currentWebhookId && webhookBaseUrl
-    ? `${webhookBaseUrl}/api/webhook/${currentWebhookId}`
-    : '';
+  const webhookFullUrl =
+    currentWebhookId && webhookBaseUrl
+      ? `${webhookBaseUrl}/api/webhook/${currentWebhookId}`
+      : "";
 
   // Tính webhook domain URL
-  const webhookDomainFullUrl = currentWebhookId && webhookDomainUrl
-    ? `${webhookDomainUrl}/api/webhook/${currentWebhookId}`
-    : '';
+  const webhookDomainFullUrl =
+    currentWebhookId && webhookDomainUrl
+      ? `${webhookDomainUrl}/api/webhook/${currentWebhookId}`
+      : "";
 
   // Lưu app_local_url khi user thay đổi base URL
   async function handleSaveBaseUrl(url: string) {
-    const clean = url.trim().replace(/\/$/, '');
+    const clean = url.trim().replace(/\/$/, "");
     try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings: [{ khoa: 'app_local_url', giaTri: clean }] }),
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          settings: [{ khoa: "app_local_url", giaTri: clean }],
+        }),
       });
       const data = await res.json();
       if (data.success) {
-        setSettingValues(prev => ({ ...prev, app_local_url: clean }));
-        toast.success('Đã lưu URL LAN');
+        setSettingValues((prev) => ({ ...prev, app_local_url: clean }));
+        toast.success("Đã lưu URL LAN");
       } else {
-        toast.error(data.message || 'Lưu thất bại');
+        toast.error(data.message || "Lưu thất bại");
       }
     } catch {
-      toast.error('Lỗi lưu cài đặt');
+      toast.error("Lỗi lưu cài đặt");
     }
   }
 
   // Lưu app_domain_url khi user thay đổi domain URL
   async function handleSaveDomainUrl(url: string) {
-    const clean = url.trim().replace(/\/$/, '');
+    const clean = url.trim().replace(/\/$/, "");
     try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings: [{ khoa: 'app_domain_url', giaTri: clean }] }),
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          settings: [{ khoa: "app_domain_url", giaTri: clean }],
+        }),
       });
       const data = await res.json();
       if (data.success) {
-        setSettingValues(prev => ({ ...prev, app_domain_url: clean }));
-        toast.success('Đã lưu URL domain');
+        setSettingValues((prev) => ({ ...prev, app_domain_url: clean }));
+        toast.success("Đã lưu URL domain");
       } else {
-        toast.error(data.message || 'Lưu thất bại');
+        toast.error(data.message || "Lưu thất bại");
       }
     } catch {
-      toast.error('Lỗi lưu cài đặt');
+      toast.error("Lỗi lưu cài đặt");
     }
   }
 
   async function handleGenerateWebhookId() {
-    if (currentWebhookId && !confirm('Tạo ID mới sẽ vô hiệu URL cũ. Tiếp tục?')) return;
+    if (currentWebhookId && !confirm("Tạo ID mới sẽ vô hiệu URL cũ. Tiếp tục?"))
+      return;
     setWebhookIdGenerating(true);
     try {
-      const res = await fetch('/api/webhook/generate', { method: 'POST' });
+      const res = await fetch("/api/webhook/generate", { method: "POST" });
       const data = await res.json();
       if (data.success && data.webhookId) {
         setCurrentWebhookId(data.webhookId);
-        toast.success('Đã tạo Webhook ID mới');
+        toast.success("Đã tạo Webhook ID mới");
       } else {
-        toast.error(data.error || 'Tạo thất bại');
+        toast.error(data.error || "Tạo thất bại");
       }
-    } catch { toast.error('Lỗi kết nối'); }
-    finally { setWebhookIdGenerating(false); }
+    } catch {
+      toast.error("Lỗi kết nối");
+    } finally {
+      setWebhookIdGenerating(false);
+    }
   }
 
   // --- Test webhook nhận tin ---
   const [webhookTestLoading, setWebhookTestLoading] = useState(false);
-  const [webhookTestResult, setWebhookTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [webhookTestResult, setWebhookTestResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   async function handleTestWebhook() {
     setWebhookTestLoading(true);
@@ -696,38 +853,44 @@ export default function CaiDatPage() {
     try {
       const fakePayload = {
         type: 0,
-        threadId: 'test_thread_' + Date.now(),
+        threadId: "test_thread_" + Date.now(),
         isSelf: false,
         data: {
-          uidFrom: 'test_user',
-          dName: '[Test] Webhook Check',
-          msgType: 'webchat',
-          content: 'Tin nhắn test webhook — kiểm tra nhận thành công!',
+          uidFrom: "test_user",
+          dName: "[Test] Webhook Check",
+          msgType: "webchat",
+          content: "Tin nhắn test webhook — kiểm tra nhận thành công!",
           ts: String(Date.now()),
         },
-        _accountId: 'test',
+        _accountId: "test",
       };
 
       // Ưu tiên test qua webhook ID mới (giống HA), fallback sang endpoint cũ
       const testUrl = currentWebhookId
         ? `/api/webhook/${currentWebhookId}`
-        : '/api/zalo/webhook';
+        : "/api/zalo/webhook";
 
       const res = await fetch(testUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(fakePayload),
       });
       if (res.ok) {
-        setWebhookTestResult({ ok: true, message: `Webhook nhận được qua ${currentWebhookId ? '/api/webhook/[id]' : '/api/zalo/webhook'}! Kiểm tra "Theo dõi tin nhắn".` });
-        toast.success('Webhook đang hoạt động');
+        setWebhookTestResult({
+          ok: true,
+          message: `Webhook nhận được qua ${currentWebhookId ? "/api/webhook/[id]" : "/api/zalo/webhook"}! Kiểm tra "Theo dõi tin nhắn".`,
+        });
+        toast.success("Webhook đang hoạt động");
       } else {
-        setWebhookTestResult({ ok: false, message: `HTTP ${res.status} — webhook không phản hồi` });
-        toast.error('Webhook không phản hồi');
+        setWebhookTestResult({
+          ok: false,
+          message: `HTTP ${res.status} — webhook không phản hồi`,
+        });
+        toast.error("Webhook không phản hồi");
       }
     } catch {
-      setWebhookTestResult({ ok: false, message: 'Lỗi kết nối' });
-      toast.error('Lỗi kết nối');
+      setWebhookTestResult({ ok: false, message: "Lỗi kết nối" });
+      toast.error("Lỗi kết nối");
     } finally {
       setWebhookTestLoading(false);
     }
@@ -735,24 +898,34 @@ export default function CaiDatPage() {
 
   // --- Kiểm tra kết nối MinIO ---
   const [minioTestLoading, setMinioTestLoading] = useState(false);
-  const [minioTestResult, setMinioTestResult] = useState<{ ok: boolean; message: string; details?: Record<string, unknown> } | null>(null);
+  const [minioTestResult, setMinioTestResult] = useState<{
+    ok: boolean;
+    message: string;
+    details?: Record<string, unknown>;
+  } | null>(null);
 
   async function handleTestMinio() {
     setMinioTestLoading(true);
     setMinioTestResult(null);
     try {
-      const res = await fetch('/api/admin/settings/test-minio', { method: 'POST' });
+      const res = await fetch("/api/admin/settings/test-minio", {
+        method: "POST",
+      });
       const data = await res.json();
       if (data.success) {
-        setMinioTestResult({ ok: true, message: data.message, details: data.details });
-        toast.success('Kết nối MinIO thành công');
+        setMinioTestResult({
+          ok: true,
+          message: data.message,
+          details: data.details,
+        });
+        toast.success("Kết nối MinIO thành công");
       } else {
         setMinioTestResult({ ok: false, message: data.message });
         toast.error(data.message);
       }
     } catch {
-      setMinioTestResult({ ok: false, message: 'Lỗi kết nối máy chủ' });
-      toast.error('Lỗi kết nối máy chủ');
+      setMinioTestResult({ ok: false, message: "Lỗi kết nối máy chủ" });
+      toast.error("Lỗi kết nối máy chủ");
     } finally {
       setMinioTestLoading(false);
     }
@@ -765,22 +938,22 @@ export default function CaiDatPage() {
   const [botQRLoading, setBotQRLoading] = useState(false);
   const [botWebhookResult, setBotWebhookResult] = useState<any>(null);
   const [botWebhookLoading, setBotWebhookLoading] = useState(false);
-  const [botWebhookUrl, setBotWebhookUrl] = useState('');
+  const [botWebhookUrl, setBotWebhookUrl] = useState("");
 
   // Load gợi ý webhook URL cho bot server (domain-based, chỉ dùng làm fallback)
   useEffect(() => {
     if (!canManage) return;
-    fetch('/api/zalo/set-webhook')
-      .then(r => r.json())
-      .then(d => {
-        const url = d.webhookUrl || '';
+    fetch("/api/zalo/set-webhook")
+      .then((r) => r.json())
+      .then((d) => {
+        const url = d.webhookUrl || "";
         // Chỉ set nếu là URL hợp lệ (tránh giá trị rác trong DB)
-        if (url.startsWith('http://') || url.startsWith('https://')) {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
           setBotWebhookUrl(url);
         }
       })
       .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage]);
 
   // Khi webhookFullUrl thay đổi (IP LAN + webhook ID), cập nhật botWebhookUrl
@@ -794,12 +967,12 @@ export default function CaiDatPage() {
     setBotStatusLoading(true);
     setBotQR(null);
     try {
-      const res = await fetch('/api/zalo-bot/status');
+      const res = await fetch("/api/zalo-bot/status");
       const data = await res.json();
       setBotStatus(data);
-      if (!data.ok) toast.error(data.error || 'Không kết nối được bot server');
+      if (!data.ok) toast.error(data.error || "Không kết nối được bot server");
     } catch {
-      toast.error('Lỗi kết nối');
+      toast.error("Lỗi kết nối");
     } finally {
       setBotStatusLoading(false);
     }
@@ -809,15 +982,15 @@ export default function CaiDatPage() {
     setBotQRLoading(true);
     setBotQR(null);
     try {
-      const res = await fetch('/api/zalo-bot/qr', { method: 'POST' });
+      const res = await fetch("/api/zalo-bot/qr", { method: "POST" });
       const data = await res.json();
       if (data.ok && data.qrCode) {
         setBotQR(data.qrCode);
       } else {
-        toast.error(data.error || 'Không lấy được QR code');
+        toast.error(data.error || "Không lấy được QR code");
       }
     } catch {
-      toast.error('Lỗi kết nối');
+      toast.error("Lỗi kết nối");
     } finally {
       setBotQRLoading(false);
     }
@@ -830,21 +1003,21 @@ export default function CaiDatPage() {
       const body: any = {};
       if (ownId) body.ownId = ownId;
       if (botWebhookUrl.trim()) body.webhookUrl = botWebhookUrl.trim();
-      const res = await fetch('/api/zalo-bot/set-webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/zalo-bot/set-webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json();
       setBotWebhookResult(data);
       if (data.ok) {
-        toast.success('Đã cài webhook trên bot server');
+        toast.success("Đã cài webhook trên bot server");
         if (data.webhookUrl) setBotWebhookUrl(data.webhookUrl);
       } else {
-        toast.error(data.error || 'Cài webhook thất bại');
+        toast.error(data.error || "Cài webhook thất bại");
       }
     } catch {
-      toast.error('Lỗi kết nối');
+      toast.error("Lỗi kết nối");
     } finally {
       setBotWebhookLoading(false);
     }
@@ -857,11 +1030,11 @@ export default function CaiDatPage() {
   async function loadWebhookMessages() {
     setWebhookMsgLoading(true);
     try {
-      const res = await fetch('/api/zalo/messages?conversations=1');
+      const res = await fetch("/api/zalo/messages?conversations=1");
       const data = await res.json();
       if (data.data) setWebhookMessages(data.data);
     } catch {
-      toast.error('Không thể tải tin nhắn webhook');
+      toast.error("Không thể tải tin nhắn webhook");
     } finally {
       setWebhookMsgLoading(false);
     }
@@ -876,22 +1049,30 @@ export default function CaiDatPage() {
     let timer: ReturnType<typeof setTimeout>;
 
     function connect() {
-      const es = new EventSource('/api/zalo/messages/stream');
-      es.onopen = () => { retryDelay = 2000; };
+      const es = new EventSource("/api/zalo/messages/stream");
+      es.onopen = () => {
+        retryDelay = 2000;
+      };
       es.onerror = () => {
         es.close();
-        timer = setTimeout(() => { retryDelay = Math.min(retryDelay * 2, 30_000); connect(); }, retryDelay);
+        timer = setTimeout(() => {
+          retryDelay = Math.min(retryDelay * 2, 30_000);
+          connect();
+        }, retryDelay);
       };
       es.onmessage = (e) => {
         try {
           const payload = JSON.parse(e.data);
-          if (payload.type !== 'messages') return;
+          if (payload.type !== "messages") return;
           const newMsgs: any[] = payload.data;
-          setWebhookMessages(prev => {
+          setWebhookMessages((prev) => {
             const map = new Map(prev.map((m: any) => [m.chatId, m]));
             for (const m of newMsgs) {
               const existing = map.get(m.chatId);
-              if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
+              if (
+                !existing ||
+                new Date(m.createdAt) > new Date(existing.createdAt)
+              ) {
                 // Giữ lại roomInfo từ message cũ nếu SSE không có
                 if (existing?.roomInfo && !m.roomInfo) {
                   m.roomInfo = existing.roomInfo;
@@ -900,58 +1081,87 @@ export default function CaiDatPage() {
               }
             }
             return Array.from(map.values()).sort(
-              (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              (a: any, b: any) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime(),
             );
           });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       };
       return es;
     }
 
     const es = connect();
-    return () => { clearTimeout(timer); es.close(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      clearTimeout(timer);
+      es.close();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage]);
 
   // Nhóm các cài đặt
-  const settingsByGroup = systemSettings.reduce<Record<string, CaiDatItem[]>>((acc, s) => {
-    if (!acc[s.nhom]) acc[s.nhom] = [];
-    acc[s.nhom].push(s);
-    return acc;
-  }, {});
+  const settingsByGroup = systemSettings.reduce<Record<string, CaiDatItem[]>>(
+    (acc, s) => {
+      if (!acc[s.nhom]) acc[s.nhom] = [];
+      acc[s.nhom].push(s);
+      return acc;
+    },
+    {},
+  );
 
-  const groupOrder = ['luuTru', 'thongBao', 'thanhToan', 'heThong', 'baoMat'];
+  const groupOrder = ["luuTru", "thongBao", "thanhToan", "heThong", "baoMat"];
 
   return (
     <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Cài đặt</h1>
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
+          Cài đặt
+        </h1>
         <p className="text-xs md:text-sm text-gray-600">
-          Tùy chỉnh giao diện{canManage ? ' và cài đặt hệ thống' : ''}
+          Tùy chỉnh giao diện{canManage ? " và cài đặt hệ thống" : ""}
         </p>
       </div>
 
-      <Tabs defaultValue={canManage ? 'thanhToan' : 'display'}>
+      <Tabs defaultValue={canManage ? "thanhToan" : "display"}>
         <TabsList className="flex flex-wrap h-auto gap-1 w-full md:w-auto">
-          {canManage && (<>
-            <TabsTrigger value="thanhToan" className="flex items-center gap-1.5 text-xs md:text-sm">
-              <CreditCard className="h-3.5 w-3.5" />
-              Thanh toán
-            </TabsTrigger>
-            <TabsTrigger value="thongBao" className="flex items-center gap-1.5 text-xs md:text-sm">
-              <Bell className="h-3.5 w-3.5" />
-              Thông báo
-            </TabsTrigger>
-            <TabsTrigger value="luuTru" className="flex items-center gap-1.5 text-xs md:text-sm">
-              <HardDrive className="h-3.5 w-3.5" />
-              Lưu trữ
-            </TabsTrigger>
-            <TabsTrigger value="heThong" className="flex items-center gap-1.5 text-xs md:text-sm">
-              <Shield className="h-3.5 w-3.5" />
-              Hệ thống
-            </TabsTrigger>
-          </>)}
-          <TabsTrigger value="display" className="flex items-center gap-1.5 text-xs md:text-sm">
+          {canManage && (
+            <>
+              <TabsTrigger
+                value="thanhToan"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                Thanh toán
+              </TabsTrigger>
+              <TabsTrigger
+                value="thongBao"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <Bell className="h-3.5 w-3.5" />
+                Thông báo
+              </TabsTrigger>
+              <TabsTrigger
+                value="luuTru"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <HardDrive className="h-3.5 w-3.5" />
+                Lưu trữ
+              </TabsTrigger>
+              <TabsTrigger
+                value="heThong"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Hệ thống
+              </TabsTrigger>
+            </>
+          )}
+          <TabsTrigger
+            value="display"
+            className="flex items-center gap-1.5 text-xs md:text-sm"
+          >
             <Monitor className="h-3.5 w-3.5" />
             Giao diện
           </TabsTrigger>
@@ -963,7 +1173,9 @@ export default function CaiDatPage() {
             {loadingSystem ? (
               <div className="flex items-center justify-center py-12">
                 <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
-                <span className="ml-2 text-gray-500">Đang tải cài đặt hệ thống...</span>
+                <span className="ml-2 text-gray-500">
+                  Đang tải cài đặt hệ thống...
+                </span>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
@@ -971,10 +1183,16 @@ export default function CaiDatPage() {
                   <Settings className="h-8 w-8 text-red-400" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-800">Không thể tải cài đặt</p>
+                  <p className="font-medium text-gray-800">
+                    Không thể tải cài đặt
+                  </p>
                   <p className="text-sm text-red-500 mt-1">{errorSystem}</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchSystemSettings}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchSystemSettings}
+                >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Thử lại
                 </Button>
@@ -986,17 +1204,19 @@ export default function CaiDatPage() {
         {/* ── Tab Thanh toán ─────────────────────────────────────────────────── */}
         {canManage && !loadingSystem && !errorSystem && (
           <TabsContent value="thanhToan" className="space-y-4 mt-4">
-            {settingsByGroup['thanhToan']?.length ? (
+            {settingsByGroup["thanhToan"]?.length ? (
               <SettingGroupCard
                 nhom="thanhToan"
-                items={settingsByGroup['thanhToan']}
+                items={settingsByGroup["thanhToan"]}
                 values={settingValues}
                 onChange={handleSettingChange}
                 onSave={handleSaveGroup}
-                saving={savingGroup === 'thanhToan'}
+                saving={savingGroup === "thanhToan"}
               />
             ) : (
-              <p className="text-sm text-gray-500 text-center py-8">Chưa có cài đặt thanh toán nào.</p>
+              <p className="text-sm text-gray-500 text-center py-8">
+                Chưa có cài đặt thanh toán nào.
+              </p>
             )}
           </TabsContent>
         )}
@@ -1004,14 +1224,14 @@ export default function CaiDatPage() {
         {/* ── Tab Thông báo (Zalo) ───────────────────────────────────────────── */}
         {canManage && !loadingSystem && !errorSystem && (
           <TabsContent value="thongBao" className="space-y-4 mt-4">
-            {settingsByGroup['thongBao']?.length && (
+            {settingsByGroup["thongBao"]?.length && (
               <SettingGroupCard
                 nhom="thongBao"
-                items={settingsByGroup['thongBao']}
+                items={settingsByGroup["thongBao"]}
                 values={settingValues}
                 onChange={handleSettingChange}
                 onSave={handleSaveGroup}
-                saving={savingGroup === 'thongBao'}
+                saving={savingGroup === "thongBao"}
               />
             )}
 
@@ -1023,21 +1243,28 @@ export default function CaiDatPage() {
                   Bộ lọc chuyển tiếp Home Assistant
                 </CardTitle>
                 <CardDescription className="text-xs md:text-sm">
-                  Giới hạn tin nhắn được forward đến HA webhook theo Thread ID và loại (user/nhóm).
-                  Trống = chuyển tiếp tất cả.
+                  Giới hạn tin nhắn được forward đến HA webhook theo Thread ID
+                  và loại (user/nhóm). Trống = chuyển tiếp tất cả.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs md:text-sm font-medium">Danh sách Thread ID được phép</Label>
-                    <button type="button" onClick={addHaThread}
-                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                    <Label className="text-xs md:text-sm font-medium">
+                      Danh sách Thread ID được phép
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={addHaThread}
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
                       <Plus className="h-3.5 w-3.5" /> Thêm
                     </button>
                   </div>
                   {haThreadEntries.length === 0 && (
-                    <p className="text-[11px] text-gray-400 italic">Chưa có thread nào — tất cả tin nhắn sẽ được chuyển tiếp.</p>
+                    <p className="text-[11px] text-gray-400 italic">
+                      Chưa có thread nào — tất cả tin nhắn sẽ được chuyển tiếp.
+                    </p>
                   )}
                   <div className="space-y-2">
                     {haThreadEntries.map((entry, i) => (
@@ -1046,36 +1273,61 @@ export default function CaiDatPage() {
                           type="text"
                           placeholder="Thread ID (VD: 6643404425553198601)"
                           value={entry.threadId}
-                          onChange={e => updateHaThread(i, 'threadId', e.target.value)}
+                          onChange={(e) =>
+                            updateHaThread(i, "threadId", e.target.value)
+                          }
                           className="text-xs font-mono flex-1"
                         />
                         <div className="flex gap-1">
-                          <button type="button"
-                            onClick={() => updateHaThread(i, 'type', 0)}
+                          <button
+                            type="button"
+                            onClick={() => updateHaThread(i, "type", 0)}
                             className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-colors whitespace-nowrap ${
-                              entry.type === 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'
-                            }`}>
+                              entry.type === 0
+                                ? "bg-blue-600 text-white border-blue-600"
+                                : "bg-white text-gray-500 border-gray-200 hover:border-blue-300"
+                            }`}
+                          >
                             Người dùng
                           </button>
-                          <button type="button"
-                            onClick={() => updateHaThread(i, 'type', 1)}
+                          <button
+                            type="button"
+                            onClick={() => updateHaThread(i, "type", 1)}
                             className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-colors whitespace-nowrap ${
-                              entry.type === 1 ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'
-                            }`}>
+                              entry.type === 1
+                                ? "bg-green-600 text-white border-green-600"
+                                : "bg-white text-gray-500 border-gray-200 hover:border-blue-300"
+                            }`}
+                          >
                             Nhóm
                           </button>
                         </div>
-                        <button type="button" onClick={() => removeHaThread(i)}
-                          className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                        <button
+                          type="button"
+                          onClick={() => removeHaThread(i)}
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                        >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     ))}
                   </div>
-                  <p className="text-[11px] text-gray-400">Type 0 = người dùng, Type 1 = nhóm. Để trống danh sách = chuyển tiếp tất cả.</p>
+                  <p className="text-[11px] text-gray-400">
+                    Type 0 = người dùng, Type 1 = nhóm. Để trống danh sách =
+                    chuyển tiếp tất cả.
+                  </p>
                 </div>
-                <Button size="sm" onClick={handleSaveHaFilter} disabled={haFilterSaving} className="w-full">
-                  {haFilterSaving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                <Button
+                  size="sm"
+                  onClick={handleSaveHaFilter}
+                  disabled={haFilterSaving}
+                  className="w-full"
+                >
+                  {haFilterSaving ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
                   Lưu bộ lọc
                 </Button>
               </CardContent>
@@ -1089,104 +1341,219 @@ export default function CaiDatPage() {
                   Gửi test Zalo
                 </CardTitle>
                 <CardDescription className="text-xs md:text-sm">
-                  Kiểm tra kết nối Zalo Bot — gửi tin nhắn, hình ảnh hoặc file đến Chat ID.
+                  Kiểm tra kết nối Zalo Bot — gửi tin nhắn, hình ảnh hoặc file
+                  đến Chat ID.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
                 {/* Loại gửi */}
                 <div className="flex gap-2">
-                  {(['text', 'image', 'file'] as const).map(t => (
-                    <button key={t} type="button"
+                  {(["text", "image", "file"] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
                       onClick={() => switchTestType(t)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
-                        testType === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
-                      }`}>
-                      {t === 'text' && <MessageSquare className="h-3.5 w-3.5" />}
-                      {t === 'image' && <Image className="h-3.5 w-3.5" />}
-                      {t === 'file' && <FileText className="h-3.5 w-3.5" />}
-                      {t === 'text' ? 'Văn bản' : t === 'image' ? 'Hình ảnh' : 'File'}
+                        testType === t
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
+                      }`}
+                    >
+                      {t === "text" && (
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      )}
+                      {t === "image" && <Image className="h-3.5 w-3.5" />}
+                      {t === "file" && <FileText className="h-3.5 w-3.5" />}
+                      {t === "text"
+                        ? "Văn bản"
+                        : t === "image"
+                          ? "Hình ảnh"
+                          : "File"}
                     </button>
                   ))}
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs md:text-sm font-medium">Chat ID người nhận (Thread ID)</Label>
-                  <Input type="text" placeholder="VD: 6643404425553198601"
-                    value={testChatId} onChange={(e) => setTestChatId(e.target.value)}
-                    className="text-sm font-mono" />
+                  <Label className="text-xs md:text-sm font-medium">
+                    Chat ID người nhận (Thread ID)
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="VD: 6643404425553198601"
+                    value={testChatId}
+                    onChange={(e) => setTestChatId(e.target.value)}
+                    className="text-sm font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs md:text-sm font-medium">
+                    Loại Thread
+                  </Label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTestThreadType(0)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                        testThreadType === 0
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
+                      }`}
+                    >
+                      <User className="h-3.5 w-3.5" /> Người dùng
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTestThreadType(1)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                        testThreadType === 1
+                          ? "bg-purple-600 text-white border-purple-600"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"
+                      }`}
+                    >
+                      <Users className="h-3.5 w-3.5" /> Nhóm
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Để gửi vào nhóm, chọn <strong>Nhóm</strong>. Nếu để sai loại
+                    thread, bot server thường sẽ báo lỗi gửi.
+                  </p>
                 </div>
                 {/* Hidden file input cho upload */}
                 <input
                   type="file"
                   ref={testFileInputRef}
                   className="hidden"
-                  accept={testType === 'image' ? 'image/*' : '*/*'}
+                  accept={testType === "image" ? "image/*" : "*/*"}
                   onChange={handleTestUpload}
                 />
-                {testType === 'image' && (
+                {testType === "image" && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs md:text-sm font-medium">URL hình ảnh</Label>
+                      <Label className="text-xs md:text-sm font-medium">
+                        URL hình ảnh
+                      </Label>
                       <div className="flex items-center gap-2">
-                        <button type="button" className="text-xs text-green-600 hover:underline flex items-center gap-1"
+                        <button
+                          type="button"
+                          className="text-xs text-green-600 hover:underline flex items-center gap-1"
                           disabled={testUploading}
-                          onClick={() => testFileInputRef.current?.click()}>
-                          {testUploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                          {testUploading ? 'Đang upload...' : 'Upload từ máy'}
+                          onClick={() => testFileInputRef.current?.click()}
+                        >
+                          {testUploading ? (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Upload className="h-3 w-3" />
+                          )}
+                          {testUploading ? "Đang upload..." : "Upload từ máy"}
                         </button>
-                        <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                          onClick={openMinioBrowser}>
+                        <button
+                          type="button"
+                          className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                          onClick={openMinioBrowser}
+                        >
                           <HardDrive className="h-3 w-3" /> Chọn từ MinIO
                         </button>
                       </div>
                     </div>
-                    <Input type="url" placeholder="https://example.com/image.jpg"
-                      value={testImageUrl} onChange={(e) => setTestImageUrl(e.target.value)}
-                      className="text-sm" />
-                    {testImageUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(testImageUrl) && (
-                      <img src={testImageUrl} alt="preview" className="rounded max-h-24 max-w-xs object-contain border mt-1" />
-                    )}
+                    <Input
+                      type="url"
+                      placeholder="https://example.com/image.jpg"
+                      value={testImageUrl}
+                      onChange={(e) => setTestImageUrl(e.target.value)}
+                      className="text-sm"
+                    />
+                    {testImageUrl &&
+                      /\.(jpg|jpeg|png|gif|webp)$/i.test(testImageUrl) && (
+                        <img
+                          src={testImageUrl}
+                          alt="preview"
+                          className="rounded max-h-24 max-w-xs object-contain border mt-1"
+                        />
+                      )}
                   </div>
                 )}
-                {testType === 'file' && (
+                {testType === "file" && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs md:text-sm font-medium">URL file</Label>
+                      <Label className="text-xs md:text-sm font-medium">
+                        URL file
+                      </Label>
                       <div className="flex items-center gap-2">
-                        <button type="button" className="text-xs text-green-600 hover:underline flex items-center gap-1"
+                        <button
+                          type="button"
+                          className="text-xs text-green-600 hover:underline flex items-center gap-1"
                           disabled={testUploading}
-                          onClick={() => testFileInputRef.current?.click()}>
-                          {testUploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                          {testUploading ? 'Đang upload...' : 'Upload từ máy'}
+                          onClick={() => testFileInputRef.current?.click()}
+                        >
+                          {testUploading ? (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Upload className="h-3 w-3" />
+                          )}
+                          {testUploading ? "Đang upload..." : "Upload từ máy"}
                         </button>
-                        <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                          onClick={openMinioBrowser}>
+                        <button
+                          type="button"
+                          className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                          onClick={openMinioBrowser}
+                        >
                           <HardDrive className="h-3 w-3" /> Chọn từ MinIO
                         </button>
                       </div>
                     </div>
-                    <Input type="url" placeholder="https://example.com/document.pdf"
-                      value={testFileUrl} onChange={(e) => setTestFileUrl(e.target.value)}
-                      className="text-sm" />
+                    <Input
+                      type="url"
+                      placeholder="https://example.com/document.pdf"
+                      value={testFileUrl}
+                      onChange={(e) => setTestFileUrl(e.target.value)}
+                      className="text-sm"
+                    />
                   </div>
                 )}
                 <div className="space-y-1">
                   <Label className="text-xs md:text-sm font-medium">
-                    {testType === 'text' ? 'Nội dung tin nhắn' : 'Caption / mô tả (tuỳ chọn)'}
+                    {testType === "text"
+                      ? "Nội dung tin nhắn"
+                      : "Caption / mô tả (tuỳ chọn)"}
                   </Label>
-                  <Input type="text"
-                    placeholder={testType === 'text' ? 'Nội dung tin nhắn...' : 'Để trống nếu không cần caption'}
-                    value={testMessage} onChange={(e) => setTestMessage(e.target.value)}
-                    className="text-sm" maxLength={500} />
+                  <Input
+                    type="text"
+                    placeholder={
+                      testType === "text"
+                        ? "Nội dung tin nhắn..."
+                        : "Để trống nếu không cần caption"
+                    }
+                    value={testMessage}
+                    onChange={(e) => setTestMessage(e.target.value)}
+                    className="text-sm"
+                    maxLength={500}
+                  />
                 </div>
-                <Button size="sm" onClick={handleSendTest} disabled={testLoading} className="w-full">
-                  {testLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
+                <Button
+                  size="sm"
+                  onClick={handleSendTest}
+                  disabled={testLoading}
+                  className="w-full"
+                >
+                  {testLoading ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Bell className="h-4 w-4 mr-2" />
+                  )}
                   Gửi test
                 </Button>
                 {testResult && (
-                  <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${
-                    testResult.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
-                  }`}>
-                    {testResult.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" /> : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                  <div
+                    className={`rounded-md p-3 text-sm flex items-center gap-2 ${
+                      testResult.ok
+                        ? "bg-green-50 border border-green-200 text-green-800"
+                        : "bg-red-50 border border-red-200 text-red-800"
+                    }`}
+                  >
+                    {testResult.ok ? (
+                      <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
+                    ) : (
+                      <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
+                    )}
                     {testResult.message}
                   </div>
                 )}
@@ -1203,11 +1570,17 @@ export default function CaiDatPage() {
                       Theo dõi tin nhắn Zalo Bot
                     </CardTitle>
                     <CardDescription className="text-xs md:text-sm mt-1">
-                      Hiển thị tin nhắn đến theo thời gian thực — lấy <strong>Thread ID</strong> để điền vào hồ sơ khách thuê.
+                      Hiển thị tin nhắn đến theo thời gian thực — lấy{" "}
+                      <strong>Thread ID</strong> để điền vào hồ sơ khách thuê.
                     </CardDescription>
                   </div>
-                  <Button type="button" size="sm" variant="outline" className="text-xs text-red-600 border-red-200 hover:bg-red-50 shrink-0"
-                    onClick={handleClearMessages}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="text-xs text-red-600 border-red-200 hover:bg-red-50 shrink-0"
+                    onClick={handleClearMessages}
+                  >
                     <Trash2 className="h-3.5 w-3.5 mr-1" />
                     Xóa tất cả
                   </Button>
@@ -1216,7 +1589,9 @@ export default function CaiDatPage() {
               <CardContent className="p-4 md:p-6 pt-0 space-y-2">
                 {webhookMessages.length === 0 ? (
                   <p className="text-xs text-gray-400 italic text-center py-6">
-                    {webhookMsgLoading ? 'Đang tải...' : 'Chưa có tin nhắn nào. Nhắn vào Zalo Bot để xem Thread ID tại đây.'}
+                    {webhookMsgLoading
+                      ? "Đang tải..."
+                      : "Chưa có tin nhắn nào. Nhắn vào Zalo Bot để xem Thread ID tại đây."}
                   </p>
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -1226,55 +1601,108 @@ export default function CaiDatPage() {
                       const threadId = raw?.threadId || msg.chatId;
                       const isGroup = raw?.type === 1;
                       return (
-                        <div key={msg.id} className="rounded-lg border bg-blue-50 border-blue-100 p-3 text-xs space-y-1.5">
+                        <div
+                          key={msg.id}
+                          className="rounded-lg border bg-blue-50 border-blue-100 p-3 text-xs space-y-1.5"
+                        >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className={`text-[9px] px-1 ${isGroup ? 'border-purple-300 text-purple-700' : 'border-blue-300 text-blue-700'}`}>
-                                {isGroup ? 'Nhóm' : 'Người dùng'}
+                              <Badge
+                                variant="outline"
+                                className={`text-[9px] px-1 ${isGroup ? "border-purple-300 text-purple-700" : "border-blue-300 text-blue-700"}`}
+                              >
+                                {isGroup ? "Nhóm" : "Người dùng"}
                               </Badge>
-                              <span className="font-semibold text-blue-700">Thread ID:</span>
-                              <code className="font-bold text-blue-900 select-all">{threadId}</code>
-                              <button type="button" title="Sao chép Thread ID"
+                              <span className="font-semibold text-blue-700">
+                                Thread ID:
+                              </span>
+                              <code className="font-bold text-blue-900 select-all">
+                                {threadId}
+                              </code>
+                              <button
+                                type="button"
+                                title="Sao chép Thread ID"
                                 className="text-blue-400 hover:text-blue-700"
-                                onClick={() => { navigator.clipboard.writeText(threadId); toast.success('Đã sao chép Thread ID'); }}>
+                                onClick={() => {
+                                  navigator.clipboard.writeText(threadId);
+                                  toast.success("Đã sao chép Thread ID");
+                                }}
+                              >
                                 <Copy className="h-3.5 w-3.5" />
                               </button>
                             </div>
-                            <button type="button"
+                            <button
+                              type="button"
                               className="text-gray-400 hover:text-gray-700 shrink-0"
-                              onClick={() => setExpandedMsgId(expandedMsgId === msg.id ? null : msg.id)}
-                              title={expandedMsgId === msg.id ? 'Thu gọn' : 'Xem raw payload'}>
-                              {expandedMsgId === msg.id
-                                ? <ChevronUp className="h-4 w-4" />
-                                : <ChevronDown className="h-4 w-4" />}
+                              onClick={() =>
+                                setExpandedMsgId(
+                                  expandedMsgId === msg.id ? null : msg.id,
+                                )
+                              }
+                              title={
+                                expandedMsgId === msg.id
+                                  ? "Thu gọn"
+                                  : "Xem raw payload"
+                              }
+                            >
+                              {expandedMsgId === msg.id ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
                             </button>
                           </div>
                           {msg.displayName && (
                             <div className="text-gray-600">
-                              <span className="font-medium">{msg.displayName}</span>
+                              <span className="font-medium">
+                                {msg.displayName}
+                              </span>
                             </div>
                           )}
                           {/* Thông tin phòng / tòa nhà */}
                           {room && (
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className="text-[9px] px-1 border-green-300 text-green-700 bg-green-50">
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1 border-green-300 text-green-700 bg-green-50"
+                              >
                                 Phòng {room.maPhong} (Tầng {room.tang})
                               </Badge>
-                              <Badge variant="outline" className="text-[9px] px-1 border-orange-300 text-orange-700 bg-orange-50">
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1 border-orange-300 text-orange-700 bg-orange-50"
+                              >
                                 {room.tenToaNha}
                               </Badge>
-                              {room.diaChi && typeof room.diaChi === 'object' && (
-                                <span className="text-[10px] text-gray-400">
-                                  {[room.diaChi.soNha, room.diaChi.duong, room.diaChi.phuong, room.diaChi.quan].filter(Boolean).join(', ')}
-                                </span>
-                              )}
+                              {room.diaChi &&
+                                typeof room.diaChi === "object" && (
+                                  <span className="text-[10px] text-gray-400">
+                                    {[
+                                      room.diaChi.soNha,
+                                      room.diaChi.duong,
+                                      room.diaChi.phuong,
+                                      room.diaChi.quan,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(", ")}
+                                  </span>
+                                )}
                             </div>
                           )}
                           {msg.attachmentUrl && (
-                            <img src={msg.attachmentUrl} alt="ảnh" className="rounded max-h-20 max-w-[160px] object-contain border" />
+                            <img
+                              src={msg.attachmentUrl}
+                              alt="ảnh"
+                              className="rounded max-h-20 max-w-[160px] object-contain border"
+                            />
                           )}
-                          <p className="text-gray-700 truncate">{msg.content}</p>
-                          <p className="text-gray-400 text-[10px]">Nhận lúc: {new Date(msg.createdAt).toLocaleString('vi-VN')}</p>
+                          <p className="text-gray-700 truncate">
+                            {msg.content}
+                          </p>
+                          <p className="text-gray-400 text-[10px]">
+                            Nhận lúc:{" "}
+                            {new Date(msg.createdAt).toLocaleString("vi-VN")}
+                          </p>
                           {expandedMsgId === msg.id && msg.rawPayload && (
                             <pre className="mt-2 p-2 bg-white border rounded text-[10px] text-gray-600 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
                               {JSON.stringify(msg.rawPayload, null, 2)}
@@ -1296,46 +1724,101 @@ export default function CaiDatPage() {
                   Zalo Bot Server (Web Login)
                 </CardTitle>
                 <CardDescription className="text-xs md:text-sm">
-                  Quản lý Docker bot server chạy trên Home Assistant (cổng 3000).
-                  Dùng khi <code className="bg-gray-100 px-1 rounded">zalo_mode = bot_server</code>.
-                  Lưu các cài đặt <strong>zalo_bot_server_url</strong>, <strong>zalo_bot_username/password</strong> và <strong>zalo_bot_account_id</strong> trước.
+                  Quản lý Docker bot server chạy trên Home Assistant (cổng
+                  3000). Dùng khi{" "}
+                  <code className="bg-gray-100 px-1 rounded">
+                    zalo_mode = bot_server
+                  </code>
+                  . Lưu các cài đặt <strong>zalo_bot_server_url</strong>,{" "}
+                  <strong>zalo_bot_username/password</strong> và{" "}
+                  <strong>zalo_bot_account_id</strong> trước.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
-
                 {/* Kiểm tra kết nối + danh sách tài khoản */}
-                <Button size="sm" variant="outline" onClick={handleBotStatus} disabled={botStatusLoading} className="w-full">
-                  {botStatusLoading
-                    ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    : <Wifi className="h-4 w-4 mr-2" />}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleBotStatus}
+                  disabled={botStatusLoading}
+                  className="w-full"
+                >
+                  {botStatusLoading ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Wifi className="h-4 w-4 mr-2" />
+                  )}
                   Kiểm tra kết nối & danh sách tài khoản
                 </Button>
 
                 {botStatus && (
-                  <div className={`rounded-md p-3 text-xs space-y-2 border ${botStatus.ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                  <div
+                    className={`rounded-md p-3 text-xs space-y-2 border ${botStatus.ok ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
+                  >
                     <div className="flex items-center gap-1.5 font-medium">
-                      {botStatus.ok
-                        ? <Wifi className="h-3.5 w-3.5 text-green-600" />
-                        : <WifiOff className="h-3.5 w-3.5 text-red-600" />}
-                      <span className={botStatus.ok ? 'text-green-800' : 'text-red-800'}>
-                        {botStatus.ok ? `Kết nối OK — ${botStatus.serverUrl}` : botStatus.error}
+                      {botStatus.ok ? (
+                        <Wifi className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <WifiOff className="h-3.5 w-3.5 text-red-600" />
+                      )}
+                      <span
+                        className={
+                          botStatus.ok ? "text-green-800" : "text-red-800"
+                        }
+                      >
+                        {botStatus.ok
+                          ? `Kết nối OK — ${botStatus.serverUrl}`
+                          : botStatus.error}
                       </span>
                     </div>
                     {botStatus.ok && botStatus.accounts?.length > 0 && (
                       <div className="space-y-1">
-                        <p className="text-gray-500 font-medium">Tài khoản đang đăng nhập ({botStatus.accounts.length}):</p>
+                        <p className="text-gray-500 font-medium">
+                          Tài khoản đang đăng nhập ({botStatus.accounts.length}
+                          ):
+                        </p>
                         {botStatus.accounts.map((acc: any, i: number) => {
-                          const id = acc?.id || acc?.ownId || acc?.userId || acc?.uid || JSON.stringify(acc).slice(0, 40);
-                          const name = acc?.name || acc?.displayName || acc?.zaloName || acc?.dName || '';
-                          const isActive = botStatus.accountId && (acc?.id === botStatus.accountId || acc?.ownId === botStatus.accountId);
+                          const id =
+                            acc?.id ||
+                            acc?.ownId ||
+                            acc?.userId ||
+                            acc?.uid ||
+                            JSON.stringify(acc).slice(0, 40);
+                          const name =
+                            acc?.name ||
+                            acc?.displayName ||
+                            acc?.zaloName ||
+                            acc?.dName ||
+                            "";
+                          const isActive =
+                            botStatus.accountId &&
+                            (acc?.id === botStatus.accountId ||
+                              acc?.ownId === botStatus.accountId);
                           return (
-                            <div key={i} className={`flex items-center gap-2 p-1.5 rounded ${isActive ? 'bg-green-100 border border-green-300' : 'bg-white border'}`}>
-                              <code className="font-mono text-[10px] text-gray-600 select-all">{id}</code>
-                              {name && <span className="text-gray-700">{name}</span>}
-                              {isActive && <Badge className="text-[9px] h-4 px-1 bg-green-600">đang dùng</Badge>}
-                              <button type="button" title="Sao chép ID"
+                            <div
+                              key={i}
+                              className={`flex items-center gap-2 p-1.5 rounded ${isActive ? "bg-green-100 border border-green-300" : "bg-white border"}`}
+                            >
+                              <code className="font-mono text-[10px] text-gray-600 select-all">
+                                {id}
+                              </code>
+                              {name && (
+                                <span className="text-gray-700">{name}</span>
+                              )}
+                              {isActive && (
+                                <Badge className="text-[9px] h-4 px-1 bg-green-600">
+                                  đang dùng
+                                </Badge>
+                              )}
+                              <button
+                                type="button"
+                                title="Sao chép ID"
                                 className="ml-auto text-gray-400 hover:text-blue-600"
-                                onClick={() => { navigator.clipboard.writeText(String(id)); toast.success('Đã sao chép account ID'); }}>
+                                onClick={() => {
+                                  navigator.clipboard.writeText(String(id));
+                                  toast.success("Đã sao chép account ID");
+                                }}
+                              >
                                 <Copy className="h-3 w-3" />
                               </button>
                             </div>
@@ -1344,29 +1827,55 @@ export default function CaiDatPage() {
                       </div>
                     )}
                     {botStatus.ok && botStatus.accounts?.length === 0 && (
-                      <p className="text-amber-700">Chưa có tài khoản Zalo nào đăng nhập — hãy quét QR bên dưới.</p>
+                      <p className="text-amber-700">
+                        Chưa có tài khoản Zalo nào đăng nhập — hãy quét QR bên
+                        dưới.
+                      </p>
                     )}
                   </div>
                 )}
 
                 {/* QR Code đăng nhập */}
-                <Button size="sm" variant="outline" onClick={handleBotQR} disabled={botQRLoading} className="w-full">
-                  {botQRLoading
-                    ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    : <QrCode className="h-4 w-4 mr-2" />}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleBotQR}
+                  disabled={botQRLoading}
+                  className="w-full"
+                >
+                  {botQRLoading ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <QrCode className="h-4 w-4 mr-2" />
+                  )}
                   Lấy QR code đăng nhập Zalo
                 </Button>
 
                 {botQR && (
                   <div className="flex flex-col items-center gap-2 p-3 bg-white border rounded-md">
-                    <p className="text-xs text-gray-500">Mở Zalo trên điện thoại → Quét mã QR bên dưới để đăng nhập</p>
-                    {botQR.startsWith('data:image') ? (
-                      <img src={botQR} alt="QR Code Zalo" className="w-48 h-48 border rounded" />
+                    <p className="text-xs text-gray-500">
+                      Mở Zalo trên điện thoại → Quét mã QR bên dưới để đăng nhập
+                    </p>
+                    {botQR.startsWith("data:image") ? (
+                      <img
+                        src={botQR}
+                        alt="QR Code Zalo"
+                        className="w-48 h-48 border rounded"
+                      />
                     ) : (
-                      <code className="text-[10px] text-gray-600 break-all">{botQR}</code>
+                      <code className="text-[10px] text-gray-600 break-all">
+                        {botQR}
+                      </code>
                     )}
-                    <Button size="sm" variant="ghost" className="text-xs"
-                      onClick={() => { setBotQR(null); handleBotQR(); }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs"
+                      onClick={() => {
+                        setBotQR(null);
+                        handleBotQR();
+                      }}
+                    >
                       <RefreshCw className="h-3 w-3 mr-1" /> Làm mới QR
                     </Button>
                   </div>
@@ -1374,44 +1883,80 @@ export default function CaiDatPage() {
 
                 {/* Cài webhook */}
                 <div className="space-y-2 pt-2 border-t">
-                  <Label className="text-xs font-medium text-gray-700">Webhook URL (ql_tro nhận tin nhắn)</Label>
+                  <Label className="text-xs font-medium text-gray-700">
+                    Webhook URL (ql_tro nhận tin nhắn)
+                  </Label>
                   <div className="flex gap-2">
-                    <Input type="text" placeholder="http://172.16.10.27:3000/api/webhook/..."
-                      value={botWebhookUrl} onChange={e => setBotWebhookUrl(e.target.value)}
-                      className="text-xs font-mono" />
-                    <Button type="button" variant="outline" size="icon" title="Sao chép"
-                      onClick={() => { navigator.clipboard.writeText(botWebhookUrl); toast.success('Đã sao chép'); }}>
+                    <Input
+                      type="text"
+                      placeholder="http://172.16.10.27:3000/api/webhook/..."
+                      value={botWebhookUrl}
+                      onChange={(e) => setBotWebhookUrl(e.target.value)}
+                      className="text-xs font-mono"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      title="Sao chép"
+                      onClick={() => {
+                        navigator.clipboard.writeText(botWebhookUrl);
+                        toast.success("Đã sao chép");
+                      }}
+                    >
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                   <p className="text-[11px] text-gray-400">
                     Dùng webhook ID qua IP LAN. Sửa nếu cần URL khác.
                   </p>
-                  <Button size="sm" onClick={() => handleBotSetWebhook()} disabled={botWebhookLoading} className="w-full">
-                    {botWebhookLoading
-                      ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      : <Webhook className="h-4 w-4 mr-2" />}
+                  <Button
+                    size="sm"
+                    onClick={() => handleBotSetWebhook()}
+                    disabled={botWebhookLoading}
+                    className="w-full"
+                  >
+                    {botWebhookLoading ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Webhook className="h-4 w-4 mr-2" />
+                    )}
                     Cài Webhook trên Bot Server
                   </Button>
                 </div>
 
                 {botWebhookResult && (
-                  <div className={`rounded-md p-3 text-xs space-y-1 border ${botWebhookResult.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                  <div
+                    className={`rounded-md p-3 text-xs space-y-1 border ${botWebhookResult.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"}`}
+                  >
                     <div className="flex items-center gap-1.5 font-medium">
+                      {botWebhookResult.ok ? (
+                        <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <XCircle className="h-3.5 w-3.5 text-red-600" />
+                      )}
                       {botWebhookResult.ok
-                        ? <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                        : <XCircle className="h-3.5 w-3.5 text-red-600" />}
-                      {botWebhookResult.ok ? 'Webhook đã được cài đặt thành công' : botWebhookResult.error}
+                        ? "Webhook đã được cài đặt thành công"
+                        : botWebhookResult.error}
                     </div>
                     {botWebhookResult.ok && (
                       <div className="pl-5 space-y-0.5 text-green-700">
-                        <div>Account ID: <code className="font-mono">{botWebhookResult.ownId}</code></div>
-                        <div>Webhook URL: <code className="font-mono break-all">{botWebhookResult.webhookUrl}</code></div>
+                        <div>
+                          Account ID:{" "}
+                          <code className="font-mono">
+                            {botWebhookResult.ownId}
+                          </code>
+                        </div>
+                        <div>
+                          Webhook URL:{" "}
+                          <code className="font-mono break-all">
+                            {botWebhookResult.webhookUrl}
+                          </code>
+                        </div>
                       </div>
                     )}
                   </div>
                 )}
-
               </CardContent>
             </Card>
 
@@ -1423,54 +1968,78 @@ export default function CaiDatPage() {
                   Webhook nhận tin nhắn Zalo
                 </CardTitle>
                 <CardDescription className="text-xs md:text-sm">
-                  Endpoint công khai nhận tin nhắn — hoạt động qua <strong>IP LAN</strong> (giống Home Assistant webhook).
-                  Cấu hình Bot Server gửi tin về URL này. Hỗ trợ POST, PUT, GET, HEAD.
+                  Endpoint công khai nhận tin nhắn — hoạt động qua{" "}
+                  <strong>IP LAN</strong> (giống Home Assistant webhook). Cấu
+                  hình Bot Server gửi tin về URL này. Hỗ trợ POST, PUT, GET,
+                  HEAD.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
                 {/* URL gốc: IP LAN + Domain */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium text-gray-700">URL gốc (IP LAN)</Label>
+                    <Label className="text-xs font-medium text-gray-700">
+                      URL gốc (IP LAN)
+                    </Label>
                     <Input
                       className="text-xs font-mono"
                       placeholder="http://172.16.10.27:3000"
                       value={webhookBaseUrl}
                       onChange={(e) => setWebhookBaseUrl(e.target.value.trim())}
                       onBlur={(e) => {
-                        const v = e.target.value.trim().replace(/\/$/, '');
-                        if (v && v !== settingValues['app_local_url']?.trim()) handleSaveBaseUrl(v);
+                        const v = e.target.value.trim().replace(/\/$/, "");
+                        if (v && v !== settingValues["app_local_url"]?.trim())
+                          handleSaveBaseUrl(v);
                       }}
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium text-gray-700">URL gốc (Domain)</Label>
+                    <Label className="text-xs font-medium text-gray-700">
+                      URL gốc (Domain)
+                    </Label>
                     <Input
                       className="text-xs font-mono"
                       placeholder="https://qlpt.vhtatn.io.vn"
                       value={webhookDomainUrl}
-                      onChange={(e) => setWebhookDomainUrl(e.target.value.trim())}
+                      onChange={(e) =>
+                        setWebhookDomainUrl(e.target.value.trim())
+                      }
                       onBlur={(e) => {
-                        const v = e.target.value.trim().replace(/\/$/, '');
-                        if (v && v !== settingValues['app_domain_url']?.trim()) handleSaveDomainUrl(v);
+                        const v = e.target.value.trim().replace(/\/$/, "");
+                        if (v && v !== settingValues["app_domain_url"]?.trim())
+                          handleSaveDomainUrl(v);
                       }}
                     />
                   </div>
                 </div>
                 <p className="text-[11px] text-gray-400">
-                  Tự động lưu khi rời ô. Cả 2 URL đều nhận tin nhắn vào cùng &quot;Theo dõi tin nhắn&quot;.
+                  Tự động lưu khi rời ô. Cả 2 URL đều nhận tin nhắn vào cùng
+                  &quot;Theo dõi tin nhắn&quot;.
                 </p>
 
                 {/* Webhook URL qua IP LAN */}
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-gray-700">Webhook URL (qua IP LAN)</Label>
+                  <Label className="text-xs font-medium text-gray-700">
+                    Webhook URL (qua IP LAN)
+                  </Label>
                   <div className="flex gap-2">
                     <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-blue-800 overflow-x-auto whitespace-nowrap">
-                      {webhookFullUrl || (currentWebhookId ? '(nhập URL gốc IP LAN ở trên)' : '(bấm "Tạo Webhook ID" để tạo URL mới)')}
+                      {webhookFullUrl ||
+                        (currentWebhookId
+                          ? "(nhập URL gốc IP LAN ở trên)"
+                          : '(bấm "Tạo Webhook ID" để tạo URL mới)')}
                     </code>
                     {webhookFullUrl && (
-                      <Button type="button" variant="outline" size="icon" title="Sao chép"
-                        onClick={() => { navigator.clipboard.writeText(webhookFullUrl); toast.success('Đã sao chép webhook URL'); }}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        title="Sao chép"
+                        onClick={() => {
+                          navigator.clipboard.writeText(webhookFullUrl);
+                          toast.success("Đã sao chép webhook URL");
+                        }}
+                      >
                         <Copy className="h-4 w-4" />
                       </Button>
                     )}
@@ -1479,14 +2048,27 @@ export default function CaiDatPage() {
 
                 {/* Webhook URL qua Domain */}
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-gray-700">Webhook URL (qua Domain)</Label>
+                  <Label className="text-xs font-medium text-gray-700">
+                    Webhook URL (qua Domain)
+                  </Label>
                   <div className="flex gap-2">
                     <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-purple-700 overflow-x-auto whitespace-nowrap">
-                      {webhookDomainFullUrl || (currentWebhookId ? '(nhập URL gốc Domain ở trên)' : '(bấm "Tạo Webhook ID" để tạo URL mới)')}
+                      {webhookDomainFullUrl ||
+                        (currentWebhookId
+                          ? "(nhập URL gốc Domain ở trên)"
+                          : '(bấm "Tạo Webhook ID" để tạo URL mới)')}
                     </code>
                     {webhookDomainFullUrl && (
-                      <Button type="button" variant="outline" size="icon" title="Sao chép"
-                        onClick={() => { navigator.clipboard.writeText(webhookDomainFullUrl); toast.success('Đã sao chép webhook URL'); }}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        title="Sao chép"
+                        onClick={() => {
+                          navigator.clipboard.writeText(webhookDomainFullUrl);
+                          toast.success("Đã sao chép webhook URL");
+                        }}
+                      >
                         <Copy className="h-4 w-4" />
                       </Button>
                     )}
@@ -1494,30 +2076,52 @@ export default function CaiDatPage() {
                 </div>
 
                 {/* Tạo / đổi webhook ID */}
-                <Button size="sm" variant="outline" onClick={handleGenerateWebhookId} disabled={webhookIdGenerating} className="w-full">
-                  {webhookIdGenerating
-                    ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    : <Webhook className="h-4 w-4 mr-2" />}
-                  {currentWebhookId ? 'Tạo lại Webhook ID mới' : 'Tạo Webhook ID'}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleGenerateWebhookId}
+                  disabled={webhookIdGenerating}
+                  className="w-full"
+                >
+                  {webhookIdGenerating ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Webhook className="h-4 w-4 mr-2" />
+                  )}
+                  {currentWebhookId
+                    ? "Tạo lại Webhook ID mới"
+                    : "Tạo Webhook ID"}
                 </Button>
 
                 {/* Nút test */}
-                <Button size="sm" variant="outline" onClick={handleTestWebhook} disabled={webhookTestLoading} className="w-full">
-                  {webhookTestLoading
-                    ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    : <CheckCircle className="h-4 w-4 mr-2" />}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleTestWebhook}
+                  disabled={webhookTestLoading}
+                  className="w-full"
+                >
+                  {webhookTestLoading ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                  )}
                   Test webhook (gửi tin giả lập)
                 </Button>
 
                 {webhookTestResult && (
-                  <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${
-                    webhookTestResult.ok
-                      ? 'bg-green-50 border border-green-200 text-green-800'
-                      : 'bg-red-50 border border-red-200 text-red-800'
-                  }`}>
-                    {webhookTestResult.ok
-                      ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
-                      : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                  <div
+                    className={`rounded-md p-3 text-sm flex items-center gap-2 ${
+                      webhookTestResult.ok
+                        ? "bg-green-50 border border-green-200 text-green-800"
+                        : "bg-red-50 border border-red-200 text-red-800"
+                    }`}
+                  >
+                    {webhookTestResult.ok ? (
+                      <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
+                    ) : (
+                      <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
+                    )}
                     {webhookTestResult.message}
                   </div>
                 )}
@@ -1544,21 +2148,20 @@ export default function CaiDatPage() {
                 </details>
               </CardContent>
             </Card>
-
           </TabsContent>
         )}
 
         {/* ── Tab Lưu trữ ───────────────────────────────────────────────────── */}
         {canManage && !loadingSystem && !errorSystem && (
           <TabsContent value="luuTru" className="space-y-4 mt-4">
-            {settingsByGroup['luuTru']?.length && (
+            {settingsByGroup["luuTru"]?.length && (
               <SettingGroupCard
                 nhom="luuTru"
-                items={settingsByGroup['luuTru']}
+                items={settingsByGroup["luuTru"]}
                 values={settingValues}
                 onChange={handleSettingChange}
                 onSave={handleSaveGroup}
-                saving={savingGroup === 'luuTru'}
+                saving={savingGroup === "luuTru"}
               />
             )}
 
@@ -1570,29 +2173,53 @@ export default function CaiDatPage() {
                   Kiểm tra kết nối MinIO
                 </CardTitle>
                 <CardDescription className="text-xs md:text-sm">
-                  Lưu cài đặt MinIO trước, sau đó bấm kiểm tra để xác nhận kết nối thành công.
+                  Lưu cài đặt MinIO trước, sau đó bấm kiểm tra để xác nhận kết
+                  nối thành công.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
-                <Button size="sm" variant="outline" onClick={handleTestMinio} disabled={minioTestLoading} className="w-full">
-                  {minioTestLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleTestMinio}
+                  disabled={minioTestLoading}
+                  className="w-full"
+                >
+                  {minioTestLoading ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                  )}
                   Kiểm tra kết nối
                 </Button>
                 {minioTestResult && (
-                  <div className={`rounded-md p-3 text-sm flex flex-col gap-1 ${
-                    minioTestResult.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
-                  }`}>
+                  <div
+                    className={`rounded-md p-3 text-sm flex flex-col gap-1 ${
+                      minioTestResult.ok
+                        ? "bg-green-50 border border-green-200 text-green-800"
+                        : "bg-red-50 border border-red-200 text-red-800"
+                    }`}
+                  >
                     <div className="flex items-center gap-2 font-medium">
-                      {minioTestResult.ok
-                        ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
-                        : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                      {minioTestResult.ok ? (
+                        <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
+                      )}
                       {minioTestResult.message}
                     </div>
                     {minioTestResult.ok && minioTestResult.details && (
                       <div className="text-xs font-mono text-green-700 mt-1 space-y-0.5 pl-6">
-                        <div>Endpoint: {String(minioTestResult.details.endpoint)}</div>
-                        <div>Bucket: {String(minioTestResult.details.bucket)}</div>
-                        <div>Tổng buckets: {String(minioTestResult.details.totalBuckets)}</div>
+                        <div>
+                          Endpoint: {String(minioTestResult.details.endpoint)}
+                        </div>
+                        <div>
+                          Bucket: {String(minioTestResult.details.bucket)}
+                        </div>
+                        <div>
+                          Tổng buckets:{" "}
+                          {String(minioTestResult.details.totalBuckets)}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1606,7 +2233,7 @@ export default function CaiDatPage() {
         {canManage && !loadingSystem && !errorSystem && (
           <TabsContent value="heThong" className="space-y-4 mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {['heThong', 'baoMat'].map((nhom) =>
+              {["heThong", "baoMat"].map((nhom) =>
                 settingsByGroup[nhom]?.length ? (
                   <SettingGroupCard
                     key={nhom}
@@ -1617,7 +2244,7 @@ export default function CaiDatPage() {
                     onSave={handleSaveGroup}
                     saving={savingGroup === nhom}
                   />
-                ) : null
+                ) : null,
               )}
             </div>
           </TabsContent>
@@ -1642,12 +2269,26 @@ export default function CaiDatPage() {
                   <Label className="text-xs md:text-sm">Font chữ</Label>
                   <Select
                     value={fontSettings.fontFamily}
-                    onValueChange={(v) => setFontSettings((p) => ({ ...p, fontFamily: v }))}
+                    onValueChange={(v) =>
+                      setFontSettings((p) => ({ ...p, fontFamily: v }))
+                    }
                   >
-                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Nunito'].map((f) => (
-                        <SelectItem key={f} value={f} className="text-sm">{f}</SelectItem>
+                      {[
+                        "Inter",
+                        "Roboto",
+                        "Open Sans",
+                        "Lato",
+                        "Montserrat",
+                        "Poppins",
+                        "Nunito",
+                      ].map((f) => (
+                        <SelectItem key={f} value={f} className="text-sm">
+                          {f}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1656,14 +2297,26 @@ export default function CaiDatPage() {
                   <Label className="text-xs md:text-sm">Cỡ chữ</Label>
                   <Select
                     value={fontSettings.fontSize}
-                    onValueChange={(v) => setFontSettings((p) => ({ ...p, fontSize: v }))}
+                    onValueChange={(v) =>
+                      setFontSettings((p) => ({ ...p, fontSize: v }))
+                    }
                   >
-                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="small" className="text-sm">Nhỏ</SelectItem>
-                      <SelectItem value="medium" className="text-sm">Trung bình</SelectItem>
-                      <SelectItem value="large" className="text-sm">Lớn</SelectItem>
-                      <SelectItem value="extra-large" className="text-sm">Rất lớn</SelectItem>
+                      <SelectItem value="small" className="text-sm">
+                        Nhỏ
+                      </SelectItem>
+                      <SelectItem value="medium" className="text-sm">
+                        Trung bình
+                      </SelectItem>
+                      <SelectItem value="large" className="text-sm">
+                        Lớn
+                      </SelectItem>
+                      <SelectItem value="extra-large" className="text-sm">
+                        Rất lớn
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1671,14 +2324,26 @@ export default function CaiDatPage() {
                   <Label className="text-xs md:text-sm">Khoảng cách dòng</Label>
                   <Select
                     value={fontSettings.lineHeight}
-                    onValueChange={(v) => setFontSettings((p) => ({ ...p, lineHeight: v }))}
+                    onValueChange={(v) =>
+                      setFontSettings((p) => ({ ...p, lineHeight: v }))
+                    }
                   >
-                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="tight" className="text-sm">Chặt</SelectItem>
-                      <SelectItem value="normal" className="text-sm">Bình thường</SelectItem>
-                      <SelectItem value="relaxed" className="text-sm">Thoải mái</SelectItem>
-                      <SelectItem value="loose" className="text-sm">Rộng rãi</SelectItem>
+                      <SelectItem value="tight" className="text-sm">
+                        Chặt
+                      </SelectItem>
+                      <SelectItem value="normal" className="text-sm">
+                        Bình thường
+                      </SelectItem>
+                      <SelectItem value="relaxed" className="text-sm">
+                        Thoải mái
+                      </SelectItem>
+                      <SelectItem value="loose" className="text-sm">
+                        Rộng rãi
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1686,20 +2351,38 @@ export default function CaiDatPage() {
                   <Label className="text-xs md:text-sm">Độ đậm chữ</Label>
                   <Select
                     value={fontSettings.fontWeight}
-                    onValueChange={(v) => setFontSettings((p) => ({ ...p, fontWeight: v }))}
+                    onValueChange={(v) =>
+                      setFontSettings((p) => ({ ...p, fontWeight: v }))
+                    }
                   >
-                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="light" className="text-sm">Nhạt</SelectItem>
-                      <SelectItem value="normal" className="text-sm">Bình thường</SelectItem>
-                      <SelectItem value="medium" className="text-sm">Vừa</SelectItem>
-                      <SelectItem value="semibold" className="text-sm">Đậm vừa</SelectItem>
-                      <SelectItem value="bold" className="text-sm">Đậm</SelectItem>
+                      <SelectItem value="light" className="text-sm">
+                        Nhạt
+                      </SelectItem>
+                      <SelectItem value="normal" className="text-sm">
+                        Bình thường
+                      </SelectItem>
+                      <SelectItem value="medium" className="text-sm">
+                        Vừa
+                      </SelectItem>
+                      <SelectItem value="semibold" className="text-sm">
+                        Đậm vừa
+                      </SelectItem>
+                      <SelectItem value="bold" className="text-sm">
+                        Đậm
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <Button size="sm" className="w-full" onClick={handleSaveFontSettings}>
+              <Button
+                size="sm"
+                className="w-full"
+                onClick={handleSaveFontSettings}
+              >
                 <Save className="h-4 w-4 mr-2" />
                 Lưu font chữ
               </Button>
@@ -1718,23 +2401,45 @@ export default function CaiDatPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs md:text-sm">Chủ đề</Label>
-                  <Select value={uiSettings.theme} onValueChange={handleThemeChange}>
-                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={uiSettings.theme}
+                    onValueChange={handleThemeChange}
+                  >
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="light" className="text-sm">Sáng</SelectItem>
-                      <SelectItem value="dark" className="text-sm">Tối</SelectItem>
-                      <SelectItem value="auto" className="text-sm">Tự động</SelectItem>
+                      <SelectItem value="light" className="text-sm">
+                        Sáng
+                      </SelectItem>
+                      <SelectItem value="dark" className="text-sm">
+                        Tối
+                      </SelectItem>
+                      <SelectItem value="auto" className="text-sm">
+                        Tự động
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs md:text-sm">Mật độ hiển thị</Label>
-                  <Select value={uiSettings.density} onValueChange={handleDensityChange}>
-                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={uiSettings.density}
+                    onValueChange={handleDensityChange}
+                  >
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="compact" className="text-sm">Chật</SelectItem>
-                      <SelectItem value="comfortable" className="text-sm">Thoải mái</SelectItem>
-                      <SelectItem value="spacious" className="text-sm">Rộng rãi</SelectItem>
+                      <SelectItem value="compact" className="text-sm">
+                        Chật
+                      </SelectItem>
+                      <SelectItem value="comfortable" className="text-sm">
+                        Thoải mái
+                      </SelectItem>
+                      <SelectItem value="spacious" className="text-sm">
+                        Rộng rãi
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1753,57 +2458,107 @@ export default function CaiDatPage() {
                 <HardDrive className="h-4 w-4" />
                 Chọn file từ MinIO
               </h3>
-              <button type="button" className="text-gray-400 hover:text-gray-700 text-lg leading-none"
-                onClick={() => setMinioBrowserOpen(false)}>✕</button>
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-700 text-lg leading-none"
+                onClick={() => setMinioBrowserOpen(false)}
+              >
+                ✕
+              </button>
             </div>
             <div className="p-3 border-b flex gap-2">
               <Input
-                type="text" placeholder="Tìm kiếm theo tên hoặc thư mục..."
-                value={minioPrefix} onChange={e => setMinioPrefix(e.target.value)}
+                type="text"
+                placeholder="Tìm kiếm theo tên hoặc thư mục..."
+                value={minioPrefix}
+                onChange={(e) => setMinioPrefix(e.target.value)}
                 className="text-sm flex-1"
-                onKeyDown={e => e.key === 'Enter' && loadMinioFiles(minioPrefix)}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && loadMinioFiles(minioPrefix)
+                }
               />
-              <Button size="sm" variant="outline" onClick={() => loadMinioFiles(minioPrefix)} disabled={minioFilesLoading}>
-                {minioFilesLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => loadMinioFiles(minioPrefix)}
+                disabled={minioFilesLoading}
+              >
+                {minioFilesLoading ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
               </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
               {minioFilesLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
-                  <span className="ml-2 text-sm text-gray-500">Đang tải...</span>
+                  <span className="ml-2 text-sm text-gray-500">
+                    Đang tải...
+                  </span>
                 </div>
               ) : minioFiles.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-8">Không có file nào.</p>
+                <p className="text-center text-sm text-gray-400 py-8">
+                  Không có file nào.
+                </p>
               ) : (
                 <div className="space-y-1">
                   {minioFiles.map((f, i) => {
-                    const name = f.name.split('/').pop() || f.name;
-                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(name);
+                    const name = f.name.split("/").pop() || f.name;
+                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(
+                      name,
+                    );
                     const ttlMs = (f as any).ttl;
                     return (
-                      <button key={i} type="button"
+                      <button
+                        key={i}
+                        type="button"
                         className="w-full text-left flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 border hover:border-blue-200 transition-colors"
-                        onClick={() => selectMinioFile(f)}>
+                        onClick={() => selectMinioFile(f)}
+                      >
                         {isImage ? (
-                          <img src={f.url} alt="" className="h-10 w-10 rounded object-contain border shrink-0"
-                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          <img
+                            src={f.url}
+                            alt=""
+                            className="h-10 w-10 rounded object-contain border shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                          />
                         ) : (
                           <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center shrink-0">
                             <FileText className="h-5 w-5 text-gray-500" />
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">{name}</p>
+                          <p className="text-sm font-medium text-gray-800 truncate">
+                            {name}
+                          </p>
                           <p className="text-[10px] text-gray-400">
-                            {formatBytes(f.size)} · {new Date(f.lastModified).toLocaleDateString('vi-VN')}
-                            {f.name.includes('/') && <span className="ml-1 text-gray-300">{f.name.replace('/' + name, '')}</span>}
+                            {formatBytes(f.size)} ·{" "}
+                            {new Date(f.lastModified).toLocaleDateString(
+                              "vi-VN",
+                            )}
+                            {f.name.includes("/") && (
+                              <span className="ml-1 text-gray-300">
+                                {f.name.replace("/" + name, "")}
+                              </span>
+                            )}
                           </p>
                           {ttlMs > 0 && (
-                            <p className="text-[10px] text-amber-600">TTL: {ttlMs >= 86400000 ? `${Math.round(ttlMs / 86400000)} ngày` : `${Math.round(ttlMs / 3600000)} giờ`}</p>
+                            <p className="text-[10px] text-amber-600">
+                              TTL:{" "}
+                              {ttlMs >= 86400000
+                                ? `${Math.round(ttlMs / 86400000)} ngày`
+                                : `${Math.round(ttlMs / 3600000)} giờ`}
+                            </p>
                           )}
                         </div>
-                        <span className="text-xs text-blue-600 shrink-0">Chọn</span>
+                        <span className="text-xs text-blue-600 shrink-0">
+                          Chọn
+                        </span>
                       </button>
                     );
                   })}
