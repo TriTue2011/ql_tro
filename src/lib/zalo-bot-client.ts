@@ -106,13 +106,13 @@ export async function sendImageViaBotServer(
   chatId: string,
   imageUrl: string,
   caption?: string,
-): Promise<boolean> {
+): Promise<{ ok: boolean; error?: string }> {
   try {
     const config = await getBotConfig();
-    if (!config || !config.accountId) return false;
+    if (!config || !config.accountId) return { ok: false, error: 'Chưa cấu hình bot server (zalo_bot_server_url / zalo_bot_account_id)' };
 
     const authHeaders = await loginToBotServer(config);
-    if (!authHeaders) return false;
+    if (!authHeaders) return { ok: false, error: 'Không đăng nhập được bot server' };
 
     const payload: Record<string, any> = {
       imageUrl,
@@ -129,9 +129,13 @@ export async function sendImageViaBotServer(
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(20_000),
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, error: `Bot server HTTP ${res.status}: ${text.slice(0, 200)}` };
+    }
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Lỗi kết nối bot server' };
   }
 }
 
