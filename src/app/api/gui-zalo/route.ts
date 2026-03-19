@@ -12,21 +12,87 @@ import {
   sendVideoViaBotServer,
 } from '@/lib/zalo-bot-client';
 
+// Không dùng z.string().url() cho media vì UI có thể gửi đường dẫn nội bộ như /api/files/...
 const schema = z.object({
   phone: z.string().min(9, 'Số điện thoại không hợp lệ').optional(),
   chatId: z.string().min(1).optional(),
   nguoiDungId: z.string().min(1).optional(), // ID của NguoiDung (chủ trọ/admin)
   message: z.string().min(1, 'Tin nhắn không được trống').max(2000).optional(),
-  imageUrl: z.string().url('URL hình ảnh không hợp lệ').optional(),
-  fileUrl: z.string().url('URL file không hợp lệ').optional(),
-  videoUrl: z.string().url('URL video không hợp lệ').optional(),
-  thumbnailUrl: z.string().url().optional(),  // thumbnail cho video (tùy chọn)
-  durationMs: z.number().int().positive().optional(), // thời lượng video (ms)
+  imageUrl: z.string().min(1, 'URL hình ảnh không hợp lệ').optional(),
+  fileUrl: z.string().min(1, 'URL file không hợp lệ').optional(),
+  videoUrl: z.string().min(1, 'URL video không hợp lệ').optional(),
+  thumbnailUrl: z.string().min(1, 'URL thumbnail không hợp lệ').optional(),
+  durationMs: z.number().int().positive().optional(),
   threadType: z.union([z.literal(0), z.literal(1)]).optional(), // 0 = user (mặc định), 1 = group
 }).refine(d => d.phone || d.chatId || d.nguoiDungId, { message: 'Cần cung cấp phone, chatId hoặc nguoiDungId' })
   .refine(d => d.message || d.imageUrl || d.fileUrl || d.videoUrl, { message: 'Cần cung cấp message, imageUrl, fileUrl hoặc videoUrl' });
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
+
+function isAbsoluteHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+function isRelativeAssetUrl(value: string): boolean {
+  return value.startsWith('/');
+}
+
+async function getAppBaseUrls(): Promise<{ localBase: string | null; domainBase: string | null }> {
+  try {
+    const rows = await prisma.caiDat.findMany({
+      where: { khoa: { in: ['app_local_url', 'app_domain_url'] } },
+    });
+    const map = Object.fromEntries(rows.map(row => [row.khoa, row.giaTri?.trim() || '']));
+    return {
+      localBase: map.app_local_url || null,
+      domainBase: map.app_domain_url || null,
+    };
+  } catch {
+    return { localBase: null, domainBase: null };
+  }
+}
+
+function combineUrl(baseUrl: string, path: string): string {
+  return new URL(path, `${baseUrl.replace(/\/$/, '')}/`).toString();
+}
+
+/**
+ * Chuẩn hoá URL media từ UI:
+ * - Cho phép cả URL tuyệt đối và đường dẫn nội bộ như /api/files/... hoặc /uploads/...
+ * - bot_server ưu tiên app_local_url để container bot tải được file
+ * - OA ưu tiên app_domain_url để Zalo có thể truy cập được
+ */
+async function normalizeAssetUrl(rawUrl: string | undefined, request: NextRequest, mode: 'bot_server' | 'oa'): Promise<string | undefined> {
+  if (!rawUrl) return undefined;
+
+  const url = rawUrl.trim();
+  if (!url) return undefined;
+
+  if (!isAbsoluteHttpUrl(url) && !isRelativeAssetUrl(url)) {
+    throw new Error('URL tài nguyên không hợp lệ');
+  }
+
+  const { localBase, domainBase } = await getAppBaseUrls();
+  const requestOrigin = request.nextUrl.origin;
+  const fallbackBase = mode === 'bot_server'
+    ? (localBase || domainBase || requestOrigin)
+    : (domainBase || localBase || requestOrigin);
+
+  const absoluteUrl = isRelativeAssetUrl(url)
+    ? combineUrl(fallbackBase, url)
+    : url;
+
+  if (mode === 'bot_server') {
+    return resolveLocalUrl(absoluteUrl);
+  }
+
+  if ((absoluteUrl.includes('localhost') || absoluteUrl.includes('127.0.0.1')) && domainBase) {
+    const parsed = new URL(absoluteUrl);
+    return combineUrl(domainBase, `${parsed.pathname}${parsed.search}`);
+  }
+
+  return absoluteUrl;
+}
 
 /** Lưu tin nhắn gửi đi vào DB (ZaloMessage) để có lịch sử */
 async function logSentMessage(chatId: string, content: string, attachmentUrl?: string) {
@@ -65,6 +131,22 @@ async function resolveLocalUrl(url: string): Promise<string> {
     }
   } catch { /* giữ nguyên URL nếu parse lỗi */ }
   return url;
+}
+
+/** Suy ra threadType từ lịch sử nếu client chưa chọn rõ user/group. */
+async function inferThreadType(chatId: string, explicitType?: 0 | 1): Promise<0 | 1> {
+  if (explicitType !== undefined) return explicitType;
+  try {
+    const lastMsg = await prisma.zaloMessage.findFirst({
+      where: { chatId },
+      orderBy: { createdAt: 'desc' },
+      select: { rawPayload: true },
+    });
+    const raw = lastMsg?.rawPayload as any;
+    return raw?.type === 1 ? 1 : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /** Lấy Zalo Bot Token từ cài đặt hệ thống */
@@ -145,7 +227,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { phone, chatId: explicitChatId, nguoiDungId, message, imageUrl, fileUrl, videoUrl, thumbnailUrl, durationMs, threadType } = parsed.data;
-    const tType: 0 | 1 = threadType ?? 0;
 
     // Resolve chat_id theo thứ tự ưu tiên: trực tiếp → khách thuê theo SĐT → người dùng theo ID
     let chatId = explicitChatId ?? null;
@@ -169,14 +250,14 @@ export async function POST(request: NextRequest) {
       const result = await resolveChatIdNguoiDung(nguoiDungId);
       if (result.disabled) {
         return NextResponse.json(
-          { success: false, message: `Người dùng đã tắt nhận thông báo Zalo.` },
+          { success: false, message: 'Người dùng đã tắt nhận thông báo Zalo.' },
           { status: 422 }
         );
       }
       chatId = result.chatId;
       if (!chatId) {
         return NextResponse.json(
-          { success: false, message: `Người dùng chưa liên kết Zalo Chat ID. Vui lòng cập nhật trong hồ sơ.` },
+          { success: false, message: 'Người dùng chưa liên kết Zalo Chat ID. Vui lòng cập nhật trong hồ sơ.' },
           { status: 422 }
         );
       }
@@ -185,23 +266,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Thiếu chatId' }, { status: 422 });
     }
 
+    const tType = await inferThreadType(chatId, threadType);
+
     // ── Bot server mode ───────────────────────────────────────────────────────
     if (await isBotServerMode()) {
-      // Thay localhost trong URL bằng IP LAN để bot server (external) truy cập được
-      const fixUrl = await resolveLocalUrl(imageUrl || fileUrl || videoUrl || '');
-      const fixedImageUrl = imageUrl ? fixUrl : undefined;
-      const fixedFileUrl = fileUrl ? fixUrl : undefined;
-      const fixedVideoUrl = videoUrl ? fixUrl : undefined;
+      const fixedImageUrl = await normalizeAssetUrl(imageUrl, request, 'bot_server');
+      const fixedFileUrl = await normalizeAssetUrl(fileUrl, request, 'bot_server');
+      const fixedVideoUrl = await normalizeAssetUrl(videoUrl, request, 'bot_server');
+      const fixedThumbnailUrl = await normalizeAssetUrl(thumbnailUrl, request, 'bot_server');
 
       if (fixedVideoUrl) {
-        const ok = await sendVideoViaBotServer(chatId, fixedVideoUrl, { thumbnailUrl, durationMs, threadType: tType });
-        if (!ok) return NextResponse.json({ success: false, message: 'Bot server lỗi khi gửi video.' }, { status: 502 });
+        const result = await sendVideoViaBotServer(chatId, fixedVideoUrl, { thumbnailUrl: fixedThumbnailUrl, durationMs, threadType: tType });
+        if (!result.ok) return NextResponse.json({ success: false, message: result.error || 'Bot server lỗi khi gửi video.' }, { status: 502 });
         await logSentMessage(chatId, message || '', fixedVideoUrl);
         return NextResponse.json({ success: true, message: 'Đã gửi video Zalo thành công (bot server)' });
       }
       if (fixedFileUrl) {
-        const ok = await sendFileViaBotServer(chatId, fixedFileUrl, message, tType);
-        if (!ok) return NextResponse.json({ success: false, message: 'Bot server lỗi khi gửi file.' }, { status: 502 });
+        const result = await sendFileViaBotServer(chatId, fixedFileUrl, message, tType);
+        if (!result.ok) return NextResponse.json({ success: false, message: result.error || 'Bot server lỗi khi gửi file.' }, { status: 502 });
         await logSentMessage(chatId, message || '', fixedFileUrl);
         return NextResponse.json({ success: true, message: 'Đã gửi file Zalo thành công (bot server)' });
       }
@@ -211,8 +293,8 @@ export async function POST(request: NextRequest) {
         await logSentMessage(chatId, message || '', fixedImageUrl);
         return NextResponse.json({ success: true, message: 'Đã gửi hình ảnh Zalo thành công (bot server)' });
       }
-      const ok = await sendMessageViaBotServer(chatId, message!, tType);
-      if (!ok) return NextResponse.json({ success: false, message: 'Bot server lỗi khi gửi tin nhắn.' }, { status: 502 });
+      const result = await sendMessageViaBotServer(chatId, message!, tType);
+      if (!result.ok) return NextResponse.json({ success: false, message: result.error || 'Bot server lỗi khi gửi tin nhắn.' }, { status: 502 });
       await logSentMessage(chatId, message!);
       return NextResponse.json({ success: true, message: 'Đã gửi tin nhắn Zalo thành công (bot server)' });
     }
@@ -226,9 +308,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Gửi hình ảnh (có thể kèm caption là message)
-    if (imageUrl) {
-      const response = await sendZaloPhoto(token, chatId, imageUrl, message);
+    const normalizedImageUrl = await normalizeAssetUrl(imageUrl, request, 'oa');
+    if (normalizedImageUrl) {
+      const response = await sendZaloPhoto(token, chatId, normalizedImageUrl, message);
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Zalo API sendPhoto error:', response.status, errorText);
@@ -238,7 +320,7 @@ export async function POST(request: NextRequest) {
         );
       }
       const result = await response.json().catch(() => ({}));
-      await logSentMessage(chatId, message || '', imageUrl);
+      await logSentMessage(chatId, message || '', normalizedImageUrl);
       return NextResponse.json({ success: true, message: 'Đã gửi hình ảnh Zalo thành công', data: result });
     }
 
@@ -257,6 +339,9 @@ export async function POST(request: NextRequest) {
     await logSentMessage(chatId, message!);
     return NextResponse.json({ success: true, message: 'Đã gửi tin nhắn Zalo thành công', data: result });
   } catch (error: any) {
+    if (error?.message === 'URL tài nguyên không hợp lệ') {
+      return NextResponse.json({ success: false, message: error.message }, { status: 400 });
+    }
     if (error?.name === 'TimeoutError') {
       return NextResponse.json(
         { success: false, message: 'Zalo API không phản hồi (timeout).' },
@@ -264,6 +349,9 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error('Error sending Zalo message:', error);
-    return NextResponse.json({ success: false, message: 'Lỗi khi gửi tin nhắn Zalo' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: 'Lỗi khi gửi tin nhắn Zalo' },
+      { status: 500 }
+    );
   }
 }
