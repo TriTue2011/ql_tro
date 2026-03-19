@@ -39,6 +39,7 @@ const DEFAULT_SETTINGS = [
   { khoa: 'thong_bao_qua_han_hoa_don', giaTri: '3', moTa: 'Cảnh báo hóa đơn quá hạn sau (ngày)', nhom: 'thongBao', laBiMat: false },
   // Hệ thống
   { khoa: 'app_local_url', giaTri: '', moTa: 'URL ứng dụng qua IP LAN (vd: http://172.16.10.200:3000) — dùng cho webhook nội bộ', nhom: 'heThong', laBiMat: false },
+  { khoa: 'app_domain_url', giaTri: '', moTa: 'URL ứng dụng qua domain (vd: https://qlpt.vhtatn.io.vn) — dùng cho webhook qua internet', nhom: 'heThong', laBiMat: false },
   { khoa: 'ten_cong_ty', giaTri: 'Quản Lý Trọ', moTa: 'Tên công ty / nhà trọ', nhom: 'heThong', laBiMat: false },
   { khoa: 'email_lien_he', giaTri: '', moTa: 'Email liên hệ hiển thị trên hóa đơn', nhom: 'heThong', laBiMat: false },
   { khoa: 'sdt_lien_he', giaTri: '', moTa: 'Số điện thoại liên hệ', nhom: 'heThong', laBiMat: false },

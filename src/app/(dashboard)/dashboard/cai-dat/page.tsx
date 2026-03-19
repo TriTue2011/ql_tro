@@ -526,6 +526,7 @@ export default function CaiDatPage() {
   const [currentWebhookId, setCurrentWebhookId] = useState<string | null>(null);
   const [webhookIdGenerating, setWebhookIdGenerating] = useState(false);
   const [webhookBaseUrl, setWebhookBaseUrl] = useState('');
+  const [webhookDomainUrl, setWebhookDomainUrl] = useState('');
 
   // Load webhook ID hiện tại + init base URL từ app_local_url
   useEffect(() => {
@@ -537,25 +538,39 @@ export default function CaiDatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage]);
 
-  // Sync webhookBaseUrl khi settingValues load xong
+  // Sync webhookBaseUrl + webhookDomainUrl khi settingValues load xong
   useEffect(() => {
-    const saved = settingValues['app_local_url']?.trim();
-    if (saved) {
-      setWebhookBaseUrl(saved.replace(/\/$/, ''));
+    const savedLocal = settingValues['app_local_url']?.trim();
+    const savedDomain = settingValues['app_domain_url']?.trim();
+    if (savedLocal) {
+      setWebhookBaseUrl(savedLocal.replace(/\/$/, ''));
     } else if (typeof window !== 'undefined') {
-      // Nếu đang truy cập qua IP LAN (không phải domain) → auto-detect
       const host = window.location.hostname;
       const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === 'localhost';
       if (isIP) {
         setWebhookBaseUrl(window.location.origin);
       }
-      // Nếu qua domain (Cloudflare) → để trống, bắt user nhập IP LAN
+    }
+    if (savedDomain) {
+      setWebhookDomainUrl(savedDomain.replace(/\/$/, ''));
+    } else if (typeof window !== 'undefined') {
+      const host = window.location.hostname;
+      const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === 'localhost';
+      if (!isIP) {
+        // Đang truy cập qua domain → auto-detect domain
+        setWebhookDomainUrl(window.location.origin);
+      }
     }
   }, [settingValues]);
 
-  // Tính webhook full URL
+  // Tính webhook full URL (IP LAN)
   const webhookFullUrl = currentWebhookId && webhookBaseUrl
     ? `${webhookBaseUrl}/api/webhook/${currentWebhookId}`
+    : '';
+
+  // Tính webhook domain URL
+  const webhookDomainFullUrl = currentWebhookId && webhookDomainUrl
+    ? `${webhookDomainUrl}/api/webhook/${currentWebhookId}`
     : '';
 
   // Lưu app_local_url khi user thay đổi base URL
@@ -571,6 +586,27 @@ export default function CaiDatPage() {
       if (data.success) {
         setSettingValues(prev => ({ ...prev, app_local_url: clean }));
         toast.success('Đã lưu URL LAN');
+      } else {
+        toast.error(data.message || 'Lưu thất bại');
+      }
+    } catch {
+      toast.error('Lỗi lưu cài đặt');
+    }
+  }
+
+  // Lưu app_domain_url khi user thay đổi domain URL
+  async function handleSaveDomainUrl(url: string) {
+    const clean = url.trim().replace(/\/$/, '');
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: [{ khoa: 'app_domain_url', giaTri: clean }] }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSettingValues(prev => ({ ...prev, app_domain_url: clean }));
+        toast.success('Đã lưu URL domain');
       } else {
         toast.error(data.message || 'Lưu thất bại');
       }
@@ -1290,12 +1326,12 @@ export default function CaiDatPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
-                {/* Base URL (IP LAN) */}
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium text-gray-700">URL gốc (IP LAN)</Label>
-                  <div className="flex gap-2">
+                {/* URL gốc: IP LAN + Domain */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-700">URL gốc (IP LAN)</Label>
                     <Input
-                      className="flex-1 text-xs font-mono"
+                      className="text-xs font-mono"
                       placeholder="http://172.16.10.27:3000"
                       value={webhookBaseUrl}
                       onChange={(e) => setWebhookBaseUrl(e.target.value.trim())}
@@ -1305,17 +1341,30 @@ export default function CaiDatPage() {
                       }}
                     />
                   </div>
-                  <p className="text-[11px] text-gray-400">
-                    Nhập IP LAN của server (vd: <code>http://172.16.10.27:3000</code>). Tự động lưu khi rời ô.
-                  </p>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-700">URL gốc (Domain)</Label>
+                    <Input
+                      className="text-xs font-mono"
+                      placeholder="https://qlpt.vhtatn.io.vn"
+                      value={webhookDomainUrl}
+                      onChange={(e) => setWebhookDomainUrl(e.target.value.trim())}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim().replace(/\/$/, '');
+                        if (v && v !== settingValues['app_domain_url']?.trim()) handleSaveDomainUrl(v);
+                      }}
+                    />
+                  </div>
                 </div>
+                <p className="text-[11px] text-gray-400">
+                  Tự động lưu khi rời ô. Cả 2 URL đều nhận tin nhắn vào cùng &quot;Theo dõi tin nhắn&quot;.
+                </p>
 
-                {/* Webhook URL dạng HA */}
+                {/* Webhook URL qua IP LAN */}
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-gray-700">Webhook URL (qua IP LAN)</Label>
                   <div className="flex gap-2">
                     <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-blue-800 overflow-x-auto whitespace-nowrap">
-                      {webhookFullUrl || (currentWebhookId ? '(nhập URL gốc ở trên)' : '(bấm "Tạo Webhook ID" để tạo URL mới)')}
+                      {webhookFullUrl || (currentWebhookId ? '(nhập URL gốc IP LAN ở trên)' : '(bấm "Tạo Webhook ID" để tạo URL mới)')}
                     </code>
                     {webhookFullUrl && (
                       <Button type="button" variant="outline" size="icon" title="Sao chép"
@@ -1326,21 +1375,21 @@ export default function CaiDatPage() {
                   </div>
                 </div>
 
-                {/* Webhook cũ (qua /api/zalo/webhook) — chỉ hiện nếu là URL hợp lệ */}
-                {botWebhookUrl && botWebhookUrl.startsWith('http') && (
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-gray-700">Webhook URL cũ (qua domain)</Label>
-                    <div className="flex gap-2">
-                      <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-gray-500 overflow-x-auto whitespace-nowrap">
-                        {botWebhookUrl}
-                      </code>
+                {/* Webhook URL qua Domain */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-700">Webhook URL (qua Domain)</Label>
+                  <div className="flex gap-2">
+                    <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-purple-700 overflow-x-auto whitespace-nowrap">
+                      {webhookDomainFullUrl || (currentWebhookId ? '(nhập URL gốc Domain ở trên)' : '(bấm "Tạo Webhook ID" để tạo URL mới)')}
+                    </code>
+                    {webhookDomainFullUrl && (
                       <Button type="button" variant="outline" size="icon" title="Sao chép"
-                        onClick={() => { navigator.clipboard.writeText(botWebhookUrl); toast.success('Đã sao chép'); }}>
+                        onClick={() => { navigator.clipboard.writeText(webhookDomainFullUrl); toast.success('Đã sao chép webhook URL'); }}>
                         <Copy className="h-4 w-4" />
                       </Button>
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Tạo / đổi webhook ID */}
                 <Button size="sm" variant="outline" onClick={handleGenerateWebhookId} disabled={webhookIdGenerating} className="w-full">
