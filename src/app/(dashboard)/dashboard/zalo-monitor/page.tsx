@@ -136,6 +136,10 @@ export default function ZaloMonitorPage() {
             for (const m of newMsgs) {
               const existing = map.get(m.chatId);
               if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
+                // Giữ lại roomInfo từ message cũ nếu SSE không có
+                if (existing?.roomInfo && !m.roomInfo) {
+                  m.roomInfo = existing.roomInfo;
+                }
                 map.set(m.chatId, m);
               }
             }
