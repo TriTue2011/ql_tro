@@ -262,16 +262,14 @@ async function detectAndStorePending(update: any): Promise<void> {
  */
 export async function notifyHomeAssistant(update: any): Promise<void> {
   try {
-    const [urlRow, threadsRow, typeRow, webhookIdRow] = await Promise.all([
+    const [urlRow, threadsRow, typeRow] = await Promise.all([
       prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_notify_url' } }),
       prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_allowed_threads' } }),
       prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_type_filter' } }),
-      prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_trigger_webhook_id' } }),
     ]);
 
     const url = urlRow?.giaTri?.trim();
-    const triggerWebhookId = webhookIdRow?.giaTri?.trim();
-    if (!url && !triggerWebhookId) return;
+    if (!url) return;
 
     const msg = update?.message;
     const data = update?.data; // bot server (zca-js) wraps payload in .data
@@ -329,44 +327,23 @@ export async function notifyHomeAssistant(update: any): Promise<void> {
 
     const eventName = update?.event_name || update?.event || String(update?.type ?? 'message');
 
-    const payload = JSON.stringify({
-      source: 'ql_tro_zalo',
-      thread_id: threadId,
-      type: isGroup ? 'group' : 'user',
-      display_name: displayName,
-      msg_type: msgType,
-      message: content,
-      attachment_url: attachmentUrl,
-      file_name: fileName,
-      event_name: eventName,
-      ttl: data?.ttl ?? null,
-    });
-
-    // Gửi đến notify URL (forward tin nhắn)
-    if (url) {
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
-        signal: AbortSignal.timeout(8_000),
-      }).catch(() => {/* bỏ qua lỗi forward */});
-    }
-
-    // Gửi đến trigger webhook ID (trigger HA automation)
-    if (triggerWebhookId && url) {
-      try {
-        const u = new URL(url);
-        const triggerUrl = `${u.protocol}//${u.host}/api/webhook/${triggerWebhookId}`;
-        if (triggerUrl !== url) {
-          fetch(triggerUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload,
-            signal: AbortSignal.timeout(8_000),
-          }).catch(() => {/* bỏ qua */});
-        }
-      } catch { /* URL parse error */ }
-    }
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'ql_tro_zalo',
+        thread_id: threadId,
+        type: isGroup ? 'group' : 'user',
+        display_name: displayName,
+        msg_type: msgType,
+        message: content,
+        attachment_url: attachmentUrl,
+        file_name: fileName,
+        event_name: eventName,
+        ttl: data?.ttl ?? null,
+      }),
+      signal: AbortSignal.timeout(8_000),
+    }).catch(() => {/* bỏ qua lỗi forward */});
   } catch { /* không ảnh hưởng luồng chính */ }
 }
 

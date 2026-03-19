@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Copy, Trash2, Users, User, Image as ImageIcon, FileText, MessageSquare, RefreshCw, Wifi, WifiOff, Download, Clock, Building2, DoorOpen, Webhook, Send } from 'lucide-react';
+import { Copy, Trash2, Users, User, Image as ImageIcon, FileText, MessageSquare, RefreshCw, Wifi, WifiOff, Download, Clock, Building2, DoorOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -97,35 +97,7 @@ export default function ZaloMonitorPage() {
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [triggeringId, setTriggeringId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  async function handleTriggerHA(msg: MonitorMsg) {
-    const { threadId, dName } = parseRaw(msg);
-    setTriggeringId(msg.id);
-    try {
-      const res = await fetch('/api/zalo/trigger-ha-webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          thread_id: threadId,
-          display_name: dName,
-          message: msg.content,
-          type: msg.rawPayload?.type === 1 ? 'group' : 'user',
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success('Đã trigger HA webhook');
-      } else {
-        toast.error(data.message || data.error || 'Trigger thất bại');
-      }
-    } catch {
-      toast.error('Lỗi kết nối');
-    } finally {
-      setTriggeringId(null);
-    }
-  }
 
   // ─── Load lần đầu từ DB ──────────────────────────────────────────────────
   async function loadMessages() {
@@ -294,18 +266,7 @@ export default function ZaloMonitorPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className="text-xs text-gray-400">{formatTime(ts)}</span>
-                    <button type="button"
-                      className="text-gray-400 hover:text-orange-600 p-1 rounded hover:bg-orange-50 transition-colors"
-                      title="Trigger HA Webhook"
-                      disabled={triggeringId === msg.id}
-                      onClick={() => handleTriggerHA(msg)}>
-                      {triggeringId === msg.id
-                        ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                        : <Send className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
+                  <span className="text-xs text-gray-400 shrink-0">{formatTime(ts)}</span>
                 </div>
 
                 {/* Nội dung */}

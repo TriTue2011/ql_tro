@@ -30,9 +30,10 @@ const DEFAULT_SETTINGS = [
   { khoa: 'zalo_bot_username', giaTri: 'admin', moTa: 'Username đăng nhập bot server (mặc định: admin)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'zalo_bot_password', giaTri: '', moTa: 'Password đăng nhập bot server', nhom: 'thongBao', laBiMat: true },
   { khoa: 'zalo_bot_account_id', giaTri: '', moTa: 'Zalo Account ID (own_id) dùng để gửi tin — lấy từ tab Zalo Bot', nhom: 'thongBao', laBiMat: false },
-  // HA forward
+  // Webhook ID — endpoint công khai nhận tin nhắn (giống Home Assistant webhook)
+  { khoa: 'zalo_webhook_id', giaTri: '', moTa: 'Webhook ID nhận tin nhắn Zalo (tự sinh, dùng qua LAN IP)', nhom: 'thongBao', laBiMat: false },
+  // HA forward (tùy chọn)
   { khoa: 'ha_zalo_notify_url', giaTri: '', moTa: 'Home Assistant Webhook URL (forward tin Zalo đến HA)', nhom: 'thongBao', laBiMat: false },
-  { khoa: 'ha_zalo_trigger_webhook_id', giaTri: '', moTa: 'HA Webhook ID để trigger automation (vd: -kckRb3xuIlUYoMHgbwIwPMKq)', nhom: 'thongBao', laBiMat: false },
   // ha_zalo_allowed_threads và ha_zalo_type_filter được quản lý riêng trong UI (không hiện trong form generic)
   { khoa: 'thong_bao_truoc_han_hop_dong', giaTri: '30', moTa: 'Cảnh báo trước khi hợp đồng hết hạn (ngày)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'thong_bao_qua_han_hoa_don', giaTri: '3', moTa: 'Cảnh báo hóa đơn quá hạn sau (ngày)', nhom: 'thongBao', laBiMat: false },

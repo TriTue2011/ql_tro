@@ -27,7 +27,15 @@ function getRealIP(req: NextRequest): string {
 
 // ─── Security headers chung ────────────────────────────────────────────────────
 
-function addSecurityHeaders(response: NextResponse): NextResponse {
+/**
+ * Thêm security headers — thích ứng theo nguồn request:
+ * - Qua Cloudflare (có CF-Connecting-IP): thêm HSTS + upgrade-insecure-requests
+ * - Qua LAN IP trực tiếp: KHÔNG thêm HSTS (tránh browser nhớ HSTS → phá HTTP LAN)
+ */
+function addSecurityHeaders(response: NextResponse, req: NextRequest): NextResponse {
+  // Detect request đến qua Cloudflare (HTTPS proxy)
+  const isBehindCF = !!req.headers.get('cf-connecting-ip');
+
   // Ngăn clickjacking
   response.headers.set('X-Frame-Options', 'DENY');
   // Ngăn MIME sniffing
@@ -41,11 +49,21 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
   );
-  // HSTS — Cloudflare sẽ ghi đè nhưng đặt sẵn ở app level
-  response.headers.set(
-    'Strict-Transport-Security',
-    'max-age=31536000; includeSubDomains; preload'
-  );
+
+  // HSTS + upgrade-insecure-requests CHỈ khi qua Cloudflare (HTTPS)
+  // Không thêm khi truy cập qua LAN IP HTTP → tránh browser cache HSTS
+  if (isBehindCF) {
+    response.headers.set(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains; preload'
+    );
+    // Thêm upgrade-insecure-requests vào CSP hiện có
+    const existingCSP = response.headers.get('Content-Security-Policy') || '';
+    if (existingCSP && !existingCSP.includes('upgrade-insecure-requests')) {
+      response.headers.set('Content-Security-Policy', existingCSP + '; upgrade-insecure-requests');
+    }
+  }
+
   // Ẩn thông tin server
   response.headers.delete('X-Powered-By');
   response.headers.delete('Server');
@@ -137,6 +155,7 @@ export default withAuth(
     const isManagementApi = pathname.startsWith('/api/') &&
       !pathname.startsWith('/api/auth/') &&
       !pathname.startsWith('/api/khach-thue/') &&
+      !pathname.startsWith('/api/webhook/') &&
       pathname !== '/api/upload';
     if (isManagementApi && token?.role === 'khachThue') {
       return new NextResponse(
@@ -146,7 +165,7 @@ export default withAuth(
     }
 
     const response = NextResponse.next();
-    return addSecurityHeaders(response);
+    return addSecurityHeaders(response, req);
   },
   {
     callbacks: {
@@ -163,6 +182,9 @@ export default withAuth(
         if (pathname.startsWith('/dashboard')) {
           return !!token && role !== 'khachThue';
         }
+
+        // /api/webhook/* không cần session (public endpoint giống HA)
+        if (pathname.startsWith('/api/webhook/')) return true;
 
         // /api/admin/create-first không cần session (bootstrap admin đầu tiên)
         if (pathname === '/api/admin/create-first') return true;
