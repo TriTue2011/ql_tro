@@ -81,6 +81,23 @@ export function buildFolderPath(folder: string): string {
     .join('/');
 }
 
+/**
+ * Tạo folder path chuẩn cho upload: {toaNha}/{maPhong}/{MM.YYYY}
+ * - Bỏ tầng, chỉ giữ tòa nhà + phòng
+ * - Phân loại theo tháng.năm (vd: 03.2026)
+ * - date mặc định = now
+ */
+export function buildUploadFolder(
+  toaNha?: string,
+  maPhong?: string,
+  date?: Date,
+): string | undefined {
+  const d = date ?? new Date();
+  const thangNam = `${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+  const parts = [toaNha, maPhong, thangNam].filter(Boolean);
+  return parts.length > 0 ? parts.join('/') : undefined;
+}
+
 export async function uploadFile(file: File, folder?: string): Promise<UploadResult> {
   const config = await getStorageConfig();
   const normalizedFolder = folder ? buildFolderPath(folder) : undefined;

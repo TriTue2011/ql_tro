@@ -52,6 +52,7 @@ import {
 import { Phong, ToaNha } from '@/types';
 import { PhongDataTable } from './table';
 import { PhongImageUpload } from '@/components/ui/phong-image-upload';
+import { buildUploadFolder } from '@/lib/storage';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
@@ -1216,11 +1217,10 @@ function PhongForm({
               onImagesChange={(images: string[]) => setFormData(prev => ({ ...prev, anhPhong: images }))}
               maxImages={10}
               className="w-full"
-              folder={[
+              folder={buildUploadFolder(
                 toaNhaList.find(t => t.id === formData.toaNha)?.tenToaNha || formData.toaNha,
-                'phong',
                 formData.maPhong,
-              ].filter(Boolean).join('/')}
+              )}
             />
           </div>
 

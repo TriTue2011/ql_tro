@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,6 +50,7 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
+  Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -453,6 +454,36 @@ export default function CaiDatPage() {
   const [testFileUrl, setTestFileUrl] = useState('');
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testUploading, setTestUploading] = useState(false);
+  const testFileInputRef = useRef<HTMLInputElement>(null);
+
+  /** Upload file từ máy lên MinIO, trả về URL */
+  async function handleTestUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setTestUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'test');
+      if (testType === 'file') formData.append('type', 'file');
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok || !data?.data?.secure_url) {
+        toast.error(data?.message || 'Upload thất bại');
+        return;
+      }
+      const url = data.data.secure_url;
+      if (testType === 'image') setTestImageUrl(url);
+      else setTestFileUrl(url);
+      toast.success('Upload thành công — đã lưu vào MinIO');
+    } catch (err: any) {
+      toast.error(err?.message || 'Lỗi upload');
+    } finally {
+      setTestUploading(false);
+      if (testFileInputRef.current) testFileInputRef.current.value = '';
+    }
+  }
 
   // MinIO file browser
   const [minioBrowserOpen, setMinioBrowserOpen] = useState(false);
@@ -1083,14 +1114,30 @@ export default function CaiDatPage() {
                     value={testChatId} onChange={(e) => setTestChatId(e.target.value)}
                     className="text-sm font-mono" />
                 </div>
+                {/* Hidden file input cho upload */}
+                <input
+                  type="file"
+                  ref={testFileInputRef}
+                  className="hidden"
+                  accept={testType === 'image' ? 'image/*' : '*/*'}
+                  onChange={handleTestUpload}
+                />
                 {testType === 'image' && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs md:text-sm font-medium">URL hình ảnh</Label>
-                      <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                        onClick={openMinioBrowser}>
-                        <HardDrive className="h-3 w-3" /> Chọn từ MinIO
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button type="button" className="text-xs text-green-600 hover:underline flex items-center gap-1"
+                          disabled={testUploading}
+                          onClick={() => testFileInputRef.current?.click()}>
+                          {testUploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                          {testUploading ? 'Đang upload...' : 'Upload từ máy'}
+                        </button>
+                        <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                          onClick={openMinioBrowser}>
+                          <HardDrive className="h-3 w-3" /> Chọn từ MinIO
+                        </button>
+                      </div>
                     </div>
                     <Input type="url" placeholder="https://example.com/image.jpg"
                       value={testImageUrl} onChange={(e) => setTestImageUrl(e.target.value)}
@@ -1104,10 +1151,18 @@ export default function CaiDatPage() {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs md:text-sm font-medium">URL file</Label>
-                      <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                        onClick={openMinioBrowser}>
-                        <HardDrive className="h-3 w-3" /> Chọn từ MinIO
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button type="button" className="text-xs text-green-600 hover:underline flex items-center gap-1"
+                          disabled={testUploading}
+                          onClick={() => testFileInputRef.current?.click()}>
+                          {testUploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                          {testUploading ? 'Đang upload...' : 'Upload từ máy'}
+                        </button>
+                        <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                          onClick={openMinioBrowser}>
+                          <HardDrive className="h-3 w-3" /> Chọn từ MinIO
+                        </button>
+                      </div>
                     </div>
                     <Input type="url" placeholder="https://example.com/document.pdf"
                       value={testFileUrl} onChange={(e) => setTestFileUrl(e.target.value)}

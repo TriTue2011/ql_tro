@@ -27,6 +27,7 @@ import {
 import { HopDong, Phong, KhachThue } from '@/types';
 import { toast } from 'sonner';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { buildUploadFolder } from '@/lib/storage';
 
 // Helper functions
 const getPhongName = (phongId: string | Phong, phongList: Phong[]) => {
@@ -880,11 +881,11 @@ export default function ThemMoiHoaDonPage() {
                   {(() => {
                     const selPhong = phongList.find(p => p.id === formData.phong);
                     const tenToa = (selPhong?.toaNha as any)?.tenToaNha || '';
-                    const thangNam = formData.thang && formData.nam
-                      ? `${formData.nam}-${String(formData.thang).padStart(2, '0')}`
-                      : '';
                     const maPhong = selPhong?.maPhong || '';
-                    const folder = [tenToa, thangNam, maPhong].filter(Boolean).join('/') || undefined;
+                    const dateForFolder = formData.thang && formData.nam
+                      ? new Date(formData.nam, formData.thang - 1)
+                      : undefined;
+                    const folder = buildUploadFolder(tenToa, maPhong, dateForFolder);
                     return (
                       <>
                         <ImageUpload
