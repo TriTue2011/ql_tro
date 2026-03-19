@@ -21,6 +21,7 @@ interface BotConfig {
   username: string;
   password: string;
   accountId: string;
+  ttl: number; // TTL tin nhắn (ms), 0 = không tự hủy
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -35,6 +36,7 @@ export async function getBotConfig(): Promise<BotConfig | null> {
             'zalo_bot_username',
             'zalo_bot_password',
             'zalo_bot_account_id',
+            'zalo_bot_ttl',
           ],
         },
       },
@@ -47,6 +49,7 @@ export async function getBotConfig(): Promise<BotConfig | null> {
       username: map['zalo_bot_username'] || 'admin',
       password: map['zalo_bot_password'] || 'admin',
       accountId: map['zalo_bot_account_id'] || '',
+      ttl: parseInt(map['zalo_bot_ttl'] || '0', 10) || 0,
     };
   } catch {
     return null;
@@ -120,7 +123,7 @@ export async function sendImageViaBotServer(
       threadId: chatId,
       accountSelection: config.accountId,
       type: threadType,
-      ttl: 0,
+      ttl: config.ttl,
     };
     if (caption) payload.message = caption.slice(0, 1024);
 
@@ -159,7 +162,7 @@ export async function sendFileViaBotServer(
       threadId: chatId,
       accountSelection: config.accountId,
       type: threadType,
-      ttl: 0,
+      ttl: config.ttl,
     };
     if (caption) payload.message = caption.slice(0, 1024);
 
@@ -204,7 +207,7 @@ export async function sendVideoViaBotServer(
         duration: opts?.durationMs ?? 10_000,
         width: opts?.width ?? 1280,
         height: opts?.height ?? 720,
-        ttl: 0,
+        ttl: config.ttl,
       },
     };
 
@@ -232,7 +235,7 @@ export async function sendMessageViaBotServer(chatId: string, text: string, thre
     const payload = {
       message: {
         msg: text.length > 2000 ? text.slice(0, 1997) + '...' : text,
-        ttl: 0,
+        ttl: config.ttl,
       },
       threadId: chatId,
       accountSelection: config.accountId,

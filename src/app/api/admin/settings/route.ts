@@ -30,6 +30,7 @@ const DEFAULT_SETTINGS = [
   { khoa: 'zalo_bot_username', giaTri: 'admin', moTa: 'Username đăng nhập bot server (mặc định: admin)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'zalo_bot_password', giaTri: '', moTa: 'Password đăng nhập bot server', nhom: 'thongBao', laBiMat: true },
   { khoa: 'zalo_bot_account_id', giaTri: '', moTa: 'Zalo Account ID (own_id) dùng để gửi tin — lấy từ tab Zalo Bot', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'zalo_bot_ttl', giaTri: '0', moTa: 'TTL tin nhắn gửi đi (ms). 0 = không tự hủy, 86400000 = 1 ngày, 3600000 = 1 giờ', nhom: 'thongBao', laBiMat: false },
   // Webhook ID — endpoint công khai nhận tin nhắn (giống Home Assistant webhook)
   { khoa: 'zalo_webhook_id', giaTri: '', moTa: 'Webhook ID nhận tin nhắn Zalo (tự sinh, dùng qua LAN IP)', nhom: 'thongBao', laBiMat: false },
   // HA forward (tùy chọn)
