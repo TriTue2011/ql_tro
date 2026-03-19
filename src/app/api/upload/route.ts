@@ -42,7 +42,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 export async function POST(request: NextRequest) {
   try {
     // Xác thực: ưu tiên NextAuth JWT (tương thích Next.js 15)
-    const nextAuthToken = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    const nextAuthToken = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET, cookieName: 'next-auth.session-token' });
     let authorized = !!nextAuthToken;
 
     // Fallback: custom Bearer JWT

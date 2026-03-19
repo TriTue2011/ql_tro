@@ -3,7 +3,27 @@ import { NextAuthOptions } from 'next-auth';
 import { compare } from 'bcryptjs';
 import prisma from './prisma';
 
+// App chạy HTTP nội bộ, Cloudflare Tunnel xử lý HTTPS bên ngoài.
+// Khi NEXTAUTH_URL=https://..., NextAuth tự động dùng __Secure- prefix + Secure flag
+// → cookie không hoạt động trên HTTP LAN (172.16.x.x:3000).
+// Override cookies để dùng tên và cờ tương thích cả HTTP lẫn HTTPS.
+const useSecureCookies = false;
+
 export const authOptions: NextAuthOptions = {
+  cookies: {
+    sessionToken: {
+      name: 'next-auth.session-token',
+      options: { httpOnly: true, sameSite: 'lax' as const, path: '/', secure: useSecureCookies },
+    },
+    callbackUrl: {
+      name: 'next-auth.callback-url',
+      options: { sameSite: 'lax' as const, path: '/', secure: useSecureCookies },
+    },
+    csrfToken: {
+      name: 'next-auth.csrf-token',
+      options: { httpOnly: true, sameSite: 'lax' as const, path: '/', secure: useSecureCookies },
+    },
+  },
   providers: [
     CredentialsProvider({
       name: 'credentials',
