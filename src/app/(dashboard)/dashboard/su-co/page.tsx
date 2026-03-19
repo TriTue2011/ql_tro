@@ -51,6 +51,7 @@ import {
 import { toast } from 'sonner';
 import { SuCo, Phong, KhachThue, HopDong } from '@/types';
 import { SuCoImageUpload } from '@/components/ui/su-co-image-upload';
+import { buildUploadFolder } from '@/lib/storage';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { SuCoDataTable } from './table';
 
@@ -812,13 +813,10 @@ function SuCoForm({
         images={images}
         onImagesChange={setImages}
         maxImages={5}
-        folder={(() => {
-          const tenToa = (selectedPhong?.toaNha as any)?.tenToaNha || '';
-          const now = new Date();
-          const thangNam = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-          const maPhong = selectedPhong?.maPhong || '';
-          return [tenToa, thangNam, maPhong].filter(Boolean).join('/') || undefined;
-        })()}
+        folder={buildUploadFolder(
+          (selectedPhong?.toaNha as any)?.tenToaNha,
+          selectedPhong?.maPhong,
+        )}
       />
 
       <DialogFooter className="flex-col sm:flex-row gap-2">

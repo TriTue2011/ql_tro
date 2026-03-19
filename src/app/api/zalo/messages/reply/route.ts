@@ -44,8 +44,20 @@ export async function POST(request: NextRequest) {
 
   try {
     if (await isBotServerMode()) {
+      // Xác định type từ rawPayload của tin nhắn gần nhất trong thread
+      let threadType: 0 | 1 = 0;
+      try {
+        const lastMsg = await prisma.zaloMessage.findFirst({
+          where: { chatId, role: 'user' },
+          orderBy: { createdAt: 'desc' },
+          select: { rawPayload: true },
+        });
+        const raw = lastMsg?.rawPayload as any;
+        if (raw?.type === 1) threadType = 1;
+      } catch { /* fallback to user */ }
+
       // Bot server mode (Docker zca-js)
-      await sendMessageViaBotServer(chatId, message.trim());
+      await sendMessageViaBotServer(chatId, message.trim(), threadType);
       zalOk = true;
     } else {
       // Zalo OA Bot API

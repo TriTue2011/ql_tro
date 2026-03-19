@@ -7,6 +7,8 @@ export const runtime = 'nodejs';
 
 /** Danh sách extension được phép — chặn .php, .js, .sh, .exe, .svg (có thể chứa XSS) */
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.avif', '.heic']);
+/** Extension cho phép khi upload file (không phải ảnh) */
+const ALLOWED_FILE_EXTENSIONS = new Set(['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.txt', '.zip', '.rar']);
 
 function getExtension(filename: string): string {
   const idx = filename.lastIndexOf('.');
@@ -65,20 +67,28 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const folderRaw = formData.get('folder') as string | null;
     const folder = folderRaw?.slice(0, 200).replace(/\.\./g, '') || undefined;
+    const uploadType = (formData.get('type') as string | null) || 'image'; // 'image' | 'file'
 
     if (!file) {
       return NextResponse.json({ message: 'Không có file được chọn' }, { status: 400 });
     }
 
-    // Kiểm tra MIME type
-    if (!file.type.startsWith('image/')) {
-      return NextResponse.json({ message: 'Chỉ được upload file ảnh' }, { status: 400 });
-    }
-
-    // Kiểm tra extension
     const ext = getExtension(file.name);
-    if (!ALLOWED_EXTENSIONS.has(ext)) {
-      return NextResponse.json({ message: 'Định dạng file không được phép' }, { status: 400 });
+    const isFileMode = uploadType === 'file';
+
+    if (isFileMode) {
+      // Chế độ file: cho phép PDF, DOC, XLS, v.v.
+      if (!ALLOWED_FILE_EXTENSIONS.has(ext) && !ALLOWED_EXTENSIONS.has(ext)) {
+        return NextResponse.json({ message: 'Định dạng file không được phép' }, { status: 400 });
+      }
+    } else {
+      // Chế độ ảnh: chỉ cho phép image/*
+      if (!file.type.startsWith('image/')) {
+        return NextResponse.json({ message: 'Chỉ được upload file ảnh' }, { status: 400 });
+      }
+      if (!ALLOWED_EXTENSIONS.has(ext)) {
+        return NextResponse.json({ message: 'Định dạng file không được phép' }, { status: 400 });
+      }
     }
 
     // Đọc file vào Buffer một lần duy nhất
@@ -90,8 +100,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Kích thước file không được vượt quá 5MB' }, { status: 400 });
     }
 
-    // Kiểm tra magic bytes từ buffer đã đọc
-    if (!validateMagicBytes(buffer)) {
+    // Kiểm tra magic bytes (chỉ cho ảnh)
+    if (!isFileMode && !validateMagicBytes(buffer)) {
       return NextResponse.json({ message: 'File không phải ảnh hợp lệ' }, { status: 400 });
     }
 

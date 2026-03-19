@@ -27,6 +27,7 @@ import {
 import { HoaDon, HopDong, Phong, KhachThue } from '@/types';
 import { toast } from 'sonner';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { buildUploadFolder } from '@/lib/storage';
 
 // Helper functions
 const getPhongName = (phongId: string | Phong, phongList: Phong[]) => {
@@ -551,10 +552,10 @@ export default function ChinhSuaHoaDonPage() {
                 {(() => {
                   const selPhong = phongList.find(p => p.id === (typeof formData.phong === 'string' ? formData.phong : (formData.phong as any)?.id));
                   const tenToa = (selPhong?.toaNha as any)?.tenToaNha || '';
-                  const thangNam = formData.thang && formData.nam
-                    ? `${formData.nam}-${String(formData.thang).padStart(2, '0')}`
-                    : '';
-                  const uploadFolder = [tenToa, thangNam, selPhong?.maPhong].filter(Boolean).join('/') || undefined;
+                  const dateForFolder = formData.thang && formData.nam
+                    ? new Date(formData.nam, formData.thang - 1)
+                    : undefined;
+                  const uploadFolder = buildUploadFolder(tenToa, selPhong?.maPhong, dateForFolder);
                   return (
                     <ImageUpload
                       imageUrl={formData.anhChiSoDien}
@@ -628,10 +629,10 @@ export default function ChinhSuaHoaDonPage() {
                 {(() => {
                   const selPhong = phongList.find(p => p.id === (typeof formData.phong === 'string' ? formData.phong : (formData.phong as any)?.id));
                   const tenToa = (selPhong?.toaNha as any)?.tenToaNha || '';
-                  const thangNam = formData.thang && formData.nam
-                    ? `${formData.nam}-${String(formData.thang).padStart(2, '0')}`
-                    : '';
-                  const uploadFolder = [tenToa, thangNam, selPhong?.maPhong].filter(Boolean).join('/') || undefined;
+                  const dateForFolder = formData.thang && formData.nam
+                    ? new Date(formData.nam, formData.thang - 1)
+                    : undefined;
+                  const uploadFolder = buildUploadFolder(tenToa, selPhong?.maPhong, dateForFolder);
                   return (
                     <ImageUpload
                       imageUrl={formData.anhChiSoNuoc}

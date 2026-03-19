@@ -21,6 +21,7 @@ interface BotConfig {
   username: string;
   password: string;
   accountId: string;
+  ttl: number; // TTL tin nhắn (ms), 0 = không tự hủy
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -35,6 +36,7 @@ export async function getBotConfig(): Promise<BotConfig | null> {
             'zalo_bot_username',
             'zalo_bot_password',
             'zalo_bot_account_id',
+            'zalo_bot_ttl',
           ],
         },
       },
@@ -47,6 +49,7 @@ export async function getBotConfig(): Promise<BotConfig | null> {
       username: map['zalo_bot_username'] || 'admin',
       password: map['zalo_bot_password'] || 'admin',
       accountId: map['zalo_bot_account_id'] || '',
+      ttl: parseInt(map['zalo_bot_ttl'] || '0', 10) || 0,
     };
   } catch {
     return null;
@@ -106,6 +109,7 @@ export async function sendImageViaBotServer(
   chatId: string,
   imageUrl: string,
   caption?: string,
+  threadType: 0 | 1 = 0,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const config = await getBotConfig();
@@ -118,8 +122,8 @@ export async function sendImageViaBotServer(
       imageUrl,
       threadId: chatId,
       accountSelection: config.accountId,
-      type: 0,
-      ttl: 0,
+      type: threadType,
+      ttl: config.ttl,
     };
     if (caption) payload.message = caption.slice(0, 1024);
 
@@ -144,6 +148,7 @@ export async function sendFileViaBotServer(
   chatId: string,
   fileUrl: string,
   caption?: string,
+  threadType: 0 | 1 = 0,
 ): Promise<boolean> {
   try {
     const config = await getBotConfig();
@@ -156,8 +161,8 @@ export async function sendFileViaBotServer(
       fileUrl,
       threadId: chatId,
       accountSelection: config.accountId,
-      type: 0,
-      ttl: 0,
+      type: threadType,
+      ttl: config.ttl,
     };
     if (caption) payload.message = caption.slice(0, 1024);
 
@@ -182,6 +187,7 @@ export async function sendVideoViaBotServer(
     durationMs?: number; // mặc định 10000ms
     width?: number;
     height?: number;
+    threadType?: 0 | 1;
   },
 ): Promise<boolean> {
   try {
@@ -194,14 +200,14 @@ export async function sendVideoViaBotServer(
     const payload = {
       threadId: chatId,
       accountSelection: config.accountId,
-      type: 0,
+      type: opts?.threadType ?? 0,
       options: {
         videoUrl,
         thumbnailUrl: opts?.thumbnailUrl ?? '',
         duration: opts?.durationMs ?? 10_000,
         width: opts?.width ?? 1280,
         height: opts?.height ?? 720,
-        ttl: 0,
+        ttl: config.ttl,
       },
     };
 
@@ -218,7 +224,7 @@ export async function sendVideoViaBotServer(
 }
 
 /** Gửi tin nhắn văn bản qua bot server */
-export async function sendMessageViaBotServer(chatId: string, text: string): Promise<boolean> {
+export async function sendMessageViaBotServer(chatId: string, text: string, threadType: 0 | 1 = 0): Promise<boolean> {
   try {
     const config = await getBotConfig();
     if (!config || !config.accountId) return false;
@@ -229,11 +235,11 @@ export async function sendMessageViaBotServer(chatId: string, text: string): Pro
     const payload = {
       message: {
         msg: text.length > 2000 ? text.slice(0, 1997) + '...' : text,
-        ttl: 0,
+        ttl: config.ttl,
       },
       threadId: chatId,
       accountSelection: config.accountId,
-      type: 0, // 0 = user, 1 = group
+      type: threadType, // 0 = user, 1 = group
     };
 
     const res = await fetch(`${config.serverUrl}/api/sendMessageByAccount`, {
