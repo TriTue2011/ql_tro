@@ -27,6 +27,28 @@ const schema = z.object({
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
+/**
+ * Thay localhost/127.0.0.1 trong URL bằng IP LAN (từ app_local_url)
+ * để bot server bên ngoài có thể truy cập được MinIO/file URL.
+ */
+async function resolveLocalUrl(url: string): Promise<string> {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+      const row = await prisma.caiDat.findFirst({ where: { khoa: 'app_local_url' } });
+      const localUrl = row?.giaTri?.trim();
+      if (localUrl) {
+        const localParsed = new URL(localUrl);
+        parsed.hostname = localParsed.hostname;
+        // Giữ nguyên port của URL gốc (MinIO port khác app port)
+        return parsed.toString();
+      }
+    }
+  } catch { /* giữ nguyên URL nếu parse lỗi */ }
+  return url;
+}
+
 /** Lấy Zalo Bot Token từ cài đặt hệ thống */
 async function getZaloToken(): Promise<string | null> {
   try {
@@ -146,19 +168,25 @@ export async function POST(request: NextRequest) {
 
     // ── Bot server mode ───────────────────────────────────────────────────────
     if (await isBotServerMode()) {
-      if (videoUrl) {
-        const ok = await sendVideoViaBotServer(chatId, videoUrl, { thumbnailUrl, durationMs });
+      // Thay localhost trong URL bằng IP LAN để bot server (external) truy cập được
+      const fixUrl = await resolveLocalUrl(imageUrl || fileUrl || videoUrl || '');
+      const fixedImageUrl = imageUrl ? fixUrl : undefined;
+      const fixedFileUrl = fileUrl ? fixUrl : undefined;
+      const fixedVideoUrl = videoUrl ? fixUrl : undefined;
+
+      if (fixedVideoUrl) {
+        const ok = await sendVideoViaBotServer(chatId, fixedVideoUrl, { thumbnailUrl, durationMs });
         if (!ok) return NextResponse.json({ success: false, message: 'Bot server lỗi khi gửi video.' }, { status: 502 });
         return NextResponse.json({ success: true, message: 'Đã gửi video Zalo thành công (bot server)' });
       }
-      if (fileUrl) {
-        const ok = await sendFileViaBotServer(chatId, fileUrl, message);
+      if (fixedFileUrl) {
+        const ok = await sendFileViaBotServer(chatId, fixedFileUrl, message);
         if (!ok) return NextResponse.json({ success: false, message: 'Bot server lỗi khi gửi file.' }, { status: 502 });
         return NextResponse.json({ success: true, message: 'Đã gửi file Zalo thành công (bot server)' });
       }
-      if (imageUrl) {
-        const ok = await sendImageViaBotServer(chatId, imageUrl, message);
-        if (!ok) return NextResponse.json({ success: false, message: 'Bot server lỗi khi gửi ảnh.' }, { status: 502 });
+      if (fixedImageUrl) {
+        const result = await sendImageViaBotServer(chatId, fixedImageUrl, message);
+        if (!result.ok) return NextResponse.json({ success: false, message: result.error || 'Bot server lỗi khi gửi ảnh.' }, { status: 502 });
         return NextResponse.json({ success: true, message: 'Đã gửi hình ảnh Zalo thành công (bot server)' });
       }
       const ok = await sendMessageViaBotServer(chatId, message!);

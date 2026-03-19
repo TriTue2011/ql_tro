@@ -425,6 +425,12 @@ export default function CaiDatPage() {
   const [testChatId, setTestChatId] = useState('');
   const [testMessage, setTestMessage] = useState('Tin nhắn test từ hệ thống Quản Lý Trọ 🏠');
   const [testType, setTestType] = useState<'text' | 'image' | 'file'>('text');
+  function switchTestType(type: 'text' | 'image' | 'file') {
+    setTestType(type);
+    // Xóa caption mặc định khi chuyển sang tab hình ảnh/file
+    if (type !== 'text') setTestMessage('');
+    else if (!testMessage) setTestMessage('Tin nhắn test từ hệ thống Quản Lý Trọ 🏠');
+  }
   const [testImageUrl, setTestImageUrl] = useState('');
   const [testFileUrl, setTestFileUrl] = useState('');
   const [testLoading, setTestLoading] = useState(false);
@@ -1020,7 +1026,7 @@ export default function CaiDatPage() {
                 <div className="flex gap-2">
                   {(['text', 'image', 'file'] as const).map(t => (
                     <button key={t} type="button"
-                      onClick={() => setTestType(t)}
+                      onClick={() => switchTestType(t)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
                         testType === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
                       }`}>
@@ -1073,6 +1079,7 @@ export default function CaiDatPage() {
                     {testType === 'text' ? 'Nội dung tin nhắn' : 'Caption / mô tả (tuỳ chọn)'}
                   </Label>
                   <Input type="text"
+                    placeholder={testType === 'text' ? 'Nội dung tin nhắn...' : 'Để trống nếu không cần caption'}
                     value={testMessage} onChange={(e) => setTestMessage(e.target.value)}
                     className="text-sm" maxLength={500} />
                 </div>
