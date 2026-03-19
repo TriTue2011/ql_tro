@@ -49,6 +49,7 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronUp,
+  Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -384,39 +385,56 @@ export default function CaiDatPage() {
   }
 
   // --- HA forward filter ---
-  const [haAllowedThreads, setHaAllowedThreads] = useState('');
-  const [haTypeFilter, setHaTypeFilter] = useState('all');
+  const [haThreadEntries, setHaThreadEntries] = useState<{ threadId: string; type: number }[]>([]);
   const [haFilterSaving, setHaFilterSaving] = useState(false);
 
   useEffect(() => {
     if (!canManage) return;
-    Promise.all([
-      fetch('/api/admin/settings').then(r => r.json()),
-    ]).then(([d]) => {
+    fetch('/api/admin/settings').then(r => r.json()).then(d => {
       if (d.success) {
         const vals: Record<string, string> = {};
         for (const s of d.data) vals[s.khoa] = s.giaTri ?? '';
-        if (vals.ha_zalo_allowed_threads !== undefined) setHaAllowedThreads(vals.ha_zalo_allowed_threads);
-        if (vals.ha_zalo_type_filter !== undefined) setHaTypeFilter(vals.ha_zalo_type_filter || 'all');
+        // Parse JSON array hoặc migrate từ format cũ (comma/newline separated)
+        const raw = vals.ha_zalo_allowed_threads || '';
+        if (raw.startsWith('[')) {
+          try { setHaThreadEntries(JSON.parse(raw)); } catch { /* ignore */ }
+        } else if (raw.trim()) {
+          // Migrate: format cũ → mỗi ID mặc định type 0 (người dùng)
+          const ids = raw.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+          setHaThreadEntries(ids.map(id => ({ threadId: id, type: 0 })));
+        }
       }
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage]);
 
+  function addHaThread() {
+    setHaThreadEntries(prev => [...prev, { threadId: '', type: 0 }]);
+  }
+  function removeHaThread(index: number) {
+    setHaThreadEntries(prev => prev.filter((_, i) => i !== index));
+  }
+  function updateHaThread(index: number, field: 'threadId' | 'type', value: string | number) {
+    setHaThreadEntries(prev => prev.map((e, i) => i === index ? { ...e, [field]: value } : e));
+  }
+
   async function handleSaveHaFilter() {
+    // Lọc bỏ entry trống
+    const entries = haThreadEntries.filter(e => e.threadId.trim());
     setHaFilterSaving(true);
     try {
       const res = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ settings: [
-          { khoa: 'ha_zalo_allowed_threads', giaTri: haAllowedThreads },
-          { khoa: 'ha_zalo_type_filter', giaTri: haTypeFilter },
+          { khoa: 'ha_zalo_allowed_threads', giaTri: entries.length > 0 ? JSON.stringify(entries) : '' },
         ]}),
       });
       const data = await res.json();
-      if (data.success) toast.success('Đã lưu bộ lọc HA');
-      else toast.error(data.message || 'Lưu thất bại');
+      if (data.success) {
+        setHaThreadEntries(entries);
+        toast.success('Đã lưu bộ lọc HA');
+      } else toast.error(data.message || 'Lưu thất bại');
     } catch { toast.error('Lỗi kết nối'); }
     finally { setHaFilterSaving(false); }
   }
@@ -979,29 +997,51 @@ export default function CaiDatPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
-                <div className="space-y-1">
-                  <Label className="text-xs md:text-sm font-medium">Thread ID được phép (mỗi ID một dòng hoặc cách nhau bởi dấu phẩy)</Label>
-                  <textarea
-                    className="w-full text-xs font-mono border rounded-md p-2 h-20 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder={"6643404425553198601\n8845089824387263227"}
-                    value={haAllowedThreads}
-                    onChange={e => setHaAllowedThreads(e.target.value)}
-                  />
-                  <p className="text-[11px] text-gray-400">Để trống để cho phép tất cả thread ID.</p>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs md:text-sm font-medium">Loại được phép chuyển tiếp</Label>
-                  <div className="flex gap-2">
-                    {(['all', 'user', 'group'] as const).map(t => (
-                      <button key={t} type="button"
-                        onClick={() => setHaTypeFilter(t)}
-                        className={`px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
-                          haTypeFilter === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
-                        }`}>
-                        {t === 'all' ? 'Tất cả' : t === 'user' ? 'Người dùng' : 'Nhóm'}
-                      </button>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs md:text-sm font-medium">Danh sách Thread ID được phép</Label>
+                    <button type="button" onClick={addHaThread}
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                      <Plus className="h-3.5 w-3.5" /> Thêm
+                    </button>
+                  </div>
+                  {haThreadEntries.length === 0 && (
+                    <p className="text-[11px] text-gray-400 italic">Chưa có thread nào — tất cả tin nhắn sẽ được chuyển tiếp.</p>
+                  )}
+                  <div className="space-y-2">
+                    {haThreadEntries.map((entry, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          type="text"
+                          placeholder="Thread ID (VD: 6643404425553198601)"
+                          value={entry.threadId}
+                          onChange={e => updateHaThread(i, 'threadId', e.target.value)}
+                          className="text-xs font-mono flex-1"
+                        />
+                        <div className="flex gap-1">
+                          <button type="button"
+                            onClick={() => updateHaThread(i, 'type', 0)}
+                            className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-colors whitespace-nowrap ${
+                              entry.type === 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'
+                            }`}>
+                            Người dùng
+                          </button>
+                          <button type="button"
+                            onClick={() => updateHaThread(i, 'type', 1)}
+                            className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-colors whitespace-nowrap ${
+                              entry.type === 1 ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'
+                            }`}>
+                            Nhóm
+                          </button>
+                        </div>
+                        <button type="button" onClick={() => removeHaThread(i)}
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     ))}
                   </div>
+                  <p className="text-[11px] text-gray-400">Type 0 = người dùng, Type 1 = nhóm. Để trống danh sách = chuyển tiếp tất cả.</p>
                 </div>
                 <Button size="sm" onClick={handleSaveHaFilter} disabled={haFilterSaving} className="w-full">
                   {haFilterSaving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}

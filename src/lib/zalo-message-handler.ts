@@ -256,16 +256,15 @@ async function detectAndStorePending(update: any): Promise<void> {
 /**
  * Forward tin nhắn Zalo đến Home Assistant webhook nếu đã cấu hình ha_zalo_notify_url.
  * Hỗ trợ cả Zalo OA Bot API format và Bot Server (zca-js) format.
- * Lọc theo: ha_zalo_allowed_threads (danh sách thread ID, trống = tất cả)
- *           ha_zalo_type_filter ('all'/'user'/'group')
+ * Lọc theo: ha_zalo_allowed_threads — JSON array [{threadId, type}] hoặc legacy comma-separated.
+ *           Mỗi entry có type: 0 (người dùng) hoặc 1 (nhóm).
  * Fire-and-forget — không block xử lý chính.
  */
 export async function notifyHomeAssistant(update: any): Promise<void> {
   try {
-    const [urlRow, threadsRow, typeRow] = await Promise.all([
+    const [urlRow, threadsRow] = await Promise.all([
       prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_notify_url' } }),
       prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_allowed_threads' } }),
-      prisma.caiDat.findFirst({ where: { khoa: 'ha_zalo_type_filter' } }),
     ]);
 
     const url = urlRow?.giaTri?.trim();
@@ -285,17 +284,26 @@ export async function notifyHomeAssistant(update: any): Promise<void> {
     // Type: 0 = user, 1 = group (bot server), fallback = 'user'
     const rawType = update?.type;
     const isGroup = rawType === 1;
+    const msgTypeNum = isGroup ? 1 : 0;
 
-    // Lọc theo loại (user/group)
-    const typeFilter = typeRow?.giaTri?.trim() || 'all';
-    if (typeFilter === 'user' && isGroup) return;
-    if (typeFilter === 'group' && !isGroup) return;
-
-    // Lọc theo thread ID whitelist
+    // Lọc theo danh sách thread ID + type
     const allowedThreadsRaw = threadsRow?.giaTri?.trim() || '';
     if (allowedThreadsRaw) {
-      const allowed = allowedThreadsRaw.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
-      if (allowed.length > 0 && !allowed.includes(threadId)) return;
+      if (allowedThreadsRaw.startsWith('[')) {
+        // New format: JSON array [{threadId, type}]
+        try {
+          const entries: { threadId: string; type: number }[] = JSON.parse(allowedThreadsRaw);
+          if (entries.length > 0) {
+            const match = entries.find(e => e.threadId === threadId);
+            if (!match) return; // thread ID không nằm trong danh sách
+            if (match.type !== msgTypeNum) return; // type không khớp (0=user, 1=group)
+          }
+        } catch { /* parse lỗi → bỏ qua filter */ }
+      } else {
+        // Legacy format: comma/newline separated (không lọc type)
+        const allowed = allowedThreadsRaw.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+        if (allowed.length > 0 && !allowed.includes(threadId)) return;
+      }
     }
 
     const displayName =
