@@ -52,7 +52,7 @@ import {
 import { Phong, ToaNha } from '@/types';
 import { PhongDataTable } from './table';
 import { PhongImageUpload } from '@/components/ui/phong-image-upload';
-import { buildUploadFolder } from '@/lib/storage';
+import { buildUploadFolder } from '@/lib/upload-path';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
