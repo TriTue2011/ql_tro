@@ -7,23 +7,27 @@
  *  2. Fallback poll DB mỗi 10s → đảm bảo không bỏ sót nếu process restart
  *  3. Heartbeat mỗi 25s → tránh timeout proxy
  */
-import { NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
-import { zaloMessageEmitter, ZaloMessageEvent } from '@/lib/zalo-message-events';
+import { NextRequest } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import {
+  zaloMessageEmitter,
+  ZaloMessageEvent,
+} from "@/lib/zalo-message-events";
+import { attachRoomInfo } from "@/lib/zalo-room-info";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
-    return new Response('Unauthorized', { status: 401 });
+    return new Response("Unauthorized", { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
-  const chatId = searchParams.get('chatId') || undefined;
-  const afterParam = searchParams.get('after');
+  const chatId = searchParams.get("chatId") || undefined;
+  const afterParam = searchParams.get("after");
 
   const encoder = new TextEncoder();
   let cursor = afterParam ? new Date(afterParam) : new Date(Date.now() - 5000);
@@ -32,10 +36,11 @@ export async function GET(request: NextRequest) {
     start(controller) {
       let closed = false;
 
-      function send(messages: ZaloMessageEvent[]) {
+      async function send(messages: ZaloMessageEvent[]) {
         if (closed) return;
         try {
-          const payload = `data: ${JSON.stringify({ type: 'messages', data: messages })}\n\n`;
+          const enriched = await attachRoomInfo(messages);
+          const payload = `data: ${JSON.stringify({ type: "messages", data: enriched })}\n\n`;
           controller.enqueue(encoder.encode(payload));
         } catch {
           closed = true;
@@ -43,7 +48,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Heartbeat ngay lập tức để client biết kết nối thành công
-      controller.enqueue(encoder.encode(': connected\n\n'));
+      controller.enqueue(encoder.encode(": connected\n\n"));
 
       // ── 1. Lắng nghe event real-time ────────────────────────────────────────
       function onMessage(msg: ZaloMessageEvent) {
@@ -52,10 +57,10 @@ export async function GET(request: NextRequest) {
         if (chatId && msg.chatId !== chatId) return;
         if (msg.createdAt <= cursor) return;
         cursor = msg.createdAt;
-        send([msg]);
+        void send([msg]);
       }
 
-      const eventChannel = chatId ? `message:${chatId}` : 'message';
+      const eventChannel = chatId ? `message:${chatId}` : "message";
       zaloMessageEmitter.on(eventChannel, onMessage);
 
       // ── 2. Fallback poll DB mỗi 10s (phòng process restart / missed events) ─
@@ -67,13 +72,13 @@ export async function GET(request: NextRequest) {
               ...(chatId ? { chatId } : {}),
               createdAt: { gt: cursor },
             },
-            orderBy: { createdAt: 'asc' },
+            orderBy: { createdAt: "asc" },
             take: 20,
           });
 
           if (messages.length > 0) {
             cursor = messages[messages.length - 1].createdAt;
-            send(messages as unknown as ZaloMessageEvent[]);
+            void send(messages as unknown as ZaloMessageEvent[]);
           }
         } catch {
           // DB error — tiếp tục
@@ -82,9 +87,12 @@ export async function GET(request: NextRequest) {
 
       // ── 3. Heartbeat mỗi 25s ────────────────────────────────────────────────
       const heartbeat = setInterval(() => {
-        if (closed) { clearInterval(heartbeat); return; }
+        if (closed) {
+          clearInterval(heartbeat);
+          return;
+        }
         try {
-          controller.enqueue(encoder.encode(': ping\n\n'));
+          controller.enqueue(encoder.encode(": ping\n\n"));
         } catch {
           closed = true;
           clearInterval(heartbeat);
@@ -92,22 +100,24 @@ export async function GET(request: NextRequest) {
       }, 25_000);
 
       // ── Cleanup khi client đóng kết nối ─────────────────────────────────────
-      request.signal.addEventListener('abort', () => {
+      request.signal.addEventListener("abort", () => {
         closed = true;
         zaloMessageEmitter.off(eventChannel, onMessage);
         clearInterval(pollTimer);
         clearInterval(heartbeat);
-        try { controller.close(); } catch {}
+        try {
+          controller.close();
+        } catch {}
       });
     },
   });
 
   return new Response(stream, {
     headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no', // Nginx: tắt buffer để SSE real-time
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no", // Nginx: tắt buffer để SSE real-time
     },
   });
 }
