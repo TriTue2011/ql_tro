@@ -54,6 +54,10 @@ import {
   Upload,
   User,
   Users,
+  Clock,
+  AlertTriangle,
+  Zap,
+  Cloud,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -295,6 +299,241 @@ function SettingGroupCard({
   );
 }
 
+// ─── Component: Lưu trữ thông minh (ẩn/hiện theo provider) ───────────────────
+
+function StorageSettingsCard({
+  items,
+  values,
+  onChange,
+  onSave,
+  saving,
+}: {
+  items: CaiDatItem[];
+  values: Record<string, string>;
+  onChange: (khoa: string, val: string) => void;
+  onSave: (nhom: string) => void;
+  saving: boolean;
+}) {
+  const provider = values["storage_provider"] || "local";
+  const showMinio = provider === "minio" || provider === "both";
+  const showCloudinary = provider === "cloudinary" || provider === "both";
+
+  const providerItem = items.find((i) => i.khoa === "storage_provider");
+  const maxSizeItem = items.find((i) => i.khoa === "upload_max_size_mb");
+  const minioItems = items.filter((i) => i.khoa.startsWith("minio_"));
+  const cloudinaryItems = items.filter((i) => i.khoa.startsWith("cloudinary_"));
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <HardDrive className="h-4 w-4" />
+          Lưu trữ ảnh
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 space-y-4">
+        {providerItem && (
+          <div className="space-y-1">
+            <Label className="text-xs md:text-sm font-medium">{providerItem.moTa}</Label>
+            <SettingInput
+              item={providerItem}
+              value={values["storage_provider"] ?? ""}
+              onChange={(v) => onChange("storage_provider", v)}
+            />
+          </div>
+        )}
+        {maxSizeItem && (
+          <div className="space-y-1">
+            <Label className="text-xs md:text-sm font-medium">{maxSizeItem.moTa}</Label>
+            <SettingInput
+              item={maxSizeItem}
+              value={values["upload_max_size_mb"] ?? ""}
+              onChange={(v) => onChange("upload_max_size_mb", v)}
+            />
+          </div>
+        )}
+        {showMinio && minioItems.length > 0 && (
+          <div className="space-y-3 pt-3 border-t">
+            <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+              <HardDrive className="h-3.5 w-3.5" /> MinIO (self-hosted)
+            </p>
+            {minioItems.map((item) => (
+              <div key={item.khoa} className="space-y-1">
+                <Label className="text-xs md:text-sm font-medium">
+                  {item.moTa}
+                  {item.laBiMat && (
+                    <Badge variant="outline" className="ml-2 text-xs py-0">
+                      <Lock className="h-2.5 w-2.5 mr-1" />bí mật
+                    </Badge>
+                  )}
+                </Label>
+                <SettingInput
+                  item={item}
+                  value={values[item.khoa] ?? ""}
+                  onChange={(v) => onChange(item.khoa, v)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        {showCloudinary && cloudinaryItems.length > 0 && (
+          <div className="space-y-3 pt-3 border-t">
+            <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+              <Cloud className="h-3.5 w-3.5" /> Cloudinary (online)
+            </p>
+            {cloudinaryItems.map((item) => (
+              <div key={item.khoa} className="space-y-1">
+                <Label className="text-xs md:text-sm font-medium">
+                  {item.moTa}
+                  {item.laBiMat && (
+                    <Badge variant="outline" className="ml-2 text-xs py-0">
+                      <Lock className="h-2.5 w-2.5 mr-1" />bí mật
+                    </Badge>
+                  )}
+                </Label>
+                <SettingInput
+                  item={item}
+                  value={values[item.khoa] ?? ""}
+                  onChange={(v) => onChange(item.khoa, v)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        {provider === "local" && (
+          <p className="text-xs text-gray-400 italic border-t pt-3">
+            Lưu trữ local — ảnh lưu trực tiếp trên server, không cần cấu hình thêm.
+          </p>
+        )}
+        <Button
+          size="sm"
+          className="w-full mt-2"
+          onClick={() => onSave("luuTru")}
+          disabled={saving}
+        >
+          {saving ? (
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          Lưu Lưu trữ
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Component: Cảnh báo / Nhắc nhở ──────────────────────────────────────────
+
+const ALERT_KEYS = new Set([
+  "thong_bao_truoc_han_hop_dong",
+  "thong_bao_qua_han_hoa_don",
+  "hoa_don_canh_bao_lan_1",
+  "hoa_don_canh_bao_lan_2",
+  "hoa_don_canh_bao_lan_3",
+  "hop_dong_canh_bao_lan_1",
+  "hop_dong_canh_bao_lan_2",
+  "hop_dong_canh_bao_lan_3",
+  "chot_chi_so_truoc_ngay",
+  "chot_chi_so_ngay_trong_thang",
+  "su_co_chua_nhan_gio",
+  "su_co_chua_xu_ly_gio",
+]);
+
+const ZALO_KEYS = new Set([
+  "zalo_mode",
+  "zalo_access_token",
+  "zalo_webhook_secret",
+  "zalo_bot_server_url",
+  "zalo_bot_username",
+  "zalo_bot_password",
+  "zalo_bot_account_id",
+  "zalo_bot_ttl",
+  "zalo_webhook_id",
+  "ha_zalo_notify_url",
+]);
+
+function AlertSettingsCard({
+  items,
+  values,
+  onChange,
+  onSave,
+  saving,
+}: {
+  items: CaiDatItem[];
+  values: Record<string, string>;
+  onChange: (khoa: string, val: string) => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  const sections: { label: string; icon: React.ReactNode; keys: string[] }[] = [
+    {
+      label: "Hóa đơn quá hạn",
+      icon: <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />,
+      keys: ["thong_bao_qua_han_hoa_don", "hoa_don_canh_bao_lan_1", "hoa_don_canh_bao_lan_2", "hoa_don_canh_bao_lan_3"],
+    },
+    {
+      label: "Hợp đồng sắp hết hạn",
+      icon: <FileText className="h-3.5 w-3.5 text-blue-500" />,
+      keys: ["thong_bao_truoc_han_hop_dong", "hop_dong_canh_bao_lan_1", "hop_dong_canh_bao_lan_2", "hop_dong_canh_bao_lan_3"],
+    },
+    {
+      label: "Chốt chỉ số điện nước",
+      icon: <Zap className="h-3.5 w-3.5 text-yellow-500" />,
+      keys: ["chot_chi_so_ngay_trong_thang", "chot_chi_so_truoc_ngay"],
+    },
+    {
+      label: "Sự cố",
+      icon: <Clock className="h-3.5 w-3.5 text-red-500" />,
+      keys: ["su_co_chua_nhan_gio", "su_co_chua_xu_ly_gio"],
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <Bell className="h-4 w-4" />
+          Cài đặt cảnh báo & nhắc nhở
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 space-y-4">
+        {sections.map((sec) => {
+          const secItems = sec.keys.map((k) => items.find((i) => i.khoa === k)).filter(Boolean) as CaiDatItem[];
+          if (!secItems.length) return null;
+          return (
+            <div key={sec.label} className="space-y-3">
+              <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5 pt-1">
+                {sec.icon} {sec.label}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-1">
+                {secItems.map((item) => (
+                  <div key={item.khoa} className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-700">{item.moTa}</Label>
+                    <SettingInput
+                      item={item}
+                      value={values[item.khoa] ?? ""}
+                      onChange={(v) => onChange(item.khoa, v)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        <Button size="sm" className="w-full mt-2" onClick={onSave} disabled={saving}>
+          {saving ? (
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          Lưu cảnh báo
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CaiDatPage() {
@@ -327,10 +566,6 @@ export default function CaiDatPage() {
       applyDensity(ui.density);
     }
   }, []);
-
-  useEffect(() => {
-    applyFontSettings();
-  }, [fontSettings]);
 
   function applyFontSettings() {
     const fontSizeMap: Record<string, string> = {
@@ -373,6 +608,7 @@ export default function CaiDatPage() {
 
   function handleSaveFontSettings() {
     localStorage.setItem("fontSettings", JSON.stringify(fontSettings));
+    applyFontSettings();
     toast.success("Đã lưu cài đặt font chữ");
   }
 
@@ -1113,6 +1349,13 @@ export default function CaiDatPage() {
 
   const groupOrder = ["luuTru", "thongBao", "thanhToan", "heThong", "baoMat"];
 
+  const alertItems = (settingsByGroup["thongBao"] ?? []).filter((s) =>
+    ALERT_KEYS.has(s.khoa),
+  );
+  const zaloItems = (settingsByGroup["thongBao"] ?? []).filter((s) =>
+    ZALO_KEYS.has(s.khoa),
+  );
+
   return (
     <div className="space-y-4 md:space-y-6">
       <div>
@@ -1136,11 +1379,18 @@ export default function CaiDatPage() {
                 Thanh toán
               </TabsTrigger>
               <TabsTrigger
+                value="canhBao"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                Cảnh báo
+              </TabsTrigger>
+              <TabsTrigger
                 value="thongBao"
                 className="flex items-center gap-1.5 text-xs md:text-sm"
               >
-                <Bell className="h-3.5 w-3.5" />
-                Thông báo
+                <Smartphone className="h-3.5 w-3.5" />
+                Zalo Bot
               </TabsTrigger>
               <TabsTrigger
                 value="luuTru"
@@ -1221,13 +1471,32 @@ export default function CaiDatPage() {
           </TabsContent>
         )}
 
-        {/* ── Tab Thông báo (Zalo) ───────────────────────────────────────────── */}
+        {/* ── Tab Cảnh báo ──────────────────────────────────────────────────── */}
+        {canManage && !loadingSystem && !errorSystem && (
+          <TabsContent value="canhBao" className="space-y-4 mt-4">
+            {alertItems.length > 0 ? (
+              <AlertSettingsCard
+                items={alertItems}
+                values={settingValues}
+                onChange={handleSettingChange}
+                onSave={() => handleSaveGroup("thongBao")}
+                saving={savingGroup === "thongBao"}
+              />
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-8">
+                Chưa có cài đặt cảnh báo nào.
+              </p>
+            )}
+          </TabsContent>
+        )}
+
+        {/* ── Tab Zalo Bot ───────────────────────────────────────────────────── */}
         {canManage && !loadingSystem && !errorSystem && (
           <TabsContent value="thongBao" className="space-y-4 mt-4">
-            {settingsByGroup["thongBao"]?.length && (
+            {zaloItems.length > 0 && (
               <SettingGroupCard
                 nhom="thongBao"
-                items={settingsByGroup["thongBao"]}
+                items={zaloItems}
                 values={settingValues}
                 onChange={handleSettingChange}
                 onSave={handleSaveGroup}
@@ -2154,16 +2423,15 @@ export default function CaiDatPage() {
         {/* ── Tab Lưu trữ ───────────────────────────────────────────────────── */}
         {canManage && !loadingSystem && !errorSystem && (
           <TabsContent value="luuTru" className="space-y-4 mt-4">
-            {settingsByGroup["luuTru"]?.length && (
-              <SettingGroupCard
-                nhom="luuTru"
+            {settingsByGroup["luuTru"]?.length ? (
+              <StorageSettingsCard
                 items={settingsByGroup["luuTru"]}
                 values={settingValues}
                 onChange={handleSettingChange}
                 onSave={handleSaveGroup}
                 saving={savingGroup === "luuTru"}
               />
-            )}
+            ) : null}
 
             {/* ── Kiểm tra kết nối MinIO ── */}
             <Card>
