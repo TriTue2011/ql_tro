@@ -306,11 +306,23 @@ export async function notifyHomeAssistant(update: any): Promise<void> {
       }
     }
 
+    // Người gửi (uidFrom) — với nhóm khác threadId, với user trùng threadId
+    const senderUid: string =
+      data?.uidFrom ? String(data.uidFrom) :
+      msg?.from?.id ? String(msg.from.id) :
+      update?.sender?.id ? String(update.sender.id) :
+      update?.uidFrom ? String(update.uidFrom) : '';
+
     const displayName =
       msg?.from?.display_name ||
       update?.sender?.display_name || update?.sender?.name ||
       data?.dName || data?.fromD || data?.displayName ||
       update?.dName || update?.fromD || '';
+
+    // ID nhóm (với nhóm = threadId, với user = null)
+    const groupId: string | null = isGroup ? threadId : null;
+    // idTo — ID đích nhận tin (nhóm hoặc bot account)
+    const idTo: string = data?.idTo ? String(data.idTo) : '';
 
     const msgType = data?.msgType || 'webchat';
     let content = '';
@@ -342,6 +354,9 @@ export async function notifyHomeAssistant(update: any): Promise<void> {
         source: 'ql_tro_zalo',
         thread_id: threadId,
         type: isGroup ? 'group' : 'user',
+        sender_id: senderUid,
+        group_id: groupId,
+        id_to: idTo,
         display_name: displayName,
         msg_type: msgType,
         message: content,
