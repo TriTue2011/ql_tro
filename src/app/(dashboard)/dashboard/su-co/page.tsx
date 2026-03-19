@@ -51,7 +51,7 @@ import {
 import { toast } from 'sonner';
 import { SuCo, Phong, KhachThue, HopDong } from '@/types';
 import { SuCoImageUpload } from '@/components/ui/su-co-image-upload';
-import { buildUploadFolder } from '@/lib/storage';
+import { buildUploadFolder } from '@/lib/upload-path';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { SuCoDataTable } from './table';
 
