@@ -73,11 +73,11 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Ưu tiên URL đã đăng ký trước đó (lưu khi setWebhook)
+  // Ưu tiên URL đã đăng ký trước đó (lưu khi setWebhook) — validate là URL hợp lệ
   try {
     const row = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_url' } });
     const savedUrl = row?.giaTri?.trim();
-    if (savedUrl) {
+    if (savedUrl && (savedUrl.startsWith('http://') || savedUrl.startsWith('https://'))) {
       return NextResponse.json({ webhookUrl: savedUrl, source: 'saved' });
     }
   } catch { /* bỏ qua, dùng fallback */ }
