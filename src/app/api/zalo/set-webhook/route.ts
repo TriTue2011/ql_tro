@@ -18,17 +18,29 @@ import { z } from 'zod';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
-/** Lấy base URL công khai từ NEXTAUTH_URL (ưu tiên) hoặc APP_URL. */
+/** Lấy base URL từ NEXTAUTH_URL (ưu tiên) hoặc APP_URL. Hỗ trợ cả domain và IP LAN. */
 function getPublicBaseUrl(): string {
   const url = process.env.NEXTAUTH_URL || process.env.APP_URL || '';
   return url.replace(/\/$/, '');
 }
 
+/** Lấy base URL LAN từ DB setting app_local_url (nếu có). */
+async function getLocalBaseUrl(): Promise<string | null> {
+  try {
+    const row = await prisma.caiDat.findFirst({ where: { khoa: 'app_local_url' } });
+    const val = row?.giaTri?.trim();
+    return val ? val.replace(/\/$/, '') : null;
+  } catch {
+    return null;
+  }
+}
+
 const bodySchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('setWebhook'),
-    // Optional — nếu không truyền, server dùng NEXTAUTH_URL
-    webhookUrl: z.string().url('webhookUrl phải là URL hợp lệ').optional(),
+    // Optional — nếu không truyền, server dùng NEXTAUTH_URL hoặc app_local_url
+    // Chấp nhận cả domain và IP LAN (vd: http://172.16.10.200:3000/api/zalo/webhook)
+    webhookUrl: z.string().min(1, 'webhookUrl không được trống').optional(),
   }),
   z.object({ action: z.literal('deleteWebhook') }),
   z.object({ action: z.literal('getWebhookInfo') }),
@@ -70,11 +82,14 @@ export async function GET() {
     }
   } catch { /* bỏ qua, dùng fallback */ }
 
-  const base = getPublicBaseUrl();
+  // Ưu tiên app_local_url (IP LAN) nếu có, fallback NEXTAUTH_URL
+  const localBase = await getLocalBaseUrl();
+  const base = localBase || getPublicBaseUrl();
+  const source = localBase ? 'app_local_url' : (process.env.NEXTAUTH_URL ? 'NEXTAUTH_URL' : 'APP_URL');
   return NextResponse.json({
     webhookUrl: base ? `${base}/api/zalo/webhook` : '',
     baseUrl: base,
-    source: base ? (process.env.NEXTAUTH_URL ? 'NEXTAUTH_URL' : 'APP_URL') : 'unknown',
+    source: base ? source : 'unknown',
   });
 }
 
@@ -108,8 +123,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Dùng URL do client gửi, hoặc tự tính từ NEXTAUTH_URL
-      const base = getPublicBaseUrl();
+      // Dùng URL do client gửi, hoặc tự tính từ app_local_url / NEXTAUTH_URL
+      const localBase = await getLocalBaseUrl();
+      const base = localBase || getPublicBaseUrl();
       const finalUrl = parsed.data.webhookUrl || (base ? `${base}/api/zalo/webhook` : null);
       if (!finalUrl) {
         return NextResponse.json(
@@ -178,8 +194,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Chưa cấu hình zalo_webhook_secret' }, { status: 400 });
       }
 
-      // Gửi POST giả lập đến chính webhook endpoint (qua localhost)
-      const base = getPublicBaseUrl() || 'http://localhost:3000';
+      // Gửi POST giả lập đến chính webhook endpoint (ưu tiên IP LAN)
+      const localBase = await getLocalBaseUrl();
+      const base = localBase || getPublicBaseUrl() || 'http://localhost:3000';
       const webhookUrl = `${base}/api/zalo/webhook`;
       const fakePayload = {
         event_name: 'message',

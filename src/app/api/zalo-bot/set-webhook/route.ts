@@ -14,6 +14,14 @@ function getPublicBaseUrl(): string {
   return (process.env.NEXTAUTH_URL || process.env.APP_URL || '').replace(/\/$/, '');
 }
 
+async function getLocalBaseUrl(): Promise<string | null> {
+  try {
+    const row = await prisma.caiDat.findFirst({ where: { khoa: 'app_local_url' } });
+    const val = row?.giaTri?.trim();
+    return val ? val.replace(/\/$/, '') : null;
+  } catch { return null; }
+}
+
 async function getSavedWebhookUrl(): Promise<string | null> {
   try {
     const row = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_url' } });
@@ -38,8 +46,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Cần nhập Zalo Account ID (zalo_bot_account_id) trong Cài đặt' });
   }
 
-  // Ưu tiên: 1) URL do user nhập, 2) URL đã lưu trong DB, 3) NEXTAUTH_URL
-  const base = getPublicBaseUrl() || 'http://localhost:3000';
+  // Ưu tiên: 1) URL do user nhập, 2) URL đã lưu trong DB, 3) app_local_url (IP LAN), 4) NEXTAUTH_URL
+  const localBase = await getLocalBaseUrl();
+  const base = localBase || getPublicBaseUrl() || 'http://localhost:3000';
   const saved = await getSavedWebhookUrl();
   const webhookUrl: string =
     (body?.webhookUrl?.trim()) ||

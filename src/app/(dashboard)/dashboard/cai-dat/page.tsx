@@ -522,6 +522,45 @@ export default function CaiDatPage() {
     } catch { toast.error('Lỗi xóa tin nhắn'); }
   }
 
+  // --- Webhook ID (giống HA) ---
+  const [currentWebhookId, setCurrentWebhookId] = useState<string | null>(null);
+  const [webhookIdGenerating, setWebhookIdGenerating] = useState(false);
+
+  // Load webhook ID hiện tại
+  useEffect(() => {
+    if (!canManage) return;
+    fetch('/api/webhook/generate')
+      .then(r => r.json())
+      .then(d => { if (d.webhookId) setCurrentWebhookId(d.webhookId); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage]);
+
+  // Tính webhook full URL từ app_local_url hoặc window.location
+  const webhookFullUrl = currentWebhookId
+    ? (settingValues['app_local_url']?.trim()
+        ? `${settingValues['app_local_url'].trim().replace(/\/$/, '')}/api/webhook/${currentWebhookId}`
+        : typeof window !== 'undefined'
+          ? `${window.location.origin}/api/webhook/${currentWebhookId}`
+          : '')
+    : '';
+
+  async function handleGenerateWebhookId() {
+    if (currentWebhookId && !confirm('Tạo ID mới sẽ vô hiệu URL cũ. Tiếp tục?')) return;
+    setWebhookIdGenerating(true);
+    try {
+      const res = await fetch('/api/webhook/generate', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.webhookId) {
+        setCurrentWebhookId(data.webhookId);
+        toast.success('Đã tạo Webhook ID mới');
+      } else {
+        toast.error(data.error || 'Tạo thất bại');
+      }
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setWebhookIdGenerating(false); }
+  }
+
   // --- Test webhook nhận tin ---
   const [webhookTestLoading, setWebhookTestLoading] = useState(false);
   const [webhookTestResult, setWebhookTestResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -530,7 +569,6 @@ export default function CaiDatPage() {
     setWebhookTestLoading(true);
     setWebhookTestResult(null);
     try {
-      // Gửi một POST giả lập đến chính webhook của hệ thống
       const fakePayload = {
         type: 0,
         threadId: 'test_thread_' + Date.now(),
@@ -544,13 +582,19 @@ export default function CaiDatPage() {
         },
         _accountId: 'test',
       };
-      const res = await fetch('/api/zalo/webhook', {
+
+      // Ưu tiên test qua webhook ID mới (giống HA), fallback sang endpoint cũ
+      const testUrl = currentWebhookId
+        ? `/api/webhook/${currentWebhookId}`
+        : '/api/zalo/webhook';
+
+      const res = await fetch(testUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fakePayload),
       });
       if (res.ok) {
-        setWebhookTestResult({ ok: true, message: 'Webhook nhận được! Kiểm tra phần "Theo dõi tin nhắn" để xem tin test.' });
+        setWebhookTestResult({ ok: true, message: `Webhook nhận được qua ${currentWebhookId ? '/api/webhook/[id]' : '/api/zalo/webhook'}! Kiểm tra "Theo dõi tin nhắn".` });
         toast.success('Webhook đang hoạt động');
       } else {
         setWebhookTestResult({ ok: false, message: `HTTP ${res.status} — webhook không phản hồi` });
@@ -987,44 +1031,69 @@ export default function CaiDatPage() {
                   </p>
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {webhookMessages.map((msg: any) => (
-                      <div key={msg.id} className="rounded-lg border bg-blue-50 border-blue-100 p-3 text-xs space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-blue-700">Thread ID:</span>
-                            <code className="font-bold text-blue-900 select-all">{msg.chatId}</code>
-                            <button type="button" title="Sao chép Thread ID"
-                              className="text-blue-400 hover:text-blue-700"
-                              onClick={() => { navigator.clipboard.writeText(msg.chatId); toast.success('Đã sao chép Thread ID'); }}>
-                              <Copy className="h-3.5 w-3.5" />
+                    {webhookMessages.map((msg: any) => {
+                      const room = msg.roomInfo;
+                      const raw = msg.rawPayload as any;
+                      const threadId = raw?.threadId || msg.chatId;
+                      const isGroup = raw?.type === 1;
+                      return (
+                        <div key={msg.id} className="rounded-lg border bg-blue-50 border-blue-100 p-3 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className={`text-[9px] px-1 ${isGroup ? 'border-purple-300 text-purple-700' : 'border-blue-300 text-blue-700'}`}>
+                                {isGroup ? 'Nhóm' : 'Người dùng'}
+                              </Badge>
+                              <span className="font-semibold text-blue-700">Thread ID:</span>
+                              <code className="font-bold text-blue-900 select-all">{threadId}</code>
+                              <button type="button" title="Sao chép Thread ID"
+                                className="text-blue-400 hover:text-blue-700"
+                                onClick={() => { navigator.clipboard.writeText(threadId); toast.success('Đã sao chép Thread ID'); }}>
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <button type="button"
+                              className="text-gray-400 hover:text-gray-700 shrink-0"
+                              onClick={() => setExpandedMsgId(expandedMsgId === msg.id ? null : msg.id)}
+                              title={expandedMsgId === msg.id ? 'Thu gọn' : 'Xem raw payload'}>
+                              {expandedMsgId === msg.id
+                                ? <ChevronUp className="h-4 w-4" />
+                                : <ChevronDown className="h-4 w-4" />}
                             </button>
                           </div>
-                          <button type="button"
-                            className="text-gray-400 hover:text-gray-700 shrink-0"
-                            onClick={() => setExpandedMsgId(expandedMsgId === msg.id ? null : msg.id)}
-                            title={expandedMsgId === msg.id ? 'Thu gọn' : 'Xem raw payload'}>
-                            {expandedMsgId === msg.id
-                              ? <ChevronUp className="h-4 w-4" />
-                              : <ChevronDown className="h-4 w-4" />}
-                          </button>
+                          {msg.displayName && (
+                            <div className="text-gray-600">
+                              <span className="font-medium">{msg.displayName}</span>
+                            </div>
+                          )}
+                          {/* Thông tin phòng / tòa nhà */}
+                          {room && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className="text-[9px] px-1 border-green-300 text-green-700 bg-green-50">
+                                Phòng {room.maPhong} (Tầng {room.tang})
+                              </Badge>
+                              <Badge variant="outline" className="text-[9px] px-1 border-orange-300 text-orange-700 bg-orange-50">
+                                {room.tenToaNha}
+                              </Badge>
+                              {room.diaChi && typeof room.diaChi === 'object' && (
+                                <span className="text-[10px] text-gray-400">
+                                  {[room.diaChi.soNha, room.diaChi.duong, room.diaChi.phuong, room.diaChi.quan].filter(Boolean).join(', ')}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {msg.attachmentUrl && (
+                            <img src={msg.attachmentUrl} alt="ảnh" className="rounded max-h-20 max-w-[160px] object-contain border" />
+                          )}
+                          <p className="text-gray-700 truncate">{msg.content}</p>
+                          <p className="text-gray-400 text-[10px]">Nhận lúc: {new Date(msg.createdAt).toLocaleString('vi-VN')}</p>
+                          {expandedMsgId === msg.id && msg.rawPayload && (
+                            <pre className="mt-2 p-2 bg-white border rounded text-[10px] text-gray-600 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
+                              {JSON.stringify(msg.rawPayload, null, 2)}
+                            </pre>
+                          )}
                         </div>
-                        {msg.displayName && (
-                          <div className="text-gray-600">
-                            <span className="font-medium">{msg.displayName}</span>
-                          </div>
-                        )}
-                        {msg.attachmentUrl && (
-                          <img src={msg.attachmentUrl} alt="ảnh" className="rounded max-h-20 max-w-[160px] object-contain border" />
-                        )}
-                        <p className="text-gray-700 truncate">{msg.content}</p>
-                        <p className="text-gray-400 text-[10px]">Nhận lúc: {new Date(msg.createdAt).toLocaleString('vi-VN')}</p>
-                        {expandedMsgId === msg.id && msg.rawPayload && (
-                          <pre className="mt-2 p-2 bg-white border rounded text-[10px] text-gray-600 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
-                            {JSON.stringify(msg.rawPayload, null, 2)}
-                          </pre>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -1118,16 +1187,18 @@ export default function CaiDatPage() {
                 <div className="space-y-2 pt-2 border-t">
                   <Label className="text-xs font-medium text-gray-700">Webhook URL (ql_tro nhận tin nhắn)</Label>
                   <div className="flex gap-2">
-                    <Input type="url" placeholder="https://your-domain.com/api/zalo/webhook"
-                      value={botWebhookUrl} onChange={e => setBotWebhookUrl(e.target.value)}
+                    <Input type="text" placeholder="http://172.16.10.200:3000/api/webhook/..."
+                      value={webhookFullUrl || botWebhookUrl} onChange={e => setBotWebhookUrl(e.target.value)}
                       className="text-xs font-mono" />
                     <Button type="button" variant="outline" size="icon" title="Sao chép"
-                      onClick={() => { navigator.clipboard.writeText(botWebhookUrl); toast.success('Đã sao chép'); }}>
+                      onClick={() => { navigator.clipboard.writeText(webhookFullUrl || botWebhookUrl); toast.success('Đã sao chép'); }}>
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                   <p className="text-[11px] text-gray-400">
-                    Tự động lấy từ URL đã lưu hoặc <code>NEXTAUTH_URL</code>. Sửa nếu cần dùng URL khác.
+                    {webhookFullUrl
+                      ? <>Dùng webhook ID qua IP LAN. Sửa nếu cần URL khác.</>
+                      : <>Tự động lấy từ URL đã lưu hoặc <code>NEXTAUTH_URL</code>. Sửa nếu cần dùng URL khác.</>}
                   </p>
                   <Button size="sm" onClick={() => handleBotSetWebhook()} disabled={botWebhookLoading} className="w-full">
                     {botWebhookLoading
@@ -1157,7 +1228,7 @@ export default function CaiDatPage() {
               </CardContent>
             </Card>
 
-            {/* ── Webhook nhận tin nhắn ── */}
+            {/* ── Webhook nhận tin nhắn (giống HA) ── */}
             <Card>
               <CardHeader className="p-4 md:p-6">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
@@ -1165,33 +1236,60 @@ export default function CaiDatPage() {
                   Webhook nhận tin nhắn Zalo
                 </CardTitle>
                 <CardDescription className="text-xs md:text-sm">
-                  Đây là URL webhook của hệ thống — cấu hình Bot Server gửi tin về đây.
-                  Dùng nút Test để kiểm tra webhook có nhận được không.
+                  Endpoint công khai nhận tin nhắn — hoạt động qua <strong>IP LAN</strong> (giống Home Assistant webhook).
+                  Cấu hình Bot Server gửi tin về URL này. Hỗ trợ POST, PUT, GET, HEAD.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
-                {/* Hiển thị URL */}
+                {/* Webhook URL dạng HA */}
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-gray-700">Webhook URL</Label>
+                  <Label className="text-xs font-medium text-gray-700">Webhook URL (qua IP LAN)</Label>
                   <div className="flex gap-2">
                     <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-blue-800 overflow-x-auto whitespace-nowrap">
-                      {botWebhookUrl || '(chưa cấu hình — lưu webhook URL trong mục Bot Server)'}
+                      {webhookFullUrl || '(bấm "Tạo Webhook ID" để tạo URL mới)'}
                     </code>
-                    {botWebhookUrl && (
+                    {webhookFullUrl && (
                       <Button type="button" variant="outline" size="icon" title="Sao chép"
-                        onClick={() => { navigator.clipboard.writeText(botWebhookUrl); toast.success('Đã sao chép'); }}>
+                        onClick={() => { navigator.clipboard.writeText(webhookFullUrl); toast.success('Đã sao chép webhook URL'); }}>
                         <Copy className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
+                  <p className="text-[11px] text-gray-400">
+                    Cài <code>app_local_url</code> trong Hệ thống (vd: <code>http://172.16.10.200:3000</code>) để dùng IP LAN.
+                  </p>
                 </div>
+
+                {/* Webhook cũ (qua /api/zalo/webhook) */}
+                {botWebhookUrl && (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-700">Webhook URL cũ (qua domain)</Label>
+                    <div className="flex gap-2">
+                      <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-gray-500 overflow-x-auto whitespace-nowrap">
+                        {botWebhookUrl}
+                      </code>
+                      <Button type="button" variant="outline" size="icon" title="Sao chép"
+                        onClick={() => { navigator.clipboard.writeText(botWebhookUrl); toast.success('Đã sao chép'); }}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tạo / đổi webhook ID */}
+                <Button size="sm" variant="outline" onClick={handleGenerateWebhookId} disabled={webhookIdGenerating} className="w-full">
+                  {webhookIdGenerating
+                    ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    : <Webhook className="h-4 w-4 mr-2" />}
+                  {currentWebhookId ? 'Tạo lại Webhook ID mới' : 'Tạo Webhook ID'}
+                </Button>
 
                 {/* Nút test */}
                 <Button size="sm" variant="outline" onClick={handleTestWebhook} disabled={webhookTestLoading} className="w-full">
                   {webhookTestLoading
                     ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    : <Webhook className="h-4 w-4 mr-2" />}
-                  Gửi tin test đến webhook
+                    : <CheckCircle className="h-4 w-4 mr-2" />}
+                  Test webhook (gửi tin giả lập)
                 </Button>
 
                 {webhookTestResult && (

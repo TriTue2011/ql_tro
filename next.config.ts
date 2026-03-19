@@ -31,29 +31,23 @@ const nextConfig: NextConfig = {
     // 'unsafe-eval' CHỈ dùng trong dev (hot-reload) — bỏ ở production để tăng bảo mật
     const isDev = process.env.NODE_ENV === 'development';
 
-    // upgrade-insecure-requests CHỈ an toàn khi ứng dụng chạy sau HTTPS proxy (Cloudflare Tunnel).
-    // Nếu bật trên HTTP trực tiếp, browser sẽ cố upgrade /_next/static CSS/JS lên HTTPS → fail → trang không có style.
-    const isBehindHttps = process.env.CLOUDFLARE_TUNNEL === 'true';
-
+    // CSP base — KHÔNG thêm upgrade-insecure-requests ở đây
+    // vì nó sẽ phá HTTP LAN access. Middleware sẽ thêm khi detect Cloudflare.
     const CSP = [
       "default-src 'self'",
       // Script: production bỏ unsafe-eval, dev giữ để hot-reload hoạt động
-      // Khi dùng Cloudflare Tunnel, CF tự inject beacon script từ static.cloudflareinsights.com
+      // Cloudflare insights script được thêm sẵn để hoạt động khi qua CF
       isDev
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-        : isBehindHttps
-          ? "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com"
-          : "script-src 'self' 'unsafe-inline'",
+        : "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
       // Style: self + inline (CSS-in-JS / Tailwind) + Bootstrap CDN cho dashboard
       "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
       // Ảnh: self + data URI + blob + Cloudinary + MinIO + Zalo CDN
       "img-src 'self' data: blob: https://res.cloudinary.com https://*.zaloapp.com https://*.zadn.vn https://zalo.me",
       // Font: self + Bootstrap Icons CDN (font files)
       "font-src 'self' data: https://cdn.jsdelivr.net",
-      // Kết nối API: self + jsDelivr (browser tự tải source map của Bootstrap)
-      isBehindHttps
-        ? "connect-src 'self' https://cdn.jsdelivr.net https://cloudflareinsights.com"
-        : "connect-src 'self' https://cdn.jsdelivr.net",
+      // Kết nối API: self + jsDelivr + Cloudflare insights
+      "connect-src 'self' https://cdn.jsdelivr.net https://cloudflareinsights.com",
       // Không cho phép <object>, <embed>, <applet>
       "object-src 'none'",
       // Không cho phép <base> tag bị hijack
@@ -62,8 +56,7 @@ const nextConfig: NextConfig = {
       "form-action 'self'",
       // frame-ancestors thay thế X-Frame-Options
       "frame-ancestors 'none'",
-      // upgrade-insecure-requests: CHỈ bật khi đứng sau HTTPS proxy
-      ...(isBehindHttps ? ["upgrade-insecure-requests"] : []),
+      // KHÔNG thêm upgrade-insecure-requests — middleware xử lý theo request
     ].join('; ');
 
     return [
@@ -84,11 +77,8 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
           },
-          // HSTS — Cloudflare sẽ thêm sau, nhưng set ở app level để an toàn hơn
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains; preload',
-          },
+          // HSTS: KHÔNG đặt ở đây — middleware thêm khi detect HTTPS/Cloudflare
+          // Nếu đặt static sẽ phá LAN IP access (browser nhớ HSTS → tự chuyển HTTPS)
           // Content-Security-Policy — chặn XSS và script injection
           { key: 'Content-Security-Policy', value: CSP },
         ],

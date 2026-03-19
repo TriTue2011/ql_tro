@@ -29,6 +29,64 @@ export async function GET(request: NextRequest) {
     `;
     // Sắp xếp theo tin nhắn mới nhất
     rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // Bổ sung thông tin phòng/tòa nhà từ KhachThue → HopDong → Phong → ToaNha
+    const chatIds = rows.map(r => r.chatId).filter(Boolean);
+    if (chatIds.length > 0) {
+      const tenantRooms = await prisma.khachThue.findMany({
+        where: {
+          OR: [
+            { zaloChatId: { in: chatIds } },
+            { pendingZaloChatId: { in: chatIds } },
+          ],
+        },
+        select: {
+          zaloChatId: true,
+          pendingZaloChatId: true,
+          hoTen: true,
+          hopDong: {
+            where: { trangThai: 'hoatDong' },
+            take: 1,
+            select: {
+              phong: {
+                select: {
+                  maPhong: true,
+                  tang: true,
+                  toaNha: {
+                    select: { tenToaNha: true, diaChi: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Map chatId → room info
+      const roomMap = new Map<string, { tenKhach: string; maPhong: string; tang: number; tenToaNha: string; diaChi: any }>();
+      for (const kt of tenantRooms) {
+        const hd = kt.hopDong[0];
+        if (!hd) continue;
+        const info = {
+          tenKhach: kt.hoTen,
+          maPhong: hd.phong.maPhong,
+          tang: hd.phong.tang,
+          tenToaNha: hd.phong.toaNha.tenToaNha,
+          diaChi: hd.phong.toaNha.diaChi,
+        };
+        if (kt.zaloChatId) roomMap.set(kt.zaloChatId, info);
+        if (kt.pendingZaloChatId) roomMap.set(kt.pendingZaloChatId, info);
+      }
+
+      // Gắn room info vào từng row
+      for (const row of rows) {
+        const info = roomMap.get(row.chatId);
+        if (info) {
+          row.roomInfo = info;
+        }
+      }
+    }
+
     return NextResponse.json({ data: rows });
   }
 

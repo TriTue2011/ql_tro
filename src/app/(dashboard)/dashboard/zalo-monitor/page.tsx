@@ -1,10 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Copy, Trash2, Users, User, Image as ImageIcon, FileText, MessageSquare, RefreshCw, Wifi, WifiOff, Download, Clock } from 'lucide-react';
+import { Copy, Trash2, Users, User, Image as ImageIcon, FileText, MessageSquare, RefreshCw, Wifi, WifiOff, Download, Clock, Building2, DoorOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+
+interface RoomInfo {
+  tenKhach: string;
+  maPhong: string;
+  tang: number;
+  tenToaNha: string;
+  diaChi: any;
+}
 
 interface MonitorMsg {
   id: string;
@@ -16,6 +24,7 @@ interface MonitorMsg {
   eventName: string | null;
   createdAt: string;
   rawPayload: any;
+  roomInfo?: RoomInfo;
 }
 
 // ─── parse rawPayload từ bot server (zca-js) ──────────────────────────────────
@@ -193,6 +202,7 @@ export default function ZaloMonitorPage() {
             const { isGroup, threadId, msgType, dName, ts, ttlMs, uidFrom, text, imageUrl, fileUrl, fileName, fileExt, thumb } = parseRaw(msg);
             const isExpanded = expandedId === msg.id;
             const ttlLabel = formatTtl(ttlMs);
+            const room = msg.roomInfo;
 
             return (
               <div key={msg.id} className="rounded-xl border bg-white shadow-sm overflow-hidden">
@@ -231,6 +241,24 @@ export default function ZaloMonitorPage() {
                         <span className="text-[10px] text-gray-400">UID: {uidFrom}</span>
                       )}
                     </div>
+                    {/* Thông tin phòng / tòa nhà */}
+                    {room && (
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Badge variant="outline" className="text-[10px] px-1.5 border-green-300 text-green-700 bg-green-50">
+                          <DoorOpen className="h-3 w-3 mr-0.5" />
+                          {room.maPhong} (Tầng {room.tang})
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] px-1.5 border-orange-300 text-orange-700 bg-orange-50">
+                          <Building2 className="h-3 w-3 mr-0.5" />
+                          {room.tenToaNha}
+                        </Badge>
+                        {room.diaChi && typeof room.diaChi === 'object' && (
+                          <span className="text-[10px] text-gray-400">
+                            {[room.diaChi.soNha, room.diaChi.duong, room.diaChi.phuong, room.diaChi.quan].filter(Boolean).join(', ')}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {ttlLabel && (
                       <div className="flex items-center gap-1 mt-0.5 text-[10px] text-amber-600">
                         <Clock className="h-3 w-3" />
