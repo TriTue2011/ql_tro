@@ -36,34 +36,9 @@ import {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session } = useSession()
   
-  // Tạo navigation items dựa trên role — admin TÁCH HOÀN TOÀN khỏi chủ trọ
+  // Tạo navigation items dựa trên role
   const navMain = React.useMemo(() => {
     const role = session?.user?.role
-
-    // ── Admin: chỉ quản trị hệ thống ─────────────────────────────────────
-    if (role === 'admin') {
-      return [
-        {
-          title: "Quản trị",
-          url: "#",
-          icon: Shield,
-          isActive: true,
-          items: [
-            { title: "Quản lý tài khoản", url: "/dashboard/quan-ly-tai-khoan" },
-          ],
-        },
-        {
-          title: "Cài đặt hệ thống",
-          url: "#",
-          icon: Settings,
-          items: [
-            { title: "Cài đặt", url: "/dashboard/cai-dat" },
-            { title: "Zalo", url: "/dashboard/zalo" },
-            { title: "Hồ sơ", url: "/dashboard/ho-so" },
-          ],
-        },
-      ]
-    }
 
     // ── Nhân viên ─────────────────────────────────────────────────────────
     if (role === 'nhanVien') {
@@ -100,7 +75,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ]
     }
 
-    // ── Chủ trọ & Quản lý: quản lý bất động sản ──────────────────────────
+    // ── Admin, Chủ trọ, Quản lý: đầy đủ tab quản lý bất động sản ─────────
     const items = [
       {
         title: "Quản lý cơ bản",
@@ -135,6 +110,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
     ]
 
+    // "Quản trị" chỉ admin thấy — chủ trọ KHÔNG thấy
+    if (role === 'admin') {
+      items.push({
+        title: "Quản trị",
+        url: "#",
+        icon: Shield,
+        items: [
+          { title: "Quản lý tài khoản", url: "/dashboard/quan-ly-tai-khoan" },
+        ],
+      })
+    }
+
     if (role === 'quanLy') {
       items.push({
         title: "Tài khoản",
@@ -143,15 +130,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         items: [{ title: "Hồ sơ", url: "/dashboard/ho-so" }],
       })
     } else {
-      // chuNha: có cài đặt + Zalo (không có server/webhook — ẩn trong trang cài đặt Zalo)
+      // Admin + Chủ trọ: có cài đặt
       items.push({
         title: "Cài đặt",
         url: "#",
         icon: Settings,
         items: [
           { title: "Hồ sơ", url: "/dashboard/ho-so" },
-          { title: "Cài đặt", url: "/dashboard/cai-dat" },
-          { title: "Zalo", url: "/dashboard/zalo" },
+          ...(role === 'admin' || role === 'chuNha'
+            ? [{ title: "Cài đặt", url: "/dashboard/cai-dat" }]
+            : []),
         ],
       })
     }
