@@ -6,12 +6,15 @@
  * không cần OA, đăng nhập bằng QR code cá nhân.
  *
  * API của bot server:
- *   POST /api/login                  — xác thực với admin/password
- *   GET  /api/accounts               — danh sách tài khoản đang đăng nhập
- *   POST /zalo-login                 — lấy QR code (base64 PNG)
- *   POST /api/sendMessageByAccount   — gửi tin nhắn
- *   POST /api/account-webhook        — cài đặt webhook nhận tin
- *   DELETE /api/account-webhook/:id  — xóa webhook
+ *   POST /api/login                          — xác thực với admin/password
+ *   GET  /api/accounts                       — danh sách tài khoản đang đăng nhập
+ *   POST /zalo-login                         — lấy QR code (base64 PNG)
+ *   POST /api/sendMessageByAccount           — gửi tin nhắn
+ *   POST /api/account-webhook                — cài đặt webhook nhận tin
+ *   DELETE /api/account-webhook/:id          — xóa webhook
+ *   POST /api/getAllFriendsByAccount         — danh sách bạn bè
+ *   POST /api/getAllGroupsByAccount          — danh sách nhóm
+ *   POST /api/removeUserFromGroupByAccount  — xóa thành viên khỏi nhóm
  */
 
 import prisma from "@/lib/prisma";
@@ -414,6 +417,87 @@ export async function getQRCodeFromBotServer(): Promise<{
     return { qrCode };
   } catch (e: any) {
     return { error: e?.message || "Lỗi kết nối đến bot server" };
+  }
+}
+
+/** Lấy danh sách bạn bè (POST /api/getAllFriendsByAccount) */
+export async function getAllFriendsFromBotServer(
+  accountSelection?: string,
+  count = 200,
+  page = 0,
+): Promise<{ ok: boolean; friends?: any[]; error?: string }> {
+  const config = await getBotConfig();
+  if (!config) return { ok: false, error: "Chưa cấu hình zalo_bot_server_url" };
+  try {
+    const authHeaders = await loginToBotServer(config);
+    if (!authHeaders) return { ok: false, error: "Đăng nhập thất bại" };
+    const res = await fetch(`${config.serverUrl}/api/getAllFriendsByAccount`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify({ accountSelection: accountSelection ?? config.accountId, count, page }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const data = await res.json().catch(() => null);
+    const friends = Array.isArray(data) ? data : (data?.data ?? data?.friends ?? []);
+    return { ok: true, friends };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Lỗi kết nối bot server" };
+  }
+}
+
+/** Lấy danh sách nhóm (POST /api/getAllGroupsByAccount) */
+export async function getAllGroupsFromBotServer(
+  accountSelection?: string,
+): Promise<{ ok: boolean; groups?: any[]; error?: string }> {
+  const config = await getBotConfig();
+  if (!config) return { ok: false, error: "Chưa cấu hình zalo_bot_server_url" };
+  try {
+    const authHeaders = await loginToBotServer(config);
+    if (!authHeaders) return { ok: false, error: "Đăng nhập thất bại" };
+    const res = await fetch(`${config.serverUrl}/api/getAllGroupsByAccount`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify({ accountSelection: accountSelection ?? config.accountId }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const data = await res.json().catch(() => null);
+    const groups = Array.isArray(data) ? data : (data?.data ?? data?.groups ?? []);
+    return { ok: true, groups };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Lỗi kết nối bot server" };
+  }
+}
+
+/** Xóa thành viên khỏi nhóm (POST /api/removeUserFromGroupByAccount) */
+export async function removeUserFromGroupViaBotServer(
+  groupId: string,
+  memberId: string,
+  accountSelection?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const config = await getBotConfig();
+  if (!config) return { ok: false, error: "Chưa cấu hình zalo_bot_server_url" };
+  try {
+    const authHeaders = await loginToBotServer(config);
+    if (!authHeaders) return { ok: false, error: "Đăng nhập thất bại" };
+    const res = await fetch(`${config.serverUrl}/api/removeUserFromGroupByAccount`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify({
+        groupId,
+        memberId,
+        accountSelection: accountSelection ?? config.accountId,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, error: `HTTP ${res.status}: ${text.slice(0, 100)}` };
+    }
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Lỗi kết nối bot server" };
   }
 }
 

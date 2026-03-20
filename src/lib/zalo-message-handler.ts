@@ -6,22 +6,20 @@
  *
  * Luồng xử lý khi nhận 1 update:
  *  1. Lưu tin nhắn vào ZaloMessage (lịch sử)
- *  2. Nếu text là số điện thoại → đăng ký nhận thông báo tự động
- *     a. Tìm khách thuê theo SĐT
- *     b. Nếu tìm thấy  → lưu zaloChatId + bật nhanThongBaoZalo → reply thành công
- *     c. Nếu không tìm → reply "không tìm thấy"
- *     d. Nếu sai định dạng → reply "gửi đúng định dạng"
- *  3. Nếu chatId đã là khách thuê đã đăng ký → reply thông tin liên hệ hỗ trợ
- *     (nội dung cấu hình trong CaiDat: zalo_tin_nhan_ho_tro)
- *  4. Nếu chưa đăng ký → detect tên khớp → lưu pendingZaloChatId
- *
- * Ghi chú: bước 3 là placeholder — sau này có thể tích hợp AI xử lý.
+ *  2. Nếu bot_auto_reply_enabled = false → dừng
+ *  3. Nếu text là số điện thoại → đăng ký nhận thông báo tự động
+ *  4. Nếu chatId đã là khách thuê đã đăng ký → AI classify intent → reply
+ *  5. Nếu chưa đăng ký (người lạ):
+ *     a. Gửi lời chào (bot_greeting_stranger)
+ *     b. Forward đến nhóm quản lý nếu bot_forward_unknown = true
+ *     c. Detect tên → lưu pendingZaloChatId
  */
 
 import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 import { isBotServerMode, sendMessageViaBotServer } from '@/lib/zalo-bot-client';
+import { askAI, classifyIntent } from '@/lib/ai-chat';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
@@ -182,17 +180,105 @@ async function getBuildingContactsForTenant(chatId: string): Promise<{ ten: stri
   }
 }
 
-/**
- * Gửi thông tin liên hệ hỗ trợ cho khách thuê đã đăng ký.
- * Ưu tiên dùng danh sách liên hệ phụ trách của tòa nhà,
- * nếu không có thì dùng cài đặt toàn cục zalo_tin_nhan_ho_tro.
- * Trả về true nếu đã xử lý (dù có thông tin hay không).
- */
-async function handleRegisteredTenant(token: string, chatId: string): Promise<boolean> {
-  const kt = await findKhachThueByZaloChatId(chatId);
-  if (!kt) return false; // chưa đăng ký → không xử lý ở đây
+/** Lấy lịch sử gần đây của chatId để đưa vào context AI */
+async function getRecentHistory(chatId: string, limit = 6): Promise<{ role: 'user' | 'assistant'; content: string }[]> {
+  try {
+    const msgs = await prisma.zaloMessage.findMany({
+      where: { chatId },
+      orderBy: { thoiGian: 'desc' },
+      take: limit,
+      select: { role: true, content: true },
+    });
+    return msgs.reverse().map(m => ({
+      role: (m.role === 'bot' ? 'assistant' : 'user') as 'user' | 'assistant',
+      content: m.content,
+    }));
+  } catch {
+    return [];
+  }
+}
 
-  // Thử lấy liên hệ của tòa nhà trước
+/** Lấy thông tin phòng + hợp đồng hiện tại của khách thuê */
+async function getTenantContext(chatId: string): Promise<string> {
+  try {
+    const kt = await prisma.khachThue.findFirst({
+      where: { zaloChatId: chatId },
+      select: {
+        hoTen: true,
+        hopDong: {
+          where: { trangThai: 'hoatDong' },
+          take: 1,
+          select: {
+            ngayBatDau: true,
+            ngayKetThuc: true,
+            tienThue: true,
+            phong: {
+              select: {
+                maPhong: true,
+                tang: true,
+                toaNha: { select: { tenToaNha: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!kt) return '';
+    const hd = kt.hopDong?.[0];
+    if (!hd) return `Khách thuê: ${kt.hoTen} (chưa có hợp đồng hoạt động)`;
+    const phong = hd.phong;
+    return [
+      `Khách thuê: ${kt.hoTen}`,
+      `Phòng: ${phong.maPhong} - ${phong.toaNha.tenToaNha}`,
+      `Tiền thuê: ${hd.tienThue?.toLocaleString('vi-VN')}đ/tháng`,
+      `Hợp đồng: ${new Date(hd.ngayBatDau).toLocaleDateString('vi-VN')} – ${new Date(hd.ngayKetThuc).toLocaleDateString('vi-VN')}`,
+    ].join('\n');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Xử lý khách thuê đã đăng ký bằng AI.
+ * - Classify intent → trả lời hướng dẫn phù hợp
+ * - Fallback: liên hệ phụ trách hoặc zalo_tin_nhan_ho_tro
+ * Trả về true nếu đã xử lý.
+ */
+async function handleRegisteredTenant(token: string, chatId: string, text: string): Promise<boolean> {
+  const kt = await findKhachThueByZaloChatId(chatId);
+  if (!kt) return false;
+
+  // Thử AI classify + trả lời
+  if (text) {
+    const intent = await classifyIntent(text);
+    if (intent && intent !== 'other') {
+      const tenantCtx = await getTenantContext(chatId);
+      const history = await getRecentHistory(chatId);
+      const systemPrompt = [
+        'Bạn là trợ lý ảo của nhà trọ, trả lời ngắn gọn, thân thiện bằng tiếng Việt.',
+        'Chỉ trả lời về: hóa đơn, hợp đồng, sự cố, phòng trống. Không bịa thông tin.',
+        'Nếu không có thông tin cụ thể, hướng dẫn liên hệ quản lý.',
+        tenantCtx ? `\nThông tin khách thuê:\n${tenantCtx}` : '',
+      ].filter(Boolean).join('\n');
+
+      const messages = [
+        { role: 'system' as const, content: systemPrompt },
+        ...history,
+        { role: 'user' as const, content: text },
+      ];
+      const aiReply = await askAI(messages);
+      if (aiReply) {
+        await sendReply(token, chatId, aiReply);
+        // Lưu tin nhắn bot vào lịch sử
+        await prisma.zaloMessage.create({
+          data: { chatId, content: aiReply, role: 'bot', eventName: 'bot_reply', rawPayload: {} },
+        }).catch(() => {});
+        return true;
+      }
+    }
+  }
+
+  // Fallback: liên hệ phụ trách của tòa nhà
   const contacts = await getBuildingContactsForTenant(chatId);
   if (contacts.length > 0) {
     const lines = [
@@ -207,12 +293,44 @@ async function handleRegisteredTenant(token: string, chatId: string): Promise<bo
     return true;
   }
 
-  // Fallback: dùng nội dung toàn cục
+  // Fallback: nội dung toàn cục
   const hoTroMsg = await getHoTroMessage();
   if (!hoTroMsg) return true; // đã đăng ký nhưng chưa cấu hình → im lặng
-
   await sendReply(token, chatId, hoTroMsg);
   return true;
+}
+
+/** Gửi lời chào cho người lạ + forward đến nhóm quản lý nếu được cấu hình */
+async function handleStranger(token: string, chatId: string, displayName: string, text: string): Promise<void> {
+  try {
+    const rows = await prisma.caiDat.findMany({
+      where: { khoa: { in: ['bot_greeting_stranger', 'bot_forward_unknown', 'bot_forward_thread_id'] } },
+    });
+    const map: Record<string, string> = {};
+    for (const r of rows) map[r.khoa] = r.giaTri?.trim() ?? '';
+
+    // Gửi lời chào
+    const greeting = map['bot_greeting_stranger'];
+    if (greeting) {
+      await sendReply(token, chatId, greeting);
+      await prisma.zaloMessage.create({
+        data: { chatId, content: greeting, role: 'bot', eventName: 'bot_greeting', rawPayload: {} },
+      }).catch(() => {});
+    }
+
+    // Forward đến nhóm quản lý
+    const shouldForward = map['bot_forward_unknown'] !== 'false';
+    const forwardThreadId = map['bot_forward_thread_id'];
+    if (shouldForward && forwardThreadId && text) {
+      const fwdMsg = [
+        `📨 Tin nhắn từ người lạ`,
+        `👤 Tên: ${displayName || '(không rõ)'}`,
+        `🆔 ChatId: ${chatId}`,
+        `💬 Nội dung: ${text}`,
+      ].join('\n');
+      await sendReply(token, forwardThreadId, fwdMsg);
+    }
+  } catch { /* fire-and-forget */ }
 }
 
 /** Detect tên → lưu pendingZaloChatId (chỉ cho người chưa đăng ký) */
@@ -373,28 +491,77 @@ export async function notifyHomeAssistant(update: any): Promise<void> {
 /**
  * Điểm vào chính — gọi từ Webhook handler hoặc Polling Worker.
  * @param update  Object update từ Zalo (dạng { message: {...}, event_name: '...' })
- * @param token   Zalo Bot Access Token
+ * @param token   Zalo Bot Access Token (dùng cho OA mode; bỏ qua khi bot server mode)
  */
 export async function handleZaloUpdate(update: any, token: string): Promise<void> {
   if (!update?.message?.from?.id) return;
 
   const msg = update.message;
   const chatId = String(msg.from.id);
+  const displayName: string = msg.from?.display_name || '';
   const text: string = msg.text?.trim() || '';
 
   // 1. Lưu lịch sử
   await saveMessage(update);
 
-  // 2. Số điện thoại → đăng ký
+  // 2. Kiểm tra bot_auto_reply_enabled
+  const autoReplyRow = await prisma.caiDat.findFirst({ where: { khoa: 'bot_auto_reply_enabled' } });
+  if (autoReplyRow?.giaTri?.trim() === 'false') return;
+
+  // 3. Số điện thoại → đăng ký
   if (text) {
     const handled = await handlePhoneRegistration(token, chatId, text);
     if (handled) return;
   }
 
-  // 3. Khách thuê đã đăng ký → reply thông tin liên hệ hỗ trợ
-  const isRegistered = await handleRegisteredTenant(token, chatId);
+  // 4. Khách thuê đã đăng ký → AI reply
+  const isRegistered = await handleRegisteredTenant(token, chatId, text);
   if (isRegistered) return;
 
-  // 4. Chưa đăng ký → detect tên → pendingZaloChatId
-  await detectAndStorePending(update);
+  // 5. Người lạ → lời chào + forward + detect pending
+  await Promise.all([
+    handleStranger(token, chatId, displayName, text),
+    detectAndStorePending(update),
+  ]);
+}
+
+/**
+ * Auto-reply handler — gọi từ webhook khi không muốn dùng handleZaloUpdate đầy đủ.
+ * Bỏ qua bước lưu lịch sử (webhook đã lưu riêng).
+ */
+export async function handleZaloAutoReply(update: any, token = ''): Promise<void> {
+  const msg = update?.message;
+  const data = update?.data; // bot server (zca-js)
+
+  const chatId: string =
+    msg?.from?.id ? String(msg.from.id) :
+    data?.uidFrom ? String(data.uidFrom) :
+    update?.uidFrom ? String(update.uidFrom) : '';
+  if (!chatId) return;
+
+  // Bỏ qua tin nhắn từ nhóm (type = 1)
+  if (update?.type === 1) return;
+
+  const displayName: string =
+    msg?.from?.display_name ||
+    data?.dName || data?.fromD || update?.dName || '';
+  const text: string =
+    (msg?.text || (typeof data?.content === 'string' ? data.content : '') || update?.content || '').trim();
+
+  // Kiểm tra bot_auto_reply_enabled
+  const autoReplyRow = await prisma.caiDat.findFirst({ where: { khoa: 'bot_auto_reply_enabled' } });
+  if (autoReplyRow?.giaTri?.trim() === 'false') return;
+
+  // Số điện thoại → đăng ký
+  if (text) {
+    const handled = await handlePhoneRegistration(token, chatId, text);
+    if (handled) return;
+  }
+
+  // Khách thuê đã đăng ký → AI reply
+  const isRegistered = await handleRegisteredTenant(token, chatId, text);
+  if (isRegistered) return;
+
+  // Người lạ → lời chào + forward
+  await handleStranger(token, chatId, displayName, text);
 }
