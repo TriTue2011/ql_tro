@@ -7,6 +7,9 @@ import { z } from 'zod';
 // Vai trò được phép quản lý cài đặt hệ thống
 const ALLOWED_ROLES = ['admin', 'chuNha'];
 
+// Nhóm chỉ admin được xem/sửa (liên quan server/DB/hạ tầng)
+const ADMIN_ONLY_NHOM = new Set(['luuTru', 'heThong', 'baoMat']);
+
 // Danh sách cài đặt mặc định — admin và chuNha đọc/ghi
 const DEFAULT_SETTINGS = [
   // Lưu trữ
@@ -109,10 +112,12 @@ export async function GET() {
 
     // Chỉ hiển thị các key có trong DEFAULT_SETTINGS (ẩn key cũ/không dùng nữa)
     const knownKeys = new Set(DEFAULT_SETTINGS.map((d) => d.khoa));
+    const role = session.user.role;
 
-    // Che giá trị bí mật
+    // Che giá trị bí mật; chuNha không được xem nhóm liên quan server/DB
     const safeSettings = allSettings
       .filter((s) => knownKeys.has(s.khoa))
+      .filter((s) => role === 'admin' || !ADMIN_ONLY_NHOM.has(s.nhom))
       .map((s) => ({
         ...s,
         giaTri: s.laBiMat ? maskSecret(s.giaTri) : s.giaTri,
@@ -144,9 +149,13 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
     const { settings } = updateSchema.parse(body);
+    const role = session.user.role;
 
     // Cập nhật từng setting — bỏ qua nếu gửi lên giá trị đã mask (••••)
     for (const { khoa, giaTri } of settings) {
+      // chuNha không được ghi nhóm server/DB
+      const nhom = DEFAULT_SETTINGS.find((d) => d.khoa === khoa)?.nhom ?? '';
+      if (role !== 'admin' && ADMIN_ONLY_NHOM.has(nhom)) continue;
       if (giaTri !== undefined && !giaTri?.includes('••••')) {
         await prisma.caiDat.upsert({
           where: { khoa },
