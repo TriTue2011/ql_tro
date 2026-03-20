@@ -36,27 +36,81 @@ import {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session } = useSession()
   
-  // Tạo navigation items dựa trên role
+  // Tạo navigation items dựa trên role — admin TÁCH HOÀN TOÀN khỏi chủ trọ
   const navMain = React.useMemo(() => {
-    const baseItems = [
+    const role = session?.user?.role
+
+    // ── Admin: chỉ quản trị hệ thống ─────────────────────────────────────
+    if (role === 'admin') {
+      return [
+        {
+          title: "Quản trị",
+          url: "#",
+          icon: Shield,
+          isActive: true,
+          items: [
+            { title: "Quản lý tài khoản", url: "/dashboard/quan-ly-tai-khoan" },
+          ],
+        },
+        {
+          title: "Cài đặt hệ thống",
+          url: "#",
+          icon: Settings,
+          items: [
+            { title: "Cài đặt", url: "/dashboard/cai-dat" },
+            { title: "Zalo", url: "/dashboard/zalo" },
+            { title: "Hồ sơ", url: "/dashboard/ho-so" },
+          ],
+        },
+      ]
+    }
+
+    // ── Nhân viên ─────────────────────────────────────────────────────────
+    if (role === 'nhanVien') {
+      return [
+        {
+          title: "Quản lý",
+          url: "#",
+          icon: Building,
+          isActive: true,
+          items: [
+            { title: "Phòng", url: "/dashboard/phong" },
+            { title: "Khách thuê", url: "/dashboard/khach-thue" },
+          ],
+        },
+        {
+          title: "Vận hành",
+          url: "#",
+          icon: AlertTriangle,
+          items: [
+            { title: "Hóa đơn", url: "/dashboard/hoa-don" },
+            { title: "Sự cố", url: "/dashboard/su-co" },
+            { title: "Thông báo", url: "/dashboard/thong-bao" },
+            { title: "Xem Web", url: "/dashboard/xem-web" },
+          ],
+        },
+        {
+          title: "Tài khoản",
+          url: "#",
+          icon: Users,
+          items: [
+            { title: "Hồ sơ", url: "/dashboard/ho-so" },
+          ],
+        },
+      ]
+    }
+
+    // ── Chủ trọ & Quản lý: quản lý bất động sản ──────────────────────────
+    const items = [
       {
         title: "Quản lý cơ bản",
         url: "#",
         icon: Building,
         isActive: true,
         items: [
-          {
-            title: "Tòa nhà",
-            url: "/dashboard/toa-nha",
-          },
-          {
-            title: "Phòng",
-            url: "/dashboard/phong",
-          },
-          {
-            title: "Khách thuê",
-            url: "/dashboard/khach-thue",
-          },
+          { title: "Tòa nhà", url: "/dashboard/toa-nha" },
+          { title: "Phòng", url: "/dashboard/phong" },
+          { title: "Khách thuê", url: "/dashboard/khach-thue" },
         ],
       },
       {
@@ -64,18 +118,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: "#",
         icon: Receipt,
         items: [
-          {
-            title: "Hợp đồng",
-            url: "/dashboard/hop-dong",
-          },
-          {
-            title: "Hóa đơn",
-            url: "/dashboard/hoa-don",
-          },
-          {
-            title: "Thanh toán",
-            url: "/dashboard/thanh-toan",
-          },
+          { title: "Hợp đồng", url: "/dashboard/hop-dong" },
+          { title: "Hóa đơn", url: "/dashboard/hoa-don" },
+          { title: "Thanh toán", url: "/dashboard/thanh-toan" },
         ],
       },
       {
@@ -83,69 +128,35 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: "#",
         icon: AlertTriangle,
         items: [
-          {
-            title: "Sự cố",
-            url: "/dashboard/su-co",
-          },
-          {
-            title: "Thông báo",
-            url: "/dashboard/thong-bao",
-          },
-          {
-            title: "Zalo Chat",
-            url: "/dashboard/zalo-chat",
-          },
-          {
-            title: "Zalo Monitor",
-            url: "/dashboard/zalo-monitor",
-          },
-          {
-            title: "Xem Web",
-            url: "/dashboard/xem-web",
-          },
-        ],
-      },
-      {
-        title: "Cài đặt",
-        url: "#",
-        icon: Settings,
-        items: [
-          {
-            title: "Hồ sơ",
-            url: "/dashboard/ho-so",
-          },
-          {
-            title: "Cài đặt",
-            url: "/dashboard/cai-dat",
-          },
-          {
-            title: "Zalo",
-            url: "/dashboard/zalo",
-          },
+          { title: "Sự cố", url: "/dashboard/su-co" },
+          { title: "Thông báo", url: "/dashboard/thong-bao" },
+          { title: "Xem Web", url: "/dashboard/xem-web" },
         ],
       },
     ]
 
-    // Thêm mục quản lý admin nếu là admin
-    if (session?.user?.role === 'admin') {
-      baseItems.splice(3, 0, {
-        title: "Quản trị",
+    if (role === 'quanLy') {
+      items.push({
+        title: "Tài khoản",
         url: "#",
-        icon: Shield,
+        icon: Users,
+        items: [{ title: "Hồ sơ", url: "/dashboard/ho-so" }],
+      })
+    } else {
+      // chuNha: có cài đặt + Zalo (không có server/webhook — ẩn trong trang cài đặt Zalo)
+      items.push({
+        title: "Cài đặt",
+        url: "#",
+        icon: Settings,
         items: [
-          {
-            title: "Quản lý tài khoản",
-            url: "/dashboard/quan-ly-tai-khoan",
-          },
-          {
-            title: "Cài đặt hệ thống",
-            url: "/dashboard/cai-dat",
-          },
+          { title: "Hồ sơ", url: "/dashboard/ho-so" },
+          { title: "Cài đặt", url: "/dashboard/cai-dat" },
+          { title: "Zalo", url: "/dashboard/zalo" },
         ],
       })
     }
 
-    return baseItems
+    return items
   }, [session?.user?.role])
 
   const userData = React.useMemo(() => ({
