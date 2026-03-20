@@ -61,7 +61,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             { title: "Hóa đơn", url: "/dashboard/hoa-don" },
             { title: "Sự cố", url: "/dashboard/su-co" },
             { title: "Thông báo", url: "/dashboard/thong-bao" },
-            { title: "Xem Web", url: "/dashboard/xem-web" },
+            { title: "Zalo", url: "/dashboard/zalo" },
           ],
         },
         {
@@ -105,7 +105,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         items: [
           { title: "Sự cố", url: "/dashboard/su-co" },
           { title: "Thông báo", url: "/dashboard/thong-bao" },
-          { title: "Xem Web", url: "/dashboard/xem-web" },
+          { title: "Zalo", url: "/dashboard/zalo" },
         ],
       },
     ]
