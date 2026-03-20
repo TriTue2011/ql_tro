@@ -1150,30 +1150,19 @@ export default function CaiDatPage() {
     setHaWebhookTestLoading(true);
     setHaWebhookTestResult(null);
     try {
-      const res = await fetch(haUrl, {
+      // Proxy qua server để tránh CORS (browser không gọi HA local network trực tiếp được)
+      const res = await fetch("/api/admin/test-ha-webhook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "Test từ hệ thống quản lý phòng trọ",
-          timestamp: new Date().toISOString(),
-        }),
+        body: JSON.stringify({ url: haUrl }),
       });
-      if (res.ok) {
-        setHaWebhookTestResult({
-          ok: true,
-          message: `HA Webhook phản hồi OK (HTTP ${res.status})`,
-        });
-        toast.success("HA Webhook đang hoạt động");
-      } else {
-        setHaWebhookTestResult({
-          ok: false,
-          message: `HTTP ${res.status} — HA Webhook không phản hồi`,
-        });
-        toast.error("HA Webhook không phản hồi");
-      }
+      const data = await res.json();
+      setHaWebhookTestResult({ ok: data.ok, message: data.message });
+      if (data.ok) toast.success("HA Webhook đang hoạt động");
+      else toast.error("HA Webhook không phản hồi");
     } catch {
-      setHaWebhookTestResult({ ok: false, message: "Lỗi kết nối tới HA" });
-      toast.error("Lỗi kết nối tới HA");
+      setHaWebhookTestResult({ ok: false, message: "Lỗi kết nối tới server" });
+      toast.error("Lỗi kết nối");
     } finally {
       setHaWebhookTestLoading(false);
     }
