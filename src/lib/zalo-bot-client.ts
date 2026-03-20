@@ -388,7 +388,7 @@ export async function getAccountsFromBotServer(): Promise<{
 }
 
 /** Lấy QR code để quét đăng nhập Zalo */
-export async function getQRCodeFromBotServer(): Promise<{
+export async function getQRCodeFromBotServer(accountSelection?: string): Promise<{
   qrCode?: string;
   error?: string;
 }> {
@@ -398,9 +398,13 @@ export async function getQRCodeFromBotServer(): Promise<{
   try {
     const authHeaders = await loginToBotServer(config);
 
+    const body: Record<string, any> = {};
+    if (accountSelection) body.accountSelection = accountSelection;
+
     const res = await fetch(`${config.serverUrl}/zalo-login`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(authHeaders ?? {}) },
+      body: Object.keys(body).length ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) return { error: `HTTP ${res.status}` };
