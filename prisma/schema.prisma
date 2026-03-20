@@ -46,6 +46,7 @@ model ToaNha {
   tongSoPhong   Int       @default(0)
   tienNghiChung   String[]
   lienHePhuTrach  Json      @default("[]") // [{ ten, soDienThoai, vaiTro? }]
+  zaloNhomChat    Json      @default("[]") // [{ tang?: number|null, threadId: string, label?: string }] — null tang = toàn tòa
   ngayTao         DateTime  @default(now())
   ngayCapNhat     DateTime  @updatedAt
 
