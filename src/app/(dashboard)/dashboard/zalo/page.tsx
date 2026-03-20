@@ -3,16 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
-  Building2, User, QrCode, Save, RefreshCw, Smartphone,
-  Shield, Crown, Users, AlertCircle,
+  Building2, QrCode, Save, RefreshCw, Smartphone,
+  Shield, Crown, Users, User, ChevronDown, ChevronRight,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,9 +59,9 @@ interface BuildingData {
   quanLys: AccountData[];
 }
 
-// ─── Account Tab Content ──────────────────────────────────────────────────────
+// ─── Account Settings (nội dung khi mở rộng một người) ───────────────────────
 
-function AccountTabContent({
+function AccountSettings({
   account,
   buildingId,
   isChuTro,
@@ -78,7 +77,6 @@ function AccountTabContent({
   onSaved: () => void;
 }) {
   const canEdit = isAdmin || isSelf;
-
   const [settings, setSettings] = useState<ZaloSettings>(account.settings ?? DEFAULT_SETTINGS);
   const [zaloAccountId, setZaloAccountId] = useState(account.zaloAccountId ?? "");
   const [saving, setSaving] = useState(false);
@@ -125,7 +123,7 @@ function AccountTabContent({
   };
 
   return (
-    <div className="space-y-5 p-4">
+    <div className="space-y-5 p-4 bg-gray-50 border-t">
       {/* Zalo Account Info */}
       <div>
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -138,7 +136,7 @@ function AccountTabContent({
               <Input
                 value={account.zaloChatId ?? ""}
                 readOnly
-                className="h-8 text-xs bg-gray-50"
+                className="h-8 text-xs bg-white"
                 placeholder="Chưa liên kết"
               />
               {account.zaloChatId
@@ -148,14 +146,13 @@ function AccountTabContent({
             </div>
           </div>
 
-          {/* Account ID chỉ admin mới thấy và chỉnh */}
           {isAdmin && (
             <div className="space-y-1">
               <Label className="text-xs text-gray-500">Account ID trên Bot Server (gửi tin)</Label>
               <Input
                 value={zaloAccountId}
                 onChange={e => setZaloAccountId(e.target.value)}
-                className="h-8 text-xs"
+                className="h-8 text-xs bg-white"
                 placeholder="Vd: 84912345678"
               />
             </div>
@@ -174,7 +171,7 @@ function AccountTabContent({
             variant="outline"
             onClick={handleGetQR}
             disabled={qrLoading || !canEdit}
-            className="text-xs gap-1.5"
+            className="text-xs gap-1.5 bg-white"
           >
             <QrCode className="h-3.5 w-3.5" />
             {qrLoading ? "Đang lấy QR..." : "Lấy QR đăng nhập"}
@@ -184,7 +181,7 @@ function AccountTabContent({
               <img
                 src={qrCode.startsWith("data:") ? qrCode : `data:image/png;base64,${qrCode}`}
                 alt="QR Zalo"
-                className="w-28 h-28 border rounded"
+                className="w-28 h-28 border rounded bg-white"
               />
               <span className="text-[10px] text-gray-400">Quét bằng Zalo</span>
             </div>
@@ -202,12 +199,11 @@ function AccountTabContent({
             </span>
           )}
         </h3>
-        <div className="border rounded-md overflow-hidden">
+        <div className="border rounded-md overflow-hidden bg-white">
           <div className="divide-y">
             {CATEGORIES.map(cat => (
               <div key={cat.key} className="flex items-center px-4 py-2.5 gap-6">
                 <div className="w-28 text-xs text-gray-700 font-medium">{cat.label}</div>
-
                 <div className="flex items-center gap-1.5">
                   <Switch
                     id={`${account.id}-${cat.key}`}
@@ -220,8 +216,6 @@ function AccountTabContent({
                     Nhận
                   </label>
                 </div>
-
-                {/* Chuyển QL — chỉ hiện với chủ trọ */}
                 {isChuTro && (
                   <div className="flex items-center gap-1.5">
                     <Switch
@@ -254,85 +248,196 @@ function AccountTabContent({
   );
 }
 
-// ─── Building Tab Content ─────────────────────────────────────────────────────
+// ─── Person Row (accordion cấp 3) ─────────────────────────────────────────────
 
-function BuildingTabContent({
+function PersonRow({
+  account,
+  buildingId,
+  isChuTro,
+  isAdmin,
+  sessionUserId,
+  onRefresh,
+}: {
+  account: AccountData;
+  buildingId: string;
+  isChuTro: boolean;
+  isAdmin: boolean;
+  sessionUserId: string;
+  onRefresh: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isSelf = account.id === sessionUserId;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+          <span className="text-sm font-medium truncate">{account.ten}</span>
+          {isSelf && (
+            <span className="text-[10px] text-gray-400">(bạn)</span>
+          )}
+          {isSelf && isAdmin && (
+            <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Admin</Badge>
+          )}
+          <span className={`text-[9px] ml-1 ${account.zaloChatId ? "text-green-500" : "text-gray-300"}`}>
+            {account.zaloChatId ? "●" : "○"}
+          </span>
+          {!account.zaloChatId && (
+            <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
+          )}
+        </div>
+        {open
+          ? <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+          : <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+        }
+      </button>
+
+      {open && (
+        <AccountSettings
+          account={account}
+          buildingId={buildingId}
+          isChuTro={isChuTro}
+          isAdmin={isAdmin}
+          isSelf={isSelf}
+          onSaved={onRefresh}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Role Group (accordion cấp 2) ─────────────────────────────────────────────
+
+function RoleGroup({
+  role,
+  people,
+  buildingId,
+  isAdmin,
+  sessionUserId,
+  onRefresh,
+}: {
+  role: "chuTro" | "quanLy";
+  people: AccountData[];
+  buildingId: string;
+  isAdmin: boolean;
+  sessionUserId: string;
+  onRefresh: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const isChuTroRole = role === "chuTro";
+
+  const roleLabel = isChuTroRole ? "Chủ trọ" : "Quản lý";
+  const RoleIcon = isChuTroRole ? Crown : Users;
+  const iconColor = isChuTroRole ? "text-amber-500" : "text-blue-400";
+  const badgeClass = isChuTroRole
+    ? "bg-amber-100 text-amber-700 border-amber-200"
+    : "bg-blue-100 text-blue-700 border-blue-200";
+
+  if (people.length === 0) return null;
+
+  return (
+    <div className="border rounded-md overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <RoleIcon className={`h-3.5 w-3.5 ${iconColor}`} />
+          <span className="text-sm font-medium">{roleLabel}</span>
+          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${badgeClass}`}>
+            {people.length}
+          </Badge>
+        </div>
+        {open
+          ? <ChevronDown className="h-4 w-4 text-gray-400" />
+          : <ChevronRight className="h-4 w-4 text-gray-400" />
+        }
+      </button>
+
+      {open && (
+        <div className="divide-y border-t">
+          {people.map(person => (
+            <PersonRow
+              key={person.id}
+              account={person}
+              buildingId={buildingId}
+              isChuTro={isChuTroRole}
+              isAdmin={isAdmin}
+              sessionUserId={sessionUserId}
+              onRefresh={onRefresh}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Building Accordion (accordion cấp 1) ─────────────────────────────────────
+
+function BuildingAccordion({
   building,
   isAdmin,
   sessionUserId,
+  defaultOpen,
+  onRefresh,
 }: {
   building: BuildingData;
   isAdmin: boolean;
   sessionUserId: string;
+  defaultOpen: boolean;
+  onRefresh: () => void;
 }) {
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const accounts = [
-    { ...building.chuTro, role: "chuTro" as const },
-    ...building.quanLys.map(q => ({ ...q, role: "quanLy" as const })),
-  ];
-
-  const defaultTab = accounts[0]?.id ?? "";
+  const [open, setOpen] = useState(defaultOpen);
+  const totalPeople = 1 + building.quanLys.length;
 
   return (
-    <div className="pt-3" key={refreshKey}>
-      {accounts.length === 0 ? (
-        <div className="text-center py-10 text-gray-400 text-sm">
-          Tòa nhà này chưa có chủ trọ hoặc quản lý
+    <div className="border rounded-lg overflow-hidden shadow-sm">
+      {/* Building header */}
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between p-4 bg-white hover:bg-blue-50 transition-colors"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Building2 className="h-5 w-5 text-blue-600 shrink-0" />
+          <span className="font-semibold text-gray-800 truncate">{building.tenToaNha}</span>
+          <Badge variant="outline" className="text-[10px] px-1.5 text-gray-500 shrink-0">
+            {totalPeople} người
+          </Badge>
         </div>
-      ) : (
-        <Tabs defaultValue={defaultTab}>
-          <TabsList className="w-full h-auto flex-wrap justify-start bg-gray-100 p-1 gap-1">
-            {accounts.map(acc => {
-              const isChuTro = acc.role === "chuTro";
-              const isSelf = acc.id === sessionUserId;
-              return (
-                <TabsTrigger
-                  key={acc.id}
-                  value={acc.id}
-                  className="flex items-center gap-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                >
-                  {isChuTro
-                    ? <Crown className="h-3 w-3 text-amber-500" />
-                    : <Users className="h-3 w-3 text-blue-400" />
-                  }
-                  <span>{acc.ten}</span>
-                  {isSelf && <span className="text-[10px] text-gray-400">(bạn)</span>}
-                  <span className={`text-[9px] px-1 py-0.5 rounded-full ${
-                    isSelf && isAdmin
-                      ? "bg-red-100 text-red-600"
-                      : isChuTro
-                      ? "bg-amber-100 text-amber-600"
-                      : "bg-blue-100 text-blue-600"
-                  }`}>
-                    {isSelf && isAdmin ? "Admin" : isChuTro ? "Chủ trọ" : "Quản lý"}
-                  </span>
-                  {acc.zaloChatId
-                    ? <span className="text-[9px] text-green-500">●</span>
-                    : <span className="text-[9px] text-gray-300">○</span>
-                  }
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+        {open
+          ? <ChevronDown className="h-5 w-5 text-gray-400 shrink-0" />
+          : <ChevronRight className="h-5 w-5 text-gray-400 shrink-0" />
+        }
+      </button>
 
-          {accounts.map(acc => {
-            const isChuTro = acc.role === "chuTro";
-            const isSelf = acc.id === sessionUserId;
-            return (
-              <TabsContent key={acc.id} value={acc.id} className="mt-3 border rounded-lg">
-                <AccountTabContent
-                  account={acc}
-                  buildingId={building.id}
-                  isChuTro={isChuTro}
-                  isAdmin={isAdmin}
-                  isSelf={isSelf}
-                  onSaved={() => setRefreshKey(k => k + 1)}
-                />
-              </TabsContent>
-            );
-          })}
-        </Tabs>
+      {/* Role groups */}
+      {open && (
+        <div className="bg-gray-50 border-t p-3 space-y-2">
+          <RoleGroup
+            role="chuTro"
+            people={[building.chuTro]}
+            buildingId={building.id}
+            isAdmin={isAdmin}
+            sessionUserId={sessionUserId}
+            onRefresh={onRefresh}
+          />
+          <RoleGroup
+            role="quanLy"
+            people={building.quanLys}
+            buildingId={building.id}
+            isAdmin={isAdmin}
+            sessionUserId={sessionUserId}
+            onRefresh={onRefresh}
+          />
+        </div>
       )}
     </div>
   );
@@ -362,7 +467,7 @@ export default function ZaloSettingsPage() {
   useEffect(() => { loadBuildings(); }, [loadBuildings]);
 
   return (
-    <div className="space-y-4 p-4 md:p-6 max-w-5xl">
+    <div className="space-y-4 p-4 md:p-6 max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -380,57 +485,40 @@ export default function ZaloSettingsPage() {
         </Button>
       </div>
 
-      {/* Admin-only: Bot Server & Webhook */}
+      {/* Admin-only: Bot Server notice */}
       {isAdmin && (
         <Card className="border-amber-200 bg-amber-50">
-          <CardHeader className="p-4 pb-2">
+          <CardHeader className="p-4 pb-3">
             <CardTitle className="text-sm flex items-center gap-2 text-amber-700">
               <Shield className="h-4 w-4" />
               Cài đặt hệ thống (Admin)
             </CardTitle>
             <CardDescription className="text-xs text-amber-600">
               Cấu hình Bot Server URL, webhook và tài khoản mặc định — xem tại{" "}
-              <a href="/dashboard/cai-dat" className="underline font-medium">Cài đặt → Zalo</a>
+              <a href="/dashboard/cai-dat" className="underline font-medium">Cài đặt → Home Assistant</a>
             </CardDescription>
           </CardHeader>
         </Card>
       )}
 
-      {/* Buildings Tabs */}
+      {/* Building list */}
       {loading ? (
         <div className="text-center py-16 text-gray-400 text-sm">Đang tải...</div>
       ) : buildings.length === 0 ? (
         <div className="text-center py-16 text-gray-400 text-sm">Chưa có tòa nhà nào</div>
       ) : (
-        <Tabs defaultValue={buildings[0].id}>
-          <div className="border-b">
-            <TabsList className="h-auto bg-transparent p-0 gap-0">
-              {buildings.map(b => (
-                <TabsTrigger
-                  key={b.id}
-                  value={b.id}
-                  className="flex items-center gap-2 px-4 py-2.5 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  <Building2 className="h-4 w-4" />
-                  {b.tenToaNha}
-                  <span className="text-[10px] text-gray-400">
-                    {1 + b.quanLys.length} người
-                  </span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-
-          {buildings.map(b => (
-            <TabsContent key={b.id} value={b.id} className="mt-0 pt-2">
-              <BuildingTabContent
-                building={b}
-                isAdmin={isAdmin}
-                sessionUserId={sessionUserId}
-              />
-            </TabsContent>
+        <div className="space-y-3">
+          {buildings.map((b, i) => (
+            <BuildingAccordion
+              key={b.id}
+              building={b}
+              isAdmin={isAdmin}
+              sessionUserId={sessionUserId}
+              defaultOpen={i === 0}
+              onRefresh={loadBuildings}
+            />
           ))}
-        </Tabs>
+        </div>
       )}
     </div>
   );
