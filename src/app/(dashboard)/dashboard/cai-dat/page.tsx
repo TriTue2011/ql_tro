@@ -575,7 +575,14 @@ export default function CaiDatPage() {
       relaxed: "1.75",
       loose: "2",
     };
-    document.body.style.fontFamily = fontSettings.fontFamily;
+    // Quote multi-word font names for CSS
+    const fontValue = fontSettings.fontFamily.includes(" ")
+      ? `'${fontSettings.fontFamily}'`
+      : fontSettings.fontFamily;
+    // Override CSS variables so Tailwind font-sans (var(--font-geist-sans)) also updates
+    document.documentElement.style.setProperty("--font-geist-sans", fontValue);
+    document.documentElement.style.setProperty("--font-family", fontValue);
+    document.body.style.fontFamily = fontValue;
     document.body.style.fontSize = fontSizeMap[fontSettings.fontSize];
     document.body.style.lineHeight = lineHeightMap[fontSettings.lineHeight];
   }
@@ -1124,6 +1131,51 @@ export default function CaiDatPage() {
       toast.error("Lỗi kết nối");
     } finally {
       setWebhookTestLoading(false);
+    }
+  }
+
+  // --- Test HA Webhook ---
+  const [haWebhookTestLoading, setHaWebhookTestLoading] = useState(false);
+  const [haWebhookTestResult, setHaWebhookTestResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
+
+  async function handleTestHaWebhook() {
+    const haUrl = settingValues["ha_zalo_notify_url"]?.trim();
+    if (!haUrl) {
+      toast.error("Chưa cấu hình Home Assistant Webhook URL");
+      return;
+    }
+    setHaWebhookTestLoading(true);
+    setHaWebhookTestResult(null);
+    try {
+      const res = await fetch(haUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Test từ hệ thống quản lý phòng trọ",
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      if (res.ok) {
+        setHaWebhookTestResult({
+          ok: true,
+          message: `HA Webhook phản hồi OK (HTTP ${res.status})`,
+        });
+        toast.success("HA Webhook đang hoạt động");
+      } else {
+        setHaWebhookTestResult({
+          ok: false,
+          message: `HTTP ${res.status} — HA Webhook không phản hồi`,
+        });
+        toast.error("HA Webhook không phản hồi");
+      }
+    } catch {
+      setHaWebhookTestResult({ ok: false, message: "Lỗi kết nối tới HA" });
+      toast.error("Lỗi kết nối tới HA");
+    } finally {
+      setHaWebhookTestLoading(false);
     }
   }
 
@@ -2353,14 +2405,14 @@ export default function CaiDatPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
-                <Button size="sm" variant="outline" onClick={handleTestWebhook} disabled={webhookTestLoading} className="w-full">
-                  {webhookTestLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                  Test webhook (gửi tin giả lập)
+                <Button size="sm" variant="outline" onClick={handleTestHaWebhook} disabled={haWebhookTestLoading} className="w-full">
+                  {haWebhookTestLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                  Test HA Webhook
                 </Button>
-                {webhookTestResult && (
-                  <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${webhookTestResult.ok ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
-                    {webhookTestResult.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" /> : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
-                    {webhookTestResult.message}
+                {haWebhookTestResult && (
+                  <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${haWebhookTestResult.ok ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+                    {haWebhookTestResult.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" /> : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                    {haWebhookTestResult.message}
                   </div>
                 )}
               </CardContent>
