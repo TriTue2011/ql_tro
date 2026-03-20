@@ -45,7 +45,9 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
 
     const repo = await getToaNhaRepo();
-    const result = await repo.findMany({ page, limit, search: search || undefined });
+    // chuNha chỉ thấy tòa nhà do mình sở hữu
+    const ownerId = session.user.role === 'chuNha' ? session.user.id : undefined;
+    const result = await repo.findMany({ page, limit, search: search || undefined, ownerId });
 
     // Batch-fetch thống kê phòng (tránh N+1: 5 queries/tòa nhà → 1 groupBy)
     const toaNhaIds = result.data.map(t => t.id).filter(Boolean) as string[];

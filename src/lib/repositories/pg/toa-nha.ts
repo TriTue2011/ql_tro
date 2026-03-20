@@ -43,9 +43,9 @@ export default class ToaNhaRepository {
     const limit = opts.limit ?? 20;
     const skip = (page - 1) * limit;
 
-    const where = opts.search
-      ? { tenToaNha: { contains: opts.search, mode: 'insensitive' as const } }
-      : {};
+    const where: Record<string, any> = {};
+    if (opts.search) where.tenToaNha = { contains: opts.search, mode: 'insensitive' as const };
+    if (opts.ownerId) where.chuSoHuuId = opts.ownerId;
 
     const [total, rows] = await Promise.all([
       prisma.toaNha.count({ where }),

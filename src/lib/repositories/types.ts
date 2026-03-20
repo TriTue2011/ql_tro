@@ -9,6 +9,7 @@ export interface QueryOptions {
   page?: number;
   limit?: number;
   search?: string;
+  ownerId?: string;
 }
 
 export interface PaginatedResult<T> {

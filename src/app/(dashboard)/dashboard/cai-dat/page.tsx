@@ -526,8 +526,9 @@ function AlertSettingsCard({
 export default function CaiDatPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "admin";
+  const isChuNha = session?.user?.role === "chuNha";
   // Chủ trọ và admin đều có thể xem/thay đổi cài đặt hệ thống (Zalo, thông báo, ...)
-  const canManage = isAdmin || session?.user?.role === "chuNha";
+  const canManage = isAdmin || isChuNha;
 
   // --- Cài đặt giao diện (cho tất cả users) ---
   const [fontSettings, setFontSettings] = useState({
@@ -1417,20 +1418,24 @@ export default function CaiDatPage() {
                 <Webhook className="h-3.5 w-3.5" />
                 Home Assistant
               </TabsTrigger>
-              <TabsTrigger
-                value="luuTru"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <HardDrive className="h-3.5 w-3.5" />
-                Lưu trữ
-              </TabsTrigger>
-              <TabsTrigger
-                value="heThong"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <Shield className="h-3.5 w-3.5" />
-                Hệ thống
-              </TabsTrigger>
+              {isAdmin && (
+                <>
+                  <TabsTrigger
+                    value="luuTru"
+                    className="flex items-center gap-1.5 text-xs md:text-sm"
+                  >
+                    <HardDrive className="h-3.5 w-3.5" />
+                    Lưu trữ
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="heThong"
+                    className="flex items-center gap-1.5 text-xs md:text-sm"
+                  >
+                    <Shield className="h-3.5 w-3.5" />
+                    Hệ thống
+                  </TabsTrigger>
+                </>
+              )}
             </>
           )}
           <TabsTrigger
@@ -1652,7 +1657,7 @@ export default function CaiDatPage() {
         )}
 
         {/* ── Tab Lưu trữ ───────────────────────────────────────────────────── */}
-        {canManage && !loadingSystem && !errorSystem && (
+        {isAdmin && !loadingSystem && !errorSystem && (
           <TabsContent value="luuTru" className="space-y-4 mt-4">
             {settingsByGroup["luuTru"]?.length ? (
               <StorageSettingsCard
@@ -1732,7 +1737,7 @@ export default function CaiDatPage() {
         )}
 
         {/* ── Tab Hệ thống + Bảo mật ────────────────────────────────────────── */}
-        {canManage && !loadingSystem && !errorSystem && (
+        {isAdmin && !loadingSystem && !errorSystem && (
           <TabsContent value="heThong" className="space-y-4 mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {["heThong", "baoMat"].map((nhom) =>
