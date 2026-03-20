@@ -299,11 +299,13 @@ function BuildingTabContent({
                   <span>{acc.ten}</span>
                   {isSelf && <span className="text-[10px] text-gray-400">(bạn)</span>}
                   <span className={`text-[9px] px-1 py-0.5 rounded-full ${
-                    isChuTro
+                    isSelf && isAdmin
+                      ? "bg-red-100 text-red-600"
+                      : isChuTro
                       ? "bg-amber-100 text-amber-600"
                       : "bg-blue-100 text-blue-600"
                   }`}>
-                    {isChuTro ? "Chủ trọ" : "Quản lý"}
+                    {isSelf && isAdmin ? "Admin" : isChuTro ? "Chủ trọ" : "Quản lý"}
                   </span>
                   {acc.zaloChatId
                     ? <span className="text-[9px] text-green-500">●</span>

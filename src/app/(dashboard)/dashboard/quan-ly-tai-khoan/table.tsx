@@ -131,8 +131,14 @@ const getRoleBadge = (role: string) => {
       )
     case 'chuNha':
       return (
-        <Badge variant="default" className="gap-1">
-          Chủ nhà
+        <Badge variant="default" className="gap-1 bg-blue-600">
+          Chủ trọ
+        </Badge>
+      )
+    case 'quanLy':
+      return (
+        <Badge variant="outline" className="gap-1 border-violet-400 text-violet-600">
+          Quản lý
         </Badge>
       )
     case 'nhanVien':
