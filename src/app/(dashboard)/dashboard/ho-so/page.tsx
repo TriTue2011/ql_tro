@@ -276,7 +276,9 @@ export default function ProfilePage() {
       case 'admin':
         return <Badge variant="destructive">Quản trị viên</Badge>;
       case 'chuNha':
-        return <Badge variant="default">Chủ nhà</Badge>;
+        return <Badge variant="default" className="bg-blue-600">Chủ trọ</Badge>;
+      case 'quanLy':
+        return <Badge variant="outline" className="border-violet-400 text-violet-600">Quản lý</Badge>;
       case 'nhanVien':
         return <Badge variant="secondary">Nhân viên</Badge>;
       default:
