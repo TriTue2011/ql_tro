@@ -17,6 +17,7 @@ import {
   Building,
   Globe,
   MessageCircle,
+  Smartphone,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -116,6 +117,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {
             title: "Cài đặt",
             url: "/dashboard/cai-dat",
+          },
+          {
+            title: "Zalo",
+            url: "/dashboard/zalo",
           },
         ],
       },

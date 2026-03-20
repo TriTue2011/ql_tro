@@ -22,6 +22,7 @@ model NguoiDung {
   zaloChatId        String?   // Zalo bot chat_id đã xác thực
   pendingZaloChatId String?  // Zalo bot chat_id chờ xác nhận (từ getUpdates)
   nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
+  zaloAccountId     String?  // Account ID của họ trên bot server (để gửi tin AS them)
   ngayTao          DateTime  @default(now())
   ngayCapNhat      DateTime  @updatedAt
 
@@ -33,6 +34,7 @@ model NguoiDung {
   suCoXuLy          SuCo[]          @relation("NguoiXuLy")
   thongBaoGui       ThongBao[]
   yeuCauPheDuyet    YeuCauThayDoi[]
+  zaloThongBaoCaiDat ZaloThongBaoCaiDat[]
 }
 
 model ToaNha {
@@ -52,6 +54,7 @@ model ToaNha {
 
   phong         Phong[]
   nguoiQuanLy   ToaNhaNguoiQuanLy[]
+  zaloThongBaoCaiDat ZaloThongBaoCaiDat[]
 }
 
 // Bảng gán người quản lý cho tòa nhà (role: quanLy)
@@ -63,6 +66,37 @@ model ToaNhaNguoiQuanLy {
   ngayTao     DateTime  @default(now())
 
   @@id([toaNhaId, nguoiDungId])
+}
+
+// Cài đặt thông báo Zalo theo từng người × từng tòa nhà
+// Chủ trọ: có thêm cột chuyển quyền cho quản lý theo từng mục
+model ZaloThongBaoCaiDat {
+  id          String @id @default(cuid())
+  nguoiDungId String
+  toaNhaId    String
+
+  // Bật/tắt nhận từng loại thông báo
+  nhanSuCo     Boolean @default(true)
+  nhanHoaDon   Boolean @default(true)
+  nhanTinKhach Boolean @default(true)
+  nhanNguoiLa  Boolean @default(true)
+  nhanNhacNho  Boolean @default(true)
+
+  // Chuyển quyền cho quản lý (chỉ có ý nghĩa với chủ trọ)
+  // Khi bật: chỉ trạng thái cuối (daXong, daThanhToan) mới báo lại chủ trọ
+  chuyenSuCoChoQL     Boolean @default(false)
+  chuyenHoaDonChoQL   Boolean @default(false)
+  chuyenTinKhachChoQL Boolean @default(false)
+  chuyenNguoiLaChoQL  Boolean @default(false)
+  chuyenNhacNhoChoQL  Boolean @default(false)
+
+  ngayTao     DateTime @default(now())
+  ngayCapNhat DateTime @updatedAt
+
+  nguoiDung NguoiDung @relation(fields: [nguoiDungId], references: [id], onDelete: Cascade)
+  toaNha    ToaNha    @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
+
+  @@unique([nguoiDungId, toaNhaId])
 }
 
 model Phong {
