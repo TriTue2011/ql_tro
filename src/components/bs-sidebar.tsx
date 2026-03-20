@@ -63,7 +63,7 @@ function buildNavGroups(role: Role): NavGroup[] {
           { label: 'Sự cố', href: '/dashboard/su-co' },
           { label: 'Yêu cầu duyệt', href: '/dashboard/yeu-cau-duyet' },
           { label: 'Thông báo', href: '/dashboard/thong-bao' },
-          { label: 'Xem Web', href: '/dashboard/xem-web' },
+          { label: 'Zalo', href: '/dashboard/zalo' },
         ],
       },
       {
@@ -101,7 +101,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         { label: 'Sự cố', href: '/dashboard/su-co' },
         { label: 'Yêu cầu duyệt', href: '/dashboard/yeu-cau-duyet' },
         { label: 'Thông báo', href: '/dashboard/thong-bao' },
-        { label: 'Xem Web', href: '/dashboard/xem-web' },
+        { label: 'Zalo', href: '/dashboard/zalo' },
       ],
     },
   ];
@@ -269,7 +269,7 @@ function getItemIcon(label: string): string {
     'Thanh toán':         'bi-credit-card',
     'Sự cố':             'bi-exclamation-triangle',
     'Thông báo':          'bi-bell',
-    'Xem Web':            'bi-globe',
+    'Zalo':               'bi-chat-dots',
     'Quản lý tài khoản': 'bi-person-badge',
     'Hồ sơ':             'bi-person-circle',
     'Cài đặt':           'bi-sliders',
