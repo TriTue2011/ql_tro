@@ -255,7 +255,9 @@ export default function AccountManagementPage() {
       case 'admin':
         return <Badge variant="destructive">Quản trị viên</Badge>;
       case 'chuNha':
-        return <Badge variant="default">Chủ nhà</Badge>;
+        return <Badge variant="default" className="bg-blue-600">Chủ trọ</Badge>;
+      case 'quanLy':
+        return <Badge variant="outline" className="border-violet-400 text-violet-600">Quản lý</Badge>;
       case 'nhanVien':
         return <Badge variant="secondary">Nhân viên</Badge>;
       default:
@@ -393,7 +395,8 @@ export default function AccountManagementPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nhanVien" className="text-sm">Nhân viên</SelectItem>
-                    <SelectItem value="chuNha" className="text-sm">Chủ nhà</SelectItem>
+                    <SelectItem value="quanLy" className="text-sm">Quản lý</SelectItem>
+                    <SelectItem value="chuNha" className="text-sm">Chủ trọ</SelectItem>
                     <SelectItem value="admin" className="text-sm">Quản trị viên</SelectItem>
                   </SelectContent>
                 </Select>
@@ -439,7 +442,7 @@ export default function AccountManagementPage() {
         <Card className="p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Chủ nhà</p>
+              <p className="text-[10px] md:text-xs font-medium text-gray-600">Chủ trọ</p>
               <p className="text-base md:text-2xl font-bold text-blue-600">
                 {users.filter(u => getUserRole(u) === 'chuNha').length}
               </p>
@@ -451,9 +454,9 @@ export default function AccountManagementPage() {
         <Card className="p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Nhân viên</p>
+              <p className="text-[10px] md:text-xs font-medium text-gray-600">Nhân viên / QL</p>
               <p className="text-base md:text-2xl font-bold text-green-600">
-                {users.filter(u => getUserRole(u) === 'nhanVien').length}
+                {users.filter(u => ['nhanVien', 'quanLy'].includes(getUserRole(u))).length}
               </p>
             </div>
             <Users className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
@@ -630,7 +633,8 @@ export default function AccountManagementPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="nhanVien" className="text-sm">Nhân viên</SelectItem>
-                  <SelectItem value="chuNha" className="text-sm">Chủ nhà</SelectItem>
+                  <SelectItem value="quanLy" className="text-sm">Quản lý</SelectItem>
+                  <SelectItem value="chuNha" className="text-sm">Chủ trọ</SelectItem>
                   <SelectItem value="admin" className="text-sm">Quản trị viên</SelectItem>
                 </SelectContent>
               </Select>

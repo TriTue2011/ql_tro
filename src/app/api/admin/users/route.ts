@@ -12,7 +12,7 @@ const createUserSchema = z.object({
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').max(128),
   phone: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ').optional(),
   // Chỉ cho phép role hợp lệ — không thể tạo role tùy ý
-  role: z.enum(['admin', 'chuNha', 'nhanVien']),
+  role: z.enum(['admin', 'chuNha', 'quanLy', 'nhanVien']),
 });
 
 export async function GET() {

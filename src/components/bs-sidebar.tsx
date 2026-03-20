@@ -33,17 +33,39 @@ type Role = 'admin' | 'chuNha' | 'quanLy' | 'nhanVien' | string;
 /**
  * Trả về danh sách NavGroup dựa vào role hiện tại.
  *
- * admin    → toàn quyền
- * chuNha   → tất cả trừ "Quản lý tài khoản"; cài đặt ẩn luuTru/thongBao (xử lý trong trang)
- * quanLy   → không có tab "Cài đặt", không có "Quản lý tài khoản"
+ * admin    → TÁCH HOÀN TOÀN: chỉ quản trị hệ thống (tài khoản, cài đặt, Zalo)
+ * chuNha   → quản lý bất động sản đầy đủ (tòa nhà, phòng, khách thuê, tài chính...)
+ * quanLy   → tương tự chuNha nhưng không có cài đặt hệ thống, chỉ hồ sơ cá nhân
  * nhanVien → chỉ: Phòng, Khách thuê (xem), Hóa đơn, Sự cố, Thông báo, Xem Web, Hồ sơ
  */
 function buildNavGroups(role: Role): NavGroup[] {
   const isAdmin = role === 'admin';
-  const isChuNha = role === 'chuNha';
   const isQuanLy = role === 'quanLy';
   const isNhanVien = role === 'nhanVien';
 
+  // ── Admin: hoàn toàn tách biệt với chủ trọ ───────────────────────────────
+  if (isAdmin) {
+    return [
+      {
+        label: 'Quản trị',
+        icon: 'bi-shield-lock',
+        items: [
+          { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
+        ],
+      },
+      {
+        label: 'Cài đặt hệ thống',
+        icon: 'bi-gear',
+        items: [
+          { label: 'Cài đặt', href: '/dashboard/cai-dat' },
+          { label: 'Zalo', href: '/dashboard/zalo' },
+          { label: 'Hồ sơ', href: '/dashboard/ho-so' },
+        ],
+      },
+    ];
+  }
+
+  // ── Nhân viên ─────────────────────────────────────────────────────────────
   if (isNhanVien) {
     return [
       {
@@ -66,13 +88,14 @@ function buildNavGroups(role: Role): NavGroup[] {
         ],
       },
       {
-        label: 'Cài đặt',
-        icon: 'bi-gear',
+        label: 'Tài khoản',
+        icon: 'bi-person',
         items: [{ label: 'Hồ sơ', href: '/dashboard/ho-so' }],
       },
     ];
   }
 
+  // ── Chủ trọ & Quản lý: quản lý bất động sản ──────────────────────────────
   const groups: NavGroup[] = [
     {
       label: 'Quản lý cơ bản',
@@ -104,35 +127,23 @@ function buildNavGroups(role: Role): NavGroup[] {
     },
   ];
 
-  // "Quản trị" chỉ admin thấy
-  if (isAdmin) {
+  if (isQuanLy) {
+    // Quản lý: chỉ hồ sơ cá nhân, không có cài đặt hệ thống
     groups.push({
-      label: 'Quản trị',
-      icon: 'bi-shield-lock',
-      items: [
-        { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
-      ],
+      label: 'Tài khoản',
+      icon: 'bi-person',
+      items: [{ label: 'Hồ sơ', href: '/dashboard/ho-so' }],
     });
-  }
-
-  // Tab "Cài đặt": quanLy không có; admin/chuNha có đủ; (chuNha ẩn luuTru trong trang cai-dat)
-  if (!isQuanLy) {
+  } else {
+    // Chủ trọ: có cài đặt + Zalo (không có server/webhook — ẩn trong trang)
     groups.push({
       label: 'Cài đặt',
       icon: 'bi-gear',
       items: [
         { label: 'Hồ sơ', href: '/dashboard/ho-so' },
-        ...(isAdmin || isChuNha
-          ? [{ label: 'Cài đặt', href: '/dashboard/cai-dat' }]
-          : []),
+        { label: 'Cài đặt', href: '/dashboard/cai-dat' },
+        { label: 'Zalo', href: '/dashboard/zalo' },
       ],
-    });
-  } else {
-    // quanLy chỉ có hồ sơ (không có tab cài đặt hệ thống)
-    groups.push({
-      label: 'Tài khoản',
-      icon: 'bi-person',
-      items: [{ label: 'Hồ sơ', href: '/dashboard/ho-so' }],
     });
   }
 
