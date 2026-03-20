@@ -441,16 +441,11 @@ const ALERT_KEYS = new Set([
 ]);
 
 const ZALO_KEYS = new Set([
-  "zalo_mode",
-  "zalo_access_token",
-  "zalo_webhook_secret",
   "zalo_bot_server_url",
   "zalo_bot_username",
   "zalo_bot_password",
   "zalo_bot_account_id",
   "zalo_bot_ttl",
-  "zalo_webhook_id",
-  "ha_zalo_notify_url",
 ]);
 
 function AlertSettingsCard({
@@ -1390,7 +1385,14 @@ export default function CaiDatPage() {
                 className="flex items-center gap-1.5 text-xs md:text-sm"
               >
                 <Smartphone className="h-3.5 w-3.5" />
-                Zalo Bot
+                Zalo
+              </TabsTrigger>
+              <TabsTrigger
+                value="homeAssistant"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <Webhook className="h-3.5 w-3.5" />
+                Home Assistant
               </TabsTrigger>
               <TabsTrigger
                 value="luuTru"
@@ -1490,119 +1492,10 @@ export default function CaiDatPage() {
           </TabsContent>
         )}
 
-        {/* ── Tab Zalo Bot ───────────────────────────────────────────────────── */}
+        {/* ── Tab Zalo ────────────────────────────────────────────────────────── */}
         {canManage && !loadingSystem && !errorSystem && (
           <TabsContent value="thongBao" className="space-y-4 mt-4">
-            {zaloItems.length > 0 && (
-              <SettingGroupCard
-                nhom="thongBao"
-                items={zaloItems}
-                values={settingValues}
-                onChange={handleSettingChange}
-                onSave={handleSaveGroup}
-                saving={savingGroup === "thongBao"}
-              />
-            )}
-
-            {/* ── HA Forward Filter ── */}
-            <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <Webhook className="h-4 w-4" />
-                  Bộ lọc chuyển tiếp Home Assistant
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Giới hạn tin nhắn được forward đến HA webhook theo Thread ID
-                  và loại (user/nhóm). Trống = chuyển tiếp tất cả.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs md:text-sm font-medium">
-                      Danh sách Thread ID được phép
-                    </Label>
-                    <button
-                      type="button"
-                      onClick={addHaThread}
-                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Thêm
-                    </button>
-                  </div>
-                  {haThreadEntries.length === 0 && (
-                    <p className="text-[11px] text-gray-400 italic">
-                      Chưa có thread nào — tất cả tin nhắn sẽ được chuyển tiếp.
-                    </p>
-                  )}
-                  <div className="space-y-2">
-                    {haThreadEntries.map((entry, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <Input
-                          type="text"
-                          placeholder="Thread ID (VD: 6643404425553198601)"
-                          value={entry.threadId}
-                          onChange={(e) =>
-                            updateHaThread(i, "threadId", e.target.value)
-                          }
-                          className="text-xs font-mono flex-1"
-                        />
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => updateHaThread(i, "type", 0)}
-                            className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-colors whitespace-nowrap ${
-                              entry.type === 0
-                                ? "bg-blue-600 text-white border-blue-600"
-                                : "bg-white text-gray-500 border-gray-200 hover:border-blue-300"
-                            }`}
-                          >
-                            Người dùng
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateHaThread(i, "type", 1)}
-                            className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-colors whitespace-nowrap ${
-                              entry.type === 1
-                                ? "bg-green-600 text-white border-green-600"
-                                : "bg-white text-gray-500 border-gray-200 hover:border-blue-300"
-                            }`}
-                          >
-                            Nhóm
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeHaThread(i)}
-                          className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-gray-400">
-                    Type 0 = người dùng, Type 1 = nhóm. Để trống danh sách =
-                    chuyển tiếp tất cả.
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={handleSaveHaFilter}
-                  disabled={haFilterSaving}
-                  className="w-full"
-                >
-                  {haFilterSaving ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  Lưu bộ lọc
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* ── Gửi test Zalo ── */}
+            {/* ── 1. Gửi test Zalo ── */}
             <Card>
               <CardHeader className="p-4 md:p-6">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
@@ -1829,7 +1722,7 @@ export default function CaiDatPage() {
               </CardContent>
             </Card>
 
-            {/* ── Theo dõi tin nhắn Zalo Bot (thread ID) ── */}
+            {/* ── 2. Theo dõi tin nhắn Zalo Bot ── */}
             <Card>
               <CardHeader className="p-4 md:p-6">
                 <div className="flex items-center justify-between">
@@ -1985,40 +1878,145 @@ export default function CaiDatPage() {
               </CardContent>
             </Card>
 
-            {/* ── Zalo Bot Server (zalo_mode=bot_server) ── */}
+            {/* ── 3. Cài đặt Zalo Bot Server ── */}
+            {zaloItems.length > 0 && (
+              <Card>
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                    <Smartphone className="h-4 w-4" />
+                    Zalo Bot Server
+                  </CardTitle>
+                  <CardDescription className="text-xs md:text-sm">
+                    Cài đặt kết nối đến Docker bot server. Điền đầy đủ trước khi kiểm tra kết nối.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 md:p-6 space-y-4">
+                  {zaloItems.map((item) => (
+                    <div key={item.khoa} className="space-y-1">
+                      <Label className="text-xs md:text-sm font-medium">
+                        {item.moTa}
+                        {item.laBiMat && (
+                          <Badge variant="outline" className="ml-2 text-xs py-0">
+                            <Lock className="h-2.5 w-2.5 mr-1" />bí mật
+                          </Badge>
+                        )}
+                      </Label>
+                      <SettingInput
+                        item={item}
+                        value={settingValues[item.khoa] ?? ""}
+                        onChange={(v) => handleSettingChange(item.khoa, v)}
+                      />
+                    </div>
+                  ))}
+                  <Button
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => handleSaveGroup("thongBao")}
+                    disabled={savingGroup === "thongBao"}
+                  >
+                    {savingGroup === "thongBao" ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Lưu cài đặt Zalo
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ── 4. Webhook Zalo (merged: nhận tin + bot controls) ── */}
             <Card>
               <CardHeader className="p-4 md:p-6">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <Smartphone className="h-4 w-4" />
-                  Zalo Bot Server (Web Login)
+                  <Webhook className="h-4 w-4" />
+                  Webhook Zalo
                 </CardTitle>
                 <CardDescription className="text-xs md:text-sm">
-                  Quản lý Docker bot server chạy trên Home Assistant (cổng
-                  3000). Dùng khi{" "}
-                  <code className="bg-gray-100 px-1 rounded">
-                    zalo_mode = bot_server
-                  </code>
-                  . Lưu các cài đặt <strong>zalo_bot_server_url</strong>,{" "}
-                  <strong>zalo_bot_username/password</strong> và{" "}
-                  <strong>zalo_bot_account_id</strong> trước.
+                  Endpoint nhận tin nhắn từ Bot Server — hoạt động qua IP LAN và Domain.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3">
-                {/* Kiểm tra kết nối + danh sách tài khoản */}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleBotStatus}
-                  disabled={botStatusLoading}
-                  className="w-full"
-                >
-                  {botStatusLoading ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Wifi className="h-4 w-4 mr-2" />
-                  )}
-                  Kiểm tra kết nối & danh sách tài khoản
+                {/* ── URL gốc ── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-700">URL gốc (IP LAN)</Label>
+                    <Input
+                      className="text-xs font-mono"
+                      placeholder="http://172.16.10.27:3000"
+                      value={webhookBaseUrl}
+                      onChange={(e) => setWebhookBaseUrl(e.target.value.trim())}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim().replace(/\/$/, "");
+                        if (v && v !== settingValues["app_local_url"]?.trim()) handleSaveBaseUrl(v);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-700">URL gốc (Domain)</Label>
+                    <Input
+                      className="text-xs font-mono"
+                      placeholder="https://qlpt.vhtatn.io.vn"
+                      value={webhookDomainUrl}
+                      onChange={(e) => setWebhookDomainUrl(e.target.value.trim())}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim().replace(/\/$/, "");
+                        if (v && v !== settingValues["app_domain_url"]?.trim()) handleSaveDomainUrl(v);
+                      }}
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-400">Tự động lưu khi rời ô.</p>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-700">Webhook URL (IP LAN)</Label>
+                  <div className="flex gap-2">
+                    <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-blue-800 overflow-x-auto whitespace-nowrap">
+                      {webhookFullUrl || (currentWebhookId ? "(nhập URL gốc IP LAN ở trên)" : '(bấm "Tạo Webhook ID")')}
+                    </code>
+                    {webhookFullUrl && (
+                      <Button type="button" variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(webhookFullUrl); toast.success("Đã sao chép"); }}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-700">Webhook URL (Domain)</Label>
+                  <div className="flex gap-2">
+                    <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-purple-700 overflow-x-auto whitespace-nowrap">
+                      {webhookDomainFullUrl || (currentWebhookId ? "(nhập URL gốc Domain ở trên)" : '(bấm "Tạo Webhook ID")')}
+                    </code>
+                    {webhookDomainFullUrl && (
+                      <Button type="button" variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(webhookDomainFullUrl); toast.success("Đã sao chép"); }}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={handleGenerateWebhookId} disabled={webhookIdGenerating} className="w-full">
+                  {webhookIdGenerating ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Webhook className="h-4 w-4 mr-2" />}
+                  {currentWebhookId ? "Tạo lại Webhook ID mới" : "Tạo Webhook ID"}
                 </Button>
+
+                {/* ── Bot Server controls ── */}
+                <div className="pt-3 border-t space-y-3">
+                  <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+                    <Smartphone className="h-3.5 w-3.5" /> Quản lý Bot Server
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBotStatus}
+                    disabled={botStatusLoading}
+                    className="w-full"
+                  >
+                    {botStatusLoading ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Wifi className="h-4 w-4 mr-2" />
+                    )}
+                    Kiểm tra kết nối & danh sách tài khoản
+                  </Button>
 
                 {botStatus && (
                   <div
@@ -2195,207 +2193,22 @@ export default function CaiDatPage() {
                 </div>
 
                 {botWebhookResult && (
-                  <div
-                    className={`rounded-md p-3 text-xs space-y-1 border ${botWebhookResult.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"}`}
-                  >
+                  <div className={`rounded-md p-3 text-xs space-y-1 border ${botWebhookResult.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"}`}>
                     <div className="flex items-center gap-1.5 font-medium">
-                      {botWebhookResult.ok ? (
-                        <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                      ) : (
-                        <XCircle className="h-3.5 w-3.5 text-red-600" />
-                      )}
-                      {botWebhookResult.ok
-                        ? "Webhook đã được cài đặt thành công"
-                        : botWebhookResult.error}
+                      {botWebhookResult.ok ? <CheckCircle className="h-3.5 w-3.5 text-green-600" /> : <XCircle className="h-3.5 w-3.5 text-red-600" />}
+                      {botWebhookResult.ok ? "Webhook đã được cài đặt thành công" : botWebhookResult.error}
                     </div>
                     {botWebhookResult.ok && (
                       <div className="pl-5 space-y-0.5 text-green-700">
-                        <div>
-                          Account ID:{" "}
-                          <code className="font-mono">
-                            {botWebhookResult.ownId}
-                          </code>
-                        </div>
-                        <div>
-                          Webhook URL:{" "}
-                          <code className="font-mono break-all">
-                            {botWebhookResult.webhookUrl}
-                          </code>
-                        </div>
+                        <div>Account ID: <code className="font-mono">{botWebhookResult.ownId}</code></div>
+                        <div>Webhook URL: <code className="font-mono break-all">{botWebhookResult.webhookUrl}</code></div>
                       </div>
                     )}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* ── Webhook nhận tin nhắn (giống HA) ── */}
-            <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <Webhook className="h-4 w-4" />
-                  Webhook nhận tin nhắn Zalo
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Endpoint công khai nhận tin nhắn — hoạt động qua{" "}
-                  <strong>IP LAN</strong> (giống Home Assistant webhook). Cấu
-                  hình Bot Server gửi tin về URL này. Hỗ trợ POST, PUT, GET,
-                  HEAD.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6 space-y-3">
-                {/* URL gốc: IP LAN + Domain */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-gray-700">
-                      URL gốc (IP LAN)
-                    </Label>
-                    <Input
-                      className="text-xs font-mono"
-                      placeholder="http://172.16.10.27:3000"
-                      value={webhookBaseUrl}
-                      onChange={(e) => setWebhookBaseUrl(e.target.value.trim())}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim().replace(/\/$/, "");
-                        if (v && v !== settingValues["app_local_url"]?.trim())
-                          handleSaveBaseUrl(v);
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-gray-700">
-                      URL gốc (Domain)
-                    </Label>
-                    <Input
-                      className="text-xs font-mono"
-                      placeholder="https://qlpt.vhtatn.io.vn"
-                      value={webhookDomainUrl}
-                      onChange={(e) =>
-                        setWebhookDomainUrl(e.target.value.trim())
-                      }
-                      onBlur={(e) => {
-                        const v = e.target.value.trim().replace(/\/$/, "");
-                        if (v && v !== settingValues["app_domain_url"]?.trim())
-                          handleSaveDomainUrl(v);
-                      }}
-                    />
-                  </div>
-                </div>
-                <p className="text-[11px] text-gray-400">
-                  Tự động lưu khi rời ô. Cả 2 URL đều nhận tin nhắn vào cùng
-                  &quot;Theo dõi tin nhắn&quot;.
-                </p>
-
-                {/* Webhook URL qua IP LAN */}
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium text-gray-700">
-                    Webhook URL (qua IP LAN)
-                  </Label>
-                  <div className="flex gap-2">
-                    <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-blue-800 overflow-x-auto whitespace-nowrap">
-                      {webhookFullUrl ||
-                        (currentWebhookId
-                          ? "(nhập URL gốc IP LAN ở trên)"
-                          : '(bấm "Tạo Webhook ID" để tạo URL mới)')}
-                    </code>
-                    {webhookFullUrl && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        title="Sao chép"
-                        onClick={() => {
-                          navigator.clipboard.writeText(webhookFullUrl);
-                          toast.success("Đã sao chép webhook URL");
-                        }}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
                 </div>
 
-                {/* Webhook URL qua Domain */}
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium text-gray-700">
-                    Webhook URL (qua Domain)
-                  </Label>
-                  <div className="flex gap-2">
-                    <code className="flex-1 text-xs bg-gray-50 border rounded-md px-3 py-2 font-mono text-purple-700 overflow-x-auto whitespace-nowrap">
-                      {webhookDomainFullUrl ||
-                        (currentWebhookId
-                          ? "(nhập URL gốc Domain ở trên)"
-                          : '(bấm "Tạo Webhook ID" để tạo URL mới)')}
-                    </code>
-                    {webhookDomainFullUrl && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        title="Sao chép"
-                        onClick={() => {
-                          navigator.clipboard.writeText(webhookDomainFullUrl);
-                          toast.success("Đã sao chép webhook URL");
-                        }}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Tạo / đổi webhook ID */}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleGenerateWebhookId}
-                  disabled={webhookIdGenerating}
-                  className="w-full"
-                >
-                  {webhookIdGenerating ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Webhook className="h-4 w-4 mr-2" />
-                  )}
-                  {currentWebhookId
-                    ? "Tạo lại Webhook ID mới"
-                    : "Tạo Webhook ID"}
-                </Button>
-
-                {/* Nút test */}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleTestWebhook}
-                  disabled={webhookTestLoading}
-                  className="w-full"
-                >
-                  {webhookTestLoading ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Test webhook (gửi tin giả lập)
-                </Button>
-
-                {webhookTestResult && (
-                  <div
-                    className={`rounded-md p-3 text-sm flex items-center gap-2 ${
-                      webhookTestResult.ok
-                        ? "bg-green-50 border border-green-200 text-green-800"
-                        : "bg-red-50 border border-red-200 text-red-800"
-                    }`}
-                  >
-                    {webhookTestResult.ok ? (
-                      <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
-                    ) : (
-                      <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
-                    )}
-                    {webhookTestResult.message}
-                  </div>
-                )}
-
-                {/* Định dạng payload bot server gửi vào */}
+                {/* Định dạng payload */}
                 <details className="group">
                   <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700 select-none">
                     Xem định dạng payload bot server (zca-js) →
@@ -2420,6 +2233,141 @@ export default function CaiDatPage() {
           </TabsContent>
         )}
 
+        {/* ── Tab Home Assistant ──────────────────────────────────────────────── */}
+        {canManage && !loadingSystem && !errorSystem && (
+          <TabsContent value="homeAssistant" className="space-y-4 mt-4">
+            {/* ── URL Webhook HA ── */}
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Webhook className="h-4 w-4" />
+                  Home Assistant Webhook URL
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Forward tin nhắn Zalo đến Home Assistant. Để trống nếu không dùng.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-3">
+                {(() => {
+                  const haItem = systemSettings.find((s) => s.khoa === "ha_zalo_notify_url");
+                  if (!haItem) return null;
+                  return (
+                    <div className="space-y-1">
+                      <Label className="text-xs md:text-sm font-medium">{haItem.moTa}</Label>
+                      <SettingInput
+                        item={haItem}
+                        value={settingValues["ha_zalo_notify_url"] ?? ""}
+                        onChange={(v) => handleSettingChange("ha_zalo_notify_url", v)}
+                      />
+                    </div>
+                  );
+                })()}
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => handleSaveGroup("thongBao")}
+                  disabled={savingGroup === "thongBao"}
+                >
+                  {savingGroup === "thongBao" ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Lưu URL
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* ── Bộ lọc HA ── */}
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Webhook className="h-4 w-4" />
+                  Bộ lọc chuyển tiếp Home Assistant
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Giới hạn tin nhắn được forward đến HA webhook theo Thread ID và loại (user/nhóm). Trống = chuyển tiếp tất cả.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs md:text-sm font-medium">Danh sách Thread ID được phép</Label>
+                    <button type="button" onClick={addHaThread} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                      <Plus className="h-3.5 w-3.5" /> Thêm
+                    </button>
+                  </div>
+                  {haThreadEntries.length === 0 && (
+                    <p className="text-[11px] text-gray-400 italic">Chưa có thread nào — tất cả tin nhắn sẽ được chuyển tiếp.</p>
+                  )}
+                  <div className="space-y-2">
+                    {haThreadEntries.map((entry, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          type="text"
+                          placeholder="Thread ID (VD: 6643404425553198601)"
+                          value={entry.threadId}
+                          onChange={(e) => updateHaThread(i, "threadId", e.target.value)}
+                          className="text-xs font-mono flex-1"
+                        />
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => updateHaThread(i, "type", 0)}
+                            className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-colors whitespace-nowrap ${entry.type === 0 ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200 hover:border-blue-300"}`}
+                          >
+                            Người dùng
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateHaThread(i, "type", 1)}
+                            className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-colors whitespace-nowrap ${entry.type === 1 ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-500 border-gray-200 hover:border-blue-300"}`}
+                          >
+                            Nhóm
+                          </button>
+                        </div>
+                        <button type="button" onClick={() => removeHaThread(i)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-400">Type 0 = người dùng, Type 1 = nhóm.</p>
+                </div>
+                <Button size="sm" onClick={handleSaveHaFilter} disabled={haFilterSaving} className="w-full">
+                  {haFilterSaving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Lưu bộ lọc
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* ── Test Webhook ── */}
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <CheckCircle className="h-4 w-4" />
+                  Test Webhook
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Gửi tin giả lập qua webhook — kiểm tra HA nhận được không.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-3">
+                <Button size="sm" variant="outline" onClick={handleTestWebhook} disabled={webhookTestLoading} className="w-full">
+                  {webhookTestLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                  Test webhook (gửi tin giả lập)
+                </Button>
+                {webhookTestResult && (
+                  <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${webhookTestResult.ok ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+                    {webhookTestResult.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" /> : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                    {webhookTestResult.message}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
         {/* ── Tab Lưu trữ ───────────────────────────────────────────────────── */}
         {canManage && !loadingSystem && !errorSystem && (
           <TabsContent value="luuTru" className="space-y-4 mt-4">
@@ -2434,6 +2382,8 @@ export default function CaiDatPage() {
             ) : null}
 
             {/* ── Kiểm tra kết nối MinIO ── */}
+            {(settingValues["storage_provider"] === "minio" ||
+              settingValues["storage_provider"] === "both") && (
             <Card>
               <CardHeader className="p-4 md:p-6">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
@@ -2494,6 +2444,7 @@ export default function CaiDatPage() {
                 )}
               </CardContent>
             </Card>
+            )}
           </TabsContent>
         )}
 
@@ -2506,7 +2457,11 @@ export default function CaiDatPage() {
                   <SettingGroupCard
                     key={nhom}
                     nhom={nhom}
-                    items={settingsByGroup[nhom]}
+                    items={(settingsByGroup[nhom] ?? []).filter(
+                      (s) =>
+                        nhom !== "heThong" ||
+                        !["app_local_url", "app_domain_url"].includes(s.khoa),
+                    )}
                     values={settingValues}
                     onChange={handleSettingChange}
                     onSave={handleSaveGroup}
@@ -2553,6 +2508,7 @@ export default function CaiDatPage() {
                         "Montserrat",
                         "Poppins",
                         "Nunito",
+                        "Times New Roman",
                       ].map((f) => (
                         <SelectItem key={f} value={f} className="text-sm">
                           {f}
