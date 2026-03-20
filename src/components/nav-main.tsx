@@ -109,11 +109,12 @@ export function NavMain({
           }
 
           // Khi sidebar expanded hoặc mobile, dùng Collapsible
+          const isGroupActive = item.isActive || item.items?.some(sub => pathname === sub.url || pathname.startsWith(sub.url + '/'))
           return (
             <Collapsible
               key={item.title}
               asChild
-              defaultOpen={item.isActive}
+              defaultOpen={isGroupActive}
               className="group/collapsible"
             >
               <SidebarMenuItem>
