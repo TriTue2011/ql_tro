@@ -282,4 +282,10 @@ export interface DashboardStats {
   hoaDonSapDenHan: number;
   suCoCanXuLy: number;
   hopDongSapHetHan: number;
+  // Nhân sự + khách thuê (chỉ chuNha/dongChuTro)
+  tongQuanLy?: number;
+  tongNhanVien?: number;
+  tongDongChuTro?: number;
+  tongKhachThue?: number;
+  khachThueCoTaiKhoan?: number;
 }

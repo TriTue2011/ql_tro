@@ -521,13 +521,220 @@ function AlertSettingsCard({
   );
 }
 
+// ─── ChuNha Hệ thống Tab ──────────────────────────────────────────────────────
+
+function ChuNhaHeThongTab() {
+  const [data, setData] = useState({
+    tenCongTy: '', emailLienHe: '', sdtLienHe: '', diaChiCongTy: '', appDomainUrl: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/chuNha/settings')
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.data) {
+          setData({
+            tenCongTy: res.data.tenCongTy ?? '',
+            emailLienHe: res.data.emailLienHe ?? '',
+            sdtLienHe: res.data.sdtLienHe ?? '',
+            diaChiCongTy: res.data.diaChiCongTy ?? '',
+            appDomainUrl: res.data.appDomainUrl ?? '',
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/chuNha/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.success) toast.success('Đã lưu thông tin hệ thống');
+      else toast.error(json.error || 'Lưu thất bại');
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <div className="flex justify-center py-10"><RefreshCw className="h-5 w-5 animate-spin text-gray-400" /></div>;
+
+  const fields = [
+    { key: 'tenCongTy', label: 'Tên công ty / tên nhà trọ', placeholder: 'VD: Nhà trọ Phòng Trọ Pro' },
+    { key: 'emailLienHe', label: 'Email liên hệ', placeholder: 'contact@example.com' },
+    { key: 'sdtLienHe', label: 'Số điện thoại liên hệ', placeholder: '0909123456' },
+    { key: 'diaChiCongTy', label: 'Địa chỉ', placeholder: '123 đường ABC, quận 1, TP.HCM' },
+    { key: 'appDomainUrl', label: 'Domain công khai', placeholder: 'https://myhouse.com' },
+  ] as const;
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <Building2 className="h-4 w-4" /> Thông tin hệ thống
+        </CardTitle>
+        <CardDescription className="text-xs md:text-sm">
+          Thông tin công ty / nhà trọ của bạn. Mỗi chủ trọ có dữ liệu riêng.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 space-y-4">
+        {fields.map(f => (
+          <div key={f.key} className="space-y-1">
+            <Label className="text-xs md:text-sm font-medium">{f.label}</Label>
+            <Input
+              value={data[f.key]}
+              onChange={e => setData(prev => ({ ...prev, [f.key]: e.target.value }))}
+              placeholder={f.placeholder}
+              className="text-sm"
+            />
+          </div>
+        ))}
+        <Button size="sm" className="w-full mt-2" onClick={handleSave} disabled={saving}>
+          {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+          Lưu hệ thống
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Admin Building Selector for HA + Storage ────────────────────────────────
+
+function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
+  const [buildings, setBuildings] = useState<{ id: string; tenToaNha: string }[]>([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/admin/toa-nha-settings')
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) setBuildings(res.data.map((b: { id: string; tenToaNha: string }) => ({ id: b.id, tenToaNha: b.tenToaNha })));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    setLoading(true);
+    fetch(`/api/admin/toa-nha-settings?toaNhaId=${selectedId}`)
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.data) {
+          const d = res.data;
+          setSettings({
+            haUrl: d.haUrl ?? '',
+            haToken: d.haToken ?? '',
+            storageProvider: d.storageProvider ?? 'local',
+            minioEndpoint: d.minioEndpoint ?? '',
+            minioAccessKey: d.minioAccessKey ?? '',
+            minioSecretKey: d.minioSecretKey ?? '',
+            minioBucket: d.minioBucket ?? '',
+            cloudinaryCloudName: d.cloudinaryCloudName ?? '',
+            cloudinaryApiKey: d.cloudinaryApiKey ?? '',
+            cloudinaryApiSecret: d.cloudinaryApiSecret ?? '',
+            cloudinaryPreset: d.cloudinaryPreset ?? '',
+            uploadMaxSizeMb: String(d.uploadMaxSizeMb ?? 10),
+          });
+        } else {
+          setSettings({});
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [selectedId]);
+
+  async function handleSave() {
+    if (!selectedId) { toast.error('Vui lòng chọn tòa nhà'); return; }
+    setSaving(true);
+    try {
+      const payload = tab === 'ha'
+        ? { toaNhaId: selectedId, haUrl: settings.haUrl, haToken: settings.haToken }
+        : { toaNhaId: selectedId, storageProvider: settings.storageProvider, minioEndpoint: settings.minioEndpoint, minioAccessKey: settings.minioAccessKey, minioSecretKey: settings.minioSecretKey, minioBucket: settings.minioBucket, cloudinaryCloudName: settings.cloudinaryCloudName, cloudinaryApiKey: settings.cloudinaryApiKey, cloudinaryApiSecret: settings.cloudinaryApiSecret, cloudinaryPreset: settings.cloudinaryPreset, uploadMaxSizeMb: Number(settings.uploadMaxSizeMb) };
+      const res = await fetch('/api/admin/toa-nha-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const json = await res.json();
+      if (json.success) toast.success('Đã lưu cài đặt tòa nhà');
+      else toast.error(json.error || 'Lưu thất bại');
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setSaving(false); }
+  }
+
+  const haFields = [
+    { key: 'haUrl', label: 'Home Assistant URL (domain)', placeholder: 'https://ha.myhouse.com' },
+    { key: 'haToken', label: 'Long-lived access token', placeholder: 'eyJ0...' },
+  ];
+  const storageFields = [
+    { key: 'storageProvider', label: 'Nhà cung cấp lưu trữ', placeholder: 'local | minio | cloudinary | both' },
+    { key: 'minioEndpoint', label: 'MinIO Endpoint', placeholder: 'http://192.168.1.10:9000' },
+    { key: 'minioAccessKey', label: 'MinIO Access Key', placeholder: '' },
+    { key: 'minioSecretKey', label: 'MinIO Secret Key', placeholder: '' },
+    { key: 'minioBucket', label: 'MinIO Bucket', placeholder: 'ql-tro' },
+    { key: 'uploadMaxSizeMb', label: 'Dung lượng tối đa (MB)', placeholder: '10' },
+  ];
+  const fields = tab === 'ha' ? haFields : storageFields;
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          {tab === 'ha' ? <Webhook className="h-4 w-4" /> : <HardDrive className="h-4 w-4" />}
+          {tab === 'ha' ? 'Home Assistant' : 'Lưu trữ'} — theo tòa nhà
+        </CardTitle>
+        <CardDescription className="text-xs md:text-sm">
+          Mỗi tòa nhà có cấu hình {tab === 'ha' ? 'Home Assistant' : 'lưu trữ ảnh'} riêng.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 space-y-4">
+        <div className="space-y-1">
+          <Label className="text-xs font-medium">Chọn tòa nhà</Label>
+          <Select value={selectedId} onValueChange={setSelectedId}>
+            <SelectTrigger className="text-sm"><SelectValue placeholder="— Chọn tòa nhà —" /></SelectTrigger>
+            <SelectContent>
+              {buildings.map(b => <SelectItem key={b.id} value={b.id}>{b.tenToaNha}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        {loading && <div className="flex justify-center py-4"><RefreshCw className="h-4 w-4 animate-spin text-gray-400" /></div>}
+        {selectedId && !loading && fields.map(f => (
+          <div key={f.key} className="space-y-1">
+            <Label className="text-xs font-medium">{f.label}</Label>
+            <Input
+              value={settings[f.key] ?? ''}
+              onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
+              placeholder={f.placeholder}
+              className="text-sm"
+            />
+          </div>
+        ))}
+        {selectedId && !loading && (
+          <Button size="sm" className="w-full" onClick={handleSave} disabled={saving}>
+            {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            Lưu
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CaiDatPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "admin";
-  const isChuNha = session?.user?.role === "chuNha";
-  // Chủ trọ và admin đều có thể xem/thay đổi cài đặt hệ thống (Zalo, thông báo, ...)
+  const isChuNha = session?.user?.role === "chuNha" || session?.user?.role === "dongChuTro";
+  // Admin quản lý HA + lưu trữ theo tòa nhà; chuNha quản lý thanh toán + cảnh báo + hệ thống
   const canManage = isAdmin || isChuNha;
 
   // --- Cài đặt giao diện (cho tất cả users) ---
@@ -1393,9 +1600,29 @@ export default function CaiDatPage() {
         </p>
       </div>
 
-      <Tabs defaultValue={canManage ? "thanhToan" : "display"}>
+      <Tabs defaultValue={isAdmin ? "homeAssistant" : isChuNha ? "thanhToan" : "display"}>
         <TabsList className="flex flex-wrap h-auto gap-1 w-full md:w-auto">
-          {canManage && (
+          {/* Admin: Home Assistant + Lưu trữ (per tòa nhà) */}
+          {isAdmin && (
+            <>
+              <TabsTrigger
+                value="homeAssistant"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <Webhook className="h-3.5 w-3.5" />
+                Home Assistant
+              </TabsTrigger>
+              <TabsTrigger
+                value="luuTru"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <HardDrive className="h-3.5 w-3.5" />
+                Lưu trữ
+              </TabsTrigger>
+            </>
+          )}
+          {/* Chủ trọ: Thanh toán + Cảnh báo + Hệ thống */}
+          {isChuNha && (
             <>
               <TabsTrigger
                 value="thanhToan"
@@ -1412,30 +1639,12 @@ export default function CaiDatPage() {
                 Cảnh báo
               </TabsTrigger>
               <TabsTrigger
-                value="homeAssistant"
+                value="heThong"
                 className="flex items-center gap-1.5 text-xs md:text-sm"
               >
-                <Webhook className="h-3.5 w-3.5" />
-                Home Assistant
+                <Shield className="h-3.5 w-3.5" />
+                Hệ thống
               </TabsTrigger>
-              {isAdmin && (
-                <>
-                  <TabsTrigger
-                    value="luuTru"
-                    className="flex items-center gap-1.5 text-xs md:text-sm"
-                  >
-                    <HardDrive className="h-3.5 w-3.5" />
-                    Lưu trữ
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="heThong"
-                    className="flex items-center gap-1.5 text-xs md:text-sm"
-                  >
-                    <Shield className="h-3.5 w-3.5" />
-                    Hệ thống
-                  </TabsTrigger>
-                </>
-              )}
             </>
           )}
           <TabsTrigger
@@ -1482,7 +1691,7 @@ export default function CaiDatPage() {
         )}
 
         {/* ── Tab Thanh toán ─────────────────────────────────────────────────── */}
-        {canManage && !loadingSystem && !errorSystem && (
+        {isChuNha && !loadingSystem && !errorSystem && (
           <TabsContent value="thanhToan" className="space-y-4 mt-4">
             {settingsByGroup["thanhToan"]?.length ? (
               <SettingGroupCard
@@ -1502,7 +1711,7 @@ export default function CaiDatPage() {
         )}
 
         {/* ── Tab Cảnh báo ──────────────────────────────────────────────────── */}
-        {canManage && !loadingSystem && !errorSystem && (
+        {isChuNha && !loadingSystem && !errorSystem && (
           <TabsContent value="canhBao" className="space-y-4 mt-4">
             {alertItems.length > 0 ? (
               <AlertSettingsCard
@@ -1522,9 +1731,11 @@ export default function CaiDatPage() {
 
 
         {/* ── Tab Home Assistant ──────────────────────────────────────────────── */}
-        {canManage && !loadingSystem && !errorSystem && (
+        {isAdmin && !loadingSystem && !errorSystem && (
           <TabsContent value="homeAssistant" className="space-y-4 mt-4">
-            {/* ── URL Webhook HA ── */}
+            {/* ── Cài đặt HA per tòa nhà ── */}
+            <AdminToaNhaSettingsPanel tab="ha" />
+            {/* ── URL Webhook HA (global Zalo forward) ── */}
             <Card>
               <CardHeader className="p-4 md:p-6">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
@@ -1659,6 +1870,8 @@ export default function CaiDatPage() {
         {/* ── Tab Lưu trữ ───────────────────────────────────────────────────── */}
         {isAdmin && !loadingSystem && !errorSystem && (
           <TabsContent value="luuTru" className="space-y-4 mt-4">
+            {/* ── Lưu trữ per tòa nhà ── */}
+            <AdminToaNhaSettingsPanel tab="storage" />
             {settingsByGroup["luuTru"]?.length ? (
               <StorageSettingsCard
                 items={settingsByGroup["luuTru"]}
@@ -1736,28 +1949,10 @@ export default function CaiDatPage() {
           </TabsContent>
         )}
 
-        {/* ── Tab Hệ thống + Bảo mật ────────────────────────────────────────── */}
-        {isAdmin && !loadingSystem && !errorSystem && (
+        {/* ── Tab Hệ thống — chủ trọ: thông tin công ty riêng ─────────────── */}
+        {isChuNha && (
           <TabsContent value="heThong" className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {["heThong", "baoMat"].map((nhom) =>
-                settingsByGroup[nhom]?.length ? (
-                  <SettingGroupCard
-                    key={nhom}
-                    nhom={nhom}
-                    items={(settingsByGroup[nhom] ?? []).filter(
-                      (s) =>
-                        nhom !== "heThong" ||
-                        !["app_local_url", "app_domain_url"].includes(s.khoa),
-                    )}
-                    values={settingValues}
-                    onChange={handleSettingChange}
-                    onSave={handleSaveGroup}
-                    saving={savingGroup === nhom}
-                  />
-                ) : null,
-              )}
-            </div>
+            <ChuNhaHeThongTab />
           </TabsContent>
         )}
 

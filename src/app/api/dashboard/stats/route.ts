@@ -15,6 +15,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const userId = session.user.id;
+    const role = session.user.role;
+
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
@@ -79,6 +82,74 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+    // Nhân sự + khách thuê theo tòa nhà của chủ trọ
+    let nhanSuStats = {
+      tongQuanLy: 0,
+      tongNhanVien: 0,
+      tongDongChuTro: 0,
+      tongKhachThue: 0,
+      khachThueCoTaiKhoan: 0,
+    };
+
+    if (role === 'chuNha' || role === 'dongChuTro') {
+      // Lấy danh sách tòa nhà của chủ trọ
+      const myBuildingIds = await prisma.toaNha.findMany({
+        where: {
+          OR: [
+            { chuSoHuuId: userId },
+            { nguoiQuanLy: { some: { nguoiDungId: userId } } },
+          ],
+        },
+        select: { id: true },
+      }).then(rows => rows.map(r => r.id));
+
+      if (myBuildingIds.length > 0) {
+        const [staffByRole, tongKhachThue, khachThueCoTaiKhoan] = await Promise.all([
+          prisma.nguoiDung.groupBy({
+            by: ['vaiTro'],
+            where: {
+              vaiTro: { in: ['quanLy', 'nhanVien', 'dongChuTro'] },
+              toaNhaQuanLy: { some: { toaNhaId: { in: myBuildingIds } } },
+            },
+            _count: { id: true },
+          }),
+          // Đếm khách thuê đang thuê trong các tòa nhà này
+          prisma.khachThue.count({
+            where: {
+              hopDong: {
+                some: {
+                  trangThai: 'hoatDong',
+                  phong: { toaNhaId: { in: myBuildingIds } },
+                },
+              },
+            },
+          }),
+          prisma.khachThue.count({
+            where: {
+              matKhau: { not: null },
+              hopDong: {
+                some: {
+                  trangThai: 'hoatDong',
+                  phong: { toaNhaId: { in: myBuildingIds } },
+                },
+              },
+            },
+          }),
+        ]);
+
+        const roleMap: Record<string, number> = {};
+        for (const r of staffByRole) roleMap[r.vaiTro] = r._count.id;
+
+        nhanSuStats = {
+          tongQuanLy: roleMap['quanLy'] ?? 0,
+          tongNhanVien: roleMap['nhanVien'] ?? 0,
+          tongDongChuTro: roleMap['dongChuTro'] ?? 0,
+          tongKhachThue,
+          khachThueCoTaiKhoan,
+        };
+      }
+    }
+
     const stats = {
       tongSoPhong: totalPhong,
       phongTrong,
@@ -89,6 +160,7 @@ export async function GET(request: NextRequest) {
       hoaDonSapDenHan,
       suCoCanXuLy,
       hopDongSapHetHan,
+      ...nhanSuStats,
     };
 
     return NextResponse.json({
