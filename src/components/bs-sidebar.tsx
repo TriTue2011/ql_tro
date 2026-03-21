@@ -44,25 +44,13 @@ function buildNavGroups(role: Role): NavGroup[] {
   const isQuanLy = role === 'quanLy';
   const isNhanVien = role === 'nhanVien';
 
-  // ── Nhân viên ─────────────────────────────────────────────────────────────
+  // ── Nhân viên: chỉ Zalo + Hồ sơ ──────────────────────────────────────────
   if (isNhanVien) {
     return [
       {
-        label: 'Quản lý',
-        icon: 'bi-building',
+        label: 'Liên lạc',
+        icon: 'bi-chat-dots',
         items: [
-          { label: 'Phòng', href: '/dashboard/phong' },
-          { label: 'Khách thuê', href: '/dashboard/khach-thue' },
-        ],
-      },
-      {
-        label: 'Vận hành',
-        icon: 'bi-tools',
-        items: [
-          { label: 'Hóa đơn', href: '/dashboard/hoa-don' },
-          { label: 'Sự cố', href: '/dashboard/su-co' },
-          { label: 'Yêu cầu duyệt', href: '/dashboard/yeu-cau-duyet' },
-          { label: 'Thông báo', href: '/dashboard/thong-bao' },
           { label: 'Zalo', href: '/dashboard/zalo' },
         ],
       },
@@ -74,7 +62,42 @@ function buildNavGroups(role: Role): NavGroup[] {
     ];
   }
 
-  // ── Admin, Chủ trọ, Quản lý: đầy đủ tab quản lý bất động sản ─────────────
+  // ── Admin: chỉ quản trị hệ thống, Zalo, Cài đặt ──────────────────────────
+  if (isAdmin) {
+    return [
+      {
+        label: 'Hệ thống',
+        icon: 'bi-building',
+        items: [
+          { label: 'Tòa nhà', href: '/dashboard/toa-nha' },
+        ],
+      },
+      {
+        label: 'Quản trị',
+        icon: 'bi-shield-lock',
+        items: [
+          { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
+        ],
+      },
+      {
+        label: 'Liên lạc',
+        icon: 'bi-chat-dots',
+        items: [
+          { label: 'Zalo', href: '/dashboard/zalo' },
+        ],
+      },
+      {
+        label: 'Cài đặt',
+        icon: 'bi-gear',
+        items: [
+          { label: 'Hồ sơ', href: '/dashboard/ho-so' },
+          { label: 'Cài đặt', href: '/dashboard/cai-dat' },
+        ],
+      },
+    ];
+  }
+
+  // ── Chủ trọ, Quản lý: đầy đủ tab quản lý bất động sản ───────────────────
   const groups: NavGroup[] = [
     {
       label: 'Quản lý cơ bản',
@@ -106,34 +129,20 @@ function buildNavGroups(role: Role): NavGroup[] {
     },
   ];
 
-  // "Quản trị" chỉ admin thấy — chủ trọ KHÔNG thấy
-  if (isAdmin) {
-    groups.push({
-      label: 'Quản trị',
-      icon: 'bi-shield-lock',
-      items: [
-        { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
-      ],
-    });
-  }
-
   if (isQuanLy) {
-    // Quản lý: chỉ hồ sơ cá nhân, không có cài đặt hệ thống
     groups.push({
       label: 'Tài khoản',
       icon: 'bi-person',
       items: [{ label: 'Hồ sơ', href: '/dashboard/ho-so' }],
     });
   } else {
-    // Admin + Chủ trọ: có cài đặt (chuNha ẩn luuTru/server trong trang cai-dat)
+    // Chủ trọ: có cài đặt
     groups.push({
       label: 'Cài đặt',
       icon: 'bi-gear',
       items: [
         { label: 'Hồ sơ', href: '/dashboard/ho-so' },
-        ...(isAdmin || isChuNha
-          ? [{ label: 'Cài đặt', href: '/dashboard/cai-dat' }]
-          : []),
+        ...(isChuNha ? [{ label: 'Cài đặt', href: '/dashboard/cai-dat' }] : []),
       ],
     });
   }
