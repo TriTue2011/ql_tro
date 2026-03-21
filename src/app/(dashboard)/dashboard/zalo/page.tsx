@@ -312,12 +312,28 @@ function WebhookCard({ account }: { account?: AccountData }) {
     }
   };
 
-  const handleGenerateRandom = () => {
-    const secret = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join("");
+  const handleGenerateRandom = async () => {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    // base64url (A-Z a-z 0-9 - _)
+    const token = btoa(String.fromCharCode(...bytes))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const base = typeof window !== "undefined" ? window.location.origin : "";
-    setWebhookUrl(`${base}/api/zalo/webhook?secret=${secret}`);
+    const url = `${base}/api/zalowebhook/${token}`;
+    setWebhookUrl(url);
+    // Lưu token vào DB để route [token] có thể validate
+    try {
+      const existing = await fetch("/api/admin/settings").then(r => r.json())
+        .then((d: { success: boolean; data?: { khoa: string; giaTri: string }[] }) =>
+          d.success ? (d.data?.find((s: { khoa: string }) => s.khoa === "zalo_webhook_tokens")?.giaTri) : null
+        ).catch(() => null);
+      const tokens: string[] = existing ? JSON.parse(existing) : [];
+      if (!tokens.includes(token)) tokens.push(token);
+      await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: [{ khoa: "zalo_webhook_tokens", giaTri: JSON.stringify(tokens) }] }),
+      });
+    } catch { /* non-critical */ }
     toast.success("Đã tạo webhook URL ngẫu nhiên");
   };
 

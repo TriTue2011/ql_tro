@@ -46,15 +46,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Cần nhập Zalo Account ID (zalo_bot_account_id) trong Cài đặt' });
   }
 
-  // Ưu tiên: 1) URL do user nhập, 2) URL đã lưu trong DB (validate), 3) app_local_url (IP LAN), 4) NEXTAUTH_URL
+  // Ưu tiên: 1) URL do user nhập, 2) URL đã lưu trong DB, 3) sinh URL mới theo format /api/zalowebhook/{token}
   const localBase = await getLocalBaseUrl();
   const base = localBase || getPublicBaseUrl() || 'http://localhost:3000';
   const saved = await getSavedWebhookUrl();
   const validSaved = saved && (saved.startsWith('http://') || saved.startsWith('https://')) ? saved : null;
-  const webhookUrl: string =
-    (body?.webhookUrl?.trim()) ||
-    validSaved ||
-    `${base}/api/zalo/webhook`;
+
+  let webhookUrl: string = (body?.webhookUrl?.trim()) || validSaved || '';
+  if (!webhookUrl) {
+    // Sinh token ngẫu nhiên và tạo URL dạng /api/zalowebhook/{token}
+    const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
+    webhookUrl = `${base}/api/zalowebhook/${token}`;
+    // Lưu token vào DB để validate
+    await prisma.caiDat.upsert({
+      where: { khoa: 'zalo_webhook_tokens' },
+      update: { giaTri: JSON.stringify([token]) },
+      create: { khoa: 'zalo_webhook_tokens', giaTri: JSON.stringify([token]), moTa: 'Danh sách webhook token hợp lệ' },
+    }).catch(() => {});
+  }
 
   const result = await setWebhookOnBotServer(ownId, webhookUrl);
 
