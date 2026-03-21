@@ -155,6 +155,7 @@ type ThanhToanTableProps = {
   onEdit: (thanhToan: ThanhToanPopulated) => void
   onDelete: (id: string) => void
   onDownload?: (thanhToan: ThanhToanPopulated) => void
+  canDelete?: boolean
 }
 
 const getHoaDonInfo = (hoaDon: string | HoaDon, hoaDonList: HoaDon[]) => {
@@ -336,14 +337,18 @@ const createColumns = (props: ThanhToanTableProps): ColumnDef<ThanhToanPopulated
               Tải biên lai
             </DropdownMenuItem>
           )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem 
-            className="text-destructive"
-            onClick={() => props.onDelete(row.original.id!)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Xóa
-          </DropdownMenuItem>
+          {props.canDelete !== false && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => props.onDelete(row.original.id!)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Xóa
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     ),

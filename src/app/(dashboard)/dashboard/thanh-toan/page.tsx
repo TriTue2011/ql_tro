@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,7 +61,11 @@ type ThanhToanPopulated = Omit<ThanhToan, 'hoaDon'> & {
 };
 
 export default function ThanhToanPage() {
-  const cache = useCache<{ 
+  const { data: session } = useSession();
+  const role = session?.user?.role ?? '';
+  const canDelete = ['admin', 'chuNha', 'dongChuTro'].includes(role);
+
+  const cache = useCache<{
     thanhToanList: ThanhToanPopulated[];
     hoaDonList: HoaDon[];
   }>({ key: 'thanh-toan-data', duration: 300000 });
@@ -219,10 +224,10 @@ export default function ThanhToanPage() {
       });
 
       if (response.ok) {
-        cache.clearCache();
+        cache.clearAllCaches(); // sync cả hoa-don và thanh-toan
         setThanhToanList(prev => prev.filter(thanhToan => thanhToan.id !== id));
         toast.success('Xóa thanh toán thành công');
-      } else{
+      } else {
         const errorData = await response.json();
         toast.error('Có lỗi xảy ra: ' + (errorData.message || 'Không thể xóa thanh toán'));
       }
@@ -291,7 +296,7 @@ export default function ThanhToanPage() {
               hoaDonList={hoaDonList}
               onClose={() => setIsDialogOpen(false)}
               onSuccess={() => {
-                cache.clearCache();
+                cache.clearAllCaches(); // sync cả hoa-don và thanh-toan
                 setIsDialogOpen(false);
                 fetchData(true);
               }}
@@ -365,6 +370,7 @@ export default function ThanhToanPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             onDownload={handleDownload}
+            canDelete={canDelete}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             methodFilter={methodFilter}
