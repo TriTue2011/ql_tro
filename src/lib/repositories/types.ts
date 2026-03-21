@@ -9,7 +9,8 @@ export interface QueryOptions {
   page?: number;
   limit?: number;
   search?: string;
-  ownerId?: string;
+  ownerId?: string;      // lọc theo chuSoHuuId (chuNha)
+  managerId?: string;   // lọc theo ToaNhaNguoiQuanLy.nguoiDungId (quanLy)
 }
 
 export interface PaginatedResult<T> {

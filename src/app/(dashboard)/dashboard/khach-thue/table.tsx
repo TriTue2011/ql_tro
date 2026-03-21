@@ -142,6 +142,7 @@ type KhachThueTableProps = {
   onView?: (khachThue: KhachThue) => void
   onEdit: (khachThue: KhachThue) => void
   onDelete: (id: string) => void
+  onKichHoatTaiKhoan?: (id: string, hasAccount: boolean) => void
   actionLoading: string | null
 }
 
@@ -340,8 +341,23 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
             <Edit className="mr-2 h-4 w-4" />
             Chỉnh sửa
           </DropdownMenuItem>
+          {props.onKichHoatTaiKhoan && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => props.onKichHoatTaiKhoan!(row.original.id!, !!(row.original as any).hasMatKhau)}
+                disabled={props.actionLoading === `kich-hoat-${row.original.id}`}
+                className={(row.original as any).hasMatKhau ? 'text-orange-600' : 'text-green-700'}
+              >
+                <Key className="mr-2 h-4 w-4" />
+                {props.actionLoading === `kich-hoat-${row.original.id}`
+                  ? 'Đang xử lý...'
+                  : (row.original as any).hasMatKhau ? 'Thu hồi đăng nhập' : 'Kích hoạt đăng nhập'}
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem 
+          <DropdownMenuItem
             className="text-destructive"
             onClick={() => props.onDelete(row.original.id!)}
             disabled={props.actionLoading === `delete-${row.original.id}`}

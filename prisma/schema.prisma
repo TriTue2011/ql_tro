@@ -13,9 +13,9 @@ datasource db {
 model NguoiDung {
   id            String    @id @default(cuid())
   ten           String
-  email         String    @unique
+  email         String?   @unique
   matKhau       String
-  soDienThoai   String?
+  soDienThoai   String?   @unique
   vaiTro        String    @default("nhanVien") // admin | chuNha | quanLy | nhanVien
   anhDaiDien    String?
   trangThai        String    @default("hoatDong") // hoatDong | khoa

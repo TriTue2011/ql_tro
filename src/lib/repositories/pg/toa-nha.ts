@@ -45,7 +45,18 @@ export default class ToaNhaRepository {
 
     const where: Record<string, any> = {};
     if (opts.search) where.tenToaNha = { contains: opts.search, mode: 'insensitive' as const };
-    if (opts.ownerId) where.chuSoHuuId = opts.ownerId;
+
+    if (opts.ownerId && opts.managerId) {
+      // chuNha: thấy cả tòa nhà sở hữu lẫn tòa nhà được gán
+      where.OR = [
+        { chuSoHuuId: opts.ownerId },
+        { nguoiQuanLy: { some: { nguoiDungId: opts.managerId } } },
+      ];
+    } else if (opts.ownerId) {
+      where.chuSoHuuId = opts.ownerId;
+    } else if (opts.managerId) {
+      where.nguoiQuanLy = { some: { nguoiDungId: opts.managerId } };
+    }
 
     const [total, rows] = await Promise.all([
       prisma.toaNha.count({ where }),

@@ -343,13 +343,28 @@ export default function AccountManagementPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs md:text-sm">Email</Label>
+              <Label htmlFor="phone" className="text-xs md:text-sm">
+                Số điện thoại <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="phone"
+                value={createUserData.phone}
+                onChange={(e) => setCreateUserData({ ...createUserData, phone: e.target.value })}
+                placeholder="Nhập số điện thoại (dùng để đăng nhập)"
+                className="text-sm"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-xs md:text-sm">
+                Email <span className="text-muted-foreground text-[10px]">(tùy chọn)</span>
+              </Label>
               <Input
                 id="email"
                 type="email"
                 value={createUserData.email}
                 onChange={(e) => setCreateUserData({ ...createUserData, email: e.target.value })}
-                placeholder="Nhập email"
+                placeholder="Nhập email (không bắt buộc)"
                 className="text-sm"
               />
             </div>
@@ -361,16 +376,6 @@ export default function AccountManagementPage() {
                 value={createUserData.password}
                 onChange={(e) => setCreateUserData({ ...createUserData, password: e.target.value })}
                 placeholder="Nhập mật khẩu"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-xs md:text-sm">Số điện thoại</Label>
-              <Input
-                id="phone"
-                value={createUserData.phone}
-                onChange={(e) => setCreateUserData({ ...createUserData, phone: e.target.value })}
-                placeholder="Nhập số điện thoại"
                 className="text-sm"
               />
             </div>

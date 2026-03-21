@@ -8,9 +8,10 @@ import { sanitizeText } from '@/lib/sanitize';
 
 const createUserSchema = z.object({
   name: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
-  email: z.string().email('Email không hợp lệ'),
+  email: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').max(128),
-  phone: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ').optional(),
+  // Số điện thoại bắt buộc để có thể đăng nhập
+  phone: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ (10-11 chữ số)'),
   role: z.enum(['admin', 'chuNha', 'quanLy', 'nhanVien']),
   toaNhaId: z.string().optional().nullable(),
 });
@@ -19,7 +20,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email || session.user.role !== 'admin') {
+    if (!session?.user?.id || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email || session.user.role !== 'admin') {
+    if (!session?.user?.id || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -95,17 +96,23 @@ export async function POST(request: NextRequest) {
 
     const { name, email, password, phone, role, toaNhaId } = parsed.data;
 
-    const existingUser = await prisma.nguoiDung.findUnique({ where: { email: email.toLowerCase() } });
-    if (existingUser) {
-      return NextResponse.json({ error: 'Email đã được sử dụng' }, { status: 400 });
+    const cleanEmail = email?.trim() ? email.toLowerCase() : null;
+
+    // Kiểm tra email trùng (nếu có nhập email)
+    if (cleanEmail) {
+      const byEmail = await prisma.nguoiDung.findUnique({ where: { email: cleanEmail } });
+      if (byEmail) return NextResponse.json({ error: 'Email đã được sử dụng' }, { status: 400 });
     }
+    // Kiểm tra SĐT trùng
+    const bySdt = await prisma.nguoiDung.findFirst({ where: { soDienThoai: phone } });
+    if (bySdt) return NextResponse.json({ error: 'Số điện thoại đã được sử dụng' }, { status: 400 });
 
     const hashedPassword = await hash(password, 12);
 
     const newUser = await prisma.nguoiDung.create({
       data: {
         ten: sanitizeText(name),
-        email: email.toLowerCase(),
+        email: cleanEmail,
         matKhau: hashedPassword,
         soDienThoai: phone,
         vaiTro: role,
