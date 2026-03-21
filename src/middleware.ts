@@ -208,6 +208,7 @@ export default async function middleware(req: NextRequest) {
     '/api/admin/users',
     '/api/admin/settings',
     '/api/admin/toa-nha-settings',
+    '/api/admin/zalo',
   ];
   if (pathname.startsWith('/api/admin') && token?.role !== 'admin') {
     const isChuNhaRole = role === 'chuNha' || role === 'dongChuTro';

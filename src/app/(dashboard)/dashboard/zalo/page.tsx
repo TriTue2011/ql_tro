@@ -1242,27 +1242,29 @@ function AccountSettings({
 
   return (
     <div className="space-y-2 p-3 bg-gray-50 border-t">
-      {/* Thread IDs đồng chủ trọ — ẩn/hiện */}
-      <Section
-        title="Tài khoản Zalo đồng chủ trọ"
-        sub="Mỗi thread ID có cài đặt thông báo riêng"
-        defaultOpen={false}
-      >
-        <p className="text-xs text-gray-500 mb-3">
-          Khi quản lý gửi thông báo, hệ thống chuyển tiếp đến các thread ID này.
-          Thêm chat ID cá nhân hoặc ID nhóm Zalo. Mỗi thread có thể chọn loại thông báo nhận.
-        </p>
-        <ThreadManager
-          account={account}
-          buildingId={buildingId}
-          canEdit={canEdit}
-        />
-      </Section>
+      {/* Thread IDs đồng chủ trọ — ẩn/hiện (ẩn với admin) */}
+      {!isAdmin && (
+        <Section
+          title="Tài khoản Zalo đồng chủ trọ"
+          sub="Mỗi thread ID có cài đặt thông báo riêng"
+          defaultOpen={false}
+        >
+          <p className="text-xs text-gray-500 mb-3">
+            Khi quản lý gửi thông báo, hệ thống chuyển tiếp đến các thread ID này.
+            Thêm chat ID cá nhân hoặc ID nhóm Zalo. Mỗi thread có thể chọn loại thông báo nhận.
+          </p>
+          <ThreadManager
+            account={account}
+            buildingId={buildingId}
+            canEdit={canEdit}
+          />
+        </Section>
+      )}
 
       {/* Cài đặt thông báo — ẩn/hiện */}
       <Section
         title="Cài đặt thông báo"
-        sub={isChuTro ? "— Chuyển QL: chỉ báo lại khi xong/thanh toán" : undefined}
+        sub={isChuTro && !isAdmin ? "— Chuyển QL: chỉ báo lại khi xong/thanh toán" : undefined}
         defaultOpen={false}
       >
         <div className="divide-y border rounded-md overflow-hidden bg-white">
@@ -1278,7 +1280,7 @@ function AccountSettings({
                 />
                 <span className="text-[11px] text-gray-500">Nhận</span>
               </div>
-              {isChuTro && (
+              {isChuTro && !isAdmin && (
                 <div className="flex items-center gap-1.5">
                   <Switch
                     checked={settings[cat.chuyenKey] as boolean}

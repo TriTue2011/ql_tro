@@ -22,7 +22,7 @@ export async function GET() {
 
   // Xác định tòa nhà được phép xem
   let toaNhaFilter: Record<string, any> = {};
-  if (role === 'chuNha') {
+  if (role === 'chuNha' || role === 'dongChuTro') {
     toaNhaFilter = { chuSoHuuId: userId };
   } else if (role === 'quanLy') {
     toaNhaFilter = { nguoiQuanLy: { some: { nguoiDungId: userId } } };
