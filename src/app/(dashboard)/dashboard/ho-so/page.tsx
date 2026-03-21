@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -17,7 +16,6 @@ import {
   User,
   Mail,
   Phone,
-  MapPin,
   Calendar,
   Shield,
   Edit3,
@@ -106,7 +104,6 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    address: '',
     avatar: '',
     zaloChatId: '',
   });
@@ -126,10 +123,12 @@ export default function ProfilePage() {
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success(data.message);
-        // Reload profile
+        // Reload profile (API trả flat object, không wrap success/data)
         const r = await fetch('/api/user/profile');
-        const d = await r.json();
-        if (d.success) setProfile(d.data);
+        if (r.ok) {
+          const d = await r.json();
+          setProfile(d);
+        }
       } else {
         toast.error(data.error || 'Có lỗi xảy ra');
       }
@@ -169,7 +168,6 @@ export default function ProfilePage() {
         setFormData({
           name: data.ten || '',
           phone: data.soDienThoai || '',
-          address: '',
           avatar: data.anhDaiDien || '',
           zaloChatId: data.zaloChatId || '',
         });
@@ -228,7 +226,6 @@ export default function ProfilePage() {
     setFormData({
       name: profile?.ten || '',
       phone: profile?.soDienThoai || '',
-      address: '',
       avatar: profile?.anhDaiDien || '',
       zaloChatId: profile?.zaloChatId || '',
     });
@@ -493,24 +490,6 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="address" className="text-xs md:text-sm">Địa chỉ</Label>
-                {isEditing ? (
-                  <Textarea
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    placeholder="Nhập địa chỉ"
-                    rows={3}
-                    className="text-sm"
-                  />
-                ) : (
-                  <div className="flex items-start gap-2 p-2 md:p-3 border rounded-md bg-gray-50">
-                    <MapPin className="h-3 w-3 md:h-4 md:w-4 text-gray-500 mt-0.5" />
-                    <span className="text-sm">{formData.address || 'Chưa cập nhật'}</span>
-                  </div>
-                )}
-              </div>
 
               {/* Action Buttons */}
               {isEditing && (

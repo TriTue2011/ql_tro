@@ -2040,7 +2040,7 @@ export default function CaiDatPage() {
         )}
 
         {/* ── Tab Hệ thống — chủ trọ: thông tin công ty riêng ─────────────── */}
-        {isChuNha && (
+        {isChuNha && !loadingSystem && (
           <TabsContent value="heThong" className="space-y-4 mt-4">
             <ChuNhaHeThongTab />
           </TabsContent>
