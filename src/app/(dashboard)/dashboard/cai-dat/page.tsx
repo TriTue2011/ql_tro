@@ -622,6 +622,10 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
   // Test states
   const [minioTestLoading, setMinioTestLoading] = useState(false);
   const [minioTestResult, setMinioTestResult] = useState<{ ok: boolean; message: string; details?: Record<string, unknown> } | null>(null);
+  // Connect & bucket list
+  const [minioConnecting, setMinioConnecting] = useState(false);
+  const [minioBuckets, setMinioBuckets] = useState<string[]>([]);
+  const [minioConnectError, setMinioConnectError] = useState('');
   const [haWebhookTestLoading, setHaWebhookTestLoading] = useState(false);
   const [haWebhookTestResult, setHaWebhookTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
@@ -710,6 +714,41 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
       else toast.error(json.error || 'Lưu thất bại');
     } catch { toast.error('Lỗi kết nối'); }
     finally { setSaving(false); }
+  }
+
+  async function handleMinioConnect() {
+    const endpoint = settings.minioEndpoint?.trim();
+    const accessKey = settings.minioAccessKey?.trim();
+    const secretKey = settings.minioSecretKey?.trim();
+    if (!endpoint || !accessKey || !secretKey) {
+      setMinioConnectError('Cần điền Endpoint, Username và Password trước');
+      return;
+    }
+    setMinioConnecting(true);
+    setMinioConnectError('');
+    setMinioBuckets([]);
+    try {
+      const res = await fetch('/api/admin/storage/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint, accessKey, secretKey }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMinioBuckets(data.buckets as string[]);
+        toast.success('Kết nối thành công');
+        // Nếu bucket hiện tại không nằm trong danh sách → chọn cái đầu tiên
+        if (data.buckets.length > 0 && !data.buckets.includes(settings.minioBucket)) {
+          setSettings(prev => ({ ...prev, minioBucket: data.buckets[0] }));
+        }
+      } else {
+        setMinioConnectError(data.message || 'Kết nối thất bại');
+      }
+    } catch {
+      setMinioConnectError('Lỗi kết nối máy chủ');
+    } finally {
+      setMinioConnecting(false);
+    }
   }
 
   async function handleTestMinio() {
@@ -908,23 +947,85 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
             {showMinio && (
               <div className="space-y-3 border rounded-md p-3 bg-gray-50">
                 <p className="text-xs font-semibold text-gray-600">MinIO</p>
-                {[
-                  { key: 'minioEndpoint', label: 'Endpoint', placeholder: 'http://192.168.1.10:9000', type: 'text' },
-                  { key: 'minioAccessKey', label: 'Username (Access Key)', placeholder: 'minioadmin', type: 'text' },
-                  { key: 'minioSecretKey', label: 'Password (Secret Key)', placeholder: '', type: 'password' },
-                  { key: 'minioBucket', label: 'Bucket', placeholder: 'ql-tro', type: 'text' },
-                ].map(f => (
-                  <div key={f.key} className="space-y-1">
-                    <Label className="text-xs font-medium">{f.label}</Label>
+
+                {/* Endpoint */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Endpoint</Label>
+                  <Input
+                    value={settings.minioEndpoint ?? ''}
+                    onChange={e => { setSettings(prev => ({ ...prev, minioEndpoint: e.target.value })); setMinioBuckets([]); }}
+                    placeholder="http://192.168.1.10:9000"
+                    className="text-sm"
+                  />
+                </div>
+
+                {/* Username */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Username (Access Key)</Label>
+                  <Input
+                    value={settings.minioAccessKey ?? ''}
+                    onChange={e => { setSettings(prev => ({ ...prev, minioAccessKey: e.target.value })); setMinioBuckets([]); }}
+                    placeholder="minioadmin"
+                    className="text-sm"
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Password (Secret Key)</Label>
+                  <Input
+                    type="password"
+                    value={settings.minioSecretKey ?? ''}
+                    onChange={e => { setSettings(prev => ({ ...prev, minioSecretKey: e.target.value })); setMinioBuckets([]); }}
+                    className="text-sm"
+                  />
+                </div>
+
+                {/* Nút kết nối */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleMinioConnect}
+                  disabled={minioConnecting}
+                >
+                  {minioConnecting
+                    ? <><RefreshCw className="h-3.5 w-3.5 mr-2 animate-spin" />Đang kết nối...</>
+                    : <><Wifi className="h-3.5 w-3.5 mr-2" />Kết nối</>
+                  }
+                </Button>
+                {minioConnectError && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <XCircle className="h-3.5 w-3.5 shrink-0" />{minioConnectError}
+                  </p>
+                )}
+
+                {/* Bucket — dropdown nếu đã kết nối, input nếu chưa */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Bucket</Label>
+                  {minioBuckets.length > 0 ? (
+                    <Select
+                      value={settings.minioBucket ?? ''}
+                      onValueChange={v => setSettings(prev => ({ ...prev, minioBucket: v }))}
+                    >
+                      <SelectTrigger className="text-sm h-9">
+                        <SelectValue placeholder="Chọn bucket" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {minioBuckets.map(b => (
+                          <SelectItem key={b} value={b}>{b}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
                     <Input
-                      type={f.type}
-                      value={settings[f.key] ?? ''}
-                      onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
-                      placeholder={f.placeholder}
+                      value={settings.minioBucket ?? ''}
+                      onChange={e => setSettings(prev => ({ ...prev, minioBucket: e.target.value }))}
+                      placeholder="ql-tro"
                       className="text-sm"
                     />
-                  </div>
-                ))}
+                  )}
+                </div>
               </div>
             )}
 
