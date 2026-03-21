@@ -78,6 +78,7 @@ export default class HoaDonRepository {
     const where: any = {};
     if (opts.hopDongId) where.hopDongId = opts.hopDongId;
     if (opts.phongId) where.phongId = opts.phongId;
+    else if (opts.toaNhaIds?.length) where.phong = { toaNhaId: { in: opts.toaNhaIds } };
     if (opts.khachThueId) where.khachThueId = opts.khachThueId;
     if (opts.thang !== undefined) where.thang = opts.thang;
     if (opts.nam !== undefined) where.nam = opts.nam;

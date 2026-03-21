@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getHopDongRepo, getPhongRepo, getKhachThueRepo } from '@/lib/repositories';
+import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
 
@@ -41,12 +42,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const role = session.user.role;
+    if (role === 'admin') {
+      return NextResponse.json({ message: 'Admin không quản lý hợp đồng' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parsePage(searchParams.get('page'));
     const limit = parseLimit(searchParams.get('limit'));
     const search = searchParams.get('search') || '';
     const trangThai = searchParams.get('trangThai') || '';
 
+    const toaNhaIds = await getUserToaNhaIds(session.user.id, role);
     const repo = await getHopDongRepo();
 
     const result = await repo.findMany({
@@ -54,6 +61,7 @@ export async function GET(request: NextRequest) {
       limit,
       search: search || undefined,
       trangThai: ['hoatDong','hetHan','daHuy'].includes(trangThai) ? trangThai as import('@/lib/repositories/types').TrangThaiHopDong : undefined,
+      toaNhaIds,
     });
 
     return NextResponse.json({

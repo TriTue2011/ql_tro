@@ -50,8 +50,12 @@ export default class ThanhToanRepository {
     const limit = opts.limit ?? 20;
     const skip = (page - 1) * limit;
 
+    const opts2 = opts as QueryOptions & { toaNhaIds?: string[] };
     const where: any = {};
-    if (opts.hoaDonId) where.hoaDonId = opts.hoaDonId;
+    if (opts2.hoaDonId) where.hoaDonId = opts2.hoaDonId;
+    else if (opts2.toaNhaIds?.length) {
+      where.hoaDon = { phong: { toaNhaId: { in: opts2.toaNhaIds } } };
+    }
 
     const [total, rows] = await Promise.all([
       prisma.thanhToan.count({ where }),

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getThanhToanRepo, getHoaDonRepo } from '@/lib/repositories';
+import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import prisma from '@/lib/prisma';
 
@@ -13,12 +14,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    const role = session.user.role;
+    if (role === 'admin') {
+      return NextResponse.json({ message: 'Admin không quản lý thanh toán' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parsePage(searchParams.get('page'));
     const limit = parseLimit(searchParams.get('limit'));
     const hopDongId = searchParams.get('hopDongId');
     const hoaDonId = searchParams.get('hoaDonId');
 
+    const toaNhaIds = await getUserToaNhaIds(session.user.id, role);
     const hoaDonRepo = await getHoaDonRepo();
     const thanhToanRepo = await getThanhToanRepo();
 
@@ -54,6 +61,7 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       hoaDonId: hoaDonId || undefined,
+      ...(!hoaDonId && { toaNhaIds } as any),
     });
 
     return NextResponse.json({

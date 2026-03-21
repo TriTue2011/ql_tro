@@ -4,23 +4,40 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { notifyKhachThue, notifyDaiDienHopDong } from '@/lib/send-zalo';
+import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 
-function isAdmin(role?: string) {
-  return ['admin', 'chuNha', 'quanLy'].includes(role ?? '');
+function canManage(role?: string) {
+  return ['chuNha', 'quanLy'].includes(role ?? '');
 }
 
-// GET - Admin xem danh sách yêu cầu thay đổi
+// GET - Chủ trọ / Quản lý xem danh sách yêu cầu thay đổi
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || !isAdmin(session.user.role)) {
+  if (!session || !canManage(session.user.role)) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
   const trangThai = searchParams.get('trangThai') || 'choPheduyet';
 
+  const toaNhaIds = await getUserToaNhaIds(session.user.id, session.user.role);
+
+  // Lọc yêu cầu theo tòa nhà của user
+  const toaNhaScopeWhere = toaNhaIds.length > 0
+    ? {
+        khachThue: {
+          hopDong: {
+            some: { phong: { toaNhaId: { in: toaNhaIds } } },
+          },
+        },
+      }
+    : {};
+
   const yeuCaus = await prisma.yeuCauThayDoi.findMany({
-    where: trangThai === 'all' ? {} : { trangThai },
+    where: {
+      ...(trangThai !== 'all' ? { trangThai } : {}),
+      ...toaNhaScopeWhere,
+    },
     orderBy: { ngayTao: 'desc' },
     include: {
       khachThue: {
@@ -46,10 +63,10 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ success: true, data: yeuCaus });
 }
 
-// PUT - Admin phê duyệt hoặc từ chối + áp dụng thay đổi
+// PUT - Chủ trọ / Quản lý phê duyệt hoặc từ chối + áp dụng thay đổi
 export async function PUT(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || !isAdmin(session.user.role)) {
+  if (!session || !canManage(session.user.role)) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 

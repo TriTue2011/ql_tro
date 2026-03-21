@@ -50,6 +50,7 @@ export default class PhongRepository {
 
     const where: any = {};
     if (opts.toaNhaId) where.toaNhaId = opts.toaNhaId;
+    else if (opts.toaNhaIds?.length) where.toaNhaId = { in: opts.toaNhaIds };
     if (opts.trangThai) where.trangThai = opts.trangThai;
     if (opts.search) {
       where.maPhong = { contains: opts.search, mode: 'insensitive' };

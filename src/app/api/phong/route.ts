@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import type { TrangThaiPhong } from '@/lib/repositories/types';
+import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 
 const TRANG_THAI_PHONG: readonly string[] = ['trong', 'daDat', 'dangThue', 'baoTri'];
 
@@ -35,6 +36,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const role = session.user.role;
+    if (role === 'admin') {
+      return NextResponse.json({ message: 'Admin không quản lý phòng' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parsePage(searchParams.get('page'));
     const limit = parseLimit(searchParams.get('limit'));
@@ -42,6 +48,7 @@ export async function GET(request: NextRequest) {
     const toaNhaId = searchParams.get('toaNha') || '';
     const trangThai = searchParams.get('trangThai') || '';
 
+    const toaNhaIds = await getUserToaNhaIds(session.user.id, role);
     const repo = await getPhongRepo();
 
     const result = await repo.findMany({
@@ -49,6 +56,7 @@ export async function GET(request: NextRequest) {
       limit,
       search: search || undefined,
       toaNhaId: toaNhaId || undefined,
+      toaNhaIds: !toaNhaId ? toaNhaIds : undefined,
       trangThai: TRANG_THAI_PHONG.includes(trangThai)
         ? trangThai as TrangThaiPhong : undefined,
     });

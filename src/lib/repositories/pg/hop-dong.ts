@@ -73,6 +73,7 @@ export default class HopDongRepository {
 
     const where: any = {};
     if (opts.phongId) where.phongId = opts.phongId;
+    else if (opts.toaNhaIds?.length) where.phong = { toaNhaId: { in: opts.toaNhaIds } };
     if (opts.trangThai) where.trangThai = opts.trangThai;
     if (opts.khachThueId) {
       where.khachThue = { some: { id: opts.khachThueId } };

@@ -165,6 +165,7 @@ export interface UpdatePhongInput {
 
 export interface PhongQueryOptions extends QueryOptions {
   toaNhaId?: string;
+  toaNhaIds?: string[];
   trangThai?: TrangThaiPhong;
 }
 
@@ -297,6 +298,7 @@ export interface HopDongQueryOptions extends QueryOptions {
   phongId?: string;
   trangThai?: TrangThaiHopDong;
   khachThueId?: string;
+  toaNhaIds?: string[];
 }
 
 // ─── ChiSoDienNuoc ────────────────────────────────────────────
@@ -411,6 +413,7 @@ export interface HoaDonQueryOptions extends QueryOptions {
   thang?: number;
   nam?: number;
   trangThai?: TrangThaiHoaDon;
+  toaNhaIds?: string[];
 }
 
 // ─── ThanhToan ────────────────────────────────────────────────
@@ -498,6 +501,7 @@ export interface SuCoQueryOptions extends QueryOptions {
   loaiSuCo?: LoaiSuCo;
   trangThai?: TrangThaiSuCo;
   mucDoUuTien?: MucDoUuTien;
+  toaNhaIds?: string[];
 }
 
 // ─── ThongBao ─────────────────────────────────────────────────
@@ -535,4 +539,5 @@ export interface CreateThongBaoInput {
 export interface ThongBaoQueryOptions extends QueryOptions {
   nguoiNhanId?: string;
   loai?: LoaiThongBao;
+  toaNhaIds?: string[];
 }
