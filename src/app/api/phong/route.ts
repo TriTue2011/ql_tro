@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import type { TrangThaiPhong } from '@/lib/repositories/types';
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
+import { sseEmit } from '@/lib/sse-emitter';
 
 const TRANG_THAI_PHONG: readonly string[] = ['trong', 'daDat', 'dangThue', 'baoTri'];
 
@@ -133,6 +134,7 @@ export async function POST(request: NextRequest) {
       ngayTinhTien: validatedData.ngayTinhTien ?? 1,
     });
 
+    sseEmit('phong', { action: 'created' });
     return NextResponse.json({
       success: true,
       data: newPhong,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
@@ -187,6 +188,12 @@ export default function HoaDonPage() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
+
+  // Real-time: tự động refresh khi có thay đổi từ người dùng khác
+  useRealtimeEvents(['hoa-don', 'thanh-toan'], (_type, _action) => {
+    cache.clearCache();
+    fetchData(true);
+  });
 
 
   // Debug hopDongList state

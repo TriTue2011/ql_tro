@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,6 +83,12 @@ export default function SuCoPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Real-time: tự động refresh khi có thay đổi từ người dùng khác
+  useRealtimeEvents(['su-co'], (_type, _action) => {
+    cache.clearCache();
+    fetchData(true);
+  });
 
   const fetchData = async (forceRefresh = false) => {
     try {

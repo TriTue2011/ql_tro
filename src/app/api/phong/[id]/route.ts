@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getPhongRepo, getToaNhaRepo } from '@/lib/repositories';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { sseEmit } from '@/lib/sse-emitter';
 
 const phongSchema = z.object({
   maPhong: z.string().min(1, 'Mã phòng là bắt buộc'),
@@ -107,6 +108,7 @@ export async function PUT(
       );
     }
 
+    sseEmit('phong', { action: 'updated' });
     return NextResponse.json({
       success: true,
       data: updatedPhong,
@@ -161,7 +163,7 @@ export async function DELETE(
     }
 
     await repo.delete(id);
-
+    sseEmit('phong', { action: 'deleted' });
     return NextResponse.json({
       success: true,
       message: 'Phòng đã được xóa thành công',

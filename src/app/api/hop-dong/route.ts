@@ -5,6 +5,7 @@ import { getHopDongRepo, getPhongRepo, getKhachThueRepo } from '@/lib/repositori
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
+import { sseEmit } from '@/lib/sse-emitter';
 
 const phiDichVuSchema = z.object({
   ten: z.string().min(1, 'Tên dịch vụ là bắt buộc'),
@@ -162,6 +163,8 @@ export async function POST(request: NextRequest) {
     // Cập nhật trạng thái phòng thành 'dangThue'
     await phongRepo.update(validatedData.phong, { trangThai: 'dangThue' });
 
+    sseEmit('hop-dong', { action: 'created' });
+    sseEmit('phong', { action: 'updated' }); // phòng đổi sang dangThue
     return NextResponse.json({
       success: true,
       data: newHopDong,

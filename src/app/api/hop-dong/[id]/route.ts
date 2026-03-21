@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getHopDongRepo, getPhongRepo, getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
+import { sseEmit } from '@/lib/sse-emitter';
 
 const phiDichVuSchema = z.object({
   ten: z.string().min(1, 'Tên dịch vụ là bắt buộc'),
@@ -167,6 +168,10 @@ export async function PUT(
       await phongRepo.update(phongId, { trangThai: 'trong' });
     }
 
+    sseEmit('hop-dong', { action: 'updated' });
+    if (validatedData.trangThai && validatedData.trangThai !== 'hoatDong') {
+      sseEmit('phong', { action: 'updated' }); // phòng trở về trạng thái trống
+    }
     return NextResponse.json({
       success: true,
       data: hopDong,
@@ -223,6 +228,8 @@ export async function DELETE(
     // Cập nhật trạng thái phòng sau khi xóa hợp đồng
     await phongRepo.update(phongId, { trangThai: 'trong' });
 
+    sseEmit('hop-dong', { action: 'deleted' });
+    sseEmit('phong', { action: 'updated' });
     return NextResponse.json({
       success: true,
       message: 'Hợp đồng đã được xóa thành công',

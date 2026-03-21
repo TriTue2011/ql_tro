@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSuCoRepo, getPhongRepo, getKhachThueRepo } from '@/lib/repositories';
+import { sseEmit } from '@/lib/sse-emitter';
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
       mucDoUuTien: validatedData.mucDoUuTien || 'trungBinh',
     });
 
+    sseEmit('su-co', { action: 'created' });
     return NextResponse.json({
       success: true,
       data: newSuCo,

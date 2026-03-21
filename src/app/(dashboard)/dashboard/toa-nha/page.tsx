@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,6 +68,12 @@ export default function ToaNhaPage() {
   useEffect(() => {
     fetchToaNha();
   }, []);
+
+  // Real-time: tự động refresh khi có thay đổi từ người dùng khác
+  useRealtimeEvents(['toa-nha'], (_type, _action) => {
+    cache.clearCache();
+    fetchToaNha(true);
+  });
 
   const fetchToaNha = async (forceRefresh = false) => {
     try {

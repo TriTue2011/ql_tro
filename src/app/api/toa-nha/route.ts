@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getToaNhaRepo } from '@/lib/repositories';
+import { sseEmit } from '@/lib/sse-emitter';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
@@ -152,6 +153,7 @@ export async function POST(request: NextRequest) {
       }).catch(() => {}); // bỏ qua nếu đã tồn tại
     }
 
+    sseEmit('toa-nha', { action: 'created' });
     return NextResponse.json({
       success: true,
       data: newToaNha,

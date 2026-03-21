@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getThanhToanRepo, getHoaDonRepo } from '@/lib/repositories';
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
+import { sseEmit } from '@/lib/sse-emitter';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import prisma from '@/lib/prisma';
 
@@ -153,6 +154,8 @@ export async function POST(request: NextRequest) {
     // Cập nhật hóa đơn (cộng thêm số tiền đã thanh toán)
     const updatedHoaDon = await hoaDonRepo.addPayment(hoaDonId, soTien);
 
+    sseEmit('thanh-toan', { action: 'created' });
+    sseEmit('hoa-don', { action: 'updated' }); // hóa đơn cập nhật trạng thái thanh toán
     return NextResponse.json({
       success: true,
       data: {

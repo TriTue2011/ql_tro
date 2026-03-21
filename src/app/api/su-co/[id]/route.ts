@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSuCoRepo } from '@/lib/repositories';
+import { sseEmit } from '@/lib/sse-emitter';
 import { notifyKhachThue } from '@/lib/send-zalo';
 import { z } from 'zod';
 
@@ -105,6 +106,7 @@ export async function PUT(
       }
     }
 
+    sseEmit('su-co', { action: 'updated' });
     return NextResponse.json({
       success: true,
       data: suCo,

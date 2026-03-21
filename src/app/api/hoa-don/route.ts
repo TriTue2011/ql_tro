@@ -6,6 +6,7 @@ import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { notifyKhachThue } from '@/lib/send-zalo';
 import { PhiDichVu } from '@/types';
+import { sseEmit } from '@/lib/sse-emitter';
 
 // GET - Lấy danh sách hóa đơn
 export async function GET(request: NextRequest) {
@@ -277,6 +278,7 @@ export async function POST(request: NextRequest) {
       notifyKhachThue(hopDongData.nguoiDaiDienId, msg).catch(() => {});
     }
 
+    sseEmit('hoa-don', { action: 'created' });
     return NextResponse.json({
       success: true,
       data: hoaDon,
@@ -377,6 +379,7 @@ export async function PUT(request: NextRequest) {
       anhChiSoNuoc: anhChiSoNuoc || undefined,
     });
 
+    sseEmit('hoa-don', { action: 'updated' });
     return NextResponse.json({
       success: true,
       data: updatedHoaDon,
@@ -420,6 +423,7 @@ export async function PATCH(request: NextRequest) {
       ...(ghiChu !== undefined && { ghiChu }),
     });
 
+    sseEmit('hoa-don', { action: 'updated' });
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error('Error patching hoa-don:', error);
@@ -455,7 +459,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await repo.delete(id);
-
+    sseEmit('hoa-don', { action: 'deleted' });
     return NextResponse.json({
       success: true,
       message: 'Xóa hóa đơn thành công'

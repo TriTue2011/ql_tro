@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getKhachThueRepo } from '@/lib/repositories';
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
+import { sseEmit } from '@/lib/sse-emitter';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
 import { hash } from 'bcryptjs';
@@ -178,6 +179,7 @@ export async function POST(request: NextRequest) {
       ).catch(() => {});
     }
 
+    sseEmit('khach-thue', { action: 'created' });
     return NextResponse.json({
       success: true,
       data: newKhachThue,
