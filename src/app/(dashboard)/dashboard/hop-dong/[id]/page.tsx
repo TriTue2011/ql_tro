@@ -39,6 +39,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { FileUpload } from '@/components/ui/file-upload';
 
 export default function ChinhSuaHopDongPage() {
   const router = useRouter();
@@ -69,6 +70,7 @@ export default function ChinhSuaHopDongPage() {
     chiSoNuocBanDau: 0,
     phiDichVu: [] as Array<{ten: string, gia: number}>,
     trangThai: 'hoatDong' as 'hoatDong' | 'hetHan' | 'daHuy',
+    fileHopDong: '',
   });
 
   const [newPhiDichVu, setNewPhiDichVu] = useState({ ten: '', gia: 0 });
@@ -112,6 +114,7 @@ export default function ChinhSuaHopDongPage() {
             chiSoNuocBanDau: hopDongItem.chiSoNuocBanDau || 0,
             phiDichVu: hopDongItem.phiDichVu || [],
             trangThai: hopDongItem.trangThai || 'hoatDong',
+            fileHopDong: hopDongItem.fileHopDong || '',
           });
         } else {
           toast.error('Không tìm thấy hợp đồng');
@@ -694,6 +697,13 @@ export default function ChinhSuaHopDongPage() {
                 className="resize-none text-sm"
               />
             </div>
+
+            <FileUpload
+              fileUrl={formData.fileHopDong}
+              onFileChange={(url) => setFormData(prev => ({ ...prev, fileHopDong: url }))}
+              label="File hợp đồng đã ký"
+              folder="hop-dong"
+            />
 
             <div className="space-y-2">
               <Label className="text-xs md:text-sm">Phí dịch vụ</Label>
