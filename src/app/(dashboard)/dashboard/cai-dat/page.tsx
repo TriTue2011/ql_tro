@@ -793,14 +793,35 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
   }
 
   async function handleTestMinio() {
+    const endpoint = settings.minioEndpoint?.trim();
+    const accessKey = settings.minioAccessKey?.trim();
+    const secretKey = settings.minioSecretKey?.trim();
+    const bucket = settings.minioBucket?.trim();
+    if (!endpoint || !accessKey) {
+      toast.error('Cần nhập Endpoint và Username trước khi kiểm tra');
+      return;
+    }
     setMinioTestLoading(true);
     setMinioTestResult(null);
     try {
-      const res = await fetch('/api/admin/settings/test-minio', { method: 'POST' });
+      const res = await fetch('/api/admin/storage/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint, accessKey, secretKey, testBucket: bucket }),
+      });
       const data = await res.json();
-      setMinioTestResult({ ok: data.success, message: data.message, details: data.details });
-      if (data.success) toast.success('Kết nối MinIO thành công');
-      else toast.error(data.message);
+      if (data.success) {
+        const hasBucket = bucket && data.buckets?.includes(bucket);
+        setMinioTestResult({
+          ok: true,
+          message: hasBucket ? `Kết nối thành công! Bucket "${bucket}" sẵn sàng.` : `Kết nối thành công! ${data.buckets?.length ?? 0} bucket(s).`,
+          details: { endpoint, bucket: bucket || '(chưa chọn)', 'Tổng buckets': data.buckets?.length ?? 0 },
+        });
+        toast.success('Kết nối MinIO thành công');
+      } else {
+        setMinioTestResult({ ok: false, message: data.message });
+        toast.error(data.message);
+      }
     } catch {
       setMinioTestResult({ ok: false, message: 'Lỗi kết nối máy chủ' });
     } finally { setMinioTestLoading(false); }
