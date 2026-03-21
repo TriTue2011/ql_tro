@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
@@ -72,6 +73,12 @@ export default function HopDongPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Real-time: tự động refresh khi có thay đổi từ người dùng khác
+  useRealtimeEvents(['hop-dong'], (_type, _action) => {
+    cache.clearCache();
+    fetchData(true);
+  });
 
   const fetchData = async (forceRefresh = false) => {
     try {

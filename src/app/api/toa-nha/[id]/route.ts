@@ -122,6 +122,7 @@ export async function PUT(
       tongSoPhong: phongResult.pagination.total,
     };
 
+    sseEmit('toa-nha', { action: 'updated' });
     return NextResponse.json({
       success: true,
       data: toaNhaWithPhongCount,
@@ -190,6 +191,7 @@ export async function DELETE(
 
     await repo.delete(id);
 
+    sseEmit('toa-nha', { action: 'deleted' });
     return NextResponse.json({
       success: true,
       message: 'Tòa nhà đã được xóa thành công',

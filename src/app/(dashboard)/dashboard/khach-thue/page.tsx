@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
@@ -83,6 +84,12 @@ export default function KhachThuePage() {
   useEffect(() => {
     fetchKhachThue();
   }, []);
+
+  // Real-time: tự động refresh khi có thay đổi từ người dùng khác
+  useRealtimeEvents(['khach-thue'], (_type, _action) => {
+    cache.clearCache();
+    fetchKhachThue(true);
+  });
 
   const fetchKhachThue = async (forceRefresh = false) => {
     try {

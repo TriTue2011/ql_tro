@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getChiSoRepo } from '@/lib/repositories';
+import { sseEmit } from '@/lib/sse-emitter';
 import { z } from 'zod';
 
 const updateChiSoSchema = z.object({
@@ -123,6 +124,7 @@ export async function PUT(
       ngayGhi: validatedData.ngayGhi ? new Date(validatedData.ngayGhi) : undefined,
     });
 
+    sseEmit('chi-so-dien-nuoc', { action: 'updated' });
     return NextResponse.json({
       success: true,
       data: updatedChiSo,
@@ -179,7 +181,7 @@ export async function DELETE(
     }
 
     await repo.delete(id);
-
+    sseEmit('chi-so-dien-nuoc', { action: 'deleted' });
     return NextResponse.json({
       success: true,
       message: 'Chỉ số điện nước đã được xóa thành công',

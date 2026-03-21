@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getChiSoRepo, getPhongRepo } from '@/lib/repositories';
+import { sseEmit } from '@/lib/sse-emitter';
 import { parsePage, parseLimit, parseIntParam } from '@/lib/parse-query';
 import { z } from 'zod';
 
@@ -130,6 +131,7 @@ export async function POST(request: NextRequest) {
       ngayGhi: validatedData.ngayGhi ? new Date(validatedData.ngayGhi) : new Date(),
     });
 
+    sseEmit('chi-so-dien-nuoc', { action: 'created' });
     return NextResponse.json({
       success: true,
       data: newChiSo,

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
+import { sseEmit } from '@/lib/sse-emitter';
 import { hash } from 'bcryptjs';
 
 const khachThueSchema = z.object({
@@ -123,6 +124,7 @@ export async function PUT(
       );
     }
 
+    sseEmit('khach-thue', { action: 'updated' });
     return NextResponse.json({
       success: true,
       data: khachThue,
@@ -171,7 +173,7 @@ export async function DELETE(
     }
 
     await repo.delete(id);
-
+    sseEmit('khach-thue', { action: 'deleted' });
     return NextResponse.json({
       success: true,
       message: 'Khách thuê đã được xóa thành công',

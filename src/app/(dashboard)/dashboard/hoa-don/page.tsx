@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
@@ -136,7 +137,7 @@ export default function HoaDonPage() {
     hopDongList: HopDong[];
     phongList: Phong[];
     khachThueList: KhachThue[];
-  }>({ key: 'hoa-don-data', duration: 300000 }); // 5 phút
+  }>({ key: 'hoa-don-data', duration: 30000 }); // 30 giây — tránh cache stale khi quyền thay đổi
   
   const [hoaDonList, setHoaDonList] = useState<HoaDon[]>([]);
   const [hopDongList, setHopDongList] = useState<HopDong[]>([]);
@@ -175,6 +176,24 @@ export default function HoaDonPage() {
       }
     }).catch(() => {});
   }, []);
+
+  // Re-fetch khi tab được focus lại — tránh data stale khi admin thay đổi quyền
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        cache.clearCache();
+        fetchData(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // Real-time: tự động refresh khi có thay đổi từ người dùng khác
+  useRealtimeEvents(['hoa-don', 'thanh-toan'], (_type, _action) => {
+    cache.clearCache();
+    fetchData(true);
+  });
 
 
   // Debug hopDongList state

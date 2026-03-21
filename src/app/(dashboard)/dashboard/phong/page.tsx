@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -94,6 +95,12 @@ export default function PhongPage() {
     fetchPhong();
     fetchToaNha();
   }, []);
+
+  // Real-time: tự động refresh khi có thay đổi từ người dùng khác
+  useRealtimeEvents(['phong', 'hop-dong'], (_type, _action) => {
+    cache.clearCache();
+    fetchPhong(true);
+  });
 
   const fetchPhong = async (forceRefresh = false) => {
     try {

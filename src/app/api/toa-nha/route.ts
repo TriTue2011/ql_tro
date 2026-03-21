@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getToaNhaRepo } from '@/lib/repositories';
+import { sseEmit } from '@/lib/sse-emitter';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
@@ -121,15 +122,38 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = toaNhaSchema.parse(body);
 
+    const role = session.user.role;
+
+    // Admin có thể chỉ định chuSoHuuId (tạo tòa nhà thay cho chủ trọ)
+    let chuSoHuuId = session.user.id;
+    if (role === 'admin' && body.chuSoHuuId) {
+      const owner = await prisma.nguoiDung.findUnique({
+        where: { id: body.chuSoHuuId },
+        select: { id: true, vaiTro: true },
+      });
+      if (owner && owner.vaiTro === 'chuNha') {
+        chuSoHuuId = owner.id;
+      }
+    }
+
     const repo = await getToaNhaRepo();
 
     const newToaNha = await repo.create({
       ...validatedData,
-      chuSoHuuId: session.user.id,
+      chuSoHuuId,
       tienNghiChung: validatedData.tienNghiChung || [],
       lienHePhuTrach: validatedData.lienHePhuTrach || [],
     });
 
+    // Nếu người tạo không phải chuNha thì getUserToaNhaIds không tìm được qua chuSoHuuId
+    // → tự thêm họ vào ToaNhaNguoiQuanLy để thấy phòng/hóa đơn của tòa nhà vừa tạo
+    if (role !== 'admin' && role !== 'chuNha') {
+      await prisma.toaNhaNguoiQuanLy.create({
+        data: { toaNhaId: newToaNha.id, nguoiDungId: session.user.id },
+      }).catch(() => {}); // bỏ qua nếu đã tồn tại
+    }
+
+    sseEmit('toa-nha', { action: 'created' });
     return NextResponse.json({
       success: true,
       data: newToaNha,
