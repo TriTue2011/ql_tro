@@ -46,6 +46,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { KhachThueForm } from '@/components/khach-thue-form';
+import { FileUpload } from '@/components/ui/file-upload';
 import { useSession } from 'next-auth/react';
 
 export default function ThemMoiHopDongPage() {
@@ -105,6 +106,7 @@ export default function ThemMoiHopDongPage() {
     chiSoNuocBanDau: 0,
     phiDichVu: [] as Array<{ten: string, gia: number}>,
     trangThai: 'hoatDong' as 'hoatDong' | 'hetHan' | 'daHuy',
+    fileHopDong: '',
   });
 
   const [newPhiDichVu, setNewPhiDichVu] = useState({ ten: '', gia: 0 });
@@ -681,6 +683,13 @@ export default function ThemMoiHopDongPage() {
                 className="resize-none"
               />
             </div>
+
+            <FileUpload
+              fileUrl={formData.fileHopDong}
+              onFileChange={(url) => setFormData(prev => ({ ...prev, fileHopDong: url }))}
+              label="File hợp đồng đã ký"
+              folder="hop-dong"
+            />
 
             <div className="space-y-2">
               <Label>Phí dịch vụ</Label>
