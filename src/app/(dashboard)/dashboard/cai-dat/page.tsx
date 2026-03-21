@@ -626,6 +626,9 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
   const [minioConnecting, setMinioConnecting] = useState(false);
   const [minioBuckets, setMinioBuckets] = useState<string[]>([]);
   const [minioConnectError, setMinioConnectError] = useState('');
+  const [minioConnected, setMinioConnected] = useState(false);
+  const [newBucketName, setNewBucketName] = useState('');
+  const [creatingBucket, setCreatingBucket] = useState(false);
   const [haWebhookTestLoading, setHaWebhookTestLoading] = useState(false);
   const [haWebhookTestResult, setHaWebhookTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
@@ -736,18 +739,51 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
       const data = await res.json();
       if (data.success) {
         setMinioBuckets(data.buckets as string[]);
+        setMinioConnected(true);
         toast.success('Kết nối thành công');
-        // Nếu bucket hiện tại không nằm trong danh sách → chọn cái đầu tiên
         if (data.buckets.length > 0 && !data.buckets.includes(settings.minioBucket)) {
           setSettings(prev => ({ ...prev, minioBucket: data.buckets[0] }));
         }
       } else {
+        setMinioConnected(false);
         setMinioConnectError(data.message || 'Kết nối thất bại');
       }
     } catch {
+      setMinioConnected(false);
       setMinioConnectError('Lỗi kết nối máy chủ');
     } finally {
       setMinioConnecting(false);
+    }
+  }
+
+  async function handleMinioCreateBucket() {
+    const name = newBucketName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    if (!name || name.length < 3) { toast.error('Tên bucket tối thiểu 3 ký tự'); return; }
+    setCreatingBucket(true);
+    try {
+      const res = await fetch('/api/admin/storage/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: settings.minioEndpoint,
+          accessKey: settings.minioAccessKey,
+          secretKey: settings.minioSecretKey,
+          createBucket: name,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMinioBuckets(data.buckets as string[]);
+        setSettings(prev => ({ ...prev, minioBucket: name }));
+        setNewBucketName('');
+        toast.success(`Đã tạo bucket "${name}"`);
+      } else {
+        toast.error(data.message || 'Tạo bucket thất bại');
+      }
+    } catch {
+      toast.error('Lỗi tạo bucket');
+    } finally {
+      setCreatingBucket(false);
     }
   }
 
@@ -953,7 +989,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                   <Label className="text-xs font-medium">Endpoint</Label>
                   <Input
                     value={settings.minioEndpoint ?? ''}
-                    onChange={e => { setSettings(prev => ({ ...prev, minioEndpoint: e.target.value })); setMinioBuckets([]); }}
+                    onChange={e => { setSettings(prev => ({ ...prev, minioEndpoint: e.target.value })); setMinioBuckets([]); setMinioConnected(false); }}
                     placeholder="http://192.168.1.10:9000"
                     className="text-sm"
                   />
@@ -964,7 +1000,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                   <Label className="text-xs font-medium">Username (Access Key)</Label>
                   <Input
                     value={settings.minioAccessKey ?? ''}
-                    onChange={e => { setSettings(prev => ({ ...prev, minioAccessKey: e.target.value })); setMinioBuckets([]); }}
+                    onChange={e => { setSettings(prev => ({ ...prev, minioAccessKey: e.target.value })); setMinioBuckets([]); setMinioConnected(false); }}
                     placeholder="minioadmin"
                     className="text-sm"
                   />
@@ -976,7 +1012,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                   <Input
                     type="password"
                     value={settings.minioSecretKey ?? ''}
-                    onChange={e => { setSettings(prev => ({ ...prev, minioSecretKey: e.target.value })); setMinioBuckets([]); }}
+                    onChange={e => { setSettings(prev => ({ ...prev, minioSecretKey: e.target.value })); setMinioBuckets([]); setMinioConnected(false); }}
                     className="text-sm"
                   />
                 </div>
@@ -1000,7 +1036,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                   </p>
                 )}
 
-                {/* Bucket — dropdown nếu đã kết nối, input nếu chưa */}
+                {/* Bucket */}
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Bucket</Label>
                   {minioBuckets.length > 0 ? (
@@ -1017,6 +1053,30 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                         ))}
                       </SelectContent>
                     </Select>
+                  ) : minioConnected ? (
+                    /* Đã kết nối nhưng chưa có bucket → tạo mới */
+                    <div className="space-y-2">
+                      <p className="text-xs text-amber-600 flex items-center gap-1">
+                        <WifiOff className="h-3.5 w-3.5 shrink-0" />
+                        Chưa có bucket nào. Nhập tên để tạo mới.
+                      </p>
+                      <div className="flex gap-2">
+                        <Input
+                          value={newBucketName}
+                          onChange={e => setNewBucketName(e.target.value)}
+                          placeholder="vd: ql-tro"
+                          className="text-sm"
+                          onKeyDown={e => { if (e.key === 'Enter') handleMinioCreateBucket(); }}
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleMinioCreateBucket}
+                          disabled={creatingBucket || !newBucketName.trim()}
+                        >
+                          {creatingBucket ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Tạo'}
+                        </Button>
+                      </div>
+                    </div>
                   ) : (
                     <Input
                       value={settings.minioBucket ?? ''}
