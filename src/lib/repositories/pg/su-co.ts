@@ -63,6 +63,7 @@ export default class SuCoRepository {
 
     const where: any = {};
     if (opts.phongId) where.phongId = opts.phongId;
+    else if (opts.toaNhaIds?.length) where.phong = { toaNhaId: { in: opts.toaNhaIds } };
     if (opts.loaiSuCo) where.loaiSuCo = opts.loaiSuCo;
     if (opts.trangThai) where.trangThai = opts.trangThai;
     if (opts.mucDoUuTien) where.mucDoUuTien = opts.mucDoUuTien;

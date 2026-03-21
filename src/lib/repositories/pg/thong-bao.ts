@@ -53,6 +53,9 @@ export default class ThongBaoRepository {
     if (opts.nguoiNhanId) {
       where.nguoiNhan = { has: opts.nguoiNhanId };
     }
+    if (opts.toaNhaIds?.length) {
+      where.toaNhaId = { in: opts.toaNhaIds };
+    }
     if (opts.search) {
       where.tieuDe = { contains: opts.search, mode: 'insensitive' };
     }

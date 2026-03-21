@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSuCoRepo, getPhongRepo, getKhachThueRepo } from '@/lib/repositories';
+import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
 
@@ -27,6 +28,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const role = session.user.role;
+    if (role === 'admin') {
+      return NextResponse.json({ message: 'Admin không quản lý sự cố' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parsePage(searchParams.get('page'));
     const limit = parseLimit(searchParams.get('limit'));
@@ -35,6 +41,7 @@ export async function GET(request: NextRequest) {
     const mucDoUuTien = searchParams.get('mucDoUuTien') || '';
     const trangThai = searchParams.get('trangThai') || '';
 
+    const toaNhaIds = await getUserToaNhaIds(session.user.id, role);
     const repo = await getSuCoRepo();
 
     const result = await repo.findMany({
@@ -44,6 +51,7 @@ export async function GET(request: NextRequest) {
       loaiSuCo: ['dienNuoc','noiThat','vesinh','anNinh','khac'].includes(loaiSuCo) ? loaiSuCo as import('@/lib/repositories/types').LoaiSuCo : undefined,
       mucDoUuTien: ['thap','trungBinh','cao','khancap'].includes(mucDoUuTien) ? mucDoUuTien as import('@/lib/repositories/types').MucDoUuTien : undefined,
       trangThai: ['moi','dangXuLy','daXong','daHuy'].includes(trangThai) ? trangThai as import('@/lib/repositories/types').TrangThaiSuCo : undefined,
+      toaNhaIds,
     });
 
     return NextResponse.json({

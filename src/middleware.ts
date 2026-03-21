@@ -162,6 +162,24 @@ export default async function middleware(req: NextRequest) {
       loginUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(loginUrl);
     }
+
+    // Admin không được vào các trang quản lý phòng/khách/tài chính/vận hành
+    const ADMIN_BLOCKED_PATHS = [
+      '/dashboard/phong',
+      '/dashboard/khach-thue',
+      '/dashboard/hop-dong',
+      '/dashboard/hoa-don',
+      '/dashboard/thanh-toan',
+      '/dashboard/su-co',
+      '/dashboard/thong-bao',
+      '/dashboard/yeu-cau-duyet',
+      '/dashboard/zalo',
+    ];
+    if (role === 'admin' && ADMIN_BLOCKED_PATHS.some(p => pathname.startsWith(p))) {
+      const redirectUrl = req.nextUrl.clone();
+      redirectUrl.pathname = '/dashboard';
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   // ── Rate limit ────────────────────────────────────────────────────────────

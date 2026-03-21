@@ -46,12 +46,12 @@ export default class KhachThueRepository {
     return { ...normalize(raw), matKhau: raw.matKhau ?? undefined };
   }
 
-  async findMany(opts: QueryOptions): Promise<PaginatedResult<KhachThueData>> {
+  async findMany(opts: QueryOptions & { toaNhaIds?: string[] }): Promise<PaginatedResult<KhachThueData>> {
     const page = opts.page ?? 1;
     const limit = opts.limit ?? 20;
     const skip = (page - 1) * limit;
 
-    const where = opts.search
+    const where: any = opts.search
       ? {
           OR: [
             { hoTen: { contains: opts.search, mode: 'insensitive' as const } },
@@ -60,6 +60,13 @@ export default class KhachThueRepository {
           ],
         }
       : {};
+
+    // Lọc khách thuê theo tòa nhà của user
+    if (opts.toaNhaIds?.length) {
+      where.hopDong = {
+        some: { phong: { toaNhaId: { in: opts.toaNhaIds } } },
+      };
+    }
 
     const [total, rows] = await Promise.all([
       prisma.khachThue.count({ where }),

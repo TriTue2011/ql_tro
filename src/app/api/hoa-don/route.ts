@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getHoaDonRepo, getHopDongRepo } from '@/lib/repositories';
+import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { notifyKhachThue } from '@/lib/send-zalo';
 import { PhiDichVu } from '@/types';
@@ -14,6 +15,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    const role = session.user.role;
+    if (role === 'admin') {
+      return NextResponse.json({ message: 'Admin không quản lý hóa đơn' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const page = parsePage(searchParams.get('page'));
@@ -21,6 +27,7 @@ export async function GET(request: NextRequest) {
     const hopDongId = searchParams.get('hopDongId');
     const trangThai = searchParams.get('trangThai');
 
+    const toaNhaIds = await getUserToaNhaIds(session.user.id, role);
     const repo = await getHoaDonRepo();
 
     // Nếu có ID, lấy hóa đơn cụ thể
@@ -60,6 +67,7 @@ export async function GET(request: NextRequest) {
       limit,
       hopDongId: hopDongId || undefined,
       trangThai: ['chuaThanhToan','daThanhToanMotPhan','daThanhToan','quaHan'].includes(trangThai ?? '') ? trangThai as import('@/lib/repositories/types').TrangThaiHoaDon : undefined,
+      toaNhaIds: !hopDongId ? toaNhaIds : undefined,
     });
 
     // Xử lý dữ liệu cũ không có chỉ số điện nước

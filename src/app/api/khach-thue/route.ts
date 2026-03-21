@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getKhachThueRepo } from '@/lib/repositories';
+import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
 import { hash } from 'bcryptjs';
@@ -36,17 +37,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const role = session.user.role;
+    if (role === 'admin') {
+      return NextResponse.json({ message: 'Admin không quản lý khách thuê' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parsePage(searchParams.get('page'));
     const limit = parseLimit(searchParams.get('limit'));
     const search = searchParams.get('search') || '';
 
+    const toaNhaIds = await getUserToaNhaIds(session.user.id, role);
     const repo = await getKhachThueRepo();
 
     const result = await repo.findMany({
       page,
       limit,
       search: search || undefined,
+      toaNhaIds,
     });
 
     // Batch-fetch hợp đồng đang hoạt động (tránh N+1)
