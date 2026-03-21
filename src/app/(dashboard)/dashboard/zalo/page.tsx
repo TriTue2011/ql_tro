@@ -231,7 +231,6 @@ function WebhookCard() {
 function TestSendCard() {
   const [chatId, setChatId] = useState("");
   const [message, setMessage] = useState("Tin nhắn test từ hệ thống QL Trọ");
-  const [accountId, setAccountId] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
 
@@ -243,15 +242,16 @@ function TestSendCard() {
     setSending(true);
     setResult(null);
     try {
-      const res = await fetch("/api/admin/zalo/test-send", {
+      const res = await fetch("/api/gui-zalo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatId: chatId.trim(), message, accountId: accountId || undefined }),
+        body: JSON.stringify({ chatId: chatId.trim(), message }),
       });
       const data = await res.json();
-      setResult(data);
-      if (data.ok) toast.success("Đã gửi tin nhắn test thành công");
-      else toast.error(data.error || "Gửi thất bại");
+      const ok = data.success === true;
+      setResult({ ok, error: data.message || data.error });
+      if (ok) toast.success("Đã gửi tin nhắn test thành công");
+      else toast.error(data.message || data.error || "Gửi thất bại");
     } finally {
       setSending(false);
     }
@@ -273,15 +273,6 @@ function TestSendCard() {
             value={chatId}
             onChange={e => setChatId(e.target.value)}
             placeholder="Nhập Zalo Chat ID"
-            className="h-8 text-xs font-mono"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-gray-500">Account ID gửi (tùy chọn)</Label>
-          <Input
-            value={accountId}
-            onChange={e => setAccountId(e.target.value)}
-            placeholder="Để trống dùng account mặc định"
             className="h-8 text-xs font-mono"
           />
         </div>
@@ -311,15 +302,15 @@ function TestSendCard() {
 // ─── Monitor Card ─────────────────────────────────────────────────────────────
 
 function MonitorCard() {
-  const [messages, setMessages] = useState<{ id: string; chatId: string; displayName?: string; content: string; role: string; createdAt: string }[]>([]);
+  const [messages, setMessages] = useState<{ id: string; chatId: string; displayName?: string; content: string; role: string; createdAt: string; attachmentUrl?: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchMessages = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/zalo/messages");
+      const res = await fetch("/api/zalo/messages?conversations=1");
       const data = await res.json();
-      if (data.ok) setMessages(data.messages || []);
+      if (data.data) setMessages(data.data.slice(0, 20) || []);
     } finally {
       setLoading(false);
     }
