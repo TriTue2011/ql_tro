@@ -191,7 +191,9 @@ export async function POST(request: NextRequest) {
       `UPDATE "NguoiDung" SET "nguoiTaoId" = $1 WHERE id = $2`,
       session.user.id,
       newUser.id,
-    ).catch(() => {});
+    ).catch((err) => {
+      console.error('[admin/users] Failed to save nguoiTaoId:', err);
+    });
 
     // Gán tòa nhà nếu có và không phải admin (hỗ trợ nhiều tòa)
     if (role !== 'admin' && toaNhaIds.length > 0) {
