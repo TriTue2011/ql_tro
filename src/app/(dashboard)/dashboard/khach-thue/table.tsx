@@ -317,6 +317,18 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
     cell: ({ row }) => getStatusBadge(row.original.trangThai),
   },
   {
+    accessorKey: "nguoiTaoTen",
+    header: "Người tạo",
+    cell: ({ row }) => {
+      const name = (row.original as any).nguoiTaoTen
+      return name ? (
+        <span className="text-sm text-muted-foreground">{name}</span>
+      ) : (
+        <span className="text-muted-foreground text-sm">—</span>
+      )
+    },
+  },
+  {
     id: "actions",
     cell: ({ row }) => (
       <DropdownMenu>

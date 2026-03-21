@@ -645,6 +645,14 @@ export default function KhachThuePage() {
                   )}
                 </div>
 
+                {/* Người tạo */}
+                {(khachThue as any).nguoiTaoTen && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Users className="h-3 w-3" />
+                    <span>Người tạo: {(khachThue as any).nguoiTaoTen}</span>
+                  </div>
+                )}
+
                 {/* Room info if available */}
                 {(khachThue as any).hopDongHienTai?.phong && (
                   <div className="border-t pt-2">

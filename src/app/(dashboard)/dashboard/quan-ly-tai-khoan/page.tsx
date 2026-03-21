@@ -67,6 +67,7 @@ interface User {
   toaNhaId?: string | null;
   toaNhaTen?: string | null;
   quyenKichHoatTaiKhoan?: boolean;
+  nguoiTaoTen?: string | null;
 }
 
 interface CreateUserData {
@@ -350,10 +351,10 @@ export default function AccountManagementPage() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
           <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
-            {isChuNha ? 'Quản lý nhân sự' : 'Quản lý tài khoản'}
+            Quản lý tài khoản
           </h1>
           <p className="text-xs md:text-sm text-gray-600">
-            {isChuNha ? 'Phân quyền cho quản lý / nhân viên của bạn' : 'Quản lý người dùng và phân quyền hệ thống'}
+            {isChuNha || isDongChuTro ? 'Quản lý tài khoản đồng chủ trọ, quản lý và nhân viên' : 'Quản lý người dùng và phân quyền hệ thống'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -367,7 +368,7 @@ export default function AccountManagementPage() {
             <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
           </Button>
-          {isAdmin && (
+          {(isAdmin || isChuNha || isDongChuTro) && (
             <Button size="sm" onClick={() => setIsCreateDialogOpen(true)} className="flex-1 sm:flex-none">
               <Plus className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Tạo tài khoản</span>
@@ -619,6 +620,12 @@ export default function AccountManagementPage() {
                       <div className="flex items-center gap-2 text-gray-600">
                         <Building2 className="h-3 w-3" />
                         <span>{user.toaNhaTen}</span>
+                      </div>
+                    )}
+                    {user.nguoiTaoTen && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Users className="h-3 w-3" />
+                        <span>Người tạo: {user.nguoiTaoTen}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-gray-500 text-xs">

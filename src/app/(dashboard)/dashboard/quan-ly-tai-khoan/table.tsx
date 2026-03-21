@@ -105,6 +105,7 @@ interface User {
   trangThai?: string
   toaNhaId?: string | null
   toaNhaTen?: string | null
+  nguoiTaoTen?: string | null
 }
 
 // Helper functions
@@ -304,6 +305,18 @@ const createColumns = (props: UserTableProps): ColumnDef<User>[] => [
             {date && !isNaN(date.getTime()) ? date.toLocaleDateString('vi-VN') : '—'}
           </span>
         </div>
+      )
+    },
+  },
+  {
+    accessorKey: "nguoiTaoTen",
+    header: "Người tạo",
+    cell: ({ row }) => {
+      const name = row.original.nguoiTaoTen
+      return name ? (
+        <span className="text-sm text-muted-foreground">{name}</span>
+      ) : (
+        <span className="text-muted-foreground text-sm">—</span>
       )
     },
   },

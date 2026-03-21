@@ -117,6 +117,8 @@ export interface KhachThue {
       };
     };
   };
+  nguoiTaoId?: string | null;
+  nguoiTaoTen?: string | null;
 }
 
 export interface HopDong {

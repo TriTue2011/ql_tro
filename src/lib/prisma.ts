@@ -59,6 +59,12 @@ if (!globalForPrisma.migrationDone) {
   prisma.$executeRawUnsafe(`
     ALTER TABLE "CaiDatToaNha" ADD COLUMN IF NOT EXISTS "haAllowedThreads" TEXT
   `).catch(() => {});
+  prisma.$executeRawUnsafe(`
+    ALTER TABLE "NguoiDung" ADD COLUMN IF NOT EXISTS "nguoiTaoId" TEXT
+  `).catch(() => {});
+  prisma.$executeRawUnsafe(`
+    ALTER TABLE "KhachThue" ADD COLUMN IF NOT EXISTS "nguoiTaoId" TEXT
+  `).catch(() => {});
 }
 
 export default prisma;

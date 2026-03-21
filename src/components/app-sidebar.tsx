@@ -139,13 +139,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
     ]
 
-    if (role === 'chuNha') {
+    if (role === 'chuNha' || role === 'dongChuTro') {
       items.push({
-        title: "Nhân sự",
+        title: "Quản lý tài khoản",
         url: "#",
         icon: Users,
         items: [
-          { title: "Quản lý nhân sự", url: "/dashboard/quan-ly-tai-khoan" },
+          { title: "Quản lý tài khoản", url: "/dashboard/quan-ly-tai-khoan" },
         ],
       })
     }
