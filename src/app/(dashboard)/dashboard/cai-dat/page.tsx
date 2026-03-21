@@ -909,14 +909,15 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
               <div className="space-y-3 border rounded-md p-3 bg-gray-50">
                 <p className="text-xs font-semibold text-gray-600">MinIO</p>
                 {[
-                  { key: 'minioEndpoint', label: 'Endpoint', placeholder: 'http://192.168.1.10:9000' },
-                  { key: 'minioAccessKey', label: 'Access Key', placeholder: '' },
-                  { key: 'minioSecretKey', label: 'Secret Key', placeholder: '' },
-                  { key: 'minioBucket', label: 'Bucket', placeholder: 'ql-tro' },
+                  { key: 'minioEndpoint', label: 'Endpoint', placeholder: 'http://192.168.1.10:9000', type: 'text' },
+                  { key: 'minioAccessKey', label: 'Username (Access Key)', placeholder: 'minioadmin', type: 'text' },
+                  { key: 'minioSecretKey', label: 'Password (Secret Key)', placeholder: '', type: 'password' },
+                  { key: 'minioBucket', label: 'Bucket', placeholder: 'ql-tro', type: 'text' },
                 ].map(f => (
                   <div key={f.key} className="space-y-1">
                     <Label className="text-xs font-medium">{f.label}</Label>
                     <Input
+                      type={f.type}
                       value={settings[f.key] ?? ''}
                       onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
                       placeholder={f.placeholder}
