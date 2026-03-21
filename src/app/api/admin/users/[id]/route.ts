@@ -59,11 +59,16 @@ export async function PUT(
 
       await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
-      // Cập nhật gán tòa nhà trong phạm vi tòa nhà của mình (single only)
-      if (toaNhaId !== undefined) {
+      // Cập nhật gán tòa nhà trong phạm vi tòa nhà của mình (hỗ trợ multi-select)
+      const hasArrayIds = Array.isArray(toaNhaIds);
+      const hasSingleId = toaNhaId !== undefined;
+      if (hasArrayIds || hasSingleId) {
+        const idsToAssign: string[] = hasArrayIds
+          ? (toaNhaIds as string[]).filter((tid: string) => myBuildingIds.includes(tid))
+          : (toaNhaId && myBuildingIds.includes(toaNhaId) ? [toaNhaId] : []);
         await prisma.toaNhaNguoiQuanLy.deleteMany({ where: { nguoiDungId: id, toaNhaId: { in: myBuildingIds } } });
-        if (toaNhaId && myBuildingIds.includes(toaNhaId)) {
-          await prisma.toaNhaNguoiQuanLy.create({ data: { toaNhaId, nguoiDungId: id } }).catch(() => {});
+        for (const tid of idsToAssign) {
+          await prisma.toaNhaNguoiQuanLy.create({ data: { toaNhaId: tid, nguoiDungId: id } }).catch(() => {});
         }
       }
 
