@@ -39,7 +39,7 @@ export async function GET() {
       chuSoHuu: {
         select: {
           id: true, ten: true, email: true, vaiTro: true,
-          zaloChatId: true, zaloAccountId: true, nhanThongBaoZalo: true,
+          zaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, nhanThongBaoZalo: true,
           zaloThongBaoCaiDat: { where: { toaNhaId: undefined }, select: allSettingFields() },
         },
       },
@@ -48,7 +48,7 @@ export async function GET() {
           nguoiDung: {
             select: {
               id: true, ten: true, email: true, vaiTro: true,
-              zaloChatId: true, zaloAccountId: true, nhanThongBaoZalo: true,
+              zaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, nhanThongBaoZalo: true,
               zaloThongBaoCaiDat: { select: allSettingFields() },
             },
           },
@@ -84,10 +84,14 @@ export async function PUT(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
 
-  const { nguoiDungId, toaNhaId, zaloAccountId, settings } = body as {
+  const { nguoiDungId, toaNhaId, zaloAccountId, zaloBotServerUrl, zaloBotUsername, zaloBotPassword, zaloBotTtl, settings } = body as {
     nguoiDungId: string;
     toaNhaId: string;
     zaloAccountId?: string;
+    zaloBotServerUrl?: string;
+    zaloBotUsername?: string;
+    zaloBotPassword?: string;
+    zaloBotTtl?: number | null;
     settings?: Partial<SettingsPayload>;
   };
 
@@ -108,11 +112,18 @@ export async function PUT(req: NextRequest) {
     if (!owned) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Cập nhật zaloAccountId trên NguoiDung nếu được cung cấp
-  if (zaloAccountId !== undefined) {
+  // Cập nhật các trường Zalo per-user nếu được cung cấp
+  const updateData: Record<string, unknown> = {};
+  if (zaloAccountId !== undefined) updateData.zaloAccountId = zaloAccountId || null;
+  if (zaloBotServerUrl !== undefined) updateData.zaloBotServerUrl = zaloBotServerUrl || null;
+  if (zaloBotUsername !== undefined) updateData.zaloBotUsername = zaloBotUsername || null;
+  if (zaloBotPassword !== undefined && !zaloBotPassword.includes('••••')) updateData.zaloBotPassword = zaloBotPassword || null;
+  if (zaloBotTtl !== undefined) updateData.zaloBotTtl = zaloBotTtl ?? null;
+
+  if (Object.keys(updateData).length > 0) {
     await prisma.nguoiDung.update({
       where: { id: nguoiDungId },
-      data: { zaloAccountId: zaloAccountId || null },
+      data: updateData,
     });
   }
 

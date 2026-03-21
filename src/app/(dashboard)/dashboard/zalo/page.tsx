@@ -5,8 +5,8 @@ import { useSession } from "next-auth/react";
 import {
   Building2, QrCode, Save, RefreshCw, Smartphone,
   Shield, Crown, Users, User, ChevronDown, ChevronRight,
-  Server, Webhook, Send, MessageSquare, CheckCircle2, XCircle,
-  Loader2, Eye,
+  Server, Webhook, Send, CheckCircle2, XCircle,
+  Loader2, Eye, Terminal, Play,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,10 @@ interface AccountData {
   vaiTro?: string;
   zaloChatId: string | null;
   zaloAccountId: string | null;
+  zaloBotServerUrl: string | null;
+  zaloBotUsername: string | null;
+  zaloBotPassword: string | null;
+  zaloBotTtl: number | null;
   nhanThongBaoZalo: boolean;
   settings: ZaloSettings | null;
 }
@@ -77,8 +81,7 @@ function BotServerCard() {
     setLoading(true);
     try {
       const res = await fetch("/api/zalo-bot/status");
-      const data = await res.json();
-      setStatus(data);
+      setStatus(await res.json());
     } catch {
       setStatus({ ok: false, error: "Không thể kết nối" });
     } finally {
@@ -119,29 +122,22 @@ function BotServerCard() {
               </span>
             </div>
             {status.serverUrl && (
-              <div className="text-xs text-gray-500 font-mono bg-gray-50 px-2 py-1 rounded">
-                {status.serverUrl}
-              </div>
+              <div className="text-xs text-gray-500 font-mono bg-gray-50 px-2 py-1 rounded">{status.serverUrl}</div>
             )}
             {status.error && (
               <div className="text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded">{status.error}</div>
             )}
             {status.accounts && status.accounts.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                  Tài khoản đang đăng nhập ({status.accounts.length})
-                </p>
-                <div className="divide-y border rounded-md overflow-hidden">
-                  {status.accounts.map((acc) => (
-                    <div key={acc.id} className="flex items-center gap-2 px-3 py-1.5">
-                      <span className="text-[10px] text-green-500">●</span>
-                      <span className="text-xs font-mono">{acc.name || acc.id}</span>
-                      {acc.id === status.accountId && (
-                        <Badge variant="outline" className="text-[9px] h-4 px-1 ml-auto">Mặc định</Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
+              <div className="divide-y border rounded-md overflow-hidden">
+                {status.accounts.map((acc) => (
+                  <div key={acc.id} className="flex items-center gap-2 px-3 py-1.5">
+                    <span className="text-[10px] text-green-500">●</span>
+                    <span className="text-xs font-mono">{acc.name || acc.id}</span>
+                    {acc.id === status.accountId && (
+                      <Badge variant="outline" className="text-[9px] h-4 px-1 ml-auto">Mặc định</Badge>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
             {status.ok && (!status.accounts || status.accounts.length === 0) && (
@@ -231,7 +227,6 @@ function WebhookCard() {
 function TestSendCard() {
   const [chatId, setChatId] = useState("");
   const [message, setMessage] = useState("Tin nhắn test từ hệ thống QL Trọ");
-  const [accountId, setAccountId] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
 
@@ -243,15 +238,16 @@ function TestSendCard() {
     setSending(true);
     setResult(null);
     try {
-      const res = await fetch("/api/admin/zalo/test-send", {
+      const res = await fetch("/api/gui-zalo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatId: chatId.trim(), message, accountId: accountId || undefined }),
+        body: JSON.stringify({ chatId: chatId.trim(), message }),
       });
       const data = await res.json();
-      setResult(data);
-      if (data.ok) toast.success("Đã gửi tin nhắn test thành công");
-      else toast.error(data.error || "Gửi thất bại");
+      const ok = data.success === true;
+      setResult({ ok, error: data.message || data.error });
+      if (ok) toast.success("Đã gửi tin nhắn test thành công");
+      else toast.error(data.message || data.error || "Gửi thất bại");
     } finally {
       setSending(false);
     }
@@ -273,15 +269,6 @@ function TestSendCard() {
             value={chatId}
             onChange={e => setChatId(e.target.value)}
             placeholder="Nhập Zalo Chat ID"
-            className="h-8 text-xs font-mono"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-gray-500">Account ID gửi (tùy chọn)</Label>
-          <Input
-            value={accountId}
-            onChange={e => setAccountId(e.target.value)}
-            placeholder="Để trống dùng account mặc định"
             className="h-8 text-xs font-mono"
           />
         </div>
@@ -311,15 +298,15 @@ function TestSendCard() {
 // ─── Monitor Card ─────────────────────────────────────────────────────────────
 
 function MonitorCard() {
-  const [messages, setMessages] = useState<{ id: string; chatId: string; displayName?: string; content: string; role: string; createdAt: string }[]>([]);
+  const [messages, setMessages] = useState<{ id: string; chatId: string; displayName?: string; content: string; role: string; createdAt: string; attachmentUrl?: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchMessages = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/zalo/messages");
+      const res = await fetch("/api/zalo/messages?conversations=1");
       const data = await res.json();
-      if (data.ok) setMessages(data.messages || []);
+      if (data.data) setMessages(data.data.slice(0, 20) || []);
     } finally {
       setLoading(false);
     }
@@ -373,6 +360,225 @@ function MonitorCard() {
   );
 }
 
+// ─── Bot Server API Explorer ──────────────────────────────────────────────────
+
+const METHOD_COLOR: Record<string, string> = {
+  GET: 'text-green-700 bg-green-100 border-green-300',
+  POST: 'text-blue-700 bg-blue-100 border-blue-300',
+  DELETE: 'text-red-700 bg-red-100 border-red-300',
+};
+
+interface BotApiItem {
+  id: string;
+  endpoint: string;
+  method: string;
+  nhom: string;
+  tenNhom: string;
+  moTa?: string | null;
+  defaultPayload?: string | null;
+}
+
+function ApiExplorerCard() {
+  const [apis, setApis] = useState<BotApiItem[]>([]);
+  const [loadingApis, setLoadingApis] = useState(false);
+  const [openEndpoint, setOpenEndpoint] = useState<string | null>(null);
+  const [payloads, setPayloads] = useState<Record<string, string>>({});
+  const [results, setResults] = useState<Record<string, { ok: boolean; status?: number; data: unknown } | null>>({});
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [syncing, setSyncing] = useState(false);
+  const [filterNhom, setFilterNhom] = useState<string>('all');
+
+  const fetchApis = useCallback(async () => {
+    setLoadingApis(true);
+    try {
+      const res = await fetch('/api/zalo-bot/endpoints');
+      const data = await res.json();
+      if (data.ok) {
+        setApis(data.apis);
+        // Init payloads từ defaultPayload trong DB
+        const init: Record<string, string> = {};
+        for (const a of data.apis as BotApiItem[]) {
+          if (a.defaultPayload) {
+            try { init[a.endpoint] = JSON.stringify(JSON.parse(a.defaultPayload), null, 2); }
+            catch { init[a.endpoint] = a.defaultPayload; }
+          }
+        }
+        setPayloads(init);
+      }
+    } finally {
+      setLoadingApis(false);
+    }
+  }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/zalo-bot/endpoints', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) { toast.success(`Đã đồng bộ ${data.synced} endpoints`); fetchApis(); }
+    } finally { setSyncing(false); }
+  };
+
+  useEffect(() => { fetchApis(); }, [fetchApis]);
+
+  const callApi = async (api: BotApiItem) => {
+    setLoading(prev => ({ ...prev, [api.endpoint]: true }));
+    setResults(prev => ({ ...prev, [api.endpoint]: null }));
+    try {
+      let payload: Record<string, unknown> = {};
+      const raw = payloads[api.endpoint]?.trim();
+      if (raw) {
+        try { payload = JSON.parse(raw); }
+        catch { toast.error('Payload JSON không hợp lệ'); return; }
+      }
+      const res = await fetch('/api/zalo-bot/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: api.endpoint, method: api.method, payload }),
+      });
+      const data = await res.json();
+      setResults(prev => ({ ...prev, [api.endpoint]: data }));
+    } catch (e: unknown) {
+      setResults(prev => ({ ...prev, [api.endpoint]: { ok: false, data: e instanceof Error ? e.message : 'Lỗi' } }));
+    } finally {
+      setLoading(prev => ({ ...prev, [api.endpoint]: false }));
+    }
+  };
+
+  // Group by tenNhom
+  const nhomList = Array.from(new Set(apis.map(a => a.nhom)));
+  const filtered = filterNhom === 'all' ? apis : apis.filter(a => a.nhom === filterNhom);
+  const grouped = filtered.reduce<Record<string, BotApiItem[]>>((acc, a) => {
+    (acc[a.tenNhom] ??= []).push(a);
+    return acc;
+  }, {});
+
+  return (
+    <Card className="md:col-span-2">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Terminal className="h-4 w-4 text-gray-600" />
+            Bot Server API Explorer
+            {apis.length > 0 && (
+              <Badge variant="outline" className="text-[10px] h-4 px-1">{apis.length}</Badge>
+            )}
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={fetchApis} disabled={loadingApis} className="h-7 px-2">
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingApis ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing} className="h-7 px-2 text-xs gap-1">
+              {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Đồng bộ DB
+            </Button>
+          </div>
+        </div>
+        <CardDescription className="text-xs">
+          {apis.length} endpoints từ DB — click để mở rộng và gọi thử
+        </CardDescription>
+        {/* Filter by nhom */}
+        {nhomList.length > 1 && (
+          <div className="flex flex-wrap gap-1 pt-1">
+            <button
+              type="button"
+              onClick={() => setFilterNhom('all')}
+              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${filterNhom === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-300 text-gray-500 hover:border-gray-500'}`}
+            >
+              Tất cả
+            </button>
+            {nhomList.map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setFilterNhom(n)}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${filterNhom === n ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-500 hover:border-gray-500'}`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loadingApis && apis.length === 0 && (
+          <div className="flex items-center gap-2 text-xs text-gray-400 py-4 justify-center">
+            <Loader2 className="h-4 w-4 animate-spin" /> Đang tải danh sách API...
+          </div>
+        )}
+        {Object.entries(grouped).map(([tenNhom, items]) => (
+          <div key={tenNhom}>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{tenNhom}</p>
+            <div className="space-y-1">
+              {items.map(api => (
+                <div key={api.endpoint} className="border rounded-md overflow-hidden">
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                    onClick={() => setOpenEndpoint(openEndpoint === api.endpoint ? null : api.endpoint)}
+                  >
+                    <Badge variant="outline" className={`text-[9px] px-1 h-4 font-mono shrink-0 ${METHOD_COLOR[api.method] ?? ''}`}>
+                      {api.method}
+                    </Badge>
+                    <code className="text-xs text-gray-700 font-mono flex-1 truncate">{api.endpoint}</code>
+                    {api.moTa && <span className="text-[10px] text-gray-400 hidden md:block truncate max-w-[160px]">{api.moTa}</span>}
+                    {openEndpoint === api.endpoint
+                      ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+                  </button>
+
+                  {openEndpoint === api.endpoint && (
+                    <div className="p-3 space-y-3 bg-white">
+                      {api.moTa && <p className="text-xs text-gray-500">{api.moTa}</p>}
+                      {api.method !== 'GET' && (
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-gray-500 uppercase tracking-wide">Payload (JSON)</Label>
+                          <Textarea
+                            value={payloads[api.endpoint] || ''}
+                            onChange={e => setPayloads(prev => ({ ...prev, [api.endpoint]: e.target.value }))}
+                            className="text-xs font-mono min-h-[80px] resize-y"
+                            spellCheck={false}
+                          />
+                        </div>
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={() => callApi(api)}
+                        disabled={loading[api.endpoint]}
+                        className="gap-1.5 text-xs"
+                      >
+                        {loading[api.endpoint]
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Play className="h-3.5 w-3.5" />}
+                        {loading[api.endpoint] ? 'Đang gọi...' : 'Gọi API'}
+                      </Button>
+                      {results[api.endpoint] && (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            {results[api.endpoint]!.ok
+                              ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                              : <XCircle className="h-3.5 w-3.5 text-red-500" />}
+                            <span className={`text-xs font-medium ${results[api.endpoint]!.ok ? 'text-green-700' : 'text-red-700'}`}>
+                              {results[api.endpoint]!.ok ? `HTTP ${results[api.endpoint]!.status ?? 200} OK` : 'Thất bại'}
+                            </span>
+                          </div>
+                          <pre className="text-[10px] bg-gray-900 text-green-400 p-3 rounded overflow-auto max-h-[180px] whitespace-pre-wrap break-all">
+                            {JSON.stringify(results[api.endpoint]!.data, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Account Settings (nội dung khi mở rộng một người) ───────────────────────
 
 function AccountSettings({
@@ -392,7 +598,12 @@ function AccountSettings({
 }) {
   const canEdit = isAdmin || isSelf;
   const [settings, setSettings] = useState<ZaloSettings>(account.settings ?? DEFAULT_SETTINGS);
+  // Per-user bot server config
   const [zaloAccountId, setZaloAccountId] = useState(account.zaloAccountId ?? "");
+  const [zaloBotServerUrl, setZaloBotServerUrl] = useState(account.zaloBotServerUrl ?? "");
+  const [zaloBotUsername, setZaloBotUsername] = useState(account.zaloBotUsername ?? "");
+  const [zaloBotPassword, setZaloBotPassword] = useState(account.zaloBotPassword ? "••••••••" : "");
+  const [zaloBotTtl, setZaloBotTtl] = useState(String(account.zaloBotTtl ?? ""));
   const [saving, setSaving] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
@@ -411,6 +622,10 @@ function AccountSettings({
           nguoiDungId: account.id,
           toaNhaId: buildingId,
           zaloAccountId: zaloAccountId.trim() || null,
+          zaloBotServerUrl: zaloBotServerUrl.trim() || null,
+          zaloBotUsername: zaloBotUsername.trim() || null,
+          zaloBotPassword: zaloBotPassword.includes("••••") ? undefined : (zaloBotPassword || null),
+          zaloBotTtl: zaloBotTtl.trim() ? parseInt(zaloBotTtl, 10) || 0 : null,
           settings,
         }),
       });
@@ -428,7 +643,7 @@ function AccountSettings({
       const res = await fetch("/api/zalo-bot/qr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isAdmin && zaloAccountId ? { accountSelection: zaloAccountId } : {}),
+        body: JSON.stringify(zaloAccountId ? { accountSelection: zaloAccountId } : {}),
       });
       const data = await res.json();
       if (data.qrCode) setQrCode(data.qrCode);
@@ -463,17 +678,50 @@ function AccountSettings({
           </div>
           {isAdmin && (
             <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Account ID trên Bot Server (gửi tin)</Label>
+              <Label className="text-xs text-gray-500">Account ID (own_id) trên Bot Server</Label>
               <Input
                 value={zaloAccountId}
                 onChange={e => setZaloAccountId(e.target.value)}
-                className="h-8 text-xs bg-white"
+                className="h-8 text-xs bg-white font-mono"
                 placeholder="Vd: 84912345678"
+                disabled={!canEdit}
               />
             </div>
           )}
         </div>
       </div>
+
+      {/* Per-user Bot Server config */}
+      {isAdmin && (
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            Cấu hình Bot Server riêng
+            <span className="ml-2 text-gray-400 font-normal normal-case">(để trống = dùng cài đặt hệ thống)</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">URL Bot Server</Label>
+              <Input value={zaloBotServerUrl} onChange={e => setZaloBotServerUrl(e.target.value)}
+                className="h-8 text-xs bg-white font-mono" placeholder="http://192.168.1.x:3000" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Username</Label>
+              <Input value={zaloBotUsername} onChange={e => setZaloBotUsername(e.target.value)}
+                className="h-8 text-xs bg-white" placeholder="admin" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Password</Label>
+              <Input type="password" value={zaloBotPassword} onChange={e => setZaloBotPassword(e.target.value)}
+                className="h-8 text-xs bg-white" placeholder="Nhập mật khẩu mới để thay đổi" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">TTL tin nhắn (ms)</Label>
+              <Input value={zaloBotTtl} onChange={e => setZaloBotTtl(e.target.value)}
+                className="h-8 text-xs bg-white font-mono" placeholder="0 = không tự hủy" type="number" min={0} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* QR Login */}
       <div>
@@ -815,6 +1063,7 @@ export default function ZaloSettingsPage() {
             <WebhookCard />
             <TestSendCard />
             <MonitorCard />
+            <ApiExplorerCard />
           </div>
         </div>
       )}
