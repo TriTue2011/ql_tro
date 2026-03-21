@@ -20,37 +20,68 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id || session.user.role !== 'admin') {
+    const role = session?.user?.role;
+    if (!session?.user?.id || (role !== 'admin' && role !== 'chuNha')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const users = await prisma.nguoiDung.findMany({
-      take: 1000,
-      orderBy: { ngayTao: 'desc' },
-      select: {
-        id: true,
-        ten: true,
-        email: true,
-        soDienThoai: true,
-        vaiTro: true,
-        anhDaiDien: true,
-        trangThai: true,
-        zaloChatId: true,
-        nhanThongBaoZalo: true,
-        zaloAccountId: true,
-        ngayTao: true,
-        ngayCapNhat: true,
-        toaNha: { select: { id: true, tenToaNha: true }, take: 1 },
-        toaNhaQuanLy: {
-          select: { toaNha: { select: { id: true, tenToaNha: true } } },
-          take: 1,
+    const selectFields = {
+      id: true,
+      ten: true,
+      email: true,
+      soDienThoai: true,
+      vaiTro: true,
+      anhDaiDien: true,
+      trangThai: true,
+      zaloChatId: true,
+      nhanThongBaoZalo: true,
+      zaloAccountId: true,
+      ngayTao: true,
+      ngayCapNhat: true,
+      toaNha: { select: { id: true, tenToaNha: true }, take: 1 },
+      toaNhaQuanLy: {
+        select: {
+          toaNha: { select: { id: true, tenToaNha: true } },
+          quyenKichHoatTaiKhoan: true,
         },
+        take: 1,
       },
-    });
+    } as const;
+
+    let users;
+    if (role === 'chuNha') {
+      // chuNha chỉ thấy quanLy/nhanVien được gán vào tòa nhà của mình
+      const myBuildingIds = await prisma.toaNha.findMany({
+        where: {
+          OR: [
+            { chuSoHuuId: session.user.id },
+            { nguoiQuanLy: { some: { nguoiDungId: session.user.id } } },
+          ],
+        },
+        select: { id: true },
+      }).then(rows => rows.map(r => r.id));
+
+      users = await prisma.nguoiDung.findMany({
+        where: {
+          vaiTro: { in: ['quanLy', 'nhanVien'] },
+          toaNhaQuanLy: { some: { toaNhaId: { in: myBuildingIds } } },
+        },
+        take: 1000,
+        orderBy: { ngayTao: 'desc' },
+        select: selectFields,
+      });
+    } else {
+      users = await prisma.nguoiDung.findMany({
+        take: 1000,
+        orderBy: { ngayTao: 'desc' },
+        select: selectFields,
+      });
+    }
 
     const result = users.map(u => {
       const ownedBuilding = u.toaNha[0] ?? null;
-      const managedBuilding = u.toaNhaQuanLy[0]?.toaNha ?? null;
+      const managedEntry = u.toaNhaQuanLy[0] ?? null;
+      const managedBuilding = managedEntry?.toaNha ?? null;
       const assignedBuilding = ownedBuilding || managedBuilding;
       return {
         id: u.id,
@@ -67,6 +98,7 @@ export async function GET() {
         createdAt: u.ngayTao.toISOString(),
         toaNhaId: assignedBuilding?.id ?? null,
         toaNhaTen: assignedBuilding?.tenToaNha ?? null,
+        quyenKichHoatTaiKhoan: managedEntry?.quyenKichHoatTaiKhoan ?? false,
       };
     });
 

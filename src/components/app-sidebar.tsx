@@ -110,7 +110,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
     ]
 
-    // "Quản trị" chỉ admin thấy — chủ trọ KHÔNG thấy
+    // "Quản trị" — admin thấy đầy đủ, chuNha thấy mục nhân sự riêng
     if (role === 'admin') {
       items.push({
         title: "Quản trị",
@@ -118,6 +118,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         icon: Shield,
         items: [
           { title: "Quản lý tài khoản", url: "/dashboard/quan-ly-tai-khoan" },
+        ],
+      })
+    } else if (role === 'chuNha') {
+      items.push({
+        title: "Nhân sự",
+        url: "#",
+        icon: Users,
+        items: [
+          { title: "Quản lý nhân sự", url: "/dashboard/quan-ly-tai-khoan" },
         ],
       })
     }
