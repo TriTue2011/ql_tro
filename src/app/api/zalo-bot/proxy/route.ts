@@ -2,27 +2,46 @@
  * POST /api/zalo-bot/proxy
  * Proxy request đến bot server với auth tự động.
  * Body: { endpoint: string, method?: 'GET'|'POST'|'DELETE', payload?: object }
- * Chỉ admin.
+ *
+ * Whitelist endpoint lấy từ DB (ZaloBotApi), chỉ nhóm không phải "auth".
+ * Admin only.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getBotConfig } from '@/lib/zalo-bot-client';
+import prisma from '@/lib/prisma';
+import { ALL_ZALO_BOT_APIS, PROXY_ALLOWED_NHOM } from '@/lib/zalo-bot-apis';
 
-// Danh sách endpoint cho phép (whitelist để tránh SSRF)
-const ALLOWED_ENDPOINTS = new Set([
-  '/api/accounts',
-  '/api/login',
-  '/zalo-login',
-  '/api/sendMessageByAccount',
-  '/api/sendImageByAccount',
-  '/api/sendFileByAccount',
-  '/api/sendVideoByAccount',
-  '/api/account-webhook',
-  '/api/getAllFriendsByAccount',
-  '/api/getAllGroupsByAccount',
-  '/api/removeUserFromGroupByAccount',
-]);
+// Cache whitelist trong memory để tránh query DB mỗi request
+let _allowedCache: Set<string> | null = null;
+let _cacheTime = 0;
+const CACHE_TTL = 60_000; // 1 phút
+
+async function getAllowedEndpoints(): Promise<Set<string>> {
+  if (_allowedCache && Date.now() - _cacheTime < CACHE_TTL) return _allowedCache;
+
+  try {
+    const apis = await prisma.zaloBotApi.findMany({
+      where: { nhom: { in: Array.from(PROXY_ALLOWED_NHOM) } },
+      select: { endpoint: true },
+    });
+    if (apis.length > 0) {
+      _allowedCache = new Set(apis.map(a => a.endpoint));
+      _cacheTime = Date.now();
+      return _allowedCache;
+    }
+  } catch {
+    // fallback nếu DB chưa có dữ liệu
+  }
+
+  // Fallback về code nếu DB trống
+  _allowedCache = new Set(
+    ALL_ZALO_BOT_APIS.filter(a => PROXY_ALLOWED_NHOM.has(a.nhom)).map(a => a.endpoint)
+  );
+  _cacheTime = Date.now();
+  return _allowedCache;
+}
 
 async function loginToBotServer(config: { serverUrl: string; username: string; password: string }): Promise<Record<string, string> | null> {
   try {
@@ -60,7 +79,8 @@ export async function POST(req: NextRequest) {
     payload?: Record<string, unknown>;
   };
 
-  if (!ALLOWED_ENDPOINTS.has(endpoint)) {
+  const allowed = await getAllowedEndpoints();
+  if (!allowed.has(endpoint)) {
     return NextResponse.json({ error: `Endpoint không được phép: ${endpoint}` }, { status: 400 });
   }
 

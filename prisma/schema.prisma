@@ -22,7 +22,11 @@ model NguoiDung {
   zaloChatId        String?   // Zalo bot chat_id đã xác thực
   pendingZaloChatId String?  // Zalo bot chat_id chờ xác nhận (từ getUpdates)
   nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
-  zaloAccountId     String?  // Account ID của họ trên bot server (để gửi tin AS them)
+  zaloAccountId     String?  // Account ID (own_id) trên bot server dùng gửi tin
+  zaloBotServerUrl  String?  // URL bot server riêng (ghi đè CaiDat nếu có)
+  zaloBotUsername   String?  // Username bot server riêng
+  zaloBotPassword   String?  // Password bot server riêng
+  zaloBotTtl        Int?     // TTL tin nhắn (ms), 0 = không tự hủy
   ngayTao          DateTime  @default(now())
   ngayCapNhat      DateTime  @updatedAt
 
@@ -338,4 +342,17 @@ model YeuCauThayDoi {
   ghiChuPheDuyet  String?
   ngayTao         DateTime   @default(now())
   ngayCapNhat     DateTime   @updatedAt
+}
+
+// Danh sách endpoint của Zalo Bot Server — seed từ code, proxy dùng làm whitelist
+model ZaloBotApi {
+  id             String   @id @default(cuid())
+  endpoint       String   @unique  // e.g. "/api/sendMessageByAccount"
+  method         String   @default("POST")
+  nhom           String   // auth | zalo_direct | by_account | friend | group | message | board | conversation | account | webhook
+  tenNhom        String   // tên nhóm hiển thị
+  moTa           String?
+  defaultPayload String?  // JSON template mặc định
+  thuTu          Int      @default(0)
+  ngayTao        DateTime @default(now())
 }
