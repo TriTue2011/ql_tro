@@ -53,7 +53,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const allowed = [
-    'haUrl', 'haToken',
+    'haUrl', 'haToken', 'haWebhookUrl', 'haAllowedThreads',
     'storageProvider', 'minioEndpoint', 'minioAccessKey', 'minioSecretKey', 'minioBucket',
     'cloudinaryCloudName', 'cloudinaryApiKey', 'cloudinaryApiSecret', 'cloudinaryPreset',
     'uploadMaxSizeMb',

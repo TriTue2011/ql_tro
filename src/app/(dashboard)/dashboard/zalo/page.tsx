@@ -1480,8 +1480,7 @@ function RoleGroup({
   const [open, setOpen] = useState(true);
   const isChuTroRole = role === "chuTro";
 
-  // Filter out admin-role users from building view (admins have their own section)
-  const visiblePeople = people.filter(p => p.vaiTro !== "admin");
+  const visiblePeople = people;
   if (visiblePeople.length === 0) return null;
 
   const roleLabel = isChuTroRole ? "Chủ trọ" : "Quản lý";
@@ -1546,12 +1545,11 @@ function BuildingAccordion({
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
-  // Gom tất cả người, lọc admin, nhóm theo vaiTro thực tế
-  const allPeople = [building.chuTro, ...building.quanLys].filter(p => p.vaiTro !== "admin");
-  // Người có vaiTro chuNha → hiển thị là Chủ trọ; còn lại → Quản lý
-  const chuTroGroup = allPeople.filter(p => p.vaiTro === "chuNha");
-  const quanLyGroup = allPeople.filter(p => p.vaiTro !== "chuNha");
-  const totalPeople = allPeople.length;
+  // Chủ trọ = người sở hữu tòa nhà (chuSoHuu), luôn hiển thị bất kể vaiTro
+  const chuTroGroup = [building.chuTro];
+  // Quản lý = những người được gán (ngoại trừ admin hệ thống)
+  const quanLyGroup = building.quanLys.filter(p => p.vaiTro !== "admin");
+  const totalPeople = chuTroGroup.length + quanLyGroup.length;
 
   if (totalPeople === 0 && !isAdmin) return null;
 
@@ -1578,22 +1576,26 @@ function BuildingAccordion({
       </button>
       {open && (
         <div className="bg-gray-50 border-t p-3 space-y-2">
-          <RoleGroup
-            role="chuTro"
-            people={chuTroGroup}
-            buildingId={building.id}
-            isAdmin={isAdmin}
-            sessionUserId={sessionUserId}
-            onRefresh={onRefresh}
-          />
-          <RoleGroup
-            role="quanLy"
-            people={quanLyGroup}
-            buildingId={building.id}
-            isAdmin={isAdmin}
-            sessionUserId={sessionUserId}
-            onRefresh={onRefresh}
-          />
+          {chuTroGroup.length > 0 && (
+            <RoleGroup
+              role="chuTro"
+              people={chuTroGroup}
+              buildingId={building.id}
+              isAdmin={isAdmin}
+              sessionUserId={sessionUserId}
+              onRefresh={onRefresh}
+            />
+          )}
+          {quanLyGroup.length > 0 && (
+            <RoleGroup
+              role="quanLy"
+              people={quanLyGroup}
+              buildingId={building.id}
+              isAdmin={isAdmin}
+              sessionUserId={sessionUserId}
+              onRefresh={onRefresh}
+            />
+          )}
           {totalPeople === 0 && (
             <p className="text-xs text-gray-400 text-center py-2">Chưa gán người quản lý cho tòa nhà này</p>
           )}

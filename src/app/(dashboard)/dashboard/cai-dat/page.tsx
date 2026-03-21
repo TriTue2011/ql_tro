@@ -616,6 +616,15 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // HA thread filter state
+  const [haThreadEntries, setHaThreadEntries] = useState<{ threadId: string; type: number }[]>([]);
+
+  // Test states
+  const [minioTestLoading, setMinioTestLoading] = useState(false);
+  const [minioTestResult, setMinioTestResult] = useState<{ ok: boolean; message: string; details?: Record<string, unknown> } | null>(null);
+  const [haWebhookTestLoading, setHaWebhookTestLoading] = useState(false);
+  const [haWebhookTestResult, setHaWebhookTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
   useEffect(() => {
     fetch('/api/admin/toa-nha-settings')
       .then(r => r.json())
@@ -628,6 +637,8 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
   useEffect(() => {
     if (!selectedId) return;
     setLoading(true);
+    setMinioTestResult(null);
+    setHaWebhookTestResult(null);
     fetch(`/api/admin/toa-nha-settings?toaNhaId=${selectedId}`)
       .then(r => r.json())
       .then(res => {
@@ -636,6 +647,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
           setSettings({
             haUrl: d.haUrl ?? '',
             haToken: d.haToken ?? '',
+            haWebhookUrl: d.haWebhookUrl ?? '',
             storageProvider: d.storageProvider ?? 'local',
             minioEndpoint: d.minioEndpoint ?? '',
             minioAccessKey: d.minioAccessKey ?? '',
@@ -647,8 +659,16 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
             cloudinaryPreset: d.cloudinaryPreset ?? '',
             uploadMaxSizeMb: String(d.uploadMaxSizeMb ?? 10),
           });
+          // Parse haAllowedThreads
+          const raw = d.haAllowedThreads ?? '';
+          if (raw.startsWith('[')) {
+            try { setHaThreadEntries(JSON.parse(raw)); } catch { setHaThreadEntries([]); }
+          } else {
+            setHaThreadEntries([]);
+          }
         } else {
           setSettings({});
+          setHaThreadEntries([]);
         }
       })
       .catch(() => {})
@@ -659,9 +679,31 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
     if (!selectedId) { toast.error('Vui lòng chọn tòa nhà'); return; }
     setSaving(true);
     try {
-      const payload = tab === 'ha'
-        ? { toaNhaId: selectedId, haUrl: settings.haUrl, haToken: settings.haToken }
-        : { toaNhaId: selectedId, storageProvider: settings.storageProvider, minioEndpoint: settings.minioEndpoint, minioAccessKey: settings.minioAccessKey, minioSecretKey: settings.minioSecretKey, minioBucket: settings.minioBucket, cloudinaryCloudName: settings.cloudinaryCloudName, cloudinaryApiKey: settings.cloudinaryApiKey, cloudinaryApiSecret: settings.cloudinaryApiSecret, cloudinaryPreset: settings.cloudinaryPreset, uploadMaxSizeMb: Number(settings.uploadMaxSizeMb) };
+      let payload: Record<string, unknown> = { toaNhaId: selectedId };
+      if (tab === 'ha') {
+        const threads = haThreadEntries.filter(e => e.threadId.trim());
+        payload = {
+          ...payload,
+          haUrl: settings.haUrl,
+          haToken: settings.haToken,
+          haWebhookUrl: settings.haWebhookUrl,
+          haAllowedThreads: threads.length > 0 ? JSON.stringify(threads) : '',
+        };
+      } else {
+        payload = {
+          ...payload,
+          storageProvider: settings.storageProvider,
+          minioEndpoint: settings.minioEndpoint,
+          minioAccessKey: settings.minioAccessKey,
+          minioSecretKey: settings.minioSecretKey,
+          minioBucket: settings.minioBucket,
+          cloudinaryCloudName: settings.cloudinaryCloudName,
+          cloudinaryApiKey: settings.cloudinaryApiKey,
+          cloudinaryApiSecret: settings.cloudinaryApiSecret,
+          cloudinaryPreset: settings.cloudinaryPreset,
+          uploadMaxSizeMb: Number(settings.uploadMaxSizeMb),
+        };
+      }
       const res = await fetch('/api/admin/toa-nha-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const json = await res.json();
       if (json.success) toast.success('Đã lưu cài đặt tòa nhà');
@@ -670,10 +712,39 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
     finally { setSaving(false); }
   }
 
-  const haFields = [
-    { key: 'haUrl', label: 'Home Assistant URL (domain)', placeholder: 'https://ha.myhouse.com' },
-    { key: 'haToken', label: 'Long-lived access token', placeholder: 'eyJ0...' },
-  ];
+  async function handleTestMinio() {
+    setMinioTestLoading(true);
+    setMinioTestResult(null);
+    try {
+      const res = await fetch('/api/admin/settings/test-minio', { method: 'POST' });
+      const data = await res.json();
+      setMinioTestResult({ ok: data.success, message: data.message, details: data.details });
+      if (data.success) toast.success('Kết nối MinIO thành công');
+      else toast.error(data.message);
+    } catch {
+      setMinioTestResult({ ok: false, message: 'Lỗi kết nối máy chủ' });
+    } finally { setMinioTestLoading(false); }
+  }
+
+  async function handleTestHaWebhook() {
+    const url = settings.haWebhookUrl?.trim();
+    if (!url) { toast.error('Chưa nhập Webhook URL'); return; }
+    setHaWebhookTestLoading(true);
+    setHaWebhookTestResult(null);
+    try {
+      const res = await fetch('/api/admin/test-ha-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      setHaWebhookTestResult({ ok: data.ok, message: data.message });
+      if (data.ok) toast.success('Webhook phản hồi OK');
+      else toast.error('Webhook không phản hồi');
+    } catch {
+      setHaWebhookTestResult({ ok: false, message: 'Lỗi kết nối tới server' });
+    } finally { setHaWebhookTestLoading(false); }
+  }
 
   const provider = settings.storageProvider ?? 'local';
   const showMinio = provider === 'minio' || provider === 'both';
@@ -706,23 +777,111 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
 
         {loading && <div className="flex justify-center py-4"><RefreshCw className="h-4 w-4 animate-spin text-gray-400" /></div>}
 
-        {/* HA fields */}
-        {selectedId && !loading && tab === 'ha' && haFields.map(f => (
-          <div key={f.key} className="space-y-1">
-            <Label className="text-xs font-medium">{f.label}</Label>
-            <Input
-              value={settings[f.key] ?? ''}
-              onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
-              placeholder={f.placeholder}
-              className="text-sm"
-            />
-          </div>
-        ))}
+        {/* ── HA fields ── */}
+        {selectedId && !loading && tab === 'ha' && (
+          <div className="space-y-4">
+            {[
+              { key: 'haUrl', label: 'Home Assistant URL', placeholder: 'https://ha.myhouse.com hoặc http://192.168.1.x:8123' },
+              { key: 'haToken', label: 'Long-lived access token', placeholder: 'eyJ0...' },
+            ].map(f => (
+              <div key={f.key} className="space-y-1">
+                <Label className="text-xs font-medium">{f.label}</Label>
+                <Input
+                  value={settings[f.key] ?? ''}
+                  onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  placeholder={f.placeholder}
+                  className="text-sm"
+                />
+              </div>
+            ))}
 
-        {/* Storage fields */}
+            {/* Webhook URL */}
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Webhook URL</Label>
+              <p className="text-[11px] text-gray-400">URL webhook nhận / gửi thông báo HA (local hoặc domain đều dùng được)</p>
+              <Input
+                value={settings.haWebhookUrl ?? ''}
+                onChange={e => setSettings(prev => ({ ...prev, haWebhookUrl: e.target.value }))}
+                placeholder="http://192.168.1.x:3000/api/... hoặc https://myapp.com/api/..."
+                className="text-sm font-mono"
+              />
+            </div>
+
+            {/* Thread filter */}
+            <div className="space-y-2 border rounded-md p-3 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-gray-600">Bộ lọc chuyển tiếp</p>
+                <button
+                  type="button"
+                  onClick={() => setHaThreadEntries(prev => [...prev, { threadId: '', type: 0 }])}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Thêm
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400">Giới hạn tin nhắn forward đến HA theo Thread ID. Trống = chuyển tiếp tất cả.</p>
+              {haThreadEntries.length === 0 && (
+                <p className="text-[11px] text-gray-400 italic">Chưa có thread — tất cả tin nhắn sẽ được chuyển tiếp.</p>
+              )}
+              <div className="space-y-2">
+                {haThreadEntries.map((entry, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Thread ID"
+                      value={entry.threadId}
+                      onChange={e => setHaThreadEntries(prev => prev.map((x, j) => j === i ? { ...x, threadId: e.target.value } : x))}
+                      className="text-xs font-mono flex-1"
+                    />
+                    <div className="flex gap-1">
+                      {[{ val: 0, label: 'User' }, { val: 1, label: 'Nhóm' }].map(({ val, label }) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setHaThreadEntries(prev => prev.map((x, j) => j === i ? { ...x, type: val } : x))}
+                          className={`px-2 py-1 rounded-md border text-[11px] font-medium transition-colors ${entry.type === val ? (val === 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-green-600 text-white border-green-600') : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setHaThreadEntries(prev => prev.filter((_, j) => j !== i))}
+                      className="text-gray-400 hover:text-red-500 p-1"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Save button */}
+            <Button size="sm" className="w-full" onClick={handleSave} disabled={saving}>
+              {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              Lưu cài đặt Home Assistant
+            </Button>
+
+            {/* Test Webhook */}
+            <div className="border-t pt-3 space-y-2">
+              <Button size="sm" variant="outline" className="w-full" onClick={handleTestHaWebhook} disabled={haWebhookTestLoading}>
+                {haWebhookTestLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                Test Webhook
+              </Button>
+              {haWebhookTestResult && (
+                <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${haWebhookTestResult.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                  {haWebhookTestResult.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" /> : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                  {haWebhookTestResult.message}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Storage fields ── */}
         {selectedId && !loading && tab === 'storage' && (
           <div className="space-y-4">
-            {/* Provider selector */}
             <div className="space-y-1">
               <Label className="text-xs font-medium">Nhà cung cấp lưu trữ</Label>
               <Select value={provider} onValueChange={v => setSettings(prev => ({ ...prev, storageProvider: v }))}>
@@ -736,7 +895,6 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
               </Select>
             </div>
 
-            {/* Upload size */}
             <div className="space-y-1">
               <Label className="text-xs font-medium">Dung lượng tối đa (MB)</Label>
               <Input
@@ -747,7 +905,6 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
               />
             </div>
 
-            {/* MinIO fields */}
             {showMinio && (
               <div className="space-y-3 border rounded-md p-3 bg-gray-50">
                 <p className="text-xs font-semibold text-gray-600">MinIO</p>
@@ -770,7 +927,6 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
               </div>
             )}
 
-            {/* Cloudinary fields */}
             {showCloudinary && (
               <div className="space-y-3 border rounded-md p-3 bg-gray-50">
                 <p className="text-xs font-semibold text-gray-600">Cloudinary</p>
@@ -792,14 +948,37 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                 ))}
               </div>
             )}
-          </div>
-        )}
 
-        {selectedId && !loading && (
-          <Button size="sm" className="w-full" onClick={handleSave} disabled={saving}>
-            {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Lưu cài đặt
-          </Button>
+            <Button size="sm" className="w-full" onClick={handleSave} disabled={saving}>
+              {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              Lưu cài đặt lưu trữ
+            </Button>
+
+            {/* MinIO test connection */}
+            {showMinio && (
+              <div className="border-t pt-3 space-y-2">
+                <Button size="sm" variant="outline" className="w-full" onClick={handleTestMinio} disabled={minioTestLoading}>
+                  {minioTestLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                  Kiểm tra kết nối MinIO
+                </Button>
+                {minioTestResult && (
+                  <div className={`rounded-md p-3 text-sm flex flex-col gap-1 ${minioTestResult.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                    <div className="flex items-center gap-2 font-medium">
+                      {minioTestResult.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" /> : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
+                      {minioTestResult.message}
+                    </div>
+                    {minioTestResult.ok && minioTestResult.details && (
+                      <div className="text-xs font-mono text-green-700 mt-1 space-y-0.5 pl-6">
+                        <div>Endpoint: {String(minioTestResult.details.endpoint)}</div>
+                        <div>Bucket: {String(minioTestResult.details.bucket)}</div>
+                        <div>Tổng buckets: {String(minioTestResult.details.totalBuckets)}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -983,87 +1162,6 @@ export default function CaiDatPage() {
       toast.error("Lỗi khi lưu cài đặt");
     } finally {
       setSavingGroup(null);
-    }
-  }
-
-  // --- HA forward filter ---
-  const [haThreadEntries, setHaThreadEntries] = useState<
-    { threadId: string; type: number }[]
-  >([]);
-  const [haFilterSaving, setHaFilterSaving] = useState(false);
-
-  useEffect(() => {
-    if (!canManage) return;
-    fetch("/api/admin/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success) {
-          const vals: Record<string, string> = {};
-          for (const s of d.data) vals[s.khoa] = s.giaTri ?? "";
-          // Parse JSON array hoặc migrate từ format cũ (comma/newline separated)
-          const raw = vals.ha_zalo_allowed_threads || "";
-          if (raw.startsWith("[")) {
-            try {
-              setHaThreadEntries(JSON.parse(raw));
-            } catch {
-              /* ignore */
-            }
-          } else if (raw.trim()) {
-            // Migrate: format cũ → mỗi ID mặc định type 0 (người dùng)
-            const ids = raw
-              .split(/[,\n]+/)
-              .map((s) => s.trim())
-              .filter(Boolean);
-            setHaThreadEntries(ids.map((id) => ({ threadId: id, type: 0 })));
-          }
-        }
-      })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage]);
-
-  function addHaThread() {
-    setHaThreadEntries((prev) => [...prev, { threadId: "", type: 0 }]);
-  }
-  function removeHaThread(index: number) {
-    setHaThreadEntries((prev) => prev.filter((_, i) => i !== index));
-  }
-  function updateHaThread(
-    index: number,
-    field: "threadId" | "type",
-    value: string | number,
-  ) {
-    setHaThreadEntries((prev) =>
-      prev.map((e, i) => (i === index ? { ...e, [field]: value } : e)),
-    );
-  }
-
-  async function handleSaveHaFilter() {
-    // Lọc bỏ entry trống
-    const entries = haThreadEntries.filter((e) => e.threadId.trim());
-    setHaFilterSaving(true);
-    try {
-      const res = await fetch("/api/admin/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          settings: [
-            {
-              khoa: "ha_zalo_allowed_threads",
-              giaTri: entries.length > 0 ? JSON.stringify(entries) : "",
-            },
-          ],
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setHaThreadEntries(entries);
-        toast.success("Đã lưu bộ lọc HA");
-      } else toast.error(data.message || "Lưu thất bại");
-    } catch {
-      toast.error("Lỗi kết nối");
-    } finally {
-      setHaFilterSaving(false);
     }
   }
 
@@ -1412,75 +1510,6 @@ export default function CaiDatPage() {
     }
   }
 
-  // --- Test HA Webhook ---
-  const [haWebhookTestLoading, setHaWebhookTestLoading] = useState(false);
-  const [haWebhookTestResult, setHaWebhookTestResult] = useState<{
-    ok: boolean;
-    message: string;
-  } | null>(null);
-
-  async function handleTestHaWebhook() {
-    const haUrl = settingValues["ha_zalo_notify_url"]?.trim();
-    if (!haUrl) {
-      toast.error("Chưa cấu hình Home Assistant Webhook URL");
-      return;
-    }
-    setHaWebhookTestLoading(true);
-    setHaWebhookTestResult(null);
-    try {
-      // Proxy qua server để tránh CORS (browser không gọi HA local network trực tiếp được)
-      const res = await fetch("/api/admin/test-ha-webhook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: haUrl }),
-      });
-      const data = await res.json();
-      setHaWebhookTestResult({ ok: data.ok, message: data.message });
-      if (data.ok) toast.success("HA Webhook đang hoạt động");
-      else toast.error("HA Webhook không phản hồi");
-    } catch {
-      setHaWebhookTestResult({ ok: false, message: "Lỗi kết nối tới server" });
-      toast.error("Lỗi kết nối");
-    } finally {
-      setHaWebhookTestLoading(false);
-    }
-  }
-
-  // --- Kiểm tra kết nối MinIO ---
-  const [minioTestLoading, setMinioTestLoading] = useState(false);
-  const [minioTestResult, setMinioTestResult] = useState<{
-    ok: boolean;
-    message: string;
-    details?: Record<string, unknown>;
-  } | null>(null);
-
-  async function handleTestMinio() {
-    setMinioTestLoading(true);
-    setMinioTestResult(null);
-    try {
-      const res = await fetch("/api/admin/settings/test-minio", {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (data.success) {
-        setMinioTestResult({
-          ok: true,
-          message: data.message,
-          details: data.details,
-        });
-        toast.success("Kết nối MinIO thành công");
-      } else {
-        setMinioTestResult({ ok: false, message: data.message });
-        toast.error(data.message);
-      }
-    } catch {
-      setMinioTestResult({ ok: false, message: "Lỗi kết nối máy chủ" });
-      toast.error("Lỗi kết nối máy chủ");
-    } finally {
-      setMinioTestLoading(false);
-    }
-  }
-
   // --- Zalo Bot Server ---
   const [botStatus, setBotStatus] = useState<any>(null);
   const [botStatusLoading, setBotStatusLoading] = useState(false);
@@ -1811,219 +1840,14 @@ export default function CaiDatPage() {
         {/* ── Tab Home Assistant ──────────────────────────────────────────────── */}
         {isAdmin && !loadingSystem && !errorSystem && (
           <TabsContent value="homeAssistant" className="space-y-4 mt-4">
-            {/* ── Cài đặt HA per tòa nhà ── */}
             <AdminToaNhaSettingsPanel tab="ha" />
-            {/* ── URL Webhook HA (global Zalo forward) ── */}
-            <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <Webhook className="h-4 w-4" />
-                  Home Assistant Webhook URL
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Forward tin nhắn Zalo đến Home Assistant. Để trống nếu không dùng.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6 space-y-3">
-                {(() => {
-                  const haItem = systemSettings.find((s) => s.khoa === "ha_zalo_notify_url");
-                  if (!haItem) return null;
-                  return (
-                    <div className="space-y-1">
-                      <Label className="text-xs md:text-sm font-medium">{haItem.moTa}</Label>
-                      <SettingInput
-                        item={haItem}
-                        value={settingValues["ha_zalo_notify_url"] ?? ""}
-                        onChange={(v) => handleSettingChange("ha_zalo_notify_url", v)}
-                      />
-                    </div>
-                  );
-                })()}
-                <Button
-                  size="sm"
-                  className="w-full"
-                  onClick={() => handleSaveGroup("thongBao")}
-                  disabled={savingGroup === "thongBao"}
-                >
-                  {savingGroup === "thongBao" ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  Lưu URL
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* ── Bộ lọc HA ── */}
-            <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <Webhook className="h-4 w-4" />
-                  Bộ lọc chuyển tiếp Home Assistant
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Giới hạn tin nhắn được forward đến HA webhook theo Thread ID và loại (user/nhóm). Trống = chuyển tiếp tất cả.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs md:text-sm font-medium">Danh sách Thread ID được phép</Label>
-                    <button type="button" onClick={addHaThread} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
-                      <Plus className="h-3.5 w-3.5" /> Thêm
-                    </button>
-                  </div>
-                  {haThreadEntries.length === 0 && (
-                    <p className="text-[11px] text-gray-400 italic">Chưa có thread nào — tất cả tin nhắn sẽ được chuyển tiếp.</p>
-                  )}
-                  <div className="space-y-2">
-                    {haThreadEntries.map((entry, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <Input
-                          type="text"
-                          placeholder="Thread ID (VD: 6643404425553198601)"
-                          value={entry.threadId}
-                          onChange={(e) => updateHaThread(i, "threadId", e.target.value)}
-                          className="text-xs font-mono flex-1"
-                        />
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => updateHaThread(i, "type", 0)}
-                            className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-colors whitespace-nowrap ${entry.type === 0 ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200 hover:border-blue-300"}`}
-                          >
-                            Người dùng
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateHaThread(i, "type", 1)}
-                            className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-colors whitespace-nowrap ${entry.type === 1 ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-500 border-gray-200 hover:border-blue-300"}`}
-                          >
-                            Nhóm
-                          </button>
-                        </div>
-                        <button type="button" onClick={() => removeHaThread(i)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-gray-400">Type 0 = người dùng, Type 1 = nhóm.</p>
-                </div>
-                <Button size="sm" onClick={handleSaveHaFilter} disabled={haFilterSaving} className="w-full">
-                  {haFilterSaving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                  Lưu bộ lọc
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* ── Test Webhook ── */}
-            <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <CheckCircle className="h-4 w-4" />
-                  Test Webhook
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Gửi tin giả lập qua webhook — kiểm tra HA nhận được không.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6 space-y-3">
-                <Button size="sm" variant="outline" onClick={handleTestHaWebhook} disabled={haWebhookTestLoading} className="w-full">
-                  {haWebhookTestLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                  Test HA Webhook
-                </Button>
-                {haWebhookTestResult && (
-                  <div className={`rounded-md p-3 text-sm flex items-center gap-2 ${haWebhookTestResult.ok ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
-                    {haWebhookTestResult.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" /> : <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
-                    {haWebhookTestResult.message}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
         )}
 
         {/* ── Tab Lưu trữ ───────────────────────────────────────────────────── */}
         {isAdmin && !loadingSystem && !errorSystem && (
           <TabsContent value="luuTru" className="space-y-4 mt-4">
-            {/* ── Lưu trữ per tòa nhà ── */}
             <AdminToaNhaSettingsPanel tab="storage" />
-            {settingsByGroup["luuTru"]?.length ? (
-              <StorageSettingsCard
-                items={settingsByGroup["luuTru"]}
-                values={settingValues}
-                onChange={handleSettingChange}
-                onSave={handleSaveGroup}
-                saving={savingGroup === "luuTru"}
-              />
-            ) : null}
-
-            {/* ── Kiểm tra kết nối MinIO ── */}
-            {(settingValues["storage_provider"] === "minio" ||
-              settingValues["storage_provider"] === "both") && (
-            <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <HardDrive className="h-4 w-4" />
-                  Kiểm tra kết nối MinIO
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Lưu cài đặt MinIO trước, sau đó bấm kiểm tra để xác nhận kết
-                  nối thành công.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6 space-y-3">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleTestMinio}
-                  disabled={minioTestLoading}
-                  className="w-full"
-                >
-                  {minioTestLoading ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Kiểm tra kết nối
-                </Button>
-                {minioTestResult && (
-                  <div
-                    className={`rounded-md p-3 text-sm flex flex-col gap-1 ${
-                      minioTestResult.ok
-                        ? "bg-green-50 border border-green-200 text-green-800"
-                        : "bg-red-50 border border-red-200 text-red-800"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 font-medium">
-                      {minioTestResult.ok ? (
-                        <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
-                      ) : (
-                        <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
-                      )}
-                      {minioTestResult.message}
-                    </div>
-                    {minioTestResult.ok && minioTestResult.details && (
-                      <div className="text-xs font-mono text-green-700 mt-1 space-y-0.5 pl-6">
-                        <div>
-                          Endpoint: {String(minioTestResult.details.endpoint)}
-                        </div>
-                        <div>
-                          Bucket: {String(minioTestResult.details.bucket)}
-                        </div>
-                        <div>
-                          Tổng buckets:{" "}
-                          {String(minioTestResult.details.totalBuckets)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            )}
           </TabsContent>
         )}
 

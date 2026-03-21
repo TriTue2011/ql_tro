@@ -53,6 +53,12 @@ if (!globalForPrisma.migrationDone) {
     CREATE INDEX IF NOT EXISTS "ZaloMessage_chatId_createdAt_idx"
     ON "ZaloMessage"("chatId", "createdAt")
   `).catch(() => {});
+  prisma.$executeRawUnsafe(`
+    ALTER TABLE "CaiDatToaNha" ADD COLUMN IF NOT EXISTS "haWebhookUrl" TEXT
+  `).catch(() => {});
+  prisma.$executeRawUnsafe(`
+    ALTER TABLE "CaiDatToaNha" ADD COLUMN IF NOT EXISTS "haAllowedThreads" TEXT
+  `).catch(() => {});
 }
 
 export default prisma;
