@@ -44,23 +44,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (role === 'nhanVien') {
       return [
         {
-          title: "Quản lý",
+          title: "Zalo",
           url: "#",
-          icon: Building,
+          icon: MessageCircle,
           isActive: true,
           items: [
-            { title: "Phòng", url: "/dashboard/phong" },
-            { title: "Khách thuê", url: "/dashboard/khach-thue" },
-          ],
-        },
-        {
-          title: "Vận hành",
-          url: "#",
-          icon: AlertTriangle,
-          items: [
-            { title: "Hóa đơn", url: "/dashboard/hoa-don" },
-            { title: "Sự cố", url: "/dashboard/su-co" },
-            { title: "Thông báo", url: "/dashboard/thong-bao" },
             { title: "Zalo", url: "/dashboard/zalo" },
           ],
         },
@@ -93,6 +81,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           icon: Shield,
           items: [
             { title: "Quản lý tài khoản", url: "/dashboard/quan-ly-tai-khoan" },
+          ],
+        },
+        {
+          title: "Zalo",
+          url: "#",
+          icon: MessageCircle,
+          items: [
+            { title: "Zalo", url: "/dashboard/zalo" },
           ],
         },
         {
