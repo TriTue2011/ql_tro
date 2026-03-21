@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   Building2, QrCode, Save, RefreshCw, Smartphone,
-  Shield, Crown, Users, User, ChevronDown, ChevronRight,
+  Crown, Users, User, ChevronDown, ChevronRight,
   Server, Webhook, Send, CheckCircle2, XCircle,
   Loader2, Eye, Terminal, Play,
 } from "lucide-react";
@@ -70,7 +70,7 @@ interface BuildingData {
 
 // ─── Admin Bot Server Card ────────────────────────────────────────────────────
 
-function BotServerCard() {
+function BotServerCard({ account }: { account?: AccountData }) {
   const [status, setStatus] = useState<{
     ok: boolean; serverUrl?: string; accounts?: { id: string; name?: string }[];
     error?: string; accountId?: string;
@@ -80,14 +80,15 @@ function BotServerCard() {
   const fetchStatus = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/zalo-bot/status");
+      const params = account?.zaloAccountId ? `?ownId=${encodeURIComponent(account.zaloAccountId)}` : "";
+      const res = await fetch(`/api/zalo-bot/status${params}`);
       setStatus(await res.json());
     } catch {
       setStatus({ ok: false, error: "Không thể kết nối" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [account?.zaloAccountId]);
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
@@ -152,9 +153,9 @@ function BotServerCard() {
 
 // ─── Webhook Card ─────────────────────────────────────────────────────────────
 
-function WebhookCard() {
+function WebhookCard({ account }: { account?: AccountData }) {
   const [webhookUrl, setWebhookUrl] = useState("");
-  const [ownId, setOwnId] = useState("");
+  const [ownId, setOwnId] = useState(account?.zaloAccountId ?? "");
   const [setting, setSetting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; webhookUrl?: string; error?: string } | null>(null);
 
@@ -224,8 +225,8 @@ function WebhookCard() {
 
 // ─── Test Send Card ───────────────────────────────────────────────────────────
 
-function TestSendCard() {
-  const [chatId, setChatId] = useState("");
+function TestSendCard({ account }: { account?: AccountData }) {
+  const [chatId, setChatId] = useState(account?.zaloChatId ?? "");
   const [message, setMessage] = useState("Tin nhắn test từ hệ thống QL Trọ");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
@@ -297,14 +298,15 @@ function TestSendCard() {
 
 // ─── Monitor Card ─────────────────────────────────────────────────────────────
 
-function MonitorCard() {
+function MonitorCard({ account }: { account?: AccountData }) {
   const [messages, setMessages] = useState<{ id: string; chatId: string; displayName?: string; content: string; role: string; createdAt: string; attachmentUrl?: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchMessages = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/zalo/messages?conversations=1");
+      const params = account?.zaloChatId ? `?chatId=${encodeURIComponent(account.zaloChatId)}&conversations=1` : "?conversations=1";
+      const res = await fetch(`/api/zalo/messages${params}`);
       const data = await res.json();
       if (data.data) setMessages(data.data.slice(0, 20) || []);
     } finally {
@@ -378,7 +380,7 @@ interface BotApiItem {
   defaultPayload?: string | null;
 }
 
-function ApiExplorerCard() {
+function ApiExplorerCard({ defaultAccountId = "" }: { defaultAccountId?: string }) {
   const [apis, setApis] = useState<BotApiItem[]>([]);
   const [loadingApis, setLoadingApis] = useState(false);
   const [openEndpoint, setOpenEndpoint] = useState<string | null>(null);
@@ -395,11 +397,17 @@ function ApiExplorerCard() {
       const data = await res.json();
       if (data.ok) {
         setApis(data.apis);
-        // Init payloads từ defaultPayload trong DB
+        // Init payloads từ defaultPayload trong DB, pre-fill accountSelection
         const init: Record<string, string> = {};
         for (const a of data.apis as BotApiItem[]) {
           if (a.defaultPayload) {
-            try { init[a.endpoint] = JSON.stringify(JSON.parse(a.defaultPayload), null, 2); }
+            try {
+              const parsed = JSON.parse(a.defaultPayload);
+              if (defaultAccountId && 'accountSelection' in parsed) {
+                parsed.accountSelection = defaultAccountId;
+              }
+              init[a.endpoint] = JSON.stringify(parsed, null, 2);
+            }
             catch { init[a.endpoint] = a.defaultPayload; }
           }
         }
@@ -807,6 +815,99 @@ function AccountSettings({
           </Button>
         </div>
       )}
+
+      {/* 4 tool cards — mỗi cái ẩn/hiện độc lập */}
+      <PerAccountCards account={account} isAdmin={isAdmin} />
+    </div>
+  );
+}
+
+// ─── 4 cards ẩn/hiện per-account ─────────────────────────────────────────────
+
+const ACCOUNT_CARDS = [
+  { key: "botserver", label: "Bot Server", Icon: Server, color: "text-blue-600" },
+  { key: "webhook",   label: "Webhook",    Icon: Webhook, color: "text-violet-600" },
+  { key: "testsend",  label: "Test gửi",   Icon: Send, color: "text-green-600" },
+  { key: "monitor",   label: "Theo dõi tin", Icon: Eye, color: "text-orange-500" },
+] as const;
+
+function PerAccountCards({ account, isAdmin }: { account: AccountData; isAdmin: boolean }) {
+  const [openCard, setOpenCard] = useState<string | null>(null);
+
+  return (
+    <div className="border-t pt-4 space-y-2">
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Công cụ</h3>
+      {/* Toggle buttons */}
+      <div className="flex flex-wrap gap-2">
+        {ACCOUNT_CARDS.map(({ key, label, Icon, color }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setOpenCard(openCard === key ? null : key)}
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors ${
+              openCard === key
+                ? "bg-gray-800 text-white border-gray-800"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"
+            }`}
+          >
+            <Icon className={`h-3 w-3 ${openCard === key ? "text-white" : color}`} />
+            {label}
+            {openCard === key
+              ? <ChevronDown className="h-3 w-3 ml-0.5" />
+              : <ChevronRight className="h-3 w-3 ml-0.5" />}
+          </button>
+        ))}
+      </div>
+
+      {/* Expanded card content */}
+      {openCard === "botserver" && (
+        <div className="border rounded-lg overflow-hidden">
+          <BotServerCard account={account} />
+        </div>
+      )}
+      {openCard === "webhook" && (
+        <div className="border rounded-lg overflow-hidden">
+          <WebhookCard account={account} />
+        </div>
+      )}
+      {openCard === "testsend" && (
+        <div className="border rounded-lg overflow-hidden">
+          <TestSendCard account={account} />
+        </div>
+      )}
+      {openCard === "monitor" && (
+        <div className="border rounded-lg overflow-hidden">
+          <MonitorCard account={account} />
+        </div>
+      )}
+      {isAdmin && (
+        <ApiExplorerToggle account={account} />
+      )}
+    </div>
+  );
+}
+
+// Inline mini ApiExplorer toggle per account
+function ApiExplorerToggle({ account }: { account: AccountData }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors ${
+          open ? "bg-gray-800 text-white border-gray-800" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"
+        }`}
+      >
+        <Terminal className={`h-3 w-3 ${open ? "text-white" : "text-gray-500"}`} />
+        API Explorer
+        {open ? <ChevronDown className="h-3 w-3 ml-0.5" /> : <ChevronRight className="h-3 w-3 ml-0.5" />}
+      </button>
+      {open && (
+        <div className="border rounded-lg overflow-hidden mt-2">
+          <ApiExplorerCard defaultAccountId={account.zaloAccountId ?? ""} />
+        </div>
+      )}
     </div>
   );
 }
@@ -956,8 +1057,13 @@ function BuildingAccordion({
   onRefresh: () => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const visibleChuTro = building.chuTro.vaiTro !== "admin" ? [building.chuTro] : [];
-  const totalPeople = visibleChuTro.length + building.quanLys.filter(q => q.vaiTro !== "admin").length;
+
+  // Gom tất cả người, lọc admin, nhóm theo vaiTro thực tế
+  const allPeople = [building.chuTro, ...building.quanLys].filter(p => p.vaiTro !== "admin");
+  // Người có vaiTro chuNha → hiển thị là Chủ trọ; còn lại → Quản lý
+  const chuTroGroup = allPeople.filter(p => p.vaiTro === "chuNha");
+  const quanLyGroup = allPeople.filter(p => p.vaiTro !== "chuNha");
+  const totalPeople = allPeople.length;
 
   if (totalPeople === 0 && !isAdmin) return null;
 
@@ -986,7 +1092,7 @@ function BuildingAccordion({
         <div className="bg-gray-50 border-t p-3 space-y-2">
           <RoleGroup
             role="chuTro"
-            people={[building.chuTro]}
+            people={chuTroGroup}
             buildingId={building.id}
             isAdmin={isAdmin}
             sessionUserId={sessionUserId}
@@ -994,7 +1100,7 @@ function BuildingAccordion({
           />
           <RoleGroup
             role="quanLy"
-            people={building.quanLys}
+            people={quanLyGroup}
             buildingId={building.id}
             isAdmin={isAdmin}
             sessionUserId={sessionUserId}
@@ -1050,23 +1156,6 @@ export default function ZaloSettingsPage() {
           Làm mới
         </Button>
       </div>
-
-      {/* Admin-only: 4 system cards */}
-      {isAdmin && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-amber-600" />
-            <h2 className="text-sm font-semibold text-gray-700">Cài đặt hệ thống (Admin)</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <BotServerCard />
-            <WebhookCard />
-            <TestSendCard />
-            <MonitorCard />
-            <ApiExplorerCard />
-          </div>
-        </div>
-      )}
 
       {/* Building list */}
       <div className="space-y-2">
