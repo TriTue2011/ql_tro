@@ -363,6 +363,14 @@ export async function PUT(request: NextRequest) {
     const tongTien = tienPhong + tienDienTinh + tienNuocTinh + (phiDichVu?.reduce((sum: number, phi: PhiDichVu) => sum + phi.gia, 0) || 0);
     const conLai = tongTien - daThanhToan;
 
+    // Tính lại hanThanhToan từ server nếu không được gửi lên, hoặc tính lại từ hopDong
+    const computedHanThanhToan = (() => {
+      if (hanThanhToan) return new Date(hanThanhToan);
+      // Fallback: tính lại từ ngayThanhToan của hợp đồng
+      const lastDay = new Date(nam, thang, 0).getDate();
+      return new Date(nam, thang - 1, Math.min(hopDongData.ngayThanhToan, lastDay));
+    })();
+
     // Cập nhật hóa đơn
     const updatedHoaDon = await hoaDonRepo.update(id, {
       tienPhong,
@@ -373,10 +381,11 @@ export async function PUT(request: NextRequest) {
       daThanhToan,
       conLai,
       trangThai,
-      hanThanhToan: new Date(hanThanhToan),
+      hanThanhToan: computedHanThanhToan,
       ghiChu,
-      anhChiSoDien: anhChiSoDien || undefined,
-      anhChiSoNuoc: anhChiSoNuoc || undefined,
+      // Chỉ cập nhật ảnh nếu được gửi lên — tránh xóa ảnh cũ khi không có thay đổi
+      ...(anhChiSoDien !== undefined && { anhChiSoDien: anhChiSoDien || null }),
+      ...(anhChiSoNuoc !== undefined && { anhChiSoNuoc: anhChiSoNuoc || null }),
     });
 
     sseEmit('hoa-don', { action: 'updated' });

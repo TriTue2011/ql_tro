@@ -176,7 +176,9 @@ export async function POST(request: NextRequest) {
         `UPDATE "KhachThue" SET "nguoiTaoId" = $1 WHERE id = $2`,
         session.user.id,
         newKhachThue.id,
-      ).catch(() => {});
+      ).catch((err) => {
+        console.error('[khach-thue] Failed to save nguoiTaoId:', err);
+      });
     }
 
     sseEmit('khach-thue', { action: 'created' });

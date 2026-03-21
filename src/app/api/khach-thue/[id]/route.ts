@@ -102,14 +102,16 @@ export async function PUT(
       soDienThoai: validatedData.soDienThoai,
       email: validatedData.email || undefined,
       ngheNghiep: validatedData.ngheNghiep,
-      anhCCCD: validatedData.anhCCCD || { matTruoc: '', matSau: '' },
+      // Chỉ cập nhật anhCCCD nếu được gửi lên — tránh ghi đè ảnh cũ bằng object rỗng
+      ...(validatedData.anhCCCD && { anhCCCD: validatedData.anhCCCD }),
     };
 
     if (validatedData.matKhau) {
       updateData.matKhau = await hash(validatedData.matKhau, 12);
     }
-    if (validatedData.zaloChatId !== undefined) {
-      updateData.zaloChatId = validatedData.zaloChatId || '';
+    // zaloChatId: chỉ update khi có giá trị thực — KHÔNG cho phép xóa liên kết Zalo qua route này
+    if (validatedData.zaloChatId) {
+      updateData.zaloChatId = validatedData.zaloChatId;
     }
     if (validatedData.nhanThongBaoZalo !== undefined) {
       updateData.nhanThongBaoZalo = validatedData.nhanThongBaoZalo;
