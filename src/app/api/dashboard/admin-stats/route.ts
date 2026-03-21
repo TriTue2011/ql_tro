@@ -39,6 +39,15 @@ export async function GET() {
   const roleCount: Record<string, number> = {};
   for (const r of userByRole) roleCount[r.vaiTro] = r._count.id;
 
+  // diaChi là Json object { soNha, duong, phuong, quan, thanhPho } — chuyển thành string
+  const toaNhaMoiNhatFormatted = toaNhaMoiNhat.map((tn) => {
+    const d = tn.diaChi as Record<string, string> | null;
+    const diaChiStr = d
+      ? [d.soNha, d.duong, d.phuong, d.quan, d.thanhPho].filter(Boolean).join(', ')
+      : '';
+    return { id: tn.id, tenToaNha: tn.tenToaNha, diaChi: diaChiStr, ngayTao: tn.ngayTao };
+  });
+
   return NextResponse.json({
     success: true,
     data: {
@@ -50,7 +59,7 @@ export async function GET() {
       tongAdmin: roleCount['admin'] ?? 0,
       tongKhachThue,
       khachThueCoTaiKhoan,
-      toaNhaMoiNhat,
+      toaNhaMoiNhat: toaNhaMoiNhatFormatted,
     },
   });
 }
