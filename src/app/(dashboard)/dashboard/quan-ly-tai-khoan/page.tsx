@@ -208,23 +208,19 @@ export default function AccountManagementPage() {
 
   const handleEditUser = async () => {
     if (!selectedUser) return;
-    const isChuNha = session?.user?.role === 'chuNha';
     try {
-      // chuNha chỉ có thể cập nhật quyền, không cập nhật thông tin cơ bản
-      if (!isChuNha) {
-        const payload: Record<string, unknown> = { ...editUserData };
-        if (editUserData.role === 'admin') delete payload.toaNhaId;
-        delete payload.quyenKichHoatTaiKhoan; // quyền cập nhật riêng bên dưới
-        const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-          const error = await response.json();
-          toast.error(error.message || error.error || 'Cập nhật tài khoản thất bại');
-          return;
-        }
+      const payload: Record<string, unknown> = { ...editUserData };
+      if (editUserData.role === 'admin') delete payload.toaNhaId;
+      delete payload.quyenKichHoatTaiKhoan; // quyền cập nhật riêng bên dưới
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        toast.error(error.message || error.error || 'Cập nhật tài khoản thất bại');
+        return;
       }
 
       // Cập nhật quyền kích hoạt tài khoản (chỉ khi là quanLy và có toaNhaId)
