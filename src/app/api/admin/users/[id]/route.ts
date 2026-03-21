@@ -30,7 +30,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, role, isActive, zaloChatId, toaNhaId } = body;
+    const { name, phone, role, isActive, zaloChatId, toaNhaId, toaNhaIds } = body;
 
     // chuNha/dongChuTro: chỉ được sửa dongChuTro/quanLy/nhanVien thuộc tòa nhà của mình
     if (callerRole !== 'admin') {
@@ -59,7 +59,7 @@ export async function PUT(
 
       await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
-      // Cập nhật gán tòa nhà trong phạm vi tòa nhà của mình
+      // Cập nhật gán tòa nhà trong phạm vi tòa nhà của mình (single only)
       if (toaNhaId !== undefined) {
         await prisma.toaNhaNguoiQuanLy.deleteMany({ where: { nguoiDungId: id, toaNhaId: { in: myBuildingIds } } });
         if (toaNhaId && myBuildingIds.includes(toaNhaId)) {
@@ -83,8 +83,12 @@ export async function PUT(
 
     if (role !== 'admin') {
       await prisma.toaNhaNguoiQuanLy.deleteMany({ where: { nguoiDungId: id } });
-      if (toaNhaId) {
-        await prisma.toaNhaNguoiQuanLy.create({ data: { toaNhaId, nguoiDungId: id } }).catch(() => {});
+      // toaNhaIds (array) ưu tiên hơn toaNhaId (single)
+      const idsToAssign: string[] = Array.isArray(toaNhaIds) && toaNhaIds.length > 0
+        ? toaNhaIds
+        : (toaNhaId ? [toaNhaId] : []);
+      for (const tid of idsToAssign) {
+        await prisma.toaNhaNguoiQuanLy.create({ data: { toaNhaId: tid, nguoiDungId: id } }).catch(() => {});
       }
     }
 

@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { UserDataTable } from './table';
 
 interface Building {
@@ -66,6 +67,7 @@ interface User {
   nhanThongBaoZalo?: boolean;
   toaNhaId?: string | null;
   toaNhaTen?: string | null;
+  toaNhaIds?: string[];
   quyenKichHoatTaiKhoan?: boolean;
   nguoiTaoTen?: string | null;
 }
@@ -77,6 +79,7 @@ interface CreateUserData {
   phone: string;
   role: string;
   toaNhaId: string;
+  toaNhaIds: string[];
   quyenKichHoatTaiKhoan: boolean;
 }
 
@@ -98,6 +101,7 @@ export default function AccountManagementPage() {
     phone: '',
     role: 'nhanVien',
     toaNhaId: '',
+    toaNhaIds: [],
     quyenKichHoatTaiKhoan: false,
   });
   const [editUserData, setEditUserData] = useState({
@@ -107,6 +111,7 @@ export default function AccountManagementPage() {
     isActive: true,
     zaloChatId: '',
     toaNhaId: '',
+    toaNhaIds: [] as string[],
     quyenKichHoatTaiKhoan: false,
   });
 
@@ -172,7 +177,11 @@ export default function AccountManagementPage() {
   const handleCreateUser = async () => {
     try {
       const payload: Record<string, unknown> = { ...createUserData };
-      if (!createUserData.toaNhaId || createUserData.role === 'admin') delete payload.toaNhaId;
+      if (createUserData.role === 'admin') { delete payload.toaNhaId; delete payload.toaNhaIds; }
+      else {
+        delete payload.toaNhaId; // luôn dùng toaNhaIds cho mọi vai trò không phải admin
+        if (!createUserData.toaNhaIds.length) delete payload.toaNhaIds;
+      }
       delete payload.quyenKichHoatTaiKhoan; // cập nhật quyền sau khi tạo user xong
       const response = await fetch('/api/admin/users', {
         method: 'POST',
@@ -181,20 +190,22 @@ export default function AccountManagementPage() {
       });
       const responseData = await response.json().catch(() => null);
       if (response.ok) {
-        // Nếu là quanLy + gán tòa nhà và có bật quyền → gọi thêm API quyen
-        if (createUserData.role === 'quanLy' && createUserData.toaNhaId && createUserData.quyenKichHoatTaiKhoan) {
+        // Nếu là quanLy + có bật quyền → gọi API quyen cho từng tòa nhà
+        if (createUserData.role === 'quanLy' && createUserData.quyenKichHoatTaiKhoan && createUserData.toaNhaIds.length > 0) {
           const newId = responseData?.id;
           if (newId) {
-            await fetch(`/api/admin/users/${newId}/quyen`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ toaNhaId: createUserData.toaNhaId, quyenKichHoatTaiKhoan: true }),
-            });
+            await Promise.all(createUserData.toaNhaIds.map(tid =>
+              fetch(`/api/admin/users/${newId}/quyen`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ toaNhaId: tid, quyenKichHoatTaiKhoan: true }),
+              })
+            ));
           }
         }
         toast.success('Tạo tài khoản thành công');
         setIsCreateDialogOpen(false);
-        setCreateUserData({ name: '', email: '', password: '', phone: '', role: 'nhanVien', toaNhaId: '', quyenKichHoatTaiKhoan: false });
+        setCreateUserData({ name: '', email: '', password: '', phone: '', role: 'nhanVien', toaNhaId: '', toaNhaIds: [], quyenKichHoatTaiKhoan: false });
         cache.clearCache();
         fetchUsers(true);
       } else {
@@ -210,7 +221,8 @@ export default function AccountManagementPage() {
     if (!selectedUser) return;
     try {
       const payload: Record<string, unknown> = { ...editUserData };
-      if (editUserData.role === 'admin') delete payload.toaNhaId;
+      if (editUserData.role === 'admin') { delete payload.toaNhaId; delete payload.toaNhaIds; }
+      else { delete payload.toaNhaId; } // luôn dùng toaNhaIds cho mọi vai trò không phải admin
       delete payload.quyenKichHoatTaiKhoan; // quyền cập nhật riêng bên dưới
       const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
         method: 'PUT',
@@ -223,18 +235,18 @@ export default function AccountManagementPage() {
         return;
       }
 
-      // Cập nhật quyền kích hoạt tài khoản (chỉ khi là quanLy và có toaNhaId)
-      if (editUserData.role === 'quanLy' && editUserData.toaNhaId) {
-        const qRes = await fetch(`/api/admin/users/${selectedUser.id}/quyen`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            toaNhaId: editUserData.toaNhaId,
-            quyenKichHoatTaiKhoan: editUserData.quyenKichHoatTaiKhoan,
-          }),
-        });
-        if (!qRes.ok) {
-          const err = await qRes.json();
+      // Cập nhật quyền kích hoạt tài khoản cho từng tòa nhà (chỉ khi là quanLy)
+      if (editUserData.role === 'quanLy' && editUserData.toaNhaIds.length > 0) {
+        const results = await Promise.all(editUserData.toaNhaIds.map(tid =>
+          fetch(`/api/admin/users/${selectedUser.id}/quyen`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ toaNhaId: tid, quyenKichHoatTaiKhoan: editUserData.quyenKichHoatTaiKhoan }),
+          })
+        ));
+        const failed = results.find(r => !r.ok);
+        if (failed) {
+          const err = await failed.json();
           toast.error(err.error || 'Không thể cập nhật quyền');
           return;
         }
@@ -278,6 +290,7 @@ export default function AccountManagementPage() {
       isActive: getUserIsActive(user),
       zaloChatId: user.zaloChatId || '',
       toaNhaId: user.toaNhaId || '',
+      toaNhaIds: user.toaNhaIds?.length ? user.toaNhaIds : (user.toaNhaId ? [user.toaNhaId] : []),
       quyenKichHoatTaiKhoan: user.quyenKichHoatTaiKhoan ?? false,
     });
     setIsEditDialogOpen(true);
@@ -435,7 +448,7 @@ export default function AccountManagementPage() {
               <Label htmlFor="role" className="text-xs md:text-sm">Vai trò</Label>
               <Select
                 value={createUserData.role}
-                onValueChange={(value) => setCreateUserData({ ...createUserData, role: value, toaNhaId: '' })}
+                onValueChange={(value) => setCreateUserData({ ...createUserData, role: value, toaNhaId: '', toaNhaIds: [] })}
               >
                 <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Chọn vai trò" />
@@ -458,28 +471,31 @@ export default function AccountManagementPage() {
             </div>
             {createUserData.role !== 'admin' && (
               <div className="space-y-2">
-                <Label htmlFor="create-toanha" className="text-xs md:text-sm flex items-center gap-1.5">
+                <Label className="text-xs md:text-sm flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-blue-500" />
                   Gán tòa nhà
                 </Label>
-                <Select
-                  value={createUserData.toaNhaId || 'none'}
-                  onValueChange={(v) => setCreateUserData({ ...createUserData, toaNhaId: v === 'none' ? '' : v })}
-                >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Chọn tòa nhà (tùy chọn)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Không gán</SelectItem>
-                    {buildings.map(b => (
-                      <SelectItem key={b.id} value={b.id}>{b.tenToaNha}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="border rounded-md p-2 space-y-1.5 max-h-40 overflow-y-auto">
+                  {buildings.length === 0 && <p className="text-xs text-muted-foreground">Chưa có tòa nhà</p>}
+                  {buildings.map(b => (
+                    <label key={b.id} className="flex items-center gap-2 cursor-pointer py-0.5">
+                      <Checkbox
+                        checked={createUserData.toaNhaIds.includes(b.id)}
+                        onCheckedChange={(checked) => {
+                          const next = checked
+                            ? [...createUserData.toaNhaIds, b.id]
+                            : createUserData.toaNhaIds.filter(id => id !== b.id);
+                          setCreateUserData({ ...createUserData, toaNhaIds: next });
+                        }}
+                      />
+                      <span className="text-sm">{b.tenToaNha}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
-            {/* Quyền hạn — chỉ hiện khi tạo quanLy + gán tòa nhà */}
-            {createUserData.role === 'quanLy' && createUserData.toaNhaId && (
+            {/* Quyền hạn — chỉ hiện khi tạo quanLy + gán ít nhất 1 tòa nhà */}
+            {createUserData.role === 'quanLy' && createUserData.toaNhaIds.length > 0 && (
               <div className="rounded-md border p-3 space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quyền hạn</p>
                 <div className="flex items-center justify-between gap-3">
@@ -699,7 +715,7 @@ export default function AccountManagementPage() {
               <Label htmlFor="edit-role" className="text-xs md:text-sm">Vai trò</Label>
               <Select
                 value={editUserData.role}
-                onValueChange={(value) => setEditUserData({ ...editUserData, role: value, toaNhaId: '' })}
+                onValueChange={(value) => setEditUserData({ ...editUserData, role: value, toaNhaId: '', toaNhaIds: [] })}
               >
                 <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Chọn vai trò" />
@@ -722,31 +738,31 @@ export default function AccountManagementPage() {
             </div>
             {editUserData.role !== 'admin' && (
               <div className="space-y-2">
-                <Label htmlFor="edit-toanha" className="text-xs md:text-sm flex items-center gap-1.5">
+                <Label className="text-xs md:text-sm flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-blue-500" />
                   Gán tòa nhà
                 </Label>
-                <Select
-                  value={editUserData.toaNhaId || 'none'}
-                  onValueChange={(v) => setEditUserData({ ...editUserData, toaNhaId: v === 'none' ? '' : v })}
-                >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Chọn tòa nhà" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Không gán</SelectItem>
-                    {buildings.map(b => (
-                      <SelectItem key={b.id} value={b.id}>{b.tenToaNha}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">
-                  Admin kiểm soát toàn bộ — không cần gán tòa nhà
-                </p>
+                <div className="border rounded-md p-2 space-y-1.5 max-h-40 overflow-y-auto">
+                  {buildings.length === 0 && <p className="text-xs text-muted-foreground">Chưa có tòa nhà</p>}
+                  {buildings.map(b => (
+                    <label key={b.id} className="flex items-center gap-2 cursor-pointer py-0.5">
+                      <Checkbox
+                        checked={editUserData.toaNhaIds.includes(b.id)}
+                        onCheckedChange={(checked) => {
+                          const next = checked
+                            ? [...editUserData.toaNhaIds, b.id]
+                            : editUserData.toaNhaIds.filter(id => id !== b.id);
+                          setEditUserData({ ...editUserData, toaNhaIds: next });
+                        }}
+                      />
+                      <span className="text-sm">{b.tenToaNha}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
-            {/* Quyền hạn — chỉ hiện khi đang sửa quanLy và đã gán tòa nhà */}
-            {editUserData.role === 'quanLy' && editUserData.toaNhaId && (
+            {/* Quyền hạn — chỉ hiện khi đang sửa quanLy và đã gán ít nhất 1 tòa nhà */}
+            {editUserData.role === 'quanLy' && editUserData.toaNhaIds.length > 0 && (
               <div className="rounded-md border p-3 space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quyền hạn trao cho quản lý</p>
                 <div className="flex items-center justify-between gap-3">

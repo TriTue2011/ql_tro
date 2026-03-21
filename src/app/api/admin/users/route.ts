@@ -45,7 +45,6 @@ export async function GET() {
           toaNha: { select: { id: true, tenToaNha: true } },
           quyenKichHoatTaiKhoan: true,
         },
-        take: 1,
       },
     } as const;
 
@@ -105,6 +104,8 @@ export async function GET() {
       const managedBuilding = managedEntry?.toaNha ?? null;
       const assignedBuilding = ownedBuilding || managedBuilding;
       const nguoiTaoId = nguoiTaoIdByUser.get(u.id) ?? null;
+      // toaNhaIds: tất cả tòa nhà được gán qua ToaNhaNguoiQuanLy (dùng cho multi-select admin)
+      const toaNhaIds = u.toaNhaQuanLy.map(q => q.toaNha.id);
       return {
         id: u.id,
         ten: u.ten,
@@ -122,6 +123,7 @@ export async function GET() {
         createdAt: u.ngayTao.toISOString(),
         toaNhaId: assignedBuilding?.id ?? null,
         toaNhaTen: assignedBuilding?.tenToaNha ?? null,
+        toaNhaIds,
         quyenKichHoatTaiKhoan: managedEntry?.quyenKichHoatTaiKhoan ?? false,
       };
     });
@@ -153,6 +155,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, email, password, phone, role, toaNhaId } = parsed.data;
+  // toaNhaIds từ body (không qua zod schema vì không dùng cho chuNha)
+  const toaNhaIds: string[] = Array.isArray(body.toaNhaIds) ? body.toaNhaIds : (toaNhaId ? [toaNhaId] : []);
 
     // chuNha/dongChuTro chỉ được tạo dongChuTro/quanLy/nhanVien
     if (callerRole !== 'admin' && ['admin', 'chuNha'].includes(role)) {
@@ -189,11 +193,13 @@ export async function POST(request: NextRequest) {
       newUser.id,
     ).catch(() => {});
 
-    // Gán tòa nhà nếu có và không phải admin
-    if (toaNhaId && role !== 'admin') {
-      await prisma.toaNhaNguoiQuanLy.create({
-        data: { toaNhaId, nguoiDungId: newUser.id },
-      }).catch(() => {}); // ignore if already exists
+    // Gán tòa nhà nếu có và không phải admin (hỗ trợ nhiều tòa)
+    if (role !== 'admin' && toaNhaIds.length > 0) {
+      for (const tid of toaNhaIds) {
+        await prisma.toaNhaNguoiQuanLy.create({
+          data: { toaNhaId: tid, nguoiDungId: newUser.id },
+        }).catch(() => {});
+      }
     }
 
     return NextResponse.json(newUser, { status: 201 });
