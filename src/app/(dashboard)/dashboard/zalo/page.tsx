@@ -1545,10 +1545,20 @@ function BuildingAccordion({
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
-  // Chủ trọ = người sở hữu tòa nhà (chuSoHuu), luôn hiển thị bất kể vaiTro
-  const chuTroGroup = [building.chuTro];
-  // Quản lý = những người được gán (ngoại trừ admin hệ thống)
-  const quanLyGroup = building.quanLys.filter(p => p.vaiTro !== "admin");
+  // Gom tất cả từ chuTro + quanLys, loại trùng và loại vaiTro admin
+  const allPeople = [building.chuTro, ...building.quanLys];
+  const seen = new Set<string>();
+  const uniquePeople = allPeople.filter(p => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+  // Không hiển thị admin hệ thống trong danh sách tòa nhà
+  const visiblePeople = uniquePeople.filter(p => p.vaiTro !== 'admin');
+
+  // Phân nhóm theo vaiTro thực tế (không theo vị trí DB)
+  const chuTroGroup = visiblePeople.filter(p => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro');
+  const quanLyGroup = visiblePeople.filter(p => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien');
   const totalPeople = chuTroGroup.length + quanLyGroup.length;
 
   if (totalPeople === 0 && !isAdmin) return null;
