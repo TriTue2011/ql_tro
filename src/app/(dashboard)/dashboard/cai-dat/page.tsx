@@ -636,7 +636,12 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
     fetch('/api/admin/toa-nha-settings')
       .then(r => r.json())
       .then(res => {
-        if (res.success) setBuildings(res.data.map((b: { id: string; tenToaNha: string }) => ({ id: b.id, tenToaNha: b.tenToaNha })));
+        if (res.success) {
+          const list = res.data.map((b: { id: string; tenToaNha: string }) => ({ id: b.id, tenToaNha: b.tenToaNha }));
+          setBuildings(list);
+          // Tự chọn tòa nhà đầu tiên nếu chỉ có 1 hoặc chưa chọn
+          if (list.length > 0) setSelectedId(list[0].id);
+        }
       })
       .catch(() => {});
   }, []);
@@ -1260,7 +1265,7 @@ export default function CaiDatPage() {
 
   useEffect(() => {
     if (canManage) fetchSystemSettings();
-  }, [isAdmin]);
+  }, [canManage]);
 
   async function fetchSystemSettings() {
     setLoadingSystem(true);
