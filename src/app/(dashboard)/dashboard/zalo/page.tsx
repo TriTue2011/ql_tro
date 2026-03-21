@@ -46,6 +46,22 @@ const CATEGORIES: { key: keyof ZaloSettings; label: string; chuyenKey: keyof Zal
   { key: "nhanNhacNho",  label: "Nhắc nhở ĐN",  chuyenKey: "chuyenNhacNhoChoQL" },
 ];
 
+interface ThreadSettings {
+  id: string;
+  threadId: string;
+  ten: string | null;
+  loai: string;
+  nhanSuCo: boolean;
+  nhanHoaDon: boolean;
+  nhanTinKhach: boolean;
+  nhanNguoiLa: boolean;
+  nhanNhacNho: boolean;
+}
+
+const THREAD_BOOL_KEYS: (keyof ThreadSettings & string)[] = [
+  'nhanSuCo', 'nhanHoaDon', 'nhanTinKhach', 'nhanNguoiLa', 'nhanNhacNho',
+];
+
 interface AccountData {
   id: string;
   ten: string;
@@ -296,12 +312,28 @@ function WebhookCard({ account }: { account?: AccountData }) {
     }
   };
 
-  const handleGenerateRandom = () => {
-    const secret = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join("");
+  const handleGenerateRandom = async () => {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    // base64url (A-Z a-z 0-9 - _)
+    const token = btoa(String.fromCharCode(...bytes))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const base = typeof window !== "undefined" ? window.location.origin : "";
-    setWebhookUrl(`${base}/api/zalo/webhook?secret=${secret}`);
+    const url = `${base}/api/zalowebhook/${token}`;
+    setWebhookUrl(url);
+    // Lưu token vào DB để route [token] có thể validate
+    try {
+      const existing = await fetch("/api/admin/settings").then(r => r.json())
+        .then((d: { success: boolean; data?: { khoa: string; giaTri: string }[] }) =>
+          d.success ? (d.data?.find((s: { khoa: string }) => s.khoa === "zalo_webhook_tokens")?.giaTri) : null
+        ).catch(() => null);
+      const tokens: string[] = existing ? JSON.parse(existing) : [];
+      if (!tokens.includes(token)) tokens.push(token);
+      await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: [{ khoa: "zalo_webhook_tokens", giaTri: JSON.stringify(tokens) }] }),
+      });
+    } catch { /* non-critical */ }
     toast.success("Đã tạo webhook URL ngẫu nhiên");
   };
 
@@ -767,6 +799,222 @@ function Section({ title, sub, defaultOpen = false, children }: {
   );
 }
 
+// ─── Thread Manager (đồng chủ trọ) ───────────────────────────────────────────
+
+const DEFAULT_THREAD: Omit<ThreadSettings, 'id'> = {
+  threadId: '', ten: null, loai: 'user',
+  nhanSuCo: true, nhanHoaDon: true, nhanTinKhach: true, nhanNguoiLa: true, nhanNhacNho: true,
+};
+
+type ThreadBoolKey = 'nhanSuCo' | 'nhanHoaDon' | 'nhanTinKhach' | 'nhanNguoiLa' | 'nhanNhacNho';
+const THREAD_CATEGORY_LABELS: { key: ThreadBoolKey; label: string }[] = [
+  { key: 'nhanSuCo',     label: 'Sự cố' },
+  { key: 'nhanHoaDon',   label: 'Hóa đơn' },
+  { key: 'nhanTinKhach', label: 'Tin KT' },
+  { key: 'nhanNguoiLa',  label: 'Người lạ' },
+  { key: 'nhanNhacNho',  label: 'Nhắc nhở' },
+];
+
+function ThreadManager({ account, buildingId, canEdit }: {
+  account: AccountData;
+  buildingId: string;
+  canEdit: boolean;
+}) {
+  const [threads, setThreads] = useState<ThreadSettings[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null); // id or 'new'
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newThread, setNewThread] = useState<Omit<ThreadSettings, 'id'>>(DEFAULT_THREAD);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admin/zalo/threads?nguoiDungId=${account.id}&toaNhaId=${buildingId}`
+      );
+      const data = await res.json();
+      if (data.ok) setThreads(data.threads);
+    } finally {
+      setLoading(false);
+    }
+  }, [account.id, buildingId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSaveNew = async () => {
+    if (!newThread.threadId.trim()) { toast.error('Cần nhập Thread ID'); return; }
+    setSaving('new');
+    try {
+      const res = await fetch('/api/admin/zalo/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nguoiDungId: account.id, toaNhaId: buildingId, ...newThread }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success('Đã thêm thread');
+        setNewThread(DEFAULT_THREAD);
+        setShowAdd(false);
+        load();
+      } else toast.error(data.error || 'Lỗi');
+    } finally { setSaving(null); }
+  };
+
+  const handleUpdateThread = async (t: ThreadSettings) => {
+    setSaving(t.id);
+    try {
+      const res = await fetch('/api/admin/zalo/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nguoiDungId: account.id, toaNhaId: buildingId, ...t }),
+      });
+      const data = await res.json();
+      if (data.ok) toast.success('Đã lưu');
+      else toast.error(data.error || 'Lỗi');
+    } finally { setSaving(null); }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeleting(id);
+    try {
+      await fetch(`/api/admin/zalo/threads?id=${id}`, { method: 'DELETE' });
+      setThreads(prev => prev.filter(t => t.id !== id));
+      toast.success('Đã xóa');
+    } finally { setDeleting(null); }
+  };
+
+  const updateLocal = (id: string, key: keyof ThreadSettings, value: unknown) =>
+    setThreads(prev => prev.map(t => t.id === id ? { ...t, [key]: value } : t));
+
+  if (loading) return <div className="flex items-center gap-2 text-xs text-gray-400 py-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải...</div>;
+
+  return (
+    <div className="space-y-2">
+      {/* Thread list */}
+      {threads.length === 0 && !showAdd && (
+        <p className="text-xs text-gray-400">Chưa có thread nào. Nhấn "+ Thêm" để thêm.</p>
+      )}
+      {threads.map(t => (
+        <div key={t.id} className="border rounded-md bg-white overflow-hidden">
+          {/* Thread header */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b flex-wrap">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${t.loai === 'group' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+              {t.loai === 'group' ? 'Nhóm' : 'Cá nhân'}
+            </span>
+            <code className="text-xs font-mono text-gray-700 flex-1 min-w-0 truncate">{t.threadId}</code>
+            {t.ten && <span className="text-xs text-gray-500 italic truncate max-w-[120px]">{t.ten}</span>}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => handleDelete(t.id)}
+                disabled={deleting === t.id}
+                className="text-[10px] text-red-500 hover:text-red-700 ml-auto shrink-0"
+              >
+                {deleting === t.id ? '...' : 'Xóa'}
+              </button>
+            )}
+          </div>
+          {/* Notification toggles */}
+          <div className="px-3 py-2 flex flex-wrap gap-x-4 gap-y-1.5 items-center">
+            {THREAD_CATEGORY_LABELS.map(({ key, label }) => (
+              <div key={key} className="flex items-center gap-1">
+                <Switch
+                  checked={t[key] as boolean}
+                  onCheckedChange={v => updateLocal(t.id, key, v)}
+                  disabled={!canEdit}
+                  className="scale-[0.65]"
+                />
+                <span className="text-[11px] text-gray-600">{label}</span>
+              </div>
+            ))}
+            {canEdit && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleUpdateThread(t)}
+                disabled={saving === t.id}
+                className="text-[10px] h-6 px-2 ml-auto text-blue-600 hover:text-blue-800"
+              >
+                {saving === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                Lưu
+              </Button>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {/* Add new thread form */}
+      {showAdd && (
+        <div className="border rounded-md bg-white p-3 space-y-2.5">
+          <p className="text-xs font-medium text-gray-600">Thêm Thread ID mới</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-gray-500">Thread ID *</Label>
+              <Input
+                value={newThread.threadId}
+                onChange={e => setNewThread(p => ({ ...p, threadId: e.target.value }))}
+                className="h-7 text-xs font-mono" placeholder="Zalo chat/group ID"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-gray-500">Nhãn (tùy chọn)</Label>
+              <Input
+                value={newThread.ten ?? ''}
+                onChange={e => setNewThread(p => ({ ...p, ten: e.target.value || null }))}
+                className="h-7 text-xs" placeholder="Vd: Nhóm chủ trọ toà A"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-[10px] text-gray-500">Loại:</Label>
+            {(['user', 'group'] as const).map(v => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setNewThread(p => ({ ...p, loai: v }))}
+                className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${newThread.loai === v ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-500'}`}
+              >
+                {v === 'user' ? 'Cá nhân' : 'Nhóm'}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 items-center">
+            {THREAD_CATEGORY_LABELS.map(({ key, label }) => (
+              <div key={key} className="flex items-center gap-1">
+                <Switch
+                  checked={newThread[key] as boolean}
+                  onCheckedChange={v => setNewThread(p => ({ ...p, [key]: v }))}
+                  className="scale-[0.65]"
+                />
+                <span className="text-[11px] text-gray-600">{label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSaveNew} disabled={saving === 'new'} className="text-xs gap-1">
+              {saving === 'new' ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Thêm
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)} className="text-xs text-gray-500">Hủy</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Add button */}
+      {canEdit && !showAdd && (
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 px-1 py-0.5"
+        >
+          + Thêm thread ID
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Account Settings (nội dung khi mở rộng một người) ───────────────────────
 
 function AccountSettings({
@@ -808,27 +1056,21 @@ function AccountSettings({
 
   return (
     <div className="space-y-2 p-3 bg-gray-50 border-t">
-      {/* Thông tin Zalo đồng chủ trọ — ẩn/hiện */}
+      {/* Thread IDs đồng chủ trọ — ẩn/hiện */}
       <Section
-        title="Thông tin tài khoản Zalo đồng chủ trọ"
-        sub="Tài khoản nhận tin chuyển tiếp từ quản lý"
+        title="Tài khoản Zalo đồng chủ trọ"
+        sub="Mỗi thread ID có cài đặt thông báo riêng"
         defaultOpen={false}
       >
         <p className="text-xs text-gray-500 mb-3">
-          Khi quản lý gửi thông báo, hệ thống chuyển tiếp đến tài khoản Zalo này.
-          Mỗi chủ trọ có thể liên kết một tài khoản Zalo riêng.
+          Khi quản lý gửi thông báo, hệ thống chuyển tiếp đến các thread ID này.
+          Thêm chat ID cá nhân hoặc ID nhóm Zalo. Mỗi thread có thể chọn loại thông báo nhận.
         </p>
-        <div className="flex items-center gap-2">
-          <Input
-            value={account.zaloChatId ?? ""}
-            readOnly
-            className="h-8 text-xs bg-white font-mono"
-            placeholder="Chưa liên kết Zalo"
-          />
-          {account.zaloChatId
-            ? <Badge variant="outline" className="text-green-600 border-green-300 text-[10px] whitespace-nowrap shrink-0">Đã liên kết</Badge>
-            : <Badge variant="outline" className="text-gray-400 text-[10px] whitespace-nowrap shrink-0">Chưa liên kết</Badge>}
-        </div>
+        <ThreadManager
+          account={account}
+          buildingId={buildingId}
+          canEdit={canEdit}
+        />
       </Section>
 
       {/* Cài đặt thông báo — ẩn/hiện */}
