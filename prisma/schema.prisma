@@ -38,7 +38,8 @@ model NguoiDung {
   suCoXuLy          SuCo[]          @relation("NguoiXuLy")
   thongBaoGui       ThongBao[]
   yeuCauPheDuyet    YeuCauThayDoi[]
-  zaloThongBaoCaiDat ZaloThongBaoCaiDat[]
+  zaloThongBaoCaiDat    ZaloThongBaoCaiDat[]
+  zaloDongChuTroThreads ZaloDongChuTroThread[]
 }
 
 model ToaNha {
@@ -58,7 +59,8 @@ model ToaNha {
 
   phong         Phong[]
   nguoiQuanLy   ToaNhaNguoiQuanLy[]
-  zaloThongBaoCaiDat ZaloThongBaoCaiDat[]
+  zaloThongBaoCaiDat    ZaloThongBaoCaiDat[]
+  zaloDongChuTroThreads ZaloDongChuTroThread[]
 }
 
 // Bảng gán người quản lý cho tòa nhà (role: quanLy)
@@ -342,6 +344,28 @@ model YeuCauThayDoi {
   ghiChuPheDuyet  String?
   ngayTao         DateTime   @default(now())
   ngayCapNhat     DateTime   @updatedAt
+}
+
+// Thread ID Zalo của đồng chủ trọ — mỗi threadId có 1 bảng cài đặt thông báo riêng
+model ZaloDongChuTroThread {
+  id          String    @id @default(cuid())
+  nguoiDungId String
+  nguoiDung   NguoiDung @relation(fields: [nguoiDungId], references: [id], onDelete: Cascade)
+  toaNhaId    String
+  toaNha      ToaNha    @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
+  threadId    String    // Zalo thread/group ID
+  ten         String?   // Nhãn hiển thị (tùy chọn)
+  loai        String    @default("user") // "user" | "group"
+  // Cài đặt thông báo cho thread này
+  nhanSuCo     Boolean @default(true)
+  nhanHoaDon   Boolean @default(true)
+  nhanTinKhach Boolean @default(true)
+  nhanNguoiLa  Boolean @default(true)
+  nhanNhacNho  Boolean @default(true)
+  ngayTao     DateTime  @default(now())
+  ngayCapNhat DateTime  @updatedAt
+
+  @@unique([nguoiDungId, toaNhaId, threadId])
 }
 
 // Danh sách endpoint của Zalo Bot Server — seed từ code, proxy dùng làm whitelist
