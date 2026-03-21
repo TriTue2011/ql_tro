@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPhongRepo, getToaNhaRepo } from '@/lib/repositories';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 const phongSchema = z.object({
   maPhong: z.string().min(1, 'Mã phòng là bắt buộc'),
@@ -116,6 +117,12 @@ export async function PUT(
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { message: error.issues[0].message },
+        { status: 400 }
+      );
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return NextResponse.json(
+        { message: 'Mã phòng đã tồn tại trong tòa nhà này' },
         { status: 400 }
       );
     }

@@ -112,7 +112,7 @@ model ZaloThongBaoCaiDat {
 
 model Phong {
   id            String    @id @default(cuid())
-  maPhong       String    @unique
+  maPhong       String
   toaNhaId      String
   toaNha        ToaNha    @relation(fields: [toaNhaId], references: [id])
   tang          Int
@@ -133,6 +133,8 @@ model Phong {
   hoaDon        HoaDon[]
   suCo          SuCo[]
   thongBao      ThongBaoPhong[]
+
+  @@unique([maPhong, toaNhaId])
 }
 
 model KhachThue {

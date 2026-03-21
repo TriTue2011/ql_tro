@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
-        { message: 'Mã phòng đã tồn tại' },
+        { message: 'Mã phòng đã tồn tại trong tòa nhà này' },
         { status: 400 }
       );
     }
