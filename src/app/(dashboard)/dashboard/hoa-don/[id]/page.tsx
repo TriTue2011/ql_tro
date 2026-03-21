@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -101,6 +102,10 @@ export default function ChinhSuaHoaDonPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoaDonId]);
+
+  useRealtimeEvents(['hoa-don', 'thanh-toan'], (_type, _action) => {
+    if (hoaDonId) fetchData();
+  });
 
   const fetchData = async () => {
     try {
