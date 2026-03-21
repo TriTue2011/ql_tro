@@ -48,6 +48,7 @@ interface UserProfile {
   vaiTro: string;
   trangThai: string;
   ngayTao: string;
+  ngayCapNhat?: string;
   zaloChatId?: string | null;
   pendingZaloChatId?: string | null;
 }
@@ -114,13 +115,13 @@ export default function ProfilePage() {
   const [zaloPendingLoading, setZaloPendingLoading] = useState(false);
 
   async function handleZaloPendingAction(action: 'confirm' | 'reject') {
-    if (!profile?._id) return;
+    if (!profile?.id) return;
     setZaloPendingLoading(true);
     try {
       const res = await fetch('/api/zalo/link-chat-id-nguoi-dung', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nguoiDungId: profile._id, action }),
+        body: JSON.stringify({ nguoiDungId: profile.id, action }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -236,10 +237,10 @@ export default function ProfilePage() {
 
   // Load notif prefs when profile loads
   useEffect(() => {
-    if (profile?._id) {
-      setNotifPrefs(loadNotifPrefs(profile._id));
+    if (profile?.id) {
+      setNotifPrefs(loadNotifPrefs(profile.id));
     }
-  }, [profile?._id]);
+  }, [profile?.id]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,7 +268,7 @@ export default function ProfilePage() {
   const handleNotifToggle = (key: string, value: boolean) => {
     const updated = { ...notifPrefs, [key]: value };
     setNotifPrefs(updated);
-    if (profile?._id) saveNotifPrefs(profile._id, updated);
+    if (profile?.id) saveNotifPrefs(profile.id, updated);
     toast.success(value ? 'Đã bật thông báo' : 'Đã tắt thông báo');
   };
 
@@ -551,7 +552,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-xs md:text-sm font-medium">Ngày tạo tài khoản</p>
                     <p className="text-xs md:text-sm text-gray-600">
-                      {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                      {profile?.ngayTao ? new Date(profile.ngayTao).toLocaleDateString('vi-VN') : 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -560,7 +561,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-xs md:text-sm font-medium">Lần đăng nhập cuối</p>
                     <p className="text-xs md:text-sm text-gray-600">
-                      {profile?.lastLogin ? new Date(profile.lastLogin).toLocaleDateString('vi-VN') : 'N/A'}
+                      {profile?.ngayCapNhat ? new Date(profile.ngayCapNhat).toLocaleDateString('vi-VN') : 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -720,14 +721,14 @@ export default function ProfilePage() {
                   <Calendar className="h-4 w-4 text-gray-500 shrink-0" />
                   <div>
                     <p className="text-xs font-medium text-gray-700">Ngày tạo tài khoản</p>
-                    <p className="text-xs text-gray-500">{profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</p>
+                    <p className="text-xs text-gray-500">{profile?.ngayTao ? new Date(profile.ngayTao).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
                   <Key className="h-4 w-4 text-gray-500 shrink-0" />
                   <div>
                     <p className="text-xs font-medium text-gray-700">Đăng nhập cuối</p>
-                    <p className="text-xs text-gray-500">{profile?.lastLogin ? new Date(profile.lastLogin).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
+                    <p className="text-xs text-gray-500">{profile?.ngayCapNhat ? new Date(profile.ngayCapNhat).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
                   </div>
                 </div>
               </div>
