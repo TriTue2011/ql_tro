@@ -115,7 +115,8 @@ export default function AccountManagementPage() {
 
   useEffect(() => {
     const role = session?.user?.role;
-    if ((role === 'admin' || role === 'chuNha') && !hasFetchedRef.current) {
+    const canAccess = role === 'admin' || role === 'chuNha' || role === 'dongChuTro';
+    if (canAccess && !hasFetchedRef.current) {
       hasFetchedRef.current = true;
       fetchUsers(false);
       fetchBuildings();
@@ -291,6 +292,8 @@ export default function AccountManagementPage() {
         return <Badge variant="destructive">Quản trị viên</Badge>;
       case 'chuNha':
         return <Badge variant="default" className="bg-blue-600">Chủ trọ</Badge>;
+      case 'dongChuTro':
+        return <Badge variant="default" className="bg-teal-600">Đồng chủ trọ</Badge>;
       case 'quanLy':
         return <Badge variant="outline" className="border-violet-400 text-violet-600">Quản lý</Badge>;
       case 'nhanVien':
@@ -317,8 +320,9 @@ export default function AccountManagementPage() {
 
   const isAdmin = session?.user?.role === 'admin';
   const isChuNha = session?.user?.role === 'chuNha';
+  const isDongChuTro = session?.user?.role === 'dongChuTro';
 
-  if (!isAdmin && !isChuNha) {
+  if (!isAdmin && !isChuNha && !isDongChuTro) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -440,10 +444,18 @@ export default function AccountManagementPage() {
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="nhanVien">Nhân viên</SelectItem>
-                  <SelectItem value="quanLy">Quản lý</SelectItem>
-                  <SelectItem value="chuNha">Chủ trọ</SelectItem>
-                  <SelectItem value="admin">Quản trị viên</SelectItem>
+                  {isAdmin ? (
+                    <>
+                      <SelectItem value="chuNha">Chủ trọ</SelectItem>
+                      <SelectItem value="admin">Quản trị viên</SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="dongChuTro">Đồng chủ trọ</SelectItem>
+                      <SelectItem value="quanLy">Quản lý</SelectItem>
+                      <SelectItem value="nhanVien">Nhân viên</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -690,10 +702,18 @@ export default function AccountManagementPage() {
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="nhanVien">Nhân viên</SelectItem>
-                  <SelectItem value="quanLy">Quản lý</SelectItem>
-                  <SelectItem value="chuNha">Chủ trọ</SelectItem>
-                  <SelectItem value="admin">Quản trị viên</SelectItem>
+                  {isAdmin ? (
+                    <>
+                      <SelectItem value="chuNha">Chủ trọ</SelectItem>
+                      <SelectItem value="admin">Quản trị viên</SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="dongChuTro">Đồng chủ trọ</SelectItem>
+                      <SelectItem value="quanLy">Quản lý</SelectItem>
+                      <SelectItem value="nhanVien">Nhân viên</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

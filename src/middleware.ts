@@ -202,12 +202,22 @@ export default async function middleware(req: NextRequest) {
 
   // ── API access control ────────────────────────────────────────────────────
 
-  // Chặn /api/admin/* nếu không phải admin (trừ create-first đã xử lý ở trên)
+  // Chặn /api/admin/* nếu không phải admin
+  // Ngoại lệ: chuNha/dongChuTro được phép truy cập một số endpoint nhất định
+  const CHUANHA_ALLOWED_ADMIN_PATHS = [
+    '/api/admin/users',
+    '/api/admin/settings',
+    '/api/admin/toa-nha-settings',
+  ];
   if (pathname.startsWith('/api/admin') && token?.role !== 'admin') {
-    return new NextResponse(
-      JSON.stringify({ message: 'Forbidden — chỉ admin mới có quyền truy cập' }),
-      { status: 403, headers: { 'Content-Type': 'application/json' } }
-    );
+    const isChuNhaRole = role === 'chuNha' || role === 'dongChuTro';
+    const isAllowedPath = CHUANHA_ALLOWED_ADMIN_PATHS.some(p => pathname.startsWith(p));
+    if (!isChuNhaRole || !isAllowedPath) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Forbidden — không có quyền truy cập' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
   }
 
   // Chặn khachThue truy cập API quản lý

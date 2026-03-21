@@ -12,7 +12,7 @@ const createUserSchema = z.object({
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').max(128),
   // Số điện thoại bắt buộc để có thể đăng nhập
   phone: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ (10-11 chữ số)'),
-  role: z.enum(['admin', 'chuNha', 'quanLy', 'nhanVien']),
+  role: z.enum(['admin', 'chuNha', 'dongChuTro', 'quanLy', 'nhanVien']),
   toaNhaId: z.string().optional().nullable(),
 });
 
@@ -21,7 +21,8 @@ export async function GET() {
     const session = await getServerSession(authOptions);
 
     const role = session?.user?.role;
-    if (!session?.user?.id || (role !== 'admin' && role !== 'chuNha')) {
+    const ALLOWED_MANAGERS = ['admin', 'chuNha', 'dongChuTro'];
+    if (!session?.user?.id || !ALLOWED_MANAGERS.includes(role ?? '')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -49,8 +50,16 @@ export async function GET() {
     } as const;
 
     let users;
-    if (role === 'chuNha') {
-      // chuNha chỉ thấy quanLy/nhanVien được gán vào tòa nhà của mình
+    if (role === 'admin') {
+      // Admin chỉ quản lý admin và chuNha
+      users = await prisma.nguoiDung.findMany({
+        where: { vaiTro: { in: ['admin', 'chuNha'] } },
+        take: 1000,
+        orderBy: { ngayTao: 'desc' },
+        select: selectFields,
+      });
+    } else {
+      // chuNha/dongChuTro: thấy dongChuTro, quanLy, nhanVien gán vào tòa nhà của mình
       const myBuildingIds = await prisma.toaNha.findMany({
         where: {
           OR: [
@@ -63,15 +72,9 @@ export async function GET() {
 
       users = await prisma.nguoiDung.findMany({
         where: {
-          vaiTro: { in: ['quanLy', 'nhanVien'] },
+          vaiTro: { in: ['dongChuTro', 'quanLy', 'nhanVien'] },
           toaNhaQuanLy: { some: { toaNhaId: { in: myBuildingIds } } },
         },
-        take: 1000,
-        orderBy: { ngayTao: 'desc' },
-        select: selectFields,
-      });
-    } else {
-      users = await prisma.nguoiDung.findMany({
         take: 1000,
         orderBy: { ngayTao: 'desc' },
         select: selectFields,
@@ -113,7 +116,9 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id || session.user.role !== 'admin') {
+    const callerRole = session?.user?.role;
+    const ALLOWED_CREATORS = ['admin', 'chuNha', 'dongChuTro'];
+    if (!session?.user?.id || !ALLOWED_CREATORS.includes(callerRole ?? '')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -127,6 +132,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, email, password, phone, role, toaNhaId } = parsed.data;
+
+    // chuNha/dongChuTro chỉ được tạo dongChuTro/quanLy/nhanVien
+    if (callerRole !== 'admin' && ['admin', 'chuNha'].includes(role)) {
+      return NextResponse.json({ error: 'Không có quyền tạo tài khoản với vai trò này' }, { status: 403 });
+    }
 
     const cleanEmail = email?.trim() ? email.toLowerCase() : null;
 

@@ -12,11 +12,7 @@ interface AdminStats {
   tongToaNha: number;
   tongNguoiDung: number;
   tongChuNha: number;
-  tongQuanLy: number;
-  tongNhanVien: number;
   tongAdmin: number;
-  tongKhachThue: number;
-  khachThueCoTaiKhoan: number;
   toaNhaMoiNhat: { id: string; tenToaNha: string; diaChi: string; ngayTao: string }[];
 }
 
@@ -144,12 +140,12 @@ export default function DashboardPage() {
             </div>
             <div className="d-none d-md-flex align-items-center gap-3">
               <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 18px', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', textAlign: 'center', minWidth: 100 }}>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{s.tongKhachThue}</div>
-                <div style={{ fontSize: 11, opacity: 0.8, color: '#fff' }}>Khách thuê</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{s.tongAdmin}</div>
+                <div style={{ fontSize: 11, opacity: 0.8, color: '#fff' }}>Admin</div>
               </div>
               <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 18px', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', textAlign: 'center', minWidth: 100 }}>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{s.khachThueCoTaiKhoan}</div>
-                <div style={{ fontSize: 11, opacity: 0.8, color: '#fff' }}>Có tài khoản</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{s.tongNguoiDung}</div>
+                <div style={{ fontSize: 11, opacity: 0.8, color: '#fff' }}>Người dùng</div>
               </div>
             </div>
           </div>
@@ -167,8 +163,8 @@ export default function DashboardPage() {
           {[
             { label: 'Tòa nhà', value: s.tongToaNha, icon: 'bi-buildings', color: '#6366f1', bg: 'card-indigo', href: '/dashboard/toa-nha' },
             { label: 'Chủ trọ', value: s.tongChuNha, icon: 'bi-person-fill-gear', color: '#10b981', bg: 'card-emerald', href: '/dashboard/quan-ly-tai-khoan' },
-            { label: 'Quản lý', value: s.tongQuanLy, icon: 'bi-person-badge-fill', color: '#3b82f6', bg: 'card-blue', href: '/dashboard/quan-ly-tai-khoan' },
-            { label: 'Khách thuê', value: s.tongKhachThue, icon: 'bi-people-fill', color: '#f59e0b', bg: 'card-amber', href: null },
+            { label: 'Admin', value: s.tongAdmin, icon: 'bi-shield-lock-fill', color: '#3b82f6', bg: 'card-blue', href: '/dashboard/quan-ly-tai-khoan' },
+            { label: 'Người dùng', value: s.tongNguoiDung, icon: 'bi-people-fill', color: '#f59e0b', bg: 'card-amber', href: '/dashboard/quan-ly-tai-khoan' },
           ].map((item) => (
             <div key={item.label} className="col-6 col-sm-6 col-lg-3">
               <div className={`bs-stat-card ${item.bg}`}>
@@ -189,63 +185,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Row 2: Nhân viên + Tài khoản khách */}
-        <div className="row g-3 mb-4">
-          <div className="col-6 col-md-3">
-            <div className="bs-stat-card card-violet">
-              <div className="d-flex align-items-center gap-3">
-                <div className="bs-stat-icon icon-violet" style={{ width: 40, height: 40, fontSize: 18 }}>
-                  <i className="bi bi-person-workspace" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Nhân viên</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#7c3aed' }}>{s.tongNhanVien}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-6 col-md-3">
-            <div className="bs-stat-card card-blue">
-              <div className="d-flex align-items-center gap-3">
-                <div className="bs-stat-icon icon-blue" style={{ width: 40, height: 40, fontSize: 18 }}>
-                  <i className="bi bi-shield-lock-fill" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Admin</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb' }}>{s.tongAdmin}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-6 col-md-3">
-            <div className="bs-stat-card card-emerald">
-              <div className="d-flex align-items-center gap-3">
-                <div className="bs-stat-icon icon-emerald" style={{ width: 40, height: 40, fontSize: 18 }}>
-                  <i className="bi bi-person-check-fill" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Khách có tài khoản</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#059669' }}>{s.khachThueCoTaiKhoan}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-6 col-md-3">
-            <div className="bs-stat-card card-indigo">
-              <div className="d-flex align-items-center gap-3">
-                <div className="bs-stat-icon icon-indigo" style={{ width: 40, height: 40, fontSize: 18 }}>
-                  <i className="bi bi-person-x-fill" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Chưa có TK</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#4f46e5' }}>{s.tongKhachThue - s.khachThueCoTaiKhoan}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Row 3: Danh sách tòa nhà mới + Quick actions */}
+        {/* Row 2: Danh sách tòa nhà mới + Quick actions */}
         <div className="row g-3">
           <div className="col-12 col-lg-8">
             <div className="bs-card">
@@ -545,6 +485,71 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Nhân sự + Khách thuê (chỉ chuNha/dongChuTro) ───────────────── */}
+      {(stats.tongQuanLy !== undefined || stats.tongKhachThue !== undefined) && (
+        <div className="row g-3 mb-4">
+          <div className="col-6 col-md-3">
+            <div className="bs-stat-card card-blue">
+              <div className="d-flex align-items-center gap-3">
+                <div className="bs-stat-icon icon-blue" style={{ width: 40, height: 40, fontSize: 18 }}>
+                  <i className="bi bi-person-badge-fill" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Quản lý</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb' }}>{stats.tongQuanLy ?? 0}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div className="bs-stat-card card-violet">
+              <div className="d-flex align-items-center gap-3">
+                <div className="bs-stat-icon icon-violet" style={{ width: 40, height: 40, fontSize: 18 }}>
+                  <i className="bi bi-person-workspace" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Nhân viên</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#7c3aed' }}>{stats.tongNhanVien ?? 0}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div className="bs-stat-card card-amber">
+              <div className="d-flex align-items-center gap-3">
+                <div className="bs-stat-icon icon-amber" style={{ width: 40, height: 40, fontSize: 18 }}>
+                  <i className="bi bi-people-fill" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Khách thuê</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706' }}>{stats.tongKhachThue ?? 0}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div className="bs-stat-card card-emerald">
+              <div className="d-flex align-items-center gap-3">
+                <div className="bs-stat-icon icon-emerald" style={{ width: 40, height: 40, fontSize: 18 }}>
+                  <i className="bi bi-person-check-fill" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
+                    Có TK / Chưa có TK
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#059669' }}>
+                    {stats.khachThueCoTaiKhoan ?? 0}
+                    <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: 14 }}>
+                      {' / '}{(stats.tongKhachThue ?? 0) - (stats.khachThueCoTaiKhoan ?? 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Row 3: Charts + Activities ──────────────────────────────────── */}
       <div className="row g-3 mb-4">

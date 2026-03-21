@@ -1,9 +1,8 @@
 /**
  * GET /api/dashboard/admin-stats
  * Thống kê hệ thống dành riêng cho admin:
- * - Tổng tòa nhà, phân bố người dùng theo vai trò
- * - Số khách thuê đang có tài khoản đăng nhập
- * - Trạng thái hệ thống (uptime placeholder)
+ * - Tổng tòa nhà, số chủ trọ, số admin
+ * - Danh sách tòa nhà mới nhất
  */
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -18,17 +17,11 @@ export async function GET() {
 
   const [
     tongToaNha,
-    tongNguoiDung,
     userByRole,
-    tongKhachThue,
-    khachThueCoTaiKhoan,
     toaNhaMoiNhat,
   ] = await Promise.all([
     prisma.toaNha.count(),
-    prisma.nguoiDung.count(),
     prisma.nguoiDung.groupBy({ by: ['vaiTro'], _count: { id: true } }),
-    prisma.khachThue.count(),
-    prisma.khachThue.count({ where: { matKhau: { not: null } } }),
     prisma.toaNha.findMany({
       take: 5,
       orderBy: { ngayTao: 'desc' },
@@ -38,6 +31,7 @@ export async function GET() {
 
   const roleCount: Record<string, number> = {};
   for (const r of userByRole) roleCount[r.vaiTro] = r._count.id;
+  const tongNguoiDung = Object.values(roleCount).reduce((a, b) => a + b, 0);
 
   // diaChi là Json object { soNha, duong, phuong, quan, thanhPho } — chuyển thành string
   const toaNhaMoiNhatFormatted = toaNhaMoiNhat.map((tn) => {
@@ -54,11 +48,7 @@ export async function GET() {
       tongToaNha,
       tongNguoiDung,
       tongChuNha: roleCount['chuNha'] ?? 0,
-      tongQuanLy: roleCount['quanLy'] ?? 0,
-      tongNhanVien: roleCount['nhanVien'] ?? 0,
       tongAdmin: roleCount['admin'] ?? 0,
-      tongKhachThue,
-      khachThueCoTaiKhoan,
       toaNhaMoiNhat: toaNhaMoiNhatFormatted,
     },
   });

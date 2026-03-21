@@ -28,7 +28,7 @@ function getInitials(name: string) {
 }
 
 // ─── Phân quyền sidebar theo role ──────────────────────────────────────────
-type Role = 'admin' | 'chuNha' | 'quanLy' | 'nhanVien' | string;
+type Role = 'admin' | 'chuNha' | 'dongChuTro' | 'quanLy' | 'nhanVien' | string;
 
 /**
  * Trả về danh sách NavGroup dựa vào role hiện tại.
@@ -40,7 +40,7 @@ type Role = 'admin' | 'chuNha' | 'quanLy' | 'nhanVien' | string;
  */
 function buildNavGroups(role: Role): NavGroup[] {
   const isAdmin = role === 'admin';
-  const isChuNha = role === 'chuNha';
+  const isChuNha = role === 'chuNha' || role === 'dongChuTro';
   const isQuanLy = role === 'quanLy';
   const isNhanVien = role === 'nhanVien';
 
@@ -106,6 +106,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         { label: 'Tòa nhà', href: '/dashboard/toa-nha' },
         { label: 'Phòng', href: '/dashboard/phong' },
         { label: 'Khách thuê', href: '/dashboard/khach-thue' },
+        ...(isChuNha ? [{ label: 'Nhân sự', href: '/dashboard/quan-ly-tai-khoan' }] : []),
       ],
     },
     {
@@ -152,11 +153,12 @@ function buildNavGroups(role: Role): NavGroup[] {
 
 function roleLabel(role: Role): string {
   switch (role) {
-    case 'admin':    return 'Quản trị viên';
-    case 'chuNha':   return 'Chủ trọ';
-    case 'quanLy':   return 'Người quản lý';
-    case 'nhanVien': return 'Nhân viên';
-    default:         return 'Người dùng';
+    case 'admin':       return 'Quản trị viên';
+    case 'chuNha':      return 'Chủ trọ';
+    case 'dongChuTro':  return 'Đồng chủ trọ';
+    case 'quanLy':      return 'Người quản lý';
+    case 'nhanVien':    return 'Nhân viên';
+    default:            return 'Người dùng';
   }
 }
 
@@ -280,6 +282,7 @@ function getItemIcon(label: string): string {
     'Thông báo':          'bi-bell',
     'Zalo':               'bi-chat-dots',
     'Quản lý tài khoản': 'bi-person-badge',
+    'Nhân sự':           'bi-people',
     'Hồ sơ':             'bi-person-circle',
     'Cài đặt':           'bi-sliders',
   };

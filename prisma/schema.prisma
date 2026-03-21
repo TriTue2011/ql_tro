@@ -16,7 +16,7 @@ model NguoiDung {
   email         String?   @unique
   matKhau       String
   soDienThoai   String?   @unique
-  vaiTro        String    @default("nhanVien") // admin | chuNha | quanLy | nhanVien
+  vaiTro        String    @default("nhanVien") // admin | chuNha | dongChuTro | quanLy | nhanVien
   anhDaiDien    String?
   trangThai        String    @default("hoatDong") // hoatDong | khoa
   zaloChatId        String?   // Zalo bot chat_id đã xác thực
@@ -33,6 +33,7 @@ model NguoiDung {
   // Relations
   toaNha        ToaNha[]
   toaNhaQuanLy  ToaNhaNguoiQuanLy[]
+  caiDatChuNha  CaiDatChuNha?
   chiSo         ChiSoDienNuoc[]
   thanhToan     ThanhToan[]
   suCoXuLy          SuCo[]          @relation("NguoiXuLy")
@@ -61,6 +62,7 @@ model ToaNha {
   nguoiQuanLy   ToaNhaNguoiQuanLy[]
   zaloThongBaoCaiDat    ZaloThongBaoCaiDat[]
   zaloDongChuTroThreads ZaloDongChuTroThread[]
+  caiDatToaNha  CaiDatToaNha?
 }
 
 // Bảng gán người quản lý cho tòa nhà (role: quanLy)
@@ -369,6 +371,68 @@ model ZaloDongChuTroThread {
   ngayCapNhat DateTime  @updatedAt
 
   @@unique([nguoiDungId, toaNhaId, threadId])
+}
+
+// Cài đặt per tòa nhà: Home Assistant + lưu trữ — do admin quản lý
+model CaiDatToaNha {
+  id          String   @id @default(cuid())
+  toaNhaId    String   @unique
+  toaNha      ToaNha   @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
+
+  // Home Assistant
+  haUrl       String?  // URL domain/IP của Home Assistant (e.g. https://ha.myhouse.com)
+  haToken     String?  // Long-lived access token
+
+  // Lưu trữ ảnh
+  storageProvider  String  @default("local") // local | minio | cloudinary | both
+  minioEndpoint    String?
+  minioAccessKey   String?
+  minioSecretKey   String?
+  minioBucket      String?
+  cloudinaryCloudName   String?
+  cloudinaryApiKey      String?
+  cloudinaryApiSecret   String?
+  cloudinaryPreset      String?
+  uploadMaxSizeMb  Int     @default(10)
+
+  ngayTao     DateTime @default(now())
+  ngayCapNhat DateTime @updatedAt
+}
+
+// Cài đặt per chủ trọ: thanh toán, cảnh báo, hệ thống, giao diện
+model CaiDatChuNha {
+  id          String    @id @default(cuid())
+  nguoiDungId String    @unique
+  nguoiDung   NguoiDung @relation(fields: [nguoiDungId], references: [id], onDelete: Cascade)
+
+  // Thanh toán
+  nganHangTen          String?
+  nganHangSoTaiKhoan   String?
+  nganHangChuTaiKhoan  String?
+
+  // Cảnh báo & nhắc nhở (số ngày/giờ)
+  thongBaoTruocHanHopDong  Int  @default(30)
+  thongBaoQuaHanHoaDon     Int  @default(3)
+  hoaDonCanhBaoLan1        Int  @default(3)
+  hoaDonCanhBaoLan2        Int  @default(7)
+  hoaDonCanhBaoLan3        Int  @default(14)
+  hopDongCanhBaoLan1       Int  @default(30)
+  hopDongCanhBaoLan2       Int  @default(15)
+  hopDongCanhBaoLan3       Int  @default(7)
+  chotChiSoNgayTrongThang  Int  @default(1)
+  chotChiSoTruocNgay       Int  @default(5)
+  suCoChuaNhanGio          Int  @default(24)
+  suCoChuaXuLyGio          Int  @default(72)
+
+  // Hệ thống
+  tenCongTy    String?
+  emailLienHe  String?
+  sdtLienHe    String?
+  diaChiCongTy String?
+  appDomainUrl String?  // Domain công khai của chủ trọ
+
+  ngayTao     DateTime @default(now())
+  ngayCapNhat DateTime @updatedAt
 }
 
 // Danh sách endpoint của Zalo Bot Server — seed từ code, proxy dùng làm whitelist
