@@ -27,7 +27,6 @@ model NguoiDung {
   zaloBotUsername   String?  // Username bot server riêng
   zaloBotPassword   String?  // Password bot server riêng
   zaloBotTtl        Int?     // TTL tin nhắn (ms), 0 = không tự hủy
-  nguoiTaoId       String?   // ID người tạo tài khoản này
   ngayTao          DateTime  @default(now())
   ngayCapNhat      DateTime  @updatedAt
 
@@ -152,7 +151,6 @@ model KhachThue {
   pendingZaloChatId String?   // Zalo bot chat_id chờ xác nhận (phát hiện từ getUpdates)
   nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
   trangThai         String    @default("chuaThue") // dangThue | daTraPhong | chuaThue
-  nguoiTaoId        String?   // ID người tạo hồ sơ khách thuê
   ngayTao       DateTime  @default(now())
   ngayCapNhat   DateTime  @updatedAt
 

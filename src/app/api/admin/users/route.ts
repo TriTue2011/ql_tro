@@ -37,7 +37,6 @@ export async function GET() {
       zaloChatId: true,
       nhanThongBaoZalo: true,
       zaloAccountId: true,
-      nguoiTaoId: true,
       ngayTao: true,
       ngayCapNhat: true,
       toaNha: { select: { id: true, tenToaNha: true }, take: 1 },
@@ -82,8 +81,16 @@ export async function GET() {
       });
     }
 
+    // Batch-fetch nguoiTaoId via raw SQL (column not in Prisma schema)
+    const userIds = users.map(u => u.id);
+    const nguoiTaoRows = userIds.length > 0
+      ? await prisma.$queryRaw<{ id: string; nguoiTaoId: string | null }[]>`
+          SELECT id, "nguoiTaoId" FROM "NguoiDung" WHERE id = ANY(${userIds})`
+      : [];
+    const nguoiTaoIdByUser = new Map(nguoiTaoRows.map(r => [r.id, r.nguoiTaoId]));
+
     // Batch-fetch tên người tạo
-    const creatorIds = [...new Set(users.map(u => u.nguoiTaoId).filter(Boolean) as string[])];
+    const creatorIds = [...new Set(nguoiTaoRows.map(r => r.nguoiTaoId).filter(Boolean) as string[])];
     const creators = creatorIds.length > 0
       ? await prisma.nguoiDung.findMany({
           where: { id: { in: creatorIds } },
@@ -97,6 +104,7 @@ export async function GET() {
       const managedEntry = u.toaNhaQuanLy[0] ?? null;
       const managedBuilding = managedEntry?.toaNha ?? null;
       const assignedBuilding = ownedBuilding || managedBuilding;
+      const nguoiTaoId = nguoiTaoIdByUser.get(u.id) ?? null;
       return {
         id: u.id,
         ten: u.ten,
@@ -108,8 +116,8 @@ export async function GET() {
         zaloChatId: u.zaloChatId,
         nhanThongBaoZalo: u.nhanThongBaoZalo,
         zaloAccountId: u.zaloAccountId,
-        nguoiTaoId: u.nguoiTaoId ?? null,
-        nguoiTaoTen: u.nguoiTaoId ? (creatorMap.get(u.nguoiTaoId) ?? null) : null,
+        nguoiTaoId: nguoiTaoId,
+        nguoiTaoTen: nguoiTaoId ? (creatorMap.get(nguoiTaoId) ?? null) : null,
         ngayTao: u.ngayTao.toISOString(),
         createdAt: u.ngayTao.toISOString(),
         toaNhaId: assignedBuilding?.id ?? null,
@@ -171,9 +179,15 @@ export async function POST(request: NextRequest) {
         matKhau: hashedPassword,
         soDienThoai: phone,
         vaiTro: role,
-        nguoiTaoId: session.user.id,
       },
     });
+
+    // Lưu người tạo via raw SQL (column not in Prisma schema)
+    prisma.$executeRawUnsafe(
+      `UPDATE "NguoiDung" SET "nguoiTaoId" = $1 WHERE id = $2`,
+      session.user.id,
+      newUser.id,
+    ).catch(() => {});
 
     // Gán tòa nhà nếu có và không phải admin
     if (toaNhaId && role !== 'admin') {

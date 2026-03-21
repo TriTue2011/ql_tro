@@ -169,12 +169,13 @@ export async function POST(request: NextRequest) {
       matKhau: hashedPassword,
     });
 
-    // Lưu người tạo
+    // Lưu người tạo via raw SQL (column not in Prisma schema)
     if (session.user.id && newKhachThue.id) {
-      await prisma.khachThue.update({
-        where: { id: newKhachThue.id },
-        data: { nguoiTaoId: session.user.id },
-      }).catch(() => {});
+      prisma.$executeRawUnsafe(
+        `UPDATE "KhachThue" SET "nguoiTaoId" = $1 WHERE id = $2`,
+        session.user.id,
+        newKhachThue.id,
+      ).catch(() => {});
     }
 
     return NextResponse.json({
