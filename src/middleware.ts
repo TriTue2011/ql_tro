@@ -173,7 +173,6 @@ export default async function middleware(req: NextRequest) {
       '/dashboard/su-co',
       '/dashboard/thong-bao',
       '/dashboard/yeu-cau-duyet',
-      '/dashboard/zalo',
     ];
     if (role === 'admin' && ADMIN_BLOCKED_PATHS.some(p => pathname.startsWith(p))) {
       const redirectUrl = req.nextUrl.clone();
