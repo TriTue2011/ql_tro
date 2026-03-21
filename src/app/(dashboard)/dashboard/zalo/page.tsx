@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import {
   Building2, QrCode, Save, RefreshCw, Smartphone,
   Crown, Users, User, ChevronDown, ChevronRight,
   Server, Webhook, Send, CheckCircle2, XCircle,
   Loader2, Eye, Terminal, Play,
+  Image, FileText, Upload, MessageSquare,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -413,34 +414,99 @@ function WebhookCard({ account }: { account?: AccountData }) {
 
 // ─── Test Send Card ───────────────────────────────────────────────────────────
 
+type TestType = "text" | "image" | "file";
+
 function TestSendCard({ account }: { account?: AccountData }) {
   const [chatId, setChatId] = useState(account?.zaloChatId ?? "");
+  const [testType, setTestType] = useState<TestType>("text");
+  const [threadType, setThreadType] = useState<0 | 1>(0); // 0=user, 1=group
   const [message, setMessage] = useState("Tin nhắn test từ hệ thống QL Trọ");
+  const [imageUrl, setImageUrl] = useState("");
+  const [fileUrl, setFileUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const switchType = (t: TestType) => {
+    setTestType(t);
+    setResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("type", testType === "image" ? "image" : "file");
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.secure_url) {
+        if (testType === "image") setImageUrl(data.secure_url);
+        else setFileUrl(data.secure_url);
+        toast.success("Upload thành công");
+      } else {
+        toast.error(data.message || "Upload thất bại");
+      }
+    } catch {
+      toast.error("Lỗi upload file");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSend = async () => {
-    if (!chatId.trim() || !message.trim()) {
-      toast.error("Cần nhập Chat ID và nội dung tin nhắn");
+    if (!chatId.trim()) {
+      toast.error("Cần nhập Chat ID người nhận");
+      return;
+    }
+    if (testType === "text" && !message.trim()) {
+      toast.error("Cần nhập nội dung tin nhắn");
+      return;
+    }
+    if (testType === "image" && !imageUrl.trim()) {
+      toast.error("Cần nhập URL hình ảnh hoặc upload từ máy");
+      return;
+    }
+    if (testType === "file" && !fileUrl.trim()) {
+      toast.error("Cần nhập URL file hoặc upload từ máy");
       return;
     }
     setSending(true);
     setResult(null);
     try {
+      const body: Record<string, unknown> = {
+        chatId: chatId.trim(),
+        threadType,
+      };
+      if (testType === "text") body.message = message;
+      else if (testType === "image") {
+        body.imageUrl = imageUrl.trim();
+        if (message.trim()) body.message = message;
+      } else {
+        body.fileUrl = fileUrl.trim();
+        if (message.trim()) body.message = message;
+      }
       const res = await fetch("/api/gui-zalo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatId: chatId.trim(), message }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       const ok = data.success === true;
       setResult({ ok, error: data.message || data.error });
-      if (ok) toast.success("Đã gửi tin nhắn test thành công");
+      if (ok) toast.success("Đã gửi thành công");
       else toast.error(data.message || data.error || "Gửi thất bại");
     } finally {
       setSending(false);
     }
   };
+
+  const typeLabel: Record<TestType, string> = { text: "Văn bản", image: "Hình ảnh", file: "File" };
+  const typeIcon = { text: MessageSquare, image: Image, file: FileText };
 
   return (
     <Card>
@@ -449,33 +515,153 @@ function TestSendCard({ account }: { account?: AccountData }) {
           <Send className="h-4 w-4 text-green-600" />
           Test gửi tin
         </CardTitle>
-        <CardDescription className="text-xs">Gửi tin nhắn thử nghiệm qua Zalo Bot</CardDescription>
+        <CardDescription className="text-xs">Kiểm tra gửi tin nhắn, hình ảnh hoặc file qua Zalo Bot</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Loại gửi */}
+        <div className="flex gap-2">
+          {(["text", "image", "file"] as const).map(t => {
+            const Icon = typeIcon[t];
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => switchType(t)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                  testType === t
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {typeLabel[t]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Chat ID */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-gray-500">Zalo Chat ID (người nhận)</Label>
+          <Label className="text-xs text-gray-500">Chat ID người nhận (Thread ID)</Label>
           <Input
             value={chatId}
             onChange={e => setChatId(e.target.value)}
-            placeholder="Nhập Zalo Chat ID"
+            placeholder="VD: 6643404425553198601"
             className="h-8 text-xs font-mono"
           />
         </div>
+
+        {/* Loại thread */}
+        <div className="space-y-1">
+          <Label className="text-xs text-gray-500">Loại thread</Label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setThreadType(0)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                threadType === 0
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
+              }`}
+            >
+              <User className="h-3.5 w-3.5" /> Người dùng
+            </button>
+            <button
+              type="button"
+              onClick={() => setThreadType(1)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                threadType === 1
+                  ? "bg-purple-600 text-white border-purple-600"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" /> Nhóm
+            </button>
+          </div>
+          <p className="text-[10px] text-gray-400">Chọn sai loại thread có thể khiến bot báo lỗi.</p>
+        </div>
+
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          accept={testType === "image" ? "image/*" : "*/*"}
+          onChange={handleUpload}
+        />
+
+        {/* URL hình ảnh */}
+        {testType === "image" && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-gray-500">URL hình ảnh</Label>
+              <button
+                type="button"
+                className="text-xs text-green-600 hover:underline flex items-center gap-1 disabled:opacity-50"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                {uploading ? "Đang upload..." : "Upload từ máy"}
+              </button>
+            </div>
+            <Input
+              type="url"
+              placeholder="https://example.com/image.jpg"
+              value={imageUrl}
+              onChange={e => setImageUrl(e.target.value)}
+              className="text-xs"
+            />
+            {imageUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(imageUrl) && (
+              <img src={imageUrl} alt="preview" className="rounded max-h-24 max-w-xs object-contain border" />
+            )}
+          </div>
+        )}
+
+        {/* URL file */}
+        {testType === "file" && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-gray-500">URL file</Label>
+              <button
+                type="button"
+                className="text-xs text-green-600 hover:underline flex items-center gap-1 disabled:opacity-50"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                {uploading ? "Đang upload..." : "Upload từ máy"}
+              </button>
+            </div>
+            <Input
+              type="url"
+              placeholder="https://example.com/document.pdf"
+              value={fileUrl}
+              onChange={e => setFileUrl(e.target.value)}
+              className="text-xs"
+            />
+          </div>
+        )}
+
+        {/* Nội dung / caption */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-gray-500">Nội dung</Label>
+          <Label className="text-xs text-gray-500">
+            {testType === "text" ? "Nội dung tin nhắn" : "Caption / mô tả (tùy chọn)"}
+          </Label>
           <Textarea
             value={message}
             onChange={e => setMessage(e.target.value)}
-            placeholder="Nhập nội dung tin nhắn..."
+            placeholder={testType === "text" ? "Nội dung tin nhắn..." : "Để trống nếu không cần caption"}
             className="text-xs min-h-[60px] resize-none"
           />
         </div>
+
         {result && (
           <div className={`text-xs px-2 py-1.5 rounded ${result.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
             {result.ok ? "✓ Đã gửi thành công" : `✗ ${result.error}`}
           </div>
         )}
-        <Button size="sm" onClick={handleSend} disabled={sending} className="w-full text-xs gap-1.5">
+        <Button size="sm" onClick={handleSend} disabled={sending || uploading} className="w-full text-xs gap-1.5">
           <Send className="h-3.5 w-3.5" />
           {sending ? "Đang gửi..." : "Gửi thử"}
         </Button>

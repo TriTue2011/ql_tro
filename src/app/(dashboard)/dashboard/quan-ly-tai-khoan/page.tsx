@@ -76,6 +76,7 @@ interface CreateUserData {
   phone: string;
   role: string;
   toaNhaId: string;
+  quyenKichHoatTaiKhoan: boolean;
 }
 
 export default function AccountManagementPage() {
@@ -96,6 +97,7 @@ export default function AccountManagementPage() {
     phone: '',
     role: 'nhanVien',
     toaNhaId: '',
+    quyenKichHoatTaiKhoan: false,
   });
   const [editUserData, setEditUserData] = useState({
     name: '',
@@ -169,20 +171,32 @@ export default function AccountManagementPage() {
     try {
       const payload: Record<string, unknown> = { ...createUserData };
       if (!createUserData.toaNhaId || createUserData.role === 'admin') delete payload.toaNhaId;
+      delete payload.quyenKichHoatTaiKhoan; // cập nhật quyền sau khi tạo user xong
       const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      const responseData = await response.json().catch(() => null);
       if (response.ok) {
+        // Nếu là quanLy + gán tòa nhà và có bật quyền → gọi thêm API quyen
+        if (createUserData.role === 'quanLy' && createUserData.toaNhaId && createUserData.quyenKichHoatTaiKhoan) {
+          const newId = responseData?.id;
+          if (newId) {
+            await fetch(`/api/admin/users/${newId}/quyen`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ toaNhaId: createUserData.toaNhaId, quyenKichHoatTaiKhoan: true }),
+            });
+          }
+        }
         toast.success('Tạo tài khoản thành công');
         setIsCreateDialogOpen(false);
-        setCreateUserData({ name: '', email: '', password: '', phone: '', role: 'nhanVien', toaNhaId: '' });
+        setCreateUserData({ name: '', email: '', password: '', phone: '', role: 'nhanVien', toaNhaId: '', quyenKichHoatTaiKhoan: false });
         cache.clearCache();
         fetchUsers(true);
       } else {
-        const error = await response.json();
-        toast.error(error.message || error.error || 'Tạo tài khoản thất bại');
+        toast.error(responseData?.message || responseData?.error || 'Tạo tài khoản thất bại');
       }
     } catch (error) {
       console.error('Error creating user:', error);
@@ -453,6 +467,22 @@ export default function AccountManagementPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+            {/* Quyền hạn — chỉ hiện khi tạo quanLy + gán tòa nhà */}
+            {createUserData.role === 'quanLy' && createUserData.toaNhaId && (
+              <div className="rounded-md border p-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quyền hạn</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs md:text-sm font-medium">Kích hoạt tài khoản khách thuê</p>
+                    <p className="text-[10px] text-muted-foreground">Cho phép tạo/thu hồi mật khẩu đăng nhập của khách thuê</p>
+                  </div>
+                  <Switch
+                    checked={createUserData.quyenKichHoatTaiKhoan}
+                    onCheckedChange={(v) => setCreateUserData({ ...createUserData, quyenKichHoatTaiKhoan: v })}
+                  />
+                </div>
               </div>
             )}
           </div>
