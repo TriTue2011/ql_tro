@@ -57,7 +57,7 @@ export async function PUT(
       if (isActive !== undefined) updateData.trangThai = isActive ? 'hoatDong' : 'khoa';
       if (zaloChatId !== undefined) updateData.zaloChatId = zaloChatId || null;
 
-      const updatedUser = await prisma.nguoiDung.update({ where: { id }, data: updateData });
+      await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
       // Cập nhật gán tòa nhà trong phạm vi tòa nhà của mình
       if (toaNhaId !== undefined) {
@@ -67,7 +67,7 @@ export async function PUT(
         }
       }
 
-      return NextResponse.json(updatedUser);
+      return NextResponse.json({ ok: true });
     }
 
     // Admin: full update
@@ -79,7 +79,7 @@ export async function PUT(
     };
     if (zaloChatId !== undefined) updateData.zaloChatId = zaloChatId || null;
 
-    const updatedUser = await prisma.nguoiDung.update({ where: { id }, data: updateData });
+    await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
     if (role !== 'admin') {
       await prisma.toaNhaNguoiQuanLy.deleteMany({ where: { nguoiDungId: id } });
@@ -88,14 +88,14 @@ export async function PUT(
       }
     }
 
-    if (!updatedUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(updatedUser);
-  } catch (error) {
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
     console.error('Error updating user:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    // P2002 = unique constraint (SĐT đã tồn tại)
+    if (error?.code === 'P2002') {
+      return NextResponse.json({ error: 'Số điện thoại đã được sử dụng' }, { status: 400 });
+    }
+    return NextResponse.json({ error: error?.message ?? 'Internal server error' }, { status: 500 });
   }
 }
 
