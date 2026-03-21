@@ -30,22 +30,22 @@ export async function GET(req: NextRequest) {
     where: { toaNhaId },
   });
 
-  // Nếu chưa cấu hình storage cho tòa nhà, seed từ global CaiDat
-  if (settings && !settings.storageProvider) {
+  // Fallback về global CaiDat khi: (1) chưa có record, hoặc (2) storageProvider rỗng
+  if (!settings || !settings.storageProvider) {
     const globals = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
     const g = (k: string) => globals.find(s => s.khoa === k)?.giaTri ?? null;
     const merged = {
-      ...settings,
+      ...(settings ?? {}),
       storageProvider: g('storage_provider') ?? 'local',
-      minioEndpoint: settings.minioEndpoint ?? g('minio_endpoint'),
-      minioAccessKey: settings.minioAccessKey ?? g('minio_access_key'),
-      minioSecretKey: settings.minioSecretKey ?? g('minio_secret_key'),
-      minioBucket: settings.minioBucket ?? g('minio_bucket'),
-      cloudinaryCloudName: settings.cloudinaryCloudName ?? g('cloudinary_cloud_name'),
-      cloudinaryApiKey: settings.cloudinaryApiKey ?? g('cloudinary_api_key'),
-      cloudinaryApiSecret: settings.cloudinaryApiSecret ?? g('cloudinary_api_secret'),
-      cloudinaryPreset: settings.cloudinaryPreset ?? g('cloudinary_upload_preset'),
-      uploadMaxSizeMb: settings.uploadMaxSizeMb ?? Number(g('upload_max_size_mb') ?? 10),
+      minioEndpoint: settings?.minioEndpoint ?? g('minio_endpoint'),
+      minioAccessKey: settings?.minioAccessKey ?? g('minio_access_key'),
+      minioSecretKey: settings?.minioSecretKey ?? g('minio_secret_key'),
+      minioBucket: settings?.minioBucket ?? g('minio_bucket'),
+      cloudinaryCloudName: settings?.cloudinaryCloudName ?? g('cloudinary_cloud_name'),
+      cloudinaryApiKey: settings?.cloudinaryApiKey ?? g('cloudinary_api_key'),
+      cloudinaryApiSecret: settings?.cloudinaryApiSecret ?? g('cloudinary_api_secret'),
+      cloudinaryPreset: settings?.cloudinaryPreset ?? g('cloudinary_upload_preset'),
+      uploadMaxSizeMb: settings?.uploadMaxSizeMb ?? Number(g('upload_max_size_mb') ?? 10),
     };
     return NextResponse.json({ success: true, data: merged });
   }

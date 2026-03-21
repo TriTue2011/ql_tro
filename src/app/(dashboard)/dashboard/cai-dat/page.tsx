@@ -718,8 +718,32 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
       }
       const res = await fetch('/api/admin/toa-nha-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const json = await res.json();
-      if (json.success) toast.success('Đã lưu cài đặt tòa nhà');
-      else toast.error(json.error || 'Lưu thất bại');
+      if (json.success) {
+        toast.success('Đã lưu cài đặt tòa nhà');
+        // Re-fetch để đồng bộ state với DB
+        const r2 = await fetch(`/api/admin/toa-nha-settings?toaNhaId=${selectedId}`);
+        const d2 = await r2.json();
+        if (d2.success && d2.data) {
+          const d = d2.data;
+          setSettings({
+            haUrl: d.haUrl ?? '',
+            haToken: d.haToken ?? '',
+            haWebhookUrl: d.haWebhookUrl ?? '',
+            storageProvider: d.storageProvider ?? 'local',
+            minioEndpoint: d.minioEndpoint ?? '',
+            minioAccessKey: d.minioAccessKey ?? '',
+            minioSecretKey: d.minioSecretKey ?? '',
+            minioBucket: d.minioBucket ?? '',
+            cloudinaryCloudName: d.cloudinaryCloudName ?? '',
+            cloudinaryApiKey: d.cloudinaryApiKey ?? '',
+            cloudinaryApiSecret: d.cloudinaryApiSecret ?? '',
+            cloudinaryPreset: d.cloudinaryPreset ?? '',
+            uploadMaxSizeMb: String(d.uploadMaxSizeMb ?? 10),
+          });
+        }
+      } else {
+        toast.error(json.error || 'Lưu thất bại');
+      }
     } catch { toast.error('Lỗi kết nối'); }
     finally { setSaving(false); }
   }
