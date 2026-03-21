@@ -141,6 +141,15 @@ export async function DELETE(
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    // Chỉ admin, chuNha, dongChuTro mới được xóa thanh toán đã xác nhận
+    const role = session.user.role;
+    if (!['admin', 'chuNha', 'dongChuTro'].includes(role)) {
+      return NextResponse.json(
+        { message: 'Chỉ chủ trọ mới có quyền xóa thanh toán' },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const thanhToanRepo = await getThanhToanRepo();
     const hoaDonRepo = await getHoaDonRepo();
