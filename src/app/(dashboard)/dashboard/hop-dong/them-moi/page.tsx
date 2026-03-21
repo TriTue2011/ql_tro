@@ -38,13 +38,26 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { KhachThueForm } from '@/components/khach-thue-form';
+import { useSession } from 'next-auth/react';
 
 export default function ThemMoiHopDongPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const canViewZalo = ['admin', 'chuNha'].includes(session?.user?.role ?? '');
   const [phongList, setPhongList] = useState<Phong[]>([]);
   const [khachThueList, setKhachThueList] = useState<KhachThue[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isAddKhachThueOpen, setIsAddKhachThueOpen] = useState(false);
+  const [isKhachThueSubmitting, setIsKhachThueSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     maHopDong: '',
@@ -385,7 +398,19 @@ export default function ThemMoiHopDongPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs md:text-sm">Khách thuê</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs md:text-sm">Khách thuê</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  onClick={() => setIsAddKhachThueOpen(true)}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Tạo mới
+                </Button>
+              </div>
               <Popover open={openKhachThue} onOpenChange={setOpenKhachThue}>
                 <PopoverTrigger asChild>
                   <Button
@@ -739,6 +764,35 @@ export default function ThemMoiHopDongPage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Dialog tạo khách thuê mới inline */}
+      <Dialog open={isAddKhachThueOpen} onOpenChange={setIsAddKhachThueOpen}>
+        <DialogContent className="w-[95vw] md:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tạo khách thuê mới</DialogTitle>
+            <DialogDescription>Thêm khách thuê mới và tự động chọn vào hợp đồng này</DialogDescription>
+          </DialogHeader>
+          <KhachThueForm
+            khachThue={null}
+            canViewZalo={canViewZalo}
+            onClose={() => setIsAddKhachThueOpen(false)}
+            onSuccess={(newKhachThue) => {
+              setIsAddKhachThueOpen(false);
+              if (newKhachThue?.id) {
+                // Thêm vào danh sách và tự động chọn
+                setKhachThueList(prev => [newKhachThue, ...prev]);
+                setFormData(prev => ({
+                  ...prev,
+                  khachThueId: [...prev.khachThueId, newKhachThue.id!],
+                }));
+                toast.success(`Đã thêm ${newKhachThue.hoTen} vào hợp đồng`);
+              }
+            }}
+            isSubmitting={isKhachThueSubmitting}
+            setIsSubmitting={setIsKhachThueSubmitting}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
