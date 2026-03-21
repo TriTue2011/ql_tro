@@ -75,7 +75,39 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ]
     }
 
-    // ── Admin, Chủ trọ, Quản lý: đầy đủ tab quản lý bất động sản ─────────
+    // ── Admin: chỉ quản lý hệ thống — không quản lý phòng/khách/tài chính ─
+    if (role === 'admin') {
+      return [
+        {
+          title: "Hệ thống",
+          url: "#",
+          icon: Building,
+          isActive: true,
+          items: [
+            { title: "Tòa nhà", url: "/dashboard/toa-nha" },
+          ],
+        },
+        {
+          title: "Quản trị",
+          url: "#",
+          icon: Shield,
+          items: [
+            { title: "Quản lý tài khoản", url: "/dashboard/quan-ly-tai-khoan" },
+          ],
+        },
+        {
+          title: "Cài đặt",
+          url: "#",
+          icon: Settings,
+          items: [
+            { title: "Hồ sơ", url: "/dashboard/ho-so" },
+            { title: "Cài đặt", url: "/dashboard/cai-dat" },
+          ],
+        },
+      ]
+    }
+
+    // ── Chủ trọ, Quản lý: đầy đủ tab quản lý bất động sản ───────────────
     const items = [
       {
         title: "Quản lý cơ bản",
@@ -104,23 +136,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         icon: AlertTriangle,
         items: [
           { title: "Sự cố", url: "/dashboard/su-co" },
+          { title: "Yêu cầu duyệt", url: "/dashboard/yeu-cau-duyet" },
           { title: "Thông báo", url: "/dashboard/thong-bao" },
           { title: "Zalo", url: "/dashboard/zalo" },
         ],
       },
     ]
 
-    // "Quản trị" — admin thấy đầy đủ, chuNha thấy mục nhân sự riêng
-    if (role === 'admin') {
-      items.push({
-        title: "Quản trị",
-        url: "#",
-        icon: Shield,
-        items: [
-          { title: "Quản lý tài khoản", url: "/dashboard/quan-ly-tai-khoan" },
-        ],
-      })
-    } else if (role === 'chuNha') {
+    if (role === 'chuNha') {
       items.push({
         title: "Nhân sự",
         url: "#",
@@ -139,16 +162,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         items: [{ title: "Hồ sơ", url: "/dashboard/ho-so" }],
       })
     } else {
-      // Admin + Chủ trọ: có cài đặt
       items.push({
         title: "Cài đặt",
         url: "#",
         icon: Settings,
         items: [
           { title: "Hồ sơ", url: "/dashboard/ho-so" },
-          ...(role === 'admin' || role === 'chuNha'
-            ? [{ title: "Cài đặt", url: "/dashboard/cai-dat" }]
-            : []),
+          { title: "Cài đặt", url: "/dashboard/cai-dat" },
         ],
       })
     }
