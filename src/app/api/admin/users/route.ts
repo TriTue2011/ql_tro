@@ -37,6 +37,7 @@ export async function GET() {
       zaloChatId: true,
       nhanThongBaoZalo: true,
       zaloAccountId: true,
+      nguoiTaoId: true,
       ngayTao: true,
       ngayCapNhat: true,
       toaNha: { select: { id: true, tenToaNha: true }, take: 1 },
@@ -81,6 +82,16 @@ export async function GET() {
       });
     }
 
+    // Batch-fetch tên người tạo
+    const creatorIds = [...new Set(users.map(u => u.nguoiTaoId).filter(Boolean) as string[])];
+    const creators = creatorIds.length > 0
+      ? await prisma.nguoiDung.findMany({
+          where: { id: { in: creatorIds } },
+          select: { id: true, ten: true },
+        })
+      : [];
+    const creatorMap = new Map(creators.map(c => [c.id, c.ten]));
+
     const result = users.map(u => {
       const ownedBuilding = u.toaNha[0] ?? null;
       const managedEntry = u.toaNhaQuanLy[0] ?? null;
@@ -97,6 +108,8 @@ export async function GET() {
         zaloChatId: u.zaloChatId,
         nhanThongBaoZalo: u.nhanThongBaoZalo,
         zaloAccountId: u.zaloAccountId,
+        nguoiTaoId: u.nguoiTaoId ?? null,
+        nguoiTaoTen: u.nguoiTaoId ? (creatorMap.get(u.nguoiTaoId) ?? null) : null,
         ngayTao: u.ngayTao.toISOString(),
         createdAt: u.ngayTao.toISOString(),
         toaNhaId: assignedBuilding?.id ?? null,
@@ -158,6 +171,7 @@ export async function POST(request: NextRequest) {
         matKhau: hashedPassword,
         soDienThoai: phone,
         vaiTro: role,
+        nguoiTaoId: session.user.id,
       },
     });
 

@@ -106,7 +106,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         { label: 'Tòa nhà', href: '/dashboard/toa-nha' },
         { label: 'Phòng', href: '/dashboard/phong' },
         { label: 'Khách thuê', href: '/dashboard/khach-thue' },
-        ...(isChuNha ? [{ label: 'Nhân sự', href: '/dashboard/quan-ly-tai-khoan' }] : []),
+        ...(isChuNha ? [{ label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' }] : []),
       ],
     },
     {
@@ -282,7 +282,7 @@ function getItemIcon(label: string): string {
     'Thông báo':          'bi-bell',
     'Zalo':               'bi-chat-dots',
     'Quản lý tài khoản': 'bi-person-badge',
-    'Nhân sự':           'bi-people',
+    'Quản lý tài khoản': 'bi-person-badge',
     'Hồ sơ':             'bi-person-circle',
     'Cài đặt':           'bi-sliders',
   };

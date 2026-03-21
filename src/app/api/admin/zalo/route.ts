@@ -22,8 +22,22 @@ export async function GET() {
 
   // Xác định tòa nhà được phép xem
   let toaNhaFilter: Record<string, any> = {};
-  if (role === 'chuNha' || role === 'dongChuTro') {
-    toaNhaFilter = { chuSoHuuId: userId };
+  if (role === 'chuNha') {
+    // Chủ trọ: tòa nhà họ sở hữu HOẶC được gán quản lý
+    toaNhaFilter = {
+      OR: [
+        { chuSoHuuId: userId },
+        { nguoiQuanLy: { some: { nguoiDungId: userId } } },
+      ],
+    };
+  } else if (role === 'dongChuTro') {
+    // Đồng chủ trọ: chủ yếu được gán vào nguoiQuanLy
+    toaNhaFilter = {
+      OR: [
+        { chuSoHuuId: userId },
+        { nguoiQuanLy: { some: { nguoiDungId: userId } } },
+      ],
+    };
   } else if (role === 'quanLy') {
     toaNhaFilter = { nguoiQuanLy: { some: { nguoiDungId: userId } } };
   } else if (role !== 'admin') {

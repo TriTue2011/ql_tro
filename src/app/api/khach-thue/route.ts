@@ -82,10 +82,30 @@ export async function GET(request: NextRequest) {
         if (!hopDongByKT.has(kt.id)) hopDongByKT.set(kt.id, hd);
       }
     }
-    const khachThueListWithContracts = result.data.map(kt => ({
-      ...kt,
-      hopDongHienTai: hopDongByKT.get(kt.id ?? '') ?? null,
-    }));
+    // Batch-fetch nguoiTaoId từ DB
+    const ktIdsForCreator = result.data.map(kt => kt.id).filter(Boolean) as string[];
+    const nguoiTaoRows = ktIdsForCreator.length > 0
+      ? await prisma.$queryRaw<{ id: string; nguoiTaoId: string | null }[]>`
+          SELECT id, "nguoiTaoId" FROM "KhachThue" WHERE id = ANY(${ktIdsForCreator})`
+      : [];
+    const nguoiTaoIdByKT = new Map(nguoiTaoRows.map(r => [r.id, r.nguoiTaoId]));
+
+    // Batch-fetch tên người tạo
+    const creatorIds = [...new Set(nguoiTaoRows.map(r => r.nguoiTaoId).filter(Boolean) as string[])];
+    const creators = creatorIds.length > 0
+      ? await prisma.nguoiDung.findMany({ where: { id: { in: creatorIds } }, select: { id: true, ten: true } })
+      : [];
+    const creatorMap = new Map(creators.map(c => [c.id, c.ten]));
+
+    const khachThueListWithContracts = result.data.map(kt => {
+      const nguoiTaoId = nguoiTaoIdByKT.get(kt.id ?? '') ?? null;
+      return {
+        ...kt,
+        hopDongHienTai: hopDongByKT.get(kt.id ?? '') ?? null,
+        nguoiTaoId,
+        nguoiTaoTen: nguoiTaoId ? (creatorMap.get(nguoiTaoId) ?? null) : null,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -148,6 +168,14 @@ export async function POST(request: NextRequest) {
       ngheNghiep: validatedData.ngheNghiep ? sanitizeText(validatedData.ngheNghiep) : undefined,
       matKhau: hashedPassword,
     });
+
+    // Lưu người tạo
+    if (session.user.id && newKhachThue.id) {
+      await prisma.khachThue.update({
+        where: { id: newKhachThue.id },
+        data: { nguoiTaoId: session.user.id },
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       success: true,
