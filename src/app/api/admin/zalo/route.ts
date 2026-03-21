@@ -95,16 +95,20 @@ export async function PUT(req: NextRequest) {
     settings?: Partial<SettingsPayload>;
   };
 
-  if (!nguoiDungId || !toaNhaId) {
-    return NextResponse.json({ error: 'Thiếu nguoiDungId hoặc toaNhaId' }, { status: 400 });
+  if (!nguoiDungId) {
+    return NextResponse.json({ error: 'Thiếu nguoiDungId' }, { status: 400 });
+  }
+  // toaNhaId có thể rỗng khi chỉ cập nhật bot config (không cập nhật ZaloThongBaoCaiDat)
+  if (!toaNhaId && settings) {
+    return NextResponse.json({ error: 'Thiếu toaNhaId khi cập nhật settings' }, { status: 400 });
   }
 
   // Kiểm tra quyền: quanLy chỉ được sửa settings của chính họ
   if (role === 'quanLy' && nguoiDungId !== sessionUserId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  // chuNha chỉ được sửa tòa nhà của họ
-  if (role === 'chuNha') {
+  // chuNha chỉ được sửa tòa nhà của họ (khi có toaNhaId)
+  if (role === 'chuNha' && toaNhaId) {
     const owned = await prisma.toaNha.findFirst({
       where: { id: toaNhaId, chuSoHuuId: sessionUserId },
       select: { id: true },
@@ -127,8 +131,8 @@ export async function PUT(req: NextRequest) {
     });
   }
 
-  // Upsert ZaloThongBaoCaiDat
-  if (settings) {
+  // Upsert ZaloThongBaoCaiDat (chỉ khi có toaNhaId)
+  if (settings && toaNhaId) {
     const data = sanitizeSettings(settings);
     await prisma.zaloThongBaoCaiDat.upsert({
       where: { nguoiDungId_toaNhaId: { nguoiDungId, toaNhaId } },

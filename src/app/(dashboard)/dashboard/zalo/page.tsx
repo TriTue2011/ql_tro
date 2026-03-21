@@ -70,17 +70,32 @@ interface BuildingData {
 
 // ─── Admin Bot Server Card ────────────────────────────────────────────────────
 
-function BotServerCard({ account }: { account?: AccountData }) {
+function BotServerCard({ account, canEdit = false, isAdmin = false }: {
+  account?: AccountData; canEdit?: boolean; isAdmin?: boolean;
+}) {
   const [status, setStatus] = useState<{
     ok: boolean; serverUrl?: string; accounts?: { id: string; name?: string }[];
     error?: string; accountId?: string;
   } | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Config form state (admin only)
+  const [zaloAccountId, setZaloAccountId] = useState(account?.zaloAccountId ?? "");
+  const [zaloBotServerUrl, setZaloBotServerUrl] = useState(account?.zaloBotServerUrl ?? "");
+  const [zaloBotUsername, setZaloBotUsername] = useState(account?.zaloBotUsername ?? "");
+  const [zaloBotPassword, setZaloBotPassword] = useState(account?.zaloBotPassword ? "••••••••" : "");
+  const [zaloBotTtl, setZaloBotTtl] = useState(String(account?.zaloBotTtl ?? ""));
+  const [saving, setSaving] = useState(false);
+
+  // QR state
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+
   const fetchStatus = useCallback(async () => {
     setLoading(true);
     try {
-      const params = account?.zaloAccountId ? `?ownId=${encodeURIComponent(account.zaloAccountId)}` : "";
+      const ownId = zaloAccountId || account?.zaloAccountId;
+      const params = ownId ? `?ownId=${encodeURIComponent(ownId)}` : "";
       const res = await fetch(`/api/zalo-bot/status${params}`);
       setStatus(await res.json());
     } catch {
@@ -88,13 +103,55 @@ function BotServerCard({ account }: { account?: AccountData }) {
     } finally {
       setLoading(false);
     }
-  }, [account?.zaloAccountId]);
+  }, [zaloAccountId, account?.zaloAccountId]);
+
+  const handleSaveConfig = async () => {
+    if (!account) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/zalo", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nguoiDungId: account.id,
+          toaNhaId: "", // not updating settings
+          zaloAccountId: zaloAccountId.trim() || null,
+          zaloBotServerUrl: zaloBotServerUrl.trim() || null,
+          zaloBotUsername: zaloBotUsername.trim() || null,
+          zaloBotPassword: zaloBotPassword.includes("••••") ? undefined : (zaloBotPassword || null),
+          zaloBotTtl: zaloBotTtl.trim() ? parseInt(zaloBotTtl, 10) || 0 : null,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) toast.success("Đã lưu cấu hình Bot Server");
+      else toast.error(data.error || "Lưu thất bại");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleGetQR = async () => {
+    setQrLoading(true);
+    setQrCode(null);
+    try {
+      const res = await fetch("/api/zalo-bot/qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(zaloAccountId ? { accountSelection: zaloAccountId } : {}),
+      });
+      const data = await res.json();
+      if (data.qrCode) setQrCode(data.qrCode);
+      else toast.error(data.error || "Không lấy được QR");
+    } finally {
+      setQrLoading(false);
+    }
+  };
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="rounded-none border-0 shadow-none">
+      <CardHeader className="pb-2 pt-3 px-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <Server className="h-4 w-4 text-blue-600" />
@@ -104,48 +161,104 @@ function BotServerCard({ account }: { account?: AccountData }) {
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           </Button>
         </div>
-        <CardDescription className="text-xs">Trạng thái kết nối Zalo bot server</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {loading && !status && (
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra...
+      <CardContent className="px-4 pb-4 space-y-4">
+        {/* Status */}
+        <div className="space-y-2">
+          {loading && !status && (
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra...
+            </div>
+          )}
+          {status && (
+            <>
+              <div className="flex items-center gap-2">
+                {status.ok ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
+                <span className={`text-xs font-medium ${status.ok ? "text-green-700" : "text-red-700"}`}>
+                  {status.ok ? "Đang kết nối" : "Mất kết nối"}
+                </span>
+                {status.serverUrl && <span className="text-[10px] text-gray-400 font-mono truncate">{status.serverUrl}</span>}
+              </div>
+              {status.error && <div className="text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded">{status.error}</div>}
+              {status.accounts && status.accounts.length > 0 && (
+                <div className="divide-y border rounded overflow-hidden">
+                  {status.accounts.map((acc) => (
+                    <div key={acc.id} className="flex items-center gap-2 px-3 py-1.5">
+                      <span className="text-[10px] text-green-500">●</span>
+                      <span className="text-xs font-mono">{acc.name || acc.id}</span>
+                      {acc.id === status.accountId && (
+                        <Badge variant="outline" className="text-[9px] h-4 px-1 ml-auto">Mặc định</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Config form — admin only */}
+        {isAdmin && (
+          <div className="border-t pt-3 space-y-2.5">
+            <p className="text-xs font-medium text-gray-600">Cấu hình Bot Server riêng
+              <span className="text-gray-400 font-normal"> (để trống = dùng cài đặt hệ thống)</span>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-gray-500">Account ID (own_id)</Label>
+                <Input value={zaloAccountId} onChange={e => setZaloAccountId(e.target.value)}
+                  className="h-7 text-xs font-mono" placeholder="Vd: 84912345678" disabled={!canEdit} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-gray-500">URL Bot Server</Label>
+                <Input value={zaloBotServerUrl} onChange={e => setZaloBotServerUrl(e.target.value)}
+                  className="h-7 text-xs font-mono" placeholder="http://192.168.1.x:3000" disabled={!canEdit} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-gray-500">Username</Label>
+                <Input value={zaloBotUsername} onChange={e => setZaloBotUsername(e.target.value)}
+                  className="h-7 text-xs" placeholder="admin" disabled={!canEdit} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-gray-500">Password</Label>
+                <Input type="password" value={zaloBotPassword} onChange={e => setZaloBotPassword(e.target.value)}
+                  className="h-7 text-xs" placeholder="Nhập mật khẩu mới để đổi" disabled={!canEdit} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-gray-500">TTL tin nhắn (ms)</Label>
+                <Input value={zaloBotTtl} onChange={e => setZaloBotTtl(e.target.value)}
+                  type="number" min={0} className="h-7 text-xs font-mono" placeholder="0 = không tự hủy" disabled={!canEdit} />
+              </div>
+            </div>
+            {canEdit && (
+              <Button size="sm" onClick={handleSaveConfig} disabled={saving} className="text-xs gap-1.5">
+                <Save className="h-3 w-3" />
+                {saving ? "Đang lưu..." : "Lưu cấu hình"}
+              </Button>
+            )}
           </div>
         )}
-        {status && (
-          <>
-            <div className="flex items-center gap-2">
-              {status.ok
-                ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                : <XCircle className="h-4 w-4 text-red-500" />}
-              <span className={`text-xs font-medium ${status.ok ? "text-green-700" : "text-red-700"}`}>
-                {status.ok ? "Đang kết nối" : "Mất kết nối"}
-              </span>
-            </div>
-            {status.serverUrl && (
-              <div className="text-xs text-gray-500 font-mono bg-gray-50 px-2 py-1 rounded">{status.serverUrl}</div>
-            )}
-            {status.error && (
-              <div className="text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded">{status.error}</div>
-            )}
-            {status.accounts && status.accounts.length > 0 && (
-              <div className="divide-y border rounded-md overflow-hidden">
-                {status.accounts.map((acc) => (
-                  <div key={acc.id} className="flex items-center gap-2 px-3 py-1.5">
-                    <span className="text-[10px] text-green-500">●</span>
-                    <span className="text-xs font-mono">{acc.name || acc.id}</span>
-                    {acc.id === status.accountId && (
-                      <Badge variant="outline" className="text-[9px] h-4 px-1 ml-auto">Mặc định</Badge>
-                    )}
-                  </div>
-                ))}
+
+        {/* QR Login */}
+        <div className="border-t pt-3 space-y-2">
+          <p className="text-xs font-medium text-gray-600">Đăng nhập Zalo qua QR</p>
+          <div className="flex items-start gap-3 flex-wrap">
+            <Button size="sm" variant="outline" onClick={handleGetQR}
+              disabled={qrLoading || !canEdit} className="text-xs gap-1.5">
+              <QrCode className="h-3.5 w-3.5" />
+              {qrLoading ? "Đang lấy..." : "Lấy QR đăng nhập"}
+            </Button>
+            {qrCode && (
+              <div className="flex flex-col items-center gap-1">
+                <img
+                  src={qrCode.startsWith("data:") ? qrCode : `data:image/png;base64,${qrCode}`}
+                  alt="QR Zalo" className="w-24 h-24 border rounded bg-white"
+                />
+                <span className="text-[10px] text-gray-400">Quét bằng app Zalo</span>
               </div>
             )}
-            {status.ok && (!status.accounts || status.accounts.length === 0) && (
-              <p className="text-xs text-amber-600">Chưa có tài khoản nào đăng nhập</p>
-            )}
-          </>
-        )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -157,7 +270,9 @@ function WebhookCard({ account }: { account?: AccountData }) {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [ownId, setOwnId] = useState(account?.zaloAccountId ?? "");
   const [setting, setSetting] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; webhookUrl?: string; error?: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; status?: number; error?: string } | null>(null);
 
   const handleSet = async () => {
     setSetting(true);
@@ -181,43 +296,84 @@ function WebhookCard({ account }: { account?: AccountData }) {
     }
   };
 
+  const handleGenerateRandom = () => {
+    const secret = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    setWebhookUrl(`${base}/api/zalo/webhook?secret=${secret}`);
+    toast.success("Đã tạo webhook URL ngẫu nhiên");
+  };
+
+  const handleTest = async () => {
+    const url = webhookUrl || result?.webhookUrl;
+    if (!url) { toast.error("Chưa có webhook URL để test"); return; }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/zalo-bot/test-webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookUrl: url }),
+      });
+      const data = await res.json();
+      setTestResult({ ok: data.ok, status: data.status, error: data.error });
+      if (data.ok) toast.success("Webhook phản hồi đúng");
+      else toast.error(data.error || "Webhook không phản hồi");
+    } finally {
+      setTesting(false);
+    }
+  };
+
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="rounded-none border-0 shadow-none">
+      <CardHeader className="pb-2 pt-3 px-4">
         <CardTitle className="text-sm flex items-center gap-2">
           <Webhook className="h-4 w-4 text-violet-600" />
           Webhook
         </CardTitle>
-        <CardDescription className="text-xs">Cài đặt webhook để nhận tin nhắn Zalo</CardDescription>
+        <CardDescription className="text-xs">Cài đặt webhook nhận tin nhắn Zalo từ bot server</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="px-4 pb-4 space-y-3">
         <div className="space-y-1.5">
           <Label className="text-xs text-gray-500">Zalo Account ID (ownId)</Label>
-          <Input
-            value={ownId}
-            onChange={e => setOwnId(e.target.value)}
-            placeholder="Để trống dùng mặc định"
-            className="h-8 text-xs font-mono"
-          />
+          <Input value={ownId} onChange={e => setOwnId(e.target.value)}
+            placeholder="Để trống dùng mặc định" className="h-8 text-xs font-mono" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs text-gray-500">Webhook URL (tùy chọn)</Label>
-          <Input
-            value={webhookUrl}
-            onChange={e => setWebhookUrl(e.target.value)}
-            placeholder="Tự động dùng URL hệ thống nếu trống"
-            className="h-8 text-xs font-mono"
-          />
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-gray-500">Webhook URL</Label>
+            <button
+              type="button"
+              onClick={handleGenerateRandom}
+              className="text-[10px] text-blue-600 hover:text-blue-800 underline"
+            >
+              Tạo ngẫu nhiên
+            </button>
+          </div>
+          <Input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)}
+            placeholder="Để trống tự dùng URL hệ thống" className="h-8 text-xs font-mono" />
         </div>
         {result && (
           <div className={`text-xs px-2 py-1.5 rounded ${result.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
             {result.ok ? `✓ ${result.webhookUrl}` : `✗ ${result.error}`}
           </div>
         )}
-        <Button size="sm" onClick={handleSet} disabled={setting} className="w-full text-xs gap-1.5">
-          <Webhook className="h-3.5 w-3.5" />
-          {setting ? "Đang cài..." : "Cài webhook"}
-        </Button>
+        {testResult && (
+          <div className={`text-xs px-2 py-1.5 rounded ${testResult.ok ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
+            {testResult.ok ? `✓ Webhook OK (HTTP ${testResult.status})` : `✗ ${testResult.error || "Không phản hồi"}`}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <Button size="sm" onClick={handleSet} disabled={setting} className="flex-1 text-xs gap-1.5">
+            <Webhook className="h-3.5 w-3.5" />
+            {setting ? "Đang cài..." : "Cài webhook"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleTest} disabled={testing} className="text-xs gap-1.5">
+            {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+            Test
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -587,6 +743,30 @@ function ApiExplorerCard({ defaultAccountId = "" }: { defaultAccountId?: string 
   );
 }
 
+// ─── Collapsible section helper ──────────────────────────────────────────────
+
+function Section({ title, sub, defaultOpen = false, children }: {
+  title: string; sub?: string; defaultOpen?: boolean; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border rounded-md overflow-hidden bg-white">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {open ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+          <span className="text-sm font-medium text-gray-700">{title}</span>
+          {sub && <span className="text-xs text-gray-400 hidden sm:block">{sub}</span>}
+        </div>
+      </button>
+      {open && <div className="px-4 pb-4 pt-2 border-t bg-gray-50/50">{children}</div>}
+    </div>
+  );
+}
+
 // ─── Account Settings (nội dung khi mở rộng một người) ───────────────────────
 
 function AccountSettings({
@@ -606,19 +786,10 @@ function AccountSettings({
 }) {
   const canEdit = isAdmin || isSelf;
   const [settings, setSettings] = useState<ZaloSettings>(account.settings ?? DEFAULT_SETTINGS);
-  // Per-user bot server config
-  const [zaloAccountId, setZaloAccountId] = useState(account.zaloAccountId ?? "");
-  const [zaloBotServerUrl, setZaloBotServerUrl] = useState(account.zaloBotServerUrl ?? "");
-  const [zaloBotUsername, setZaloBotUsername] = useState(account.zaloBotUsername ?? "");
-  const [zaloBotPassword, setZaloBotPassword] = useState(account.zaloBotPassword ? "••••••••" : "");
-  const [zaloBotTtl, setZaloBotTtl] = useState(String(account.zaloBotTtl ?? ""));
   const [saving, setSaving] = useState(false);
-  const [qrLoading, setQrLoading] = useState(false);
-  const [qrCode, setQrCode] = useState<string | null>(null);
 
-  const handleToggle = (key: keyof ZaloSettings, value: boolean) => {
+  const handleToggle = (key: keyof ZaloSettings, value: boolean) =>
     setSettings(prev => ({ ...prev, [key]: value }));
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -626,198 +797,85 @@ function AccountSettings({
       await fetch("/api/admin/zalo", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nguoiDungId: account.id,
-          toaNhaId: buildingId,
-          zaloAccountId: zaloAccountId.trim() || null,
-          zaloBotServerUrl: zaloBotServerUrl.trim() || null,
-          zaloBotUsername: zaloBotUsername.trim() || null,
-          zaloBotPassword: zaloBotPassword.includes("••••") ? undefined : (zaloBotPassword || null),
-          zaloBotTtl: zaloBotTtl.trim() ? parseInt(zaloBotTtl, 10) || 0 : null,
-          settings,
-        }),
+        body: JSON.stringify({ nguoiDungId: account.id, toaNhaId: buildingId, settings }),
       });
-      toast.success("Đã lưu cài đặt Zalo");
+      toast.success("Đã lưu cài đặt thông báo");
       onSaved();
     } finally {
       setSaving(false);
     }
   };
 
-  const handleGetQR = async () => {
-    setQrLoading(true);
-    setQrCode(null);
-    try {
-      const res = await fetch("/api/zalo-bot/qr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(zaloAccountId ? { accountSelection: zaloAccountId } : {}),
-      });
-      const data = await res.json();
-      if (data.qrCode) setQrCode(data.qrCode);
-      else toast.error(data.error || "Không lấy được QR");
-    } finally {
-      setQrLoading(false);
-    }
-  };
-
   return (
-    <div className="space-y-5 p-4 bg-gray-50 border-t">
-      {/* Zalo Account Info */}
-      <div>
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          Thông tin tài khoản Zalo
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-gray-500">Zalo Chat ID (nhận tin)</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                value={account.zaloChatId ?? ""}
-                readOnly
-                className="h-8 text-xs bg-white"
-                placeholder="Chưa liên kết"
-              />
-              {account.zaloChatId
-                ? <Badge variant="outline" className="text-green-600 border-green-300 text-[10px] whitespace-nowrap">Đã liên kết</Badge>
-                : <Badge variant="outline" className="text-gray-400 text-[10px] whitespace-nowrap">Chưa liên kết</Badge>
-              }
-            </div>
-          </div>
-          {isAdmin && (
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Account ID (own_id) trên Bot Server</Label>
-              <Input
-                value={zaloAccountId}
-                onChange={e => setZaloAccountId(e.target.value)}
-                className="h-8 text-xs bg-white font-mono"
-                placeholder="Vd: 84912345678"
-                disabled={!canEdit}
-              />
-            </div>
-          )}
+    <div className="space-y-2 p-3 bg-gray-50 border-t">
+      {/* Thông tin Zalo đồng chủ trọ — ẩn/hiện */}
+      <Section
+        title="Thông tin tài khoản Zalo đồng chủ trọ"
+        sub="Tài khoản nhận tin chuyển tiếp từ quản lý"
+        defaultOpen={false}
+      >
+        <p className="text-xs text-gray-500 mb-3">
+          Khi quản lý gửi thông báo, hệ thống chuyển tiếp đến tài khoản Zalo này.
+          Mỗi chủ trọ có thể liên kết một tài khoản Zalo riêng.
+        </p>
+        <div className="flex items-center gap-2">
+          <Input
+            value={account.zaloChatId ?? ""}
+            readOnly
+            className="h-8 text-xs bg-white font-mono"
+            placeholder="Chưa liên kết Zalo"
+          />
+          {account.zaloChatId
+            ? <Badge variant="outline" className="text-green-600 border-green-300 text-[10px] whitespace-nowrap shrink-0">Đã liên kết</Badge>
+            : <Badge variant="outline" className="text-gray-400 text-[10px] whitespace-nowrap shrink-0">Chưa liên kết</Badge>}
         </div>
-      </div>
+      </Section>
 
-      {/* Per-user Bot Server config */}
-      {isAdmin && (
-        <div>
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Cấu hình Bot Server riêng
-            <span className="ml-2 text-gray-400 font-normal normal-case">(để trống = dùng cài đặt hệ thống)</span>
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-500">URL Bot Server</Label>
-              <Input value={zaloBotServerUrl} onChange={e => setZaloBotServerUrl(e.target.value)}
-                className="h-8 text-xs bg-white font-mono" placeholder="http://192.168.1.x:3000" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Username</Label>
-              <Input value={zaloBotUsername} onChange={e => setZaloBotUsername(e.target.value)}
-                className="h-8 text-xs bg-white" placeholder="admin" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Password</Label>
-              <Input type="password" value={zaloBotPassword} onChange={e => setZaloBotPassword(e.target.value)}
-                className="h-8 text-xs bg-white" placeholder="Nhập mật khẩu mới để thay đổi" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-500">TTL tin nhắn (ms)</Label>
-              <Input value={zaloBotTtl} onChange={e => setZaloBotTtl(e.target.value)}
-                className="h-8 text-xs bg-white font-mono" placeholder="0 = không tự hủy" type="number" min={0} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* QR Login */}
-      <div>
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          Đăng nhập Zalo qua QR
-        </h3>
-        <div className="flex items-start gap-4">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleGetQR}
-            disabled={qrLoading || !canEdit}
-            className="text-xs gap-1.5 bg-white"
-          >
-            <QrCode className="h-3.5 w-3.5" />
-            {qrLoading ? "Đang lấy QR..." : "Lấy QR đăng nhập"}
-          </Button>
-          {qrCode && (
-            <div className="flex flex-col items-center gap-1">
-              <img
-                src={qrCode.startsWith("data:") ? qrCode : `data:image/png;base64,${qrCode}`}
-                alt="QR Zalo"
-                className="w-28 h-28 border rounded bg-white"
-              />
-              <span className="text-[10px] text-gray-400">Quét bằng Zalo</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Notification Settings */}
-      <div>
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          Cài đặt thông báo
-          {isChuTro && (
-            <span className="ml-2 text-gray-400 font-normal normal-case">
-              — "Chuyển QL" khi bật: chỉ báo lại khi xong/thanh toán
-            </span>
-          )}
-        </h3>
-        <div className="border rounded-md overflow-hidden bg-white">
-          <div className="divide-y">
-            {CATEGORIES.map(cat => (
-              <div key={cat.key} className="flex items-center px-4 py-2.5 gap-6">
-                <div className="w-28 text-xs text-gray-700 font-medium">{cat.label}</div>
+      {/* Cài đặt thông báo — ẩn/hiện */}
+      <Section
+        title="Cài đặt thông báo"
+        sub={isChuTro ? "— Chuyển QL: chỉ báo lại khi xong/thanh toán" : undefined}
+        defaultOpen={false}
+      >
+        <div className="divide-y border rounded-md overflow-hidden bg-white">
+          {CATEGORIES.map(cat => (
+            <div key={cat.key} className="flex items-center px-3 py-2 gap-4">
+              <div className="w-24 text-xs text-gray-700 font-medium">{cat.label}</div>
+              <div className="flex items-center gap-1.5">
+                <Switch
+                  checked={settings[cat.key] as boolean}
+                  onCheckedChange={v => handleToggle(cat.key, v)}
+                  disabled={!canEdit}
+                  className="scale-75"
+                />
+                <span className="text-[11px] text-gray-500">Nhận</span>
+              </div>
+              {isChuTro && (
                 <div className="flex items-center gap-1.5">
                   <Switch
-                    id={`${account.id}-${cat.key}`}
-                    checked={settings[cat.key] as boolean}
-                    onCheckedChange={v => handleToggle(cat.key, v)}
-                    disabled={!canEdit}
+                    checked={settings[cat.chuyenKey] as boolean}
+                    onCheckedChange={v => handleToggle(cat.chuyenKey, v)}
+                    disabled={!canEdit || !(settings[cat.key] as boolean)}
                     className="scale-75"
                   />
-                  <label htmlFor={`${account.id}-${cat.key}`} className="text-[11px] text-gray-500">
-                    Nhận
-                  </label>
+                  <span className="text-[11px] text-gray-500">Chuyển QL</span>
                 </div>
-                {isChuTro && (
-                  <div className="flex items-center gap-1.5">
-                    <Switch
-                      id={`${account.id}-${cat.chuyenKey}`}
-                      checked={settings[cat.chuyenKey] as boolean}
-                      onCheckedChange={v => handleToggle(cat.chuyenKey, v)}
-                      disabled={!canEdit || !(settings[cat.key] as boolean)}
-                      className="scale-75"
-                    />
-                    <label htmlFor={`${account.id}-${cat.chuyenKey}`} className="text-[11px] text-gray-500">
-                      Chuyển QL
-                    </label>
-                  </div>
-                )}
-              </div>
-            ))}
+              )}
+            </div>
+          ))}
+        </div>
+        {canEdit && (
+          <div className="flex justify-end mt-3">
+            <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5 text-xs">
+              <Save className="h-3.5 w-3.5" />
+              {saving ? "Đang lưu..." : "Lưu thông báo"}
+            </Button>
           </div>
-        </div>
-      </div>
-
-      {canEdit && (
-        <div className="flex justify-end pt-1">
-          <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5 text-xs">
-            <Save className="h-3.5 w-3.5" />
-            {saving ? "Đang lưu..." : "Lưu cài đặt"}
-          </Button>
-        </div>
-      )}
+        )}
+      </Section>
 
       {/* 4 tool cards — mỗi cái ẩn/hiện độc lập */}
-      <PerAccountCards account={account} isAdmin={isAdmin} />
+      <PerAccountCards account={account} isAdmin={isAdmin} canEdit={canEdit} />
     </div>
   );
 }
@@ -831,7 +889,7 @@ const ACCOUNT_CARDS = [
   { key: "monitor",   label: "Theo dõi tin", Icon: Eye, color: "text-orange-500" },
 ] as const;
 
-function PerAccountCards({ account, isAdmin }: { account: AccountData; isAdmin: boolean }) {
+function PerAccountCards({ account, isAdmin, canEdit }: { account: AccountData; isAdmin: boolean; canEdit: boolean }) {
   const [openCard, setOpenCard] = useState<string | null>(null);
 
   return (
@@ -862,7 +920,7 @@ function PerAccountCards({ account, isAdmin }: { account: AccountData; isAdmin: 
       {/* Expanded card content */}
       {openCard === "botserver" && (
         <div className="border rounded-lg overflow-hidden">
-          <BotServerCard account={account} />
+          <BotServerCard account={account} canEdit={canEdit} isAdmin={isAdmin} />
         </div>
       )}
       {openCard === "webhook" && (
