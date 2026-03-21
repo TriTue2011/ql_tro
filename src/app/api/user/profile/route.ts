@@ -41,8 +41,8 @@ export async function GET() {
       trangThai: user.trangThai,
       zaloChatId: user.zaloChatId ?? null,
       pendingZaloChatId: user.pendingZaloChatId ?? null,
-      ngayTao: user.ngayTao,
-      ngayCapNhat: user.ngayCapNhat,
+      ngayTao: user.ngayTao?.toISOString(),
+      ngayCapNhat: user.ngayCapNhat?.toISOString(),
     });
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -100,8 +100,8 @@ export async function PUT(request: NextRequest) {
       trangThai: updatedUser.trangThai,
       zaloChatId: updatedUser.zaloChatId ?? null,
       pendingZaloChatId: updatedUser.pendingZaloChatId ?? null,
-      ngayTao: updatedUser.ngayTao,
-      ngayCapNhat: updatedUser.ngayCapNhat,
+      ngayTao: updatedUser.ngayTao?.toISOString(),
+      ngayCapNhat: updatedUser.ngayCapNhat?.toISOString(),
     });
   } catch (error) {
     console.error('Error updating user profile:', error);
