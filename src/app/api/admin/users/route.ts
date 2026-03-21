@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getNguoiDungRepo } from '@/lib/repositories';
+import prisma from '@/lib/prisma';
 import { hash } from 'bcryptjs';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/sanitize';
@@ -11,8 +11,8 @@ const createUserSchema = z.object({
   email: z.string().email('Email không hợp lệ'),
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').max(128),
   phone: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ').optional(),
-  // Chỉ cho phép role hợp lệ — không thể tạo role tùy ý
   role: z.enum(['admin', 'chuNha', 'quanLy', 'nhanVien']),
+  toaNhaId: z.string().optional().nullable(),
 });
 
 export async function GET() {
@@ -23,10 +23,53 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const repo = await getNguoiDungRepo();
-    const result = await repo.findMany({ limit: 1000 });
+    const users = await prisma.nguoiDung.findMany({
+      take: 1000,
+      orderBy: { ngayTao: 'desc' },
+      select: {
+        id: true,
+        ten: true,
+        email: true,
+        soDienThoai: true,
+        vaiTro: true,
+        anhDaiDien: true,
+        trangThai: true,
+        zaloChatId: true,
+        nhanThongBaoZalo: true,
+        zaloAccountId: true,
+        ngayTao: true,
+        ngayCapNhat: true,
+        toaNha: { select: { id: true, tenToaNha: true }, take: 1 },
+        toaNhaQuanLy: {
+          select: { toaNha: { select: { id: true, tenToaNha: true } } },
+          take: 1,
+        },
+      },
+    });
 
-    return NextResponse.json(result.data);
+    const result = users.map(u => {
+      const ownedBuilding = u.toaNha[0] ?? null;
+      const managedBuilding = u.toaNhaQuanLy[0]?.toaNha ?? null;
+      const assignedBuilding = ownedBuilding || managedBuilding;
+      return {
+        id: u.id,
+        ten: u.ten,
+        email: u.email,
+        soDienThoai: u.soDienThoai,
+        vaiTro: u.vaiTro,
+        anhDaiDien: u.anhDaiDien,
+        trangThai: u.trangThai,
+        zaloChatId: u.zaloChatId,
+        nhanThongBaoZalo: u.nhanThongBaoZalo,
+        zaloAccountId: u.zaloAccountId,
+        ngayTao: u.ngayTao.toISOString(),
+        createdAt: u.ngayTao.toISOString(),
+        toaNhaId: assignedBuilding?.id ?? null,
+        toaNhaTen: assignedBuilding?.tenToaNha ?? null,
+      };
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching users:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -42,8 +85,6 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-
-    // Validate và sanitize với Zod — thay thế kiểm tra thủ công không đầy đủ
     const parsed = createUserSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -52,27 +93,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, email, password, phone, role } = parsed.data;
+    const { name, email, password, phone, role, toaNhaId } = parsed.data;
 
-    const repo = await getNguoiDungRepo();
-
-    // Check if user already exists
-    const existingUser = await repo.findByEmail(email.toLowerCase());
+    const existingUser = await prisma.nguoiDung.findUnique({ where: { email: email.toLowerCase() } });
     if (existingUser) {
       return NextResponse.json({ error: 'Email đã được sử dụng' }, { status: 400 });
     }
 
-    // Hash password before storing
     const hashedPassword = await hash(password, 12);
 
-    // Create user
-    const newUser = await repo.create({
-      ten: sanitizeText(name),
-      email: email.toLowerCase(),
-      matKhau: hashedPassword,
-      soDienThoai: phone,
-      vaiTro: role,
+    const newUser = await prisma.nguoiDung.create({
+      data: {
+        ten: sanitizeText(name),
+        email: email.toLowerCase(),
+        matKhau: hashedPassword,
+        soDienThoai: phone,
+        vaiTro: role,
+      },
     });
+
+    // Gán tòa nhà nếu có và không phải admin
+    if (toaNhaId && role !== 'admin') {
+      await prisma.toaNhaNguoiQuanLy.create({
+        data: { toaNhaId, nguoiDungId: newUser.id },
+      }).catch(() => {}); // ignore if already exists
+    }
 
     return NextResponse.json(newUser, { status: 201 });
   } catch (error) {

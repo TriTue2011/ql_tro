@@ -38,7 +38,7 @@ export async function GET() {
       tenToaNha: true,
       chuSoHuu: {
         select: {
-          id: true, ten: true, email: true,
+          id: true, ten: true, email: true, vaiTro: true,
           zaloChatId: true, zaloAccountId: true, nhanThongBaoZalo: true,
           zaloThongBaoCaiDat: { where: { toaNhaId: undefined }, select: allSettingFields() },
         },
@@ -47,7 +47,7 @@ export async function GET() {
         select: {
           nguoiDung: {
             select: {
-              id: true, ten: true, email: true,
+              id: true, ten: true, email: true, vaiTro: true,
               zaloChatId: true, zaloAccountId: true, nhanThongBaoZalo: true,
               zaloThongBaoCaiDat: { select: allSettingFields() },
             },

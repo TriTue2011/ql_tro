@@ -98,10 +98,13 @@ interface User {
   vaiTro?: string
   avatar?: string
   anhDaiDien?: string
-  createdAt: string
+  createdAt?: string
+  ngayTao?: string
   lastLogin?: string
   isActive?: boolean
   trangThai?: string
+  toaNhaId?: string | null
+  toaNhaTen?: string | null
 }
 
 // Helper functions
@@ -291,14 +294,18 @@ const createColumns = (props: UserTableProps): ColumnDef<User>[] => [
   {
     accessorKey: "createdAt",
     header: "Ngày tạo",
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <Calendar className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm">
-          {new Date(row.original.createdAt).toLocaleDateString('vi-VN')}
-        </span>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const dateStr = row.original.createdAt || row.original.ngayTao
+      const date = dateStr ? new Date(dateStr) : null
+      return (
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm">
+            {date && !isNaN(date.getTime()) ? date.toLocaleDateString('vi-VN') : '—'}
+          </span>
+        </div>
+      )
+    },
   },
   {
     id: "actions",

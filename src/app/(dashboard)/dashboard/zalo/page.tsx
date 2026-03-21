@@ -5,13 +5,17 @@ import { useSession } from "next-auth/react";
 import {
   Building2, QrCode, Save, RefreshCw, Smartphone,
   Shield, Crown, Users, User, ChevronDown, ChevronRight,
+  Server, Webhook, Send, MessageSquare, CheckCircle2, XCircle,
+  Loader2, Eye,
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +50,7 @@ interface AccountData {
   id: string;
   ten: string;
   email: string;
+  vaiTro?: string;
   zaloChatId: string | null;
   zaloAccountId: string | null;
   nhanThongBaoZalo: boolean;
@@ -57,6 +62,315 @@ interface BuildingData {
   tenToaNha: string;
   chuTro: AccountData;
   quanLys: AccountData[];
+}
+
+// ─── Admin Bot Server Card ────────────────────────────────────────────────────
+
+function BotServerCard() {
+  const [status, setStatus] = useState<{
+    ok: boolean; serverUrl?: string; accounts?: { id: string; name?: string }[];
+    error?: string; accountId?: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/zalo-bot/status");
+      const data = await res.json();
+      setStatus(data);
+    } catch {
+      setStatus({ ok: false, error: "Không thể kết nối" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Server className="h-4 w-4 text-blue-600" />
+            Bot Server
+          </CardTitle>
+          <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-7 px-2">
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+        <CardDescription className="text-xs">Trạng thái kết nối Zalo bot server</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loading && !status && (
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra...
+          </div>
+        )}
+        {status && (
+          <>
+            <div className="flex items-center gap-2">
+              {status.ok
+                ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                : <XCircle className="h-4 w-4 text-red-500" />}
+              <span className={`text-xs font-medium ${status.ok ? "text-green-700" : "text-red-700"}`}>
+                {status.ok ? "Đang kết nối" : "Mất kết nối"}
+              </span>
+            </div>
+            {status.serverUrl && (
+              <div className="text-xs text-gray-500 font-mono bg-gray-50 px-2 py-1 rounded">
+                {status.serverUrl}
+              </div>
+            )}
+            {status.error && (
+              <div className="text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded">{status.error}</div>
+            )}
+            {status.accounts && status.accounts.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                  Tài khoản đang đăng nhập ({status.accounts.length})
+                </p>
+                <div className="divide-y border rounded-md overflow-hidden">
+                  {status.accounts.map((acc) => (
+                    <div key={acc.id} className="flex items-center gap-2 px-3 py-1.5">
+                      <span className="text-[10px] text-green-500">●</span>
+                      <span className="text-xs font-mono">{acc.name || acc.id}</span>
+                      {acc.id === status.accountId && (
+                        <Badge variant="outline" className="text-[9px] h-4 px-1 ml-auto">Mặc định</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {status.ok && (!status.accounts || status.accounts.length === 0) && (
+              <p className="text-xs text-amber-600">Chưa có tài khoản nào đăng nhập</p>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Webhook Card ─────────────────────────────────────────────────────────────
+
+function WebhookCard() {
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [ownId, setOwnId] = useState("");
+  const [setting, setSetting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; webhookUrl?: string; error?: string } | null>(null);
+
+  const handleSet = async () => {
+    setSetting(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/zalo-bot/set-webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookUrl: webhookUrl || undefined, ownId: ownId || undefined }),
+      });
+      const data = await res.json();
+      setResult(data);
+      if (data.ok) {
+        setWebhookUrl(data.webhookUrl || "");
+        toast.success("Đã cài đặt webhook thành công");
+      } else {
+        toast.error(data.error || "Cài đặt webhook thất bại");
+      }
+    } finally {
+      setSetting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Webhook className="h-4 w-4 text-violet-600" />
+          Webhook
+        </CardTitle>
+        <CardDescription className="text-xs">Cài đặt webhook để nhận tin nhắn Zalo</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-gray-500">Zalo Account ID (ownId)</Label>
+          <Input
+            value={ownId}
+            onChange={e => setOwnId(e.target.value)}
+            placeholder="Để trống dùng mặc định"
+            className="h-8 text-xs font-mono"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-gray-500">Webhook URL (tùy chọn)</Label>
+          <Input
+            value={webhookUrl}
+            onChange={e => setWebhookUrl(e.target.value)}
+            placeholder="Tự động dùng URL hệ thống nếu trống"
+            className="h-8 text-xs font-mono"
+          />
+        </div>
+        {result && (
+          <div className={`text-xs px-2 py-1.5 rounded ${result.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+            {result.ok ? `✓ ${result.webhookUrl}` : `✗ ${result.error}`}
+          </div>
+        )}
+        <Button size="sm" onClick={handleSet} disabled={setting} className="w-full text-xs gap-1.5">
+          <Webhook className="h-3.5 w-3.5" />
+          {setting ? "Đang cài..." : "Cài webhook"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Test Send Card ───────────────────────────────────────────────────────────
+
+function TestSendCard() {
+  const [chatId, setChatId] = useState("");
+  const [message, setMessage] = useState("Tin nhắn test từ hệ thống QL Trọ");
+  const [accountId, setAccountId] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
+
+  const handleSend = async () => {
+    if (!chatId.trim() || !message.trim()) {
+      toast.error("Cần nhập Chat ID và nội dung tin nhắn");
+      return;
+    }
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/zalo/test-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: chatId.trim(), message, accountId: accountId || undefined }),
+      });
+      const data = await res.json();
+      setResult(data);
+      if (data.ok) toast.success("Đã gửi tin nhắn test thành công");
+      else toast.error(data.error || "Gửi thất bại");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Send className="h-4 w-4 text-green-600" />
+          Test gửi tin
+        </CardTitle>
+        <CardDescription className="text-xs">Gửi tin nhắn thử nghiệm qua Zalo Bot</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-gray-500">Zalo Chat ID (người nhận)</Label>
+          <Input
+            value={chatId}
+            onChange={e => setChatId(e.target.value)}
+            placeholder="Nhập Zalo Chat ID"
+            className="h-8 text-xs font-mono"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-gray-500">Account ID gửi (tùy chọn)</Label>
+          <Input
+            value={accountId}
+            onChange={e => setAccountId(e.target.value)}
+            placeholder="Để trống dùng account mặc định"
+            className="h-8 text-xs font-mono"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-gray-500">Nội dung</Label>
+          <Textarea
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            placeholder="Nhập nội dung tin nhắn..."
+            className="text-xs min-h-[60px] resize-none"
+          />
+        </div>
+        {result && (
+          <div className={`text-xs px-2 py-1.5 rounded ${result.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+            {result.ok ? "✓ Đã gửi thành công" : `✗ ${result.error}`}
+          </div>
+        )}
+        <Button size="sm" onClick={handleSend} disabled={sending} className="w-full text-xs gap-1.5">
+          <Send className="h-3.5 w-3.5" />
+          {sending ? "Đang gửi..." : "Gửi thử"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Monitor Card ─────────────────────────────────────────────────────────────
+
+function MonitorCard() {
+  const [messages, setMessages] = useState<{ id: string; chatId: string; displayName?: string; content: string; role: string; createdAt: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchMessages = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/zalo/messages");
+      const data = await res.json();
+      if (data.ok) setMessages(data.messages || []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchMessages(); }, [fetchMessages]);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Eye className="h-4 w-4 text-amber-600" />
+            Theo dõi tin nhắn
+          </CardTitle>
+          <Button size="sm" variant="ghost" onClick={fetchMessages} disabled={loading} className="h-7 px-2">
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+        <CardDescription className="text-xs">20 tin nhắn gần nhất qua Zalo Bot</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading && messages.length === 0 ? (
+          <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải...
+          </div>
+        ) : messages.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-4">Chưa có tin nhắn nào</p>
+        ) : (
+          <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
+            {messages.map(m => (
+              <div key={m.id} className={`text-xs px-2 py-1.5 rounded ${m.role === "user" ? "bg-gray-50" : "bg-blue-50"}`}>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="font-medium text-gray-700 truncate max-w-[120px]">
+                    {m.displayName || m.chatId}
+                  </span>
+                  <Badge variant="outline" className={`text-[9px] h-4 px-1 ${m.role === "bot" ? "border-blue-300 text-blue-600" : "border-gray-300"}`}>
+                    {m.role === "bot" ? "Bot" : "User"}
+                  </Badge>
+                  <span className="text-[10px] text-gray-400 ml-auto">
+                    {new Date(m.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <p className="text-gray-600 truncate">{m.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 // ─── Account Settings (nội dung khi mở rộng một người) ───────────────────────
@@ -100,6 +414,7 @@ function AccountSettings({
           settings,
         }),
       });
+      toast.success("Đã lưu cài đặt Zalo");
       onSaved();
     } finally {
       setSaving(false);
@@ -117,6 +432,7 @@ function AccountSettings({
       });
       const data = await res.json();
       if (data.qrCode) setQrCode(data.qrCode);
+      else toast.error(data.error || "Không lấy được QR");
     } finally {
       setQrLoading(false);
     }
@@ -145,7 +461,6 @@ function AccountSettings({
               }
             </div>
           </div>
-
           {isAdmin && (
             <div className="space-y-1">
               <Label className="text-xs text-gray-500">Account ID trên Bot Server (gửi tin)</Label>
@@ -248,7 +563,7 @@ function AccountSettings({
   );
 }
 
-// ─── Person Row (accordion cấp 3) ─────────────────────────────────────────────
+// ─── Person Row ───────────────────────────────────────────────────────────────
 
 function PersonRow({
   account,
@@ -278,9 +593,7 @@ function PersonRow({
         <div className="flex items-center gap-2 min-w-0">
           <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />
           <span className="text-sm font-medium truncate">{account.ten}</span>
-          {isSelf && (
-            <span className="text-[10px] text-gray-400">(bạn)</span>
-          )}
+          {isSelf && <span className="text-[10px] text-gray-400">(bạn)</span>}
           {isSelf && isAdmin && (
             <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Admin</Badge>
           )}
@@ -296,7 +609,6 @@ function PersonRow({
           : <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
         }
       </button>
-
       {open && (
         <AccountSettings
           account={account}
@@ -311,7 +623,7 @@ function PersonRow({
   );
 }
 
-// ─── Role Group (accordion cấp 2) ─────────────────────────────────────────────
+// ─── Role Group ───────────────────────────────────────────────────────────────
 
 function RoleGroup({
   role,
@@ -331,14 +643,16 @@ function RoleGroup({
   const [open, setOpen] = useState(true);
   const isChuTroRole = role === "chuTro";
 
+  // Filter out admin-role users from building view (admins have their own section)
+  const visiblePeople = people.filter(p => p.vaiTro !== "admin");
+  if (visiblePeople.length === 0) return null;
+
   const roleLabel = isChuTroRole ? "Chủ trọ" : "Quản lý";
   const RoleIcon = isChuTroRole ? Crown : Users;
   const iconColor = isChuTroRole ? "text-amber-500" : "text-blue-400";
   const badgeClass = isChuTroRole
     ? "bg-amber-100 text-amber-700 border-amber-200"
     : "bg-blue-100 text-blue-700 border-blue-200";
-
-  if (people.length === 0) return null;
 
   return (
     <div className="border rounded-md overflow-hidden">
@@ -351,7 +665,7 @@ function RoleGroup({
           <RoleIcon className={`h-3.5 w-3.5 ${iconColor}`} />
           <span className="text-sm font-medium">{roleLabel}</span>
           <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${badgeClass}`}>
-            {people.length}
+            {visiblePeople.length}
           </Badge>
         </div>
         {open
@@ -359,10 +673,9 @@ function RoleGroup({
           : <ChevronRight className="h-4 w-4 text-gray-400" />
         }
       </button>
-
       {open && (
         <div className="divide-y border-t">
-          {people.map(person => (
+          {visiblePeople.map(person => (
             <PersonRow
               key={person.id}
               account={person}
@@ -379,7 +692,7 @@ function RoleGroup({
   );
 }
 
-// ─── Building Accordion (accordion cấp 1) ─────────────────────────────────────
+// ─── Building Accordion ───────────────────────────────────────────────────────
 
 function BuildingAccordion({
   building,
@@ -395,11 +708,13 @@ function BuildingAccordion({
   onRefresh: () => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const totalPeople = 1 + building.quanLys.length;
+  const visibleChuTro = building.chuTro.vaiTro !== "admin" ? [building.chuTro] : [];
+  const totalPeople = visibleChuTro.length + building.quanLys.filter(q => q.vaiTro !== "admin").length;
+
+  if (totalPeople === 0 && !isAdmin) return null;
 
   return (
     <div className="border rounded-lg overflow-hidden shadow-sm">
-      {/* Building header */}
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
@@ -408,17 +723,17 @@ function BuildingAccordion({
         <div className="flex items-center gap-2.5 min-w-0">
           <Building2 className="h-5 w-5 text-blue-600 shrink-0" />
           <span className="font-semibold text-gray-800 truncate">{building.tenToaNha}</span>
-          <Badge variant="outline" className="text-[10px] px-1.5 text-gray-500 shrink-0">
-            {totalPeople} người
-          </Badge>
+          {totalPeople > 0 && (
+            <Badge variant="outline" className="text-[10px] px-1.5 text-gray-500 shrink-0">
+              {totalPeople} người
+            </Badge>
+          )}
         </div>
         {open
           ? <ChevronDown className="h-5 w-5 text-gray-400 shrink-0" />
           : <ChevronRight className="h-5 w-5 text-gray-400 shrink-0" />
         }
       </button>
-
-      {/* Role groups */}
       {open && (
         <div className="bg-gray-50 border-t p-3 space-y-2">
           <RoleGroup
@@ -437,6 +752,9 @@ function BuildingAccordion({
             sessionUserId={sessionUserId}
             onRefresh={onRefresh}
           />
+          {totalPeople === 0 && (
+            <p className="text-xs text-gray-400 text-center py-2">Chưa gán người quản lý cho tòa nhà này</p>
+          )}
         </div>
       )}
     </div>
@@ -485,41 +803,57 @@ export default function ZaloSettingsPage() {
         </Button>
       </div>
 
-      {/* Admin-only: Bot Server notice */}
+      {/* Admin-only: 4 system cards */}
       {isAdmin && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardHeader className="p-4 pb-3">
-            <CardTitle className="text-sm flex items-center gap-2 text-amber-700">
-              <Shield className="h-4 w-4" />
-              Cài đặt hệ thống (Admin)
-            </CardTitle>
-            <CardDescription className="text-xs text-amber-600">
-              Cấu hình Bot Server URL, webhook và tài khoản mặc định — xem tại{" "}
-              <a href="/dashboard/cai-dat" className="underline font-medium">Cài đặt → Home Assistant</a>
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-amber-600" />
+            <h2 className="text-sm font-semibold text-gray-700">Cài đặt hệ thống (Admin)</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <BotServerCard />
+            <WebhookCard />
+            <TestSendCard />
+            <MonitorCard />
+          </div>
+        </div>
       )}
 
       {/* Building list */}
-      {loading ? (
-        <div className="text-center py-16 text-gray-400 text-sm">Đang tải...</div>
-      ) : buildings.length === 0 ? (
-        <div className="text-center py-16 text-gray-400 text-sm">Chưa có tòa nhà nào</div>
-      ) : (
-        <div className="space-y-3">
-          {buildings.map((b, i) => (
-            <BuildingAccordion
-              key={b.id}
-              building={b}
-              isAdmin={isAdmin}
-              sessionUserId={sessionUserId}
-              defaultOpen={i === 0}
-              onRefresh={loadBuildings}
-            />
-          ))}
-        </div>
-      )}
+      <div className="space-y-2">
+        {!isAdmin && (
+          <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-blue-600" />
+            Tòa nhà của bạn
+          </h2>
+        )}
+        {isAdmin && (
+          <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-blue-600" />
+            Danh sách tòa nhà
+          </h2>
+        )}
+        {loading ? (
+          <div className="text-center py-10 text-gray-400 text-sm flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+          </div>
+        ) : buildings.length === 0 ? (
+          <div className="text-center py-10 text-gray-400 text-sm">Chưa có tòa nhà nào</div>
+        ) : (
+          <div className="space-y-3">
+            {buildings.map((b, i) => (
+              <BuildingAccordion
+                key={b.id}
+                building={b}
+                isAdmin={isAdmin}
+                sessionUserId={sessionUserId}
+                defaultOpen={i === 0}
+                onRefresh={loadBuildings}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -4,19 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -24,7 +16,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -40,17 +31,19 @@ import {
   Edit,
   Trash2,
   Shield,
-  Mail,
   Phone,
   Calendar,
-  MoreHorizontal,
   RefreshCw,
   MessageCircle,
-  CheckCircle2,
+  Building2,
 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { UserDataTable } from './table';
+
+interface Building {
+  id: string;
+  tenToaNha: string;
+}
 
 interface User {
   _id: string;
@@ -64,12 +57,14 @@ interface User {
   vaiTro?: string;
   avatar?: string;
   anhDaiDien?: string;
-  createdAt: string;
-  lastLogin?: string;
+  createdAt?: string;
+  ngayTao?: string;
   isActive?: boolean;
   trangThai?: string;
   zaloChatId?: string;
   nhanThongBaoZalo?: boolean;
+  toaNhaId?: string | null;
+  toaNhaTen?: string | null;
 }
 
 interface CreateUserData {
@@ -78,24 +73,27 @@ interface CreateUserData {
   password: string;
   phone: string;
   role: string;
+  toaNhaId: string;
 }
 
 export default function AccountManagementPage() {
   const { data: session } = useSession();
   const cache = useCache<{ users: User[] }>({ key: 'tai-khoan-data', duration: 300000 });
   const [users, setUsers] = useState<User[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const hasFetchedRef = useRef(false); // Track xem đã fetch chưa
+  const hasFetchedRef = useRef(false);
   const [createUserData, setCreateUserData] = useState<CreateUserData>({
     name: '',
     email: '',
     password: '',
     phone: '',
-    role: 'nhanVien'
+    role: 'nhanVien',
+    toaNhaId: '',
   });
   const [editUserData, setEditUserData] = useState({
     name: '',
@@ -103,7 +101,7 @@ export default function AccountManagementPage() {
     role: '',
     isActive: true,
     zaloChatId: '',
-    nhanThongBaoZalo: false,
+    toaNhaId: '',
   });
 
   useEffect(() => {
@@ -111,18 +109,27 @@ export default function AccountManagementPage() {
   }, []);
 
   useEffect(() => {
-    // Chỉ fetch 1 lần duy nhất khi user là admin
     if (session?.user?.role === 'admin' && !hasFetchedRef.current) {
       hasFetchedRef.current = true;
-      fetchUsers(false); // Sử dụng cache nếu có
+      fetchUsers(false);
+      fetchBuildings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.role]);
 
+  const fetchBuildings = async () => {
+    try {
+      const res = await fetch('/api/toa-nha?limit=100');
+      if (res.ok) {
+        const data = await res.json();
+        setBuildings(data.data || []);
+      }
+    } catch {}
+  };
+
   const fetchUsers = async (forceRefresh = false) => {
     try {
       setLoading(true);
-      
       if (!forceRefresh) {
         const cachedData = cache.getCache();
         if (cachedData) {
@@ -131,7 +138,6 @@ export default function AccountManagementPage() {
           return;
         }
       }
-      
       const response = await fetch('/api/admin/users');
       if (response.ok) {
         const data = await response.json();
@@ -157,29 +163,22 @@ export default function AccountManagementPage() {
 
   const handleCreateUser = async () => {
     try {
+      const payload: Record<string, unknown> = { ...createUserData };
+      if (!createUserData.toaNhaId || createUserData.role === 'admin') delete payload.toaNhaId;
       const response = await fetch('/api/admin/users', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(createUserData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-
       if (response.ok) {
         toast.success('Tạo tài khoản thành công');
         setIsCreateDialogOpen(false);
-        setCreateUserData({
-          name: '',
-          email: '',
-          password: '',
-          phone: '',
-          role: 'nhanVien'
-        });
+        setCreateUserData({ name: '', email: '', password: '', phone: '', role: 'nhanVien', toaNhaId: '' });
         cache.clearCache();
         fetchUsers(true);
       } else {
         const error = await response.json();
-        toast.error(error.message || 'Tạo tài khoản thất bại');
+        toast.error(error.message || error.error || 'Tạo tài khoản thất bại');
       }
     } catch (error) {
       console.error('Error creating user:', error);
@@ -189,16 +188,14 @@ export default function AccountManagementPage() {
 
   const handleEditUser = async () => {
     if (!selectedUser) return;
-
     try {
+      const payload: Record<string, unknown> = { ...editUserData };
+      if (editUserData.role === 'admin') delete payload.toaNhaId;
       const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editUserData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-
       if (response.ok) {
         toast.success('Cập nhật tài khoản thành công');
         setIsEditDialogOpen(false);
@@ -207,7 +204,7 @@ export default function AccountManagementPage() {
         fetchUsers(true);
       } else {
         const error = await response.json();
-        toast.error(error.message || 'Cập nhật tài khoản thất bại');
+        toast.error(error.message || error.error || 'Cập nhật tài khoản thất bại');
       }
     } catch (error) {
       console.error('Error updating user:', error);
@@ -217,17 +214,13 @@ export default function AccountManagementPage() {
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa tài khoản này?')) return;
-
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
-        method: 'DELETE',
-      });
-
+      const response = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
       if (response.ok) {
         cache.clearCache();
         toast.success('Xóa tài khoản thành công');
         fetchUsers(true);
-      } else{
+      } else {
         const error = await response.json();
         toast.error(error.message || 'Xóa tài khoản thất bại');
       }
@@ -245,7 +238,7 @@ export default function AccountManagementPage() {
       role: getUserRole(user),
       isActive: getUserIsActive(user),
       zaloChatId: user.zaloChatId || '',
-      nhanThongBaoZalo: user.nhanThongBaoZalo ?? false,
+      toaNhaId: user.toaNhaId || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -265,21 +258,15 @@ export default function AccountManagementPage() {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  const getInitials = (name: string) =>
+    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
-  // Helper functions to safely get user data
   const getUserName = (user: User) => user.name || user.ten || 'Không có tên';
   const getUserPhone = (user: User) => user.phone || user.soDienThoai || '';
   const getUserRole = (user: User) => user.role || user.vaiTro || 'nhanVien';
   const getUserAvatar = (user: User) => user.avatar || user.anhDaiDien || '';
-  const getUserIsActive = (user: User) => user.isActive !== undefined ? user.isActive : (user.trangThai === 'hoatDong');
+  const getUserIsActive = (user: User) =>
+    user.isActive !== undefined ? user.isActive : user.trangThai === 'hoatDong';
 
   const filteredUsers = users.filter(user =>
     (user.name || user.ten || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -317,7 +304,7 @@ export default function AccountManagementPage() {
           <p className="text-xs md:text-sm text-gray-600">Quản lý người dùng và phân quyền hệ thống</p>
         </div>
         <div className="flex gap-2">
-          <Button 
+          <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
@@ -337,83 +324,106 @@ export default function AccountManagementPage() {
 
       {/* Create User Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="w-[95vw] sm:w-full sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle className="text-base md:text-lg">Tạo tài khoản mới</DialogTitle>
-              <DialogDescription className="text-xs md:text-sm">
-                Tạo tài khoản người dùng mới cho hệ thống
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3 md:gap-4 py-4">
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-[425px] max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-base md:text-lg">Tạo tài khoản mới</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
+              Tạo tài khoản người dùng mới cho hệ thống
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 grid gap-3 md:gap-4 py-2 pr-1">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-xs md:text-sm">Họ và tên</Label>
+              <Input
+                id="name"
+                value={createUserData.name}
+                onChange={(e) => setCreateUserData({ ...createUserData, name: e.target.value })}
+                placeholder="Nhập họ và tên"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-xs md:text-sm">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={createUserData.email}
+                onChange={(e) => setCreateUserData({ ...createUserData, email: e.target.value })}
+                placeholder="Nhập email"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-xs md:text-sm">Mật khẩu</Label>
+              <Input
+                id="password"
+                type="password"
+                value={createUserData.password}
+                onChange={(e) => setCreateUserData({ ...createUserData, password: e.target.value })}
+                placeholder="Nhập mật khẩu"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-xs md:text-sm">Số điện thoại</Label>
+              <Input
+                id="phone"
+                value={createUserData.phone}
+                onChange={(e) => setCreateUserData({ ...createUserData, phone: e.target.value })}
+                placeholder="Nhập số điện thoại"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role" className="text-xs md:text-sm">Vai trò</Label>
+              <Select
+                value={createUserData.role}
+                onValueChange={(value) => setCreateUserData({ ...createUserData, role: value, toaNhaId: '' })}
+              >
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Chọn vai trò" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nhanVien">Nhân viên</SelectItem>
+                  <SelectItem value="quanLy">Quản lý</SelectItem>
+                  <SelectItem value="chuNha">Chủ trọ</SelectItem>
+                  <SelectItem value="admin">Quản trị viên</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {createUserData.role !== 'admin' && (
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-xs md:text-sm">Họ và tên</Label>
-                <Input
-                  id="name"
-                  value={createUserData.name}
-                  onChange={(e) => setCreateUserData({ ...createUserData, name: e.target.value })}
-                  placeholder="Nhập họ và tên"
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs md:text-sm">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={createUserData.email}
-                  onChange={(e) => setCreateUserData({ ...createUserData, email: e.target.value })}
-                  placeholder="Nhập email"
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-xs md:text-sm">Mật khẩu</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={createUserData.password}
-                  onChange={(e) => setCreateUserData({ ...createUserData, password: e.target.value })}
-                  placeholder="Nhập mật khẩu"
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-xs md:text-sm">Số điện thoại</Label>
-                <Input
-                  id="phone"
-                  value={createUserData.phone}
-                  onChange={(e) => setCreateUserData({ ...createUserData, phone: e.target.value })}
-                  placeholder="Nhập số điện thoại"
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="role" className="text-xs md:text-sm">Vai trò</Label>
-                <Select value={createUserData.role} onValueChange={(value) => setCreateUserData({ ...createUserData, role: value })}>
+                <Label htmlFor="create-toanha" className="text-xs md:text-sm flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-blue-500" />
+                  Gán tòa nhà
+                </Label>
+                <Select
+                  value={createUserData.toaNhaId || 'none'}
+                  onValueChange={(v) => setCreateUserData({ ...createUserData, toaNhaId: v === 'none' ? '' : v })}
+                >
                   <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Chọn vai trò" />
+                    <SelectValue placeholder="Chọn tòa nhà (tùy chọn)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="nhanVien" className="text-sm">Nhân viên</SelectItem>
-                    <SelectItem value="quanLy" className="text-sm">Quản lý</SelectItem>
-                    <SelectItem value="chuNha" className="text-sm">Chủ trọ</SelectItem>
-                    <SelectItem value="admin" className="text-sm">Quản trị viên</SelectItem>
+                    <SelectItem value="none">Không gán</SelectItem>
+                    {buildings.map(b => (
+                      <SelectItem key={b.id} value={b.id}>{b.tenToaNha}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button variant="outline" size="sm" onClick={() => setIsCreateDialogOpen(false)} className="w-full sm:w-auto">
-                Hủy
-              </Button>
-              <Button size="sm" onClick={handleCreateUser} className="w-full sm:w-auto">
-                Tạo tài khoản
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-     
+            )}
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setIsCreateDialogOpen(false)} className="w-full sm:w-auto">
+              Hủy
+            </Button>
+            <Button size="sm" onClick={handleCreateUser} className="w-full sm:w-auto">
+              Tạo tài khoản
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
@@ -426,7 +436,6 @@ export default function AccountManagementPage() {
             <Users className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
           </div>
         </Card>
-
         <Card className="p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -438,7 +447,6 @@ export default function AccountManagementPage() {
             <Shield className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
           </div>
         </Card>
-
         <Card className="p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -450,7 +458,6 @@ export default function AccountManagementPage() {
             <Users className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
           </div>
         </Card>
-
         <Card className="p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -465,26 +472,15 @@ export default function AccountManagementPage() {
       </div>
 
       {/* Desktop Table */}
-      <Card className="hidden md:block">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Danh sách người dùng
-          </CardTitle>
-          <CardDescription>
-            Quản lý tất cả tài khoản trong hệ thống ({filteredUsers.length} người dùng)
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
-          <UserDataTable
-            data={filteredUsers}
-            onEdit={openEditDialog}
-            onDelete={handleDeleteUser}
-            currentUserId={session?.user?.id}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-          />
-        </CardContent>
+      <Card className="hidden md:block p-6">
+        <UserDataTable
+          data={filteredUsers}
+          onEdit={openEditDialog}
+          onDelete={handleDeleteUser}
+          currentUserId={session?.user?.id}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+        />
       </Card>
 
       {/* Mobile Cards */}
@@ -493,8 +489,6 @@ export default function AccountManagementPage() {
           <h2 className="text-lg font-semibold">Danh sách người dùng</h2>
           <span className="text-sm text-gray-500">{filteredUsers.length} người dùng</span>
         </div>
-
-        {/* Mobile Search */}
         <div className="mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -506,16 +500,12 @@ export default function AccountManagementPage() {
             />
           </div>
         </div>
-
-        {/* Mobile Card List */}
         <div className="space-y-3">
           {filteredUsers.map((user) => {
             const isCurrentUser = session?.user?.id === user.id;
-            
             return (
               <Card key={user.id} className="p-4">
                 <div className="space-y-3">
-                  {/* Header with avatar and info */}
                   <div className="flex items-start gap-3">
                     <Avatar className="h-12 w-12">
                       <AvatarImage src={getUserAvatar(user)} />
@@ -531,13 +521,9 @@ export default function AccountManagementPage() {
                         </div>
                         {getRoleBadge(getUserRole(user))}
                       </div>
-                      {isCurrentUser && (
-                        <Badge variant="outline" className="mt-1 text-xs">Bạn</Badge>
-                      )}
+                      {isCurrentUser && <Badge variant="outline" className="mt-1 text-xs">Bạn</Badge>}
                     </div>
                   </div>
-
-                  {/* Contact info */}
                   <div className="space-y-1 text-sm border-t pt-2">
                     {getUserPhone(user) && (
                       <div className="flex items-center gap-2 text-gray-600">
@@ -545,30 +531,29 @@ export default function AccountManagementPage() {
                         <span>{getUserPhone(user)}</span>
                       </div>
                     )}
+                    {user.toaNhaTen && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Building2 className="h-3 w-3" />
+                        <span>{user.toaNhaTen}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-gray-500 text-xs">
                       <Calendar className="h-3 w-3" />
-                      <span>Tham gia: {new Date(user.createdAt).toLocaleDateString('vi-VN')}</span>
+                      <span>Tham gia: {(() => {
+                        const d = new Date(user.createdAt || user.ngayTao || '');
+                        return !isNaN(d.getTime()) ? d.toLocaleDateString('vi-VN') : '—';
+                      })()}</span>
                     </div>
                   </div>
-
-                  {/* Status */}
                   <div className="border-t pt-2">
-                    <Badge variant={getUserIsActive(user) ? "default" : "secondary"} className="text-xs">
+                    <Badge variant={getUserIsActive(user) ? 'default' : 'secondary'} className="text-xs">
                       {getUserIsActive(user) ? 'Hoạt động' : 'Ngừng hoạt động'}
                     </Badge>
                   </div>
-
-                  {/* Action buttons */}
                   {!isCurrentUser && (
                     <div className="flex gap-2 pt-2 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(user)}
-                        className="flex-1"
-                      >
-                        <Edit className="h-3.5 w-3.5 mr-1" />
-                        Sửa
+                      <Button variant="outline" size="sm" onClick={() => openEditDialog(user)} className="flex-1">
+                        <Edit className="h-3.5 w-3.5 mr-1" />Sửa
                       </Button>
                       <Button
                         variant="outline"
@@ -576,8 +561,7 @@ export default function AccountManagementPage() {
                         onClick={() => handleDeleteUser(user.id ?? user._id)}
                         className="flex-1 text-red-600 hover:bg-red-50"
                       >
-                        <Trash2 className="h-3.5 w-3.5 mr-1" />
-                        Xóa
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />Xóa
                       </Button>
                     </div>
                   )}
@@ -586,7 +570,6 @@ export default function AccountManagementPage() {
             );
           })}
         </div>
-
         {filteredUsers.length === 0 && (
           <div className="text-center py-8">
             <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -597,14 +580,14 @@ export default function AccountManagementPage() {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="w-[95vw] sm:w-full sm:max-w-[425px]">
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-[425px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-base md:text-lg">Chỉnh sửa tài khoản</DialogTitle>
             <DialogDescription className="text-xs md:text-sm">
               Cập nhật thông tin tài khoản người dùng
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 md:gap-4 py-4">
+          <div className="overflow-y-auto flex-1 grid gap-3 md:gap-4 py-2 pr-1">
             <div className="space-y-2">
               <Label htmlFor="edit-name" className="text-xs md:text-sm">Họ và tên</Label>
               <Input
@@ -627,18 +610,46 @@ export default function AccountManagementPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-role" className="text-xs md:text-sm">Vai trò</Label>
-              <Select value={editUserData.role} onValueChange={(value) => setEditUserData({ ...editUserData, role: value })}>
+              <Select
+                value={editUserData.role}
+                onValueChange={(value) => setEditUserData({ ...editUserData, role: value, toaNhaId: '' })}
+              >
                 <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="nhanVien" className="text-sm">Nhân viên</SelectItem>
-                  <SelectItem value="quanLy" className="text-sm">Quản lý</SelectItem>
-                  <SelectItem value="chuNha" className="text-sm">Chủ trọ</SelectItem>
-                  <SelectItem value="admin" className="text-sm">Quản trị viên</SelectItem>
+                  <SelectItem value="nhanVien">Nhân viên</SelectItem>
+                  <SelectItem value="quanLy">Quản lý</SelectItem>
+                  <SelectItem value="chuNha">Chủ trọ</SelectItem>
+                  <SelectItem value="admin">Quản trị viên</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {editUserData.role !== 'admin' && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-toanha" className="text-xs md:text-sm flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-blue-500" />
+                  Gán tòa nhà
+                </Label>
+                <Select
+                  value={editUserData.toaNhaId || 'none'}
+                  onValueChange={(v) => setEditUserData({ ...editUserData, toaNhaId: v === 'none' ? '' : v })}
+                >
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Chọn tòa nhà" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Không gán</SelectItem>
+                    {buildings.map(b => (
+                      <SelectItem key={b.id} value={b.id}>{b.tenToaNha}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  Admin kiểm soát toàn bộ — không cần gán tòa nhà
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="edit-zalo" className="text-xs md:text-sm flex items-center gap-1.5">
                 <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
@@ -653,21 +664,8 @@ export default function AccountManagementPage() {
                 maxLength={64}
               />
             </div>
-            <div className="flex items-center justify-between p-3 rounded-md border">
-              <div className="space-y-0.5">
-                <Label className="text-xs md:text-sm flex items-center gap-1.5">
-                  <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
-                  Gửi thông báo Zalo
-                </Label>
-                <p className="text-[10px] text-muted-foreground">Bật để hệ thống gửi tin nhắn Zalo cho người này</p>
-              </div>
-              <Switch
-                checked={editUserData.nhanThongBaoZalo}
-                onCheckedChange={(v) => setEditUserData({ ...editUserData, nhanThongBaoZalo: v })}
-              />
-            </div>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setIsEditDialogOpen(false)} className="w-full sm:w-auto">
               Hủy
             </Button>
