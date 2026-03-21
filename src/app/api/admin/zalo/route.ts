@@ -121,10 +121,16 @@ export async function PUT(req: NextRequest) {
   if (role === 'quanLy' && nguoiDungId !== sessionUserId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  // chuNha chỉ được sửa tòa nhà của họ (khi có toaNhaId)
-  if (role === 'chuNha' && toaNhaId) {
+  // chuNha/dongChuTro chỉ được sửa tòa nhà của họ (sở hữu hoặc được gán)
+  if ((role === 'chuNha' || role === 'dongChuTro') && toaNhaId) {
     const owned = await prisma.toaNha.findFirst({
-      where: { id: toaNhaId, chuSoHuuId: sessionUserId },
+      where: {
+        id: toaNhaId,
+        OR: [
+          { chuSoHuuId: sessionUserId },
+          { nguoiQuanLy: { some: { nguoiDungId: sessionUserId } } },
+        ],
+      },
       select: { id: true },
     });
     if (!owned) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
