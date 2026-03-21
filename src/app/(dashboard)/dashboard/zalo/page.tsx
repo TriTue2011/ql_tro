@@ -1242,8 +1242,8 @@ function AccountSettings({
 
   return (
     <div className="space-y-2 p-3 bg-gray-50 border-t">
-      {/* Thread IDs đồng chủ trọ — ẩn/hiện (ẩn với admin) */}
-      {!isAdmin && (
+      {/* Thread IDs đồng chủ trọ — chỉ hiện với chuTro (chuNha/dongChuTro), ẩn với quanLy/nhanVien và admin */}
+      {!isAdmin && isChuTro && (
         <Section
           title="Tài khoản Zalo đồng chủ trọ"
           sub="Mỗi thread ID có cài đặt thông báo riêng"
@@ -1285,7 +1285,7 @@ function AccountSettings({
                   <Switch
                     checked={settings[cat.chuyenKey] as boolean}
                     onCheckedChange={v => handleToggle(cat.chuyenKey, v)}
-                    disabled={!canEdit || !(settings[cat.key] as boolean)}
+                    disabled={!canEdit}
                     className="scale-75"
                   />
                   <span className="text-[11px] text-gray-500">Chuyển QL</span>
@@ -1557,8 +1557,13 @@ function BuildingAccordion({
   const visiblePeople = uniquePeople.filter(p => p.vaiTro !== 'admin');
 
   // Phân nhóm theo vaiTro thực tế (không theo vị trí DB)
-  const chuTroGroup = visiblePeople.filter(p => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro');
-  const quanLyGroup = visiblePeople.filter(p => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien');
+  // Admin chỉ thấy chuNha; chuNha/dongChuTro thấy tất cả
+  const chuTroGroup = isAdmin
+    ? visiblePeople.filter(p => p.vaiTro === 'chuNha')
+    : visiblePeople.filter(p => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro');
+  const quanLyGroup = isAdmin
+    ? []
+    : visiblePeople.filter(p => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien');
   const totalPeople = chuTroGroup.length + quanLyGroup.length;
 
   if (totalPeople === 0 && !isAdmin) return null;
