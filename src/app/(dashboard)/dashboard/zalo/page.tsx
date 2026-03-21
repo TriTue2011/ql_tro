@@ -5,8 +5,8 @@ import { useSession } from "next-auth/react";
 import {
   Building2, QrCode, Save, RefreshCw, Smartphone,
   Shield, Crown, Users, User, ChevronDown, ChevronRight,
-  Server, Webhook, Send, MessageSquare, CheckCircle2, XCircle,
-  Loader2, Eye,
+  Server, Webhook, Send, CheckCircle2, XCircle,
+  Loader2, Eye, Terminal, Play,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -359,6 +359,149 @@ function MonitorCard() {
             ))}
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Bot Server API Explorer ──────────────────────────────────────────────────
+
+const BOT_APIS: {
+  label: string;
+  endpoint: string;
+  method: 'GET' | 'POST' | 'DELETE';
+  description: string;
+  defaultPayload?: Record<string, unknown>;
+}[] = [
+  { label: 'Danh sách tài khoản', endpoint: '/api/accounts', method: 'GET', description: 'Tài khoản đang đăng nhập trên bot server' },
+  { label: 'Lấy QR đăng nhập', endpoint: '/zalo-login', method: 'POST', description: 'Lấy QR code để quét đăng nhập Zalo', defaultPayload: { accountSelection: '' } },
+  { label: 'Gửi tin nhắn', endpoint: '/api/sendMessageByAccount', method: 'POST', description: 'Gửi văn bản đến user/nhóm', defaultPayload: { accountSelection: '', threadId: '', message: { msg: 'Hello', ttl: 0 }, type: 0 } },
+  { label: 'Gửi hình ảnh', endpoint: '/api/sendImageByAccount', method: 'POST', description: 'Gửi ảnh từ URL', defaultPayload: { accountSelection: '', threadId: '', imageUrl: '', type: 0 } },
+  { label: 'Gửi file', endpoint: '/api/sendFileByAccount', method: 'POST', description: 'Gửi file từ URL', defaultPayload: { accountSelection: '', threadId: '', fileUrl: '', type: 0 } },
+  { label: 'Cài webhook', endpoint: '/api/account-webhook', method: 'POST', description: 'Cài đặt webhook nhận tin', defaultPayload: { ownId: '', messageWebhookUrl: '' } },
+  { label: 'Danh sách bạn bè', endpoint: '/api/getAllFriendsByAccount', method: 'POST', description: 'Lấy danh sách bạn bè', defaultPayload: { accountSelection: '', count: 200, page: 0 } },
+  { label: 'Danh sách nhóm', endpoint: '/api/getAllGroupsByAccount', method: 'POST', description: 'Lấy danh sách nhóm', defaultPayload: { accountSelection: '' } },
+  { label: 'Xóa thành viên nhóm', endpoint: '/api/removeUserFromGroupByAccount', method: 'POST', description: 'Xóa thành viên khỏi nhóm', defaultPayload: { accountSelection: '', groupId: '', memberId: '' } },
+];
+
+const METHOD_COLOR: Record<string, string> = {
+  GET: 'text-green-700 bg-green-100 border-green-300',
+  POST: 'text-blue-700 bg-blue-100 border-blue-300',
+  DELETE: 'text-red-700 bg-red-100 border-red-300',
+};
+
+function ApiExplorerCard() {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const [payloads, setPayloads] = useState<Record<number, string>>(() =>
+    Object.fromEntries(BOT_APIS.map((a, i) => [i, a.defaultPayload ? JSON.stringify(a.defaultPayload, null, 2) : '']))
+  );
+  const [results, setResults] = useState<Record<number, { ok: boolean; status?: number; data: unknown } | null>>({});
+  const [loading, setLoading] = useState<Record<number, boolean>>({});
+
+  const callApi = async (idx: number) => {
+    const api = BOT_APIS[idx];
+    setLoading(prev => ({ ...prev, [idx]: true }));
+    setResults(prev => ({ ...prev, [idx]: null }));
+    try {
+      let payload: Record<string, unknown> = {};
+      if (payloads[idx]?.trim()) {
+        try { payload = JSON.parse(payloads[idx]); } catch { toast.error('Payload JSON không hợp lệ'); return; }
+      }
+      const res = await fetch('/api/zalo-bot/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: api.endpoint, method: api.method, payload }),
+      });
+      const data = await res.json();
+      setResults(prev => ({ ...prev, [idx]: data }));
+    } catch (e: unknown) {
+      setResults(prev => ({ ...prev, [idx]: { ok: false, data: e instanceof Error ? e.message : 'Lỗi' } }));
+    } finally {
+      setLoading(prev => ({ ...prev, [idx]: false }));
+    }
+  };
+
+  return (
+    <Card className="md:col-span-2">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Terminal className="h-4 w-4 text-gray-600" />
+          Bot Server API Explorer
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Gọi trực tiếp các API của bot server tại{' '}
+          <span className="font-mono text-gray-700">
+            {typeof window !== 'undefined' ? '' : ''}{/* serverUrl shown at runtime */}
+          </span>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {BOT_APIS.map((api, idx) => (
+          <div key={idx} className="border rounded-md overflow-hidden">
+            {/* Header row */}
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+              onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
+            >
+              <Badge variant="outline" className={`text-[10px] px-1.5 h-5 font-mono shrink-0 ${METHOD_COLOR[api.method]}`}>
+                {api.method}
+              </Badge>
+              <code className="text-xs text-gray-700 font-mono flex-1 truncate">{api.endpoint}</code>
+              <span className="text-[11px] text-gray-500 hidden sm:block">{api.label}</span>
+              {openIdx === idx
+                ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+            </button>
+
+            {/* Expanded content */}
+            {openIdx === idx && (
+              <div className="p-3 space-y-3 bg-white">
+                <p className="text-xs text-gray-500">{api.description}</p>
+
+                {api.method !== 'GET' && (
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-gray-500 uppercase tracking-wide">Payload (JSON)</Label>
+                    <Textarea
+                      value={payloads[idx] || ''}
+                      onChange={e => setPayloads(prev => ({ ...prev, [idx]: e.target.value }))}
+                      className="text-xs font-mono min-h-[100px] resize-y"
+                      spellCheck={false}
+                    />
+                  </div>
+                )}
+
+                <Button
+                  size="sm"
+                  onClick={() => callApi(idx)}
+                  disabled={loading[idx]}
+                  className="gap-1.5 text-xs"
+                >
+                  {loading[idx]
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Play className="h-3.5 w-3.5" />}
+                  {loading[idx] ? 'Đang gọi...' : 'Gọi API'}
+                </Button>
+
+                {results[idx] && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      {results[idx]!.ok
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        : <XCircle className="h-3.5 w-3.5 text-red-500" />}
+                      <span className={`text-xs font-medium ${results[idx]!.ok ? 'text-green-700' : 'text-red-700'}`}>
+                        {results[idx]!.ok ? `HTTP ${results[idx]!.status ?? 200} OK` : 'Thất bại'}
+                      </span>
+                    </div>
+                    <pre className="text-[10px] bg-gray-900 text-green-400 p-3 rounded overflow-auto max-h-[200px] whitespace-pre-wrap break-all">
+                      {JSON.stringify(results[idx]!.data, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
@@ -806,6 +949,7 @@ export default function ZaloSettingsPage() {
             <WebhookCard />
             <TestSendCard />
             <MonitorCard />
+            <ApiExplorerCard />
           </div>
         </div>
       )}
