@@ -56,17 +56,11 @@ export async function PUT(
     }
   }
 
-  // Upsert bản ghi quyền
-  const existing = await prisma.toaNhaNguoiQuanLy.findUnique({
+  // Upsert bản ghi quyền (tạo nếu chưa có, cập nhật nếu đã có)
+  await prisma.toaNhaNguoiQuanLy.upsert({
     where: { toaNhaId_nguoiDungId: { toaNhaId, nguoiDungId } },
-  });
-  if (!existing) {
-    return NextResponse.json({ error: 'Người dùng chưa được gán vào tòa nhà này' }, { status: 400 });
-  }
-
-  await prisma.toaNhaNguoiQuanLy.update({
-    where: { toaNhaId_nguoiDungId: { toaNhaId, nguoiDungId } },
-    data: { quyenKichHoatTaiKhoan },
+    create: { toaNhaId, nguoiDungId, quyenKichHoatTaiKhoan },
+    update: { quyenKichHoatTaiKhoan },
   });
 
   return NextResponse.json({ ok: true });
