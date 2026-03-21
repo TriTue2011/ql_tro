@@ -13,9 +13,9 @@ datasource db {
 model NguoiDung {
   id            String    @id @default(cuid())
   ten           String
-  email         String    @unique
+  email         String?   @unique
   matKhau       String
-  soDienThoai   String?
+  soDienThoai   String?   @unique
   vaiTro        String    @default("nhanVien") // admin | chuNha | quanLy | nhanVien
   anhDaiDien    String?
   trangThai        String    @default("hoatDong") // hoatDong | khoa
@@ -70,6 +70,9 @@ model ToaNhaNguoiQuanLy {
   toaNha      ToaNha    @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
   nguoiDung   NguoiDung @relation(fields: [nguoiDungId], references: [id], onDelete: Cascade)
   ngayTao     DateTime  @default(now())
+
+  // Quyền hạn được chủ trọ trao — mặc định false (không có)
+  quyenKichHoatTaiKhoan Boolean @default(false) // Kích hoạt/thu hồi đăng nhập khách thuê
 
   @@id([toaNhaId, nguoiDungId])
 }

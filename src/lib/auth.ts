@@ -45,7 +45,7 @@ export const authOptions: NextAuthOptions = {
             ? await prisma.nguoiDung.findFirst({
                 where: { soDienThoai: login },
               })
-            : await prisma.nguoiDung.findUnique({
+            : await prisma.nguoiDung.findFirst({
                 where: { email: login.toLowerCase() },
               });
 
@@ -55,9 +55,12 @@ export const authOptions: NextAuthOptions = {
             const isPasswordValid = await compare(credentials.matKhau, user.matKhau);
             if (!isPasswordValid) return null;
 
+            // Nếu không có email thì dùng placeholder (tránh NextAuth lỗi)
+            const emailForSession = user.email || `nd.${user.soDienThoai}@phongtro.local`;
+
             return {
               id: user.id,
-              email: user.email,
+              email: emailForSession,
               name: user.ten,
               role: user.vaiTro,
               phone: user.soDienThoai ?? '',

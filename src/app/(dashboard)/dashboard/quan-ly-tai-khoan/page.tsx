@@ -38,6 +38,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
 import { UserDataTable } from './table';
 
 interface Building {
@@ -65,6 +66,7 @@ interface User {
   nhanThongBaoZalo?: boolean;
   toaNhaId?: string | null;
   toaNhaTen?: string | null;
+  quyenKichHoatTaiKhoan?: boolean;
 }
 
 interface CreateUserData {
@@ -102,6 +104,7 @@ export default function AccountManagementPage() {
     isActive: true,
     zaloChatId: '',
     toaNhaId: '',
+    quyenKichHoatTaiKhoan: false,
   });
 
   useEffect(() => {
@@ -109,7 +112,8 @@ export default function AccountManagementPage() {
   }, []);
 
   useEffect(() => {
-    if (session?.user?.role === 'admin' && !hasFetchedRef.current) {
+    const role = session?.user?.role;
+    if ((role === 'admin' || role === 'chuNha') && !hasFetchedRef.current) {
       hasFetchedRef.current = true;
       fetchUsers(false);
       fetchBuildings();
@@ -188,24 +192,47 @@ export default function AccountManagementPage() {
 
   const handleEditUser = async () => {
     if (!selectedUser) return;
+    const isChuNha = session?.user?.role === 'chuNha';
     try {
-      const payload: Record<string, unknown> = { ...editUserData };
-      if (editUserData.role === 'admin') delete payload.toaNhaId;
-      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (response.ok) {
-        toast.success('Cập nhật tài khoản thành công');
-        setIsEditDialogOpen(false);
-        setSelectedUser(null);
-        cache.clearCache();
-        fetchUsers(true);
-      } else {
-        const error = await response.json();
-        toast.error(error.message || error.error || 'Cập nhật tài khoản thất bại');
+      // chuNha chỉ có thể cập nhật quyền, không cập nhật thông tin cơ bản
+      if (!isChuNha) {
+        const payload: Record<string, unknown> = { ...editUserData };
+        if (editUserData.role === 'admin') delete payload.toaNhaId;
+        delete payload.quyenKichHoatTaiKhoan; // quyền cập nhật riêng bên dưới
+        const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          toast.error(error.message || error.error || 'Cập nhật tài khoản thất bại');
+          return;
+        }
       }
+
+      // Cập nhật quyền kích hoạt tài khoản (chỉ khi là quanLy và có toaNhaId)
+      if (editUserData.role === 'quanLy' && editUserData.toaNhaId) {
+        const qRes = await fetch(`/api/admin/users/${selectedUser.id}/quyen`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toaNhaId: editUserData.toaNhaId,
+            quyenKichHoatTaiKhoan: editUserData.quyenKichHoatTaiKhoan,
+          }),
+        });
+        if (!qRes.ok) {
+          const err = await qRes.json();
+          toast.error(err.error || 'Không thể cập nhật quyền');
+          return;
+        }
+      }
+
+      toast.success('Cập nhật tài khoản thành công');
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+      cache.clearCache();
+      fetchUsers(true);
     } catch (error) {
       console.error('Error updating user:', error);
       toast.error('Có lỗi xảy ra khi cập nhật tài khoản');
@@ -239,6 +266,7 @@ export default function AccountManagementPage() {
       isActive: getUserIsActive(user),
       zaloChatId: user.zaloChatId || '',
       toaNhaId: user.toaNhaId || '',
+      quyenKichHoatTaiKhoan: user.quyenKichHoatTaiKhoan ?? false,
     });
     setIsEditDialogOpen(true);
   };
@@ -273,13 +301,16 @@ export default function AccountManagementPage() {
     (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (session?.user?.role !== 'admin') {
+  const isAdmin = session?.user?.role === 'admin';
+  const isChuNha = session?.user?.role === 'chuNha';
+
+  if (!isAdmin && !isChuNha) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Shield className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Không có quyền truy cập</h2>
-          <p className="text-gray-600">Bạn cần quyền quản trị viên để truy cập trang này.</p>
+          <p className="text-gray-600">Chỉ quản trị viên hoặc chủ trọ mới truy cập được trang này.</p>
         </div>
       </div>
     );
@@ -300,8 +331,12 @@ export default function AccountManagementPage() {
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Quản lý tài khoản</h1>
-          <p className="text-xs md:text-sm text-gray-600">Quản lý người dùng và phân quyền hệ thống</p>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
+            {isChuNha ? 'Quản lý nhân sự' : 'Quản lý tài khoản'}
+          </h1>
+          <p className="text-xs md:text-sm text-gray-600">
+            {isChuNha ? 'Phân quyền cho quản lý / nhân viên của bạn' : 'Quản lý người dùng và phân quyền hệ thống'}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -314,11 +349,13 @@ export default function AccountManagementPage() {
             <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
           </Button>
-          <Button size="sm" onClick={() => setIsCreateDialogOpen(true)} className="flex-1 sm:flex-none">
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Tạo tài khoản</span>
-            <span className="sm:hidden">Tạo</span>
-          </Button>
+          {isAdmin && (
+            <Button size="sm" onClick={() => setIsCreateDialogOpen(true)} className="flex-1 sm:flex-none">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Tạo tài khoản</span>
+              <span className="sm:hidden">Tạo</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -343,13 +380,28 @@ export default function AccountManagementPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs md:text-sm">Email</Label>
+              <Label htmlFor="phone" className="text-xs md:text-sm">
+                Số điện thoại <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="phone"
+                value={createUserData.phone}
+                onChange={(e) => setCreateUserData({ ...createUserData, phone: e.target.value })}
+                placeholder="Nhập số điện thoại (dùng để đăng nhập)"
+                className="text-sm"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-xs md:text-sm">
+                Email <span className="text-muted-foreground text-[10px]">(tùy chọn)</span>
+              </Label>
               <Input
                 id="email"
                 type="email"
                 value={createUserData.email}
                 onChange={(e) => setCreateUserData({ ...createUserData, email: e.target.value })}
-                placeholder="Nhập email"
+                placeholder="Nhập email (không bắt buộc)"
                 className="text-sm"
               />
             </div>
@@ -361,16 +413,6 @@ export default function AccountManagementPage() {
                 value={createUserData.password}
                 onChange={(e) => setCreateUserData({ ...createUserData, password: e.target.value })}
                 placeholder="Nhập mật khẩu"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-xs md:text-sm">Số điện thoại</Label>
-              <Input
-                id="phone"
-                value={createUserData.phone}
-                onChange={(e) => setCreateUserData({ ...createUserData, phone: e.target.value })}
-                placeholder="Nhập số điện thoại"
                 className="text-sm"
               />
             </div>
@@ -650,6 +692,23 @@ export default function AccountManagementPage() {
                 </p>
               </div>
             )}
+            {/* Quyền hạn — chỉ hiện khi đang sửa quanLy và đã gán tòa nhà */}
+            {editUserData.role === 'quanLy' && editUserData.toaNhaId && (
+              <div className="rounded-md border p-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quyền hạn trao cho quản lý</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs md:text-sm font-medium">Kích hoạt tài khoản khách thuê</p>
+                    <p className="text-[10px] text-muted-foreground">Cho phép quản lý tạo/thu hồi mật khẩu đăng nhập của khách thuê</p>
+                  </div>
+                  <Switch
+                    checked={editUserData.quyenKichHoatTaiKhoan}
+                    onCheckedChange={(v) => setEditUserData({ ...editUserData, quyenKichHoatTaiKhoan: v })}
+                  />
+                </div>
+              </div>
+            )}
+            {!isChuNha && (
             <div className="space-y-2">
               <Label htmlFor="edit-zalo" className="text-xs md:text-sm flex items-center gap-1.5">
                 <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
@@ -664,6 +723,7 @@ export default function AccountManagementPage() {
                 maxLength={64}
               />
             </div>
+            )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setIsEditDialogOpen(false)} className="w-full sm:w-auto">

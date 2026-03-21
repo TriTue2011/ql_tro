@@ -185,6 +185,42 @@ export default function KhachThuePage() {
     setIsDialogOpen(true);
   };
 
+  // Kích hoạt / thu hồi tài khoản đăng nhập cho khách thuê
+  const handleKichHoatTaiKhoan = async (id: string, hasAccount: boolean) => {
+    if (hasAccount) {
+      if (!confirm('Thu hồi quyền đăng nhập của khách thuê này?')) return;
+      setActionLoading(`kich-hoat-${id}`);
+      try {
+        const res = await fetch(`/api/khach-thue/${id}/kich-hoat-tai-khoan`, { method: 'DELETE' });
+        if (res.ok) {
+          setKhachThueList(prev => prev.map(k => k.id === id ? { ...k, hasMatKhau: false } : k));
+          cache.clearCache();
+          toast.success('Đã thu hồi quyền đăng nhập');
+        } else {
+          toast.error('Không thể thu hồi quyền đăng nhập');
+        }
+      } catch { toast.error('Có lỗi xảy ra'); }
+      finally { setActionLoading(null); }
+    } else {
+      setActionLoading(`kich-hoat-${id}`);
+      try {
+        const res = await fetch(`/api/khach-thue/${id}/kich-hoat-tai-khoan`, { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          setKhachThueList(prev => prev.map(k => k.id === id ? { ...k, hasMatKhau: true } : k));
+          cache.clearCache();
+          toast.success(
+            `Đã kích hoạt! Mật khẩu: ${data.matKhau} — SĐT đăng nhập: ${data.soDienThoai}`,
+            { duration: 10000 }
+          );
+        } else {
+          toast.error('Không thể kích hoạt tài khoản');
+        }
+      } catch { toast.error('Có lỗi xảy ra'); }
+      finally { setActionLoading(null); }
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (confirm('Bạn có chắc chắn muốn xóa khách thuê này?')) {
       setActionLoading(`delete-${id}`);
@@ -420,6 +456,7 @@ export default function KhachThuePage() {
                                     data={pg.tenants}
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
+                                    onKichHoatTaiKhoan={handleKichHoatTaiKhoan}
                                     actionLoading={actionLoading}
                                     searchTerm=""
                                     onSearchChange={() => {}}
@@ -486,6 +523,7 @@ export default function KhachThuePage() {
                   <div className="p-3 bg-white">
                     <div className="hidden md:block">
                       <KhachThueDataTable data={buildingGroups.noRoom} onEdit={handleEdit} onDelete={handleDelete}
+                        onKichHoatTaiKhoan={handleKichHoatTaiKhoan}
                         actionLoading={actionLoading} searchTerm="" onSearchChange={() => {}} selectedTrangThai="" onTrangThaiChange={() => {}} />
                     </div>
                     <div className="md:hidden space-y-2">
