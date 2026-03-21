@@ -366,7 +366,7 @@ export default function LuuTruPage() {
               buckets.map(b => (
                 <div
                   key={b.name}
-                  className={`group flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
+                  className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
                     selectedBucket === b.name ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'
                   }`}
                   onClick={() => selectBucket(b.name)}
@@ -377,10 +377,10 @@ export default function LuuTruPage() {
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); setDeleteBucket(b.name); }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 text-red-500 transition-all"
+                    className="p-1 rounded hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors"
                     title="Xóa bucket"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))
@@ -474,7 +474,7 @@ export default function LuuTruPage() {
                     <tbody className="divide-y divide-gray-100">
                       {/* Folders */}
                       {folders.map(f => (
-                        <tr key={f} className="hover:bg-gray-50 cursor-pointer group" onClick={() => openFolder(f)}>
+                        <tr key={f} className="hover:bg-gray-50 cursor-pointer" onClick={() => openFolder(f)}>
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-2">
                               <Folder className="h-4 w-4 text-amber-400 shrink-0" />
@@ -486,7 +486,7 @@ export default function LuuTruPage() {
                           <td className="px-4 py-2.5 text-right">
                             <button
                               onClick={(e) => { e.stopPropagation(); setDeleteTarget({ prefix: f, label: folderLabel(f, prefix) }); }}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 text-red-500 transition-all"
+                              className="p-1 rounded hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors"
                               title="Xóa folder"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -497,7 +497,7 @@ export default function LuuTruPage() {
 
                       {/* Files */}
                       {files.map(f => (
-                        <tr key={f.name} className="hover:bg-gray-50 group">
+                        <tr key={f.name} className="hover:bg-gray-50">
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-2">
                               {getFileIcon(f.name)}
@@ -509,25 +509,23 @@ export default function LuuTruPage() {
                             {new Date(f.lastModified).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
                           </td>
                           <td className="px-4 py-2.5">
-                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            <div className="flex items-center justify-end gap-1">
                               {f.url && (
                                 <>
                                   <a
                                     href={f.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="p-1 rounded hover:bg-blue-100 text-blue-500 transition-colors"
+                                    className="p-1 rounded hover:bg-blue-100 text-blue-400 hover:text-blue-600 transition-colors"
                                     title="Xem"
-                                    onClick={e => e.stopPropagation()}
                                   >
                                     <Eye className="h-3.5 w-3.5" />
                                   </a>
                                   <a
                                     href={f.url}
                                     download
-                                    className="p-1 rounded hover:bg-green-100 text-green-600 transition-colors"
+                                    className="p-1 rounded hover:bg-green-100 text-green-500 hover:text-green-700 transition-colors"
                                     title="Tải xuống"
-                                    onClick={e => e.stopPropagation()}
                                   >
                                     <Download className="h-3.5 w-3.5" />
                                   </a>
@@ -535,7 +533,7 @@ export default function LuuTruPage() {
                               )}
                               <button
                                 onClick={() => setDeleteTarget({ key: f.name, label: shortName(f.name, prefix) })}
-                                className="p-1 rounded hover:bg-red-100 text-red-500 transition-colors"
+                                className="p-1 rounded hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors"
                                 title="Xóa"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
