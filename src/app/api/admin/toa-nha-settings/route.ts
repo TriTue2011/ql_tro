@@ -18,14 +18,10 @@ export async function GET(req: NextRequest) {
   const toaNhaId = searchParams.get('toaNhaId');
 
   if (!toaNhaId) {
-    // Trả về tất cả tòa nhà kèm settings
+    // Trả về danh sách tòa nhà cho dropdown (chỉ cần id + tên)
     const buildings = await prisma.toaNha.findMany({
-      select: {
-        id: true,
-        tenToaNha: true,
-        caiDatToaNha: true,
-      },
-      orderBy: { ngayTao: 'desc' },
+      select: { id: true, tenToaNha: true },
+      orderBy: { tenToaNha: 'asc' },
     });
     return NextResponse.json({ success: true, data: buildings });
   }

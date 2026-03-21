@@ -674,15 +674,10 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
     { key: 'haUrl', label: 'Home Assistant URL (domain)', placeholder: 'https://ha.myhouse.com' },
     { key: 'haToken', label: 'Long-lived access token', placeholder: 'eyJ0...' },
   ];
-  const storageFields = [
-    { key: 'storageProvider', label: 'Nhà cung cấp lưu trữ', placeholder: 'local | minio | cloudinary | both' },
-    { key: 'minioEndpoint', label: 'MinIO Endpoint', placeholder: 'http://192.168.1.10:9000' },
-    { key: 'minioAccessKey', label: 'MinIO Access Key', placeholder: '' },
-    { key: 'minioSecretKey', label: 'MinIO Secret Key', placeholder: '' },
-    { key: 'minioBucket', label: 'MinIO Bucket', placeholder: 'ql-tro' },
-    { key: 'uploadMaxSizeMb', label: 'Dung lượng tối đa (MB)', placeholder: '10' },
-  ];
-  const fields = tab === 'ha' ? haFields : storageFields;
+
+  const provider = settings.storageProvider ?? 'local';
+  const showMinio = provider === 'minio' || provider === 'both';
+  const showCloudinary = provider === 'cloudinary' || provider === 'both';
 
   return (
     <Card>
@@ -696,17 +691,23 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4 md:p-6 space-y-4">
+        {/* Building selector */}
         <div className="space-y-1">
           <Label className="text-xs font-medium">Chọn tòa nhà</Label>
           <Select value={selectedId} onValueChange={setSelectedId}>
-            <SelectTrigger className="text-sm"><SelectValue placeholder="— Chọn tòa nhà —" /></SelectTrigger>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder={buildings.length === 0 ? 'Đang tải...' : '— Chọn tòa nhà —'} />
+            </SelectTrigger>
             <SelectContent>
               {buildings.map(b => <SelectItem key={b.id} value={b.id}>{b.tenToaNha}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
+
         {loading && <div className="flex justify-center py-4"><RefreshCw className="h-4 w-4 animate-spin text-gray-400" /></div>}
-        {selectedId && !loading && fields.map(f => (
+
+        {/* HA fields */}
+        {selectedId && !loading && tab === 'ha' && haFields.map(f => (
           <div key={f.key} className="space-y-1">
             <Label className="text-xs font-medium">{f.label}</Label>
             <Input
@@ -717,10 +718,87 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
             />
           </div>
         ))}
+
+        {/* Storage fields */}
+        {selectedId && !loading && tab === 'storage' && (
+          <div className="space-y-4">
+            {/* Provider selector */}
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Nhà cung cấp lưu trữ</Label>
+              <Select value={provider} onValueChange={v => setSettings(prev => ({ ...prev, storageProvider: v }))}>
+                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local">Local (máy chủ)</SelectItem>
+                  <SelectItem value="minio">MinIO</SelectItem>
+                  <SelectItem value="cloudinary">Cloudinary</SelectItem>
+                  <SelectItem value="both">Cả hai (MinIO + Cloudinary)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Upload size */}
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Dung lượng tối đa (MB)</Label>
+              <Input
+                type="number" min={1} max={100}
+                value={settings.uploadMaxSizeMb ?? '10'}
+                onChange={e => setSettings(prev => ({ ...prev, uploadMaxSizeMb: e.target.value }))}
+                className="text-sm"
+              />
+            </div>
+
+            {/* MinIO fields */}
+            {showMinio && (
+              <div className="space-y-3 border rounded-md p-3 bg-gray-50">
+                <p className="text-xs font-semibold text-gray-600">MinIO</p>
+                {[
+                  { key: 'minioEndpoint', label: 'Endpoint', placeholder: 'http://192.168.1.10:9000' },
+                  { key: 'minioAccessKey', label: 'Access Key', placeholder: '' },
+                  { key: 'minioSecretKey', label: 'Secret Key', placeholder: '' },
+                  { key: 'minioBucket', label: 'Bucket', placeholder: 'ql-tro' },
+                ].map(f => (
+                  <div key={f.key} className="space-y-1">
+                    <Label className="text-xs font-medium">{f.label}</Label>
+                    <Input
+                      value={settings[f.key] ?? ''}
+                      onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                      className="text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Cloudinary fields */}
+            {showCloudinary && (
+              <div className="space-y-3 border rounded-md p-3 bg-gray-50">
+                <p className="text-xs font-semibold text-gray-600">Cloudinary</p>
+                {[
+                  { key: 'cloudinaryCloudName', label: 'Cloud Name', placeholder: 'mycloud' },
+                  { key: 'cloudinaryApiKey', label: 'API Key', placeholder: '' },
+                  { key: 'cloudinaryApiSecret', label: 'API Secret', placeholder: '' },
+                  { key: 'cloudinaryPreset', label: 'Upload Preset', placeholder: 'unsigned_preset' },
+                ].map(f => (
+                  <div key={f.key} className="space-y-1">
+                    <Label className="text-xs font-medium">{f.label}</Label>
+                    <Input
+                      value={settings[f.key] ?? ''}
+                      onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                      className="text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {selectedId && !loading && (
           <Button size="sm" className="w-full" onClick={handleSave} disabled={saving}>
             {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Lưu
+            Lưu cài đặt
           </Button>
         )}
       </CardContent>
