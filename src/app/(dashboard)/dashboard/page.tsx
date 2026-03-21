@@ -8,9 +8,22 @@ import '@/styles/bs-admin.css';
 
 interface MonthRevenue { month: number; revenue: number; }
 
+interface AdminStats {
+  tongToaNha: number;
+  tongNguoiDung: number;
+  tongChuNha: number;
+  tongQuanLy: number;
+  tongNhanVien: number;
+  tongAdmin: number;
+  tongKhachThue: number;
+  khachThueCoTaiKhoan: number;
+  toaNhaMoiNhat: { id: string; tenToaNha: string; diaChi: string; ngayTao: string }[];
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState('');
 
@@ -18,6 +31,8 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [revenueData, setRevenueData] = useState<MonthRevenue[]>([]);
   const [revenueLoading, setRevenueLoading] = useState(false);
+
+  const isAdmin = session?.user?.role === 'admin';
 
   useEffect(() => {
     document.title = 'Tổng quan — Phòng Trọ Pro';
@@ -33,21 +48,32 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/dashboard/stats')
-      .then((r) => r.ok ? r.json() : null)
-      .then((res) => { if (res?.success) setStats(res.data); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    if (isAdmin) {
+      fetch('/api/dashboard/admin-stats')
+        .then((r) => r.ok ? r.json() : null)
+        .then((res) => { if (res?.success) setAdminStats(res.data); })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } else {
+      fetch('/api/dashboard/stats')
+        .then((r) => r.ok ? r.json() : null)
+        .then((res) => { if (res?.success) setStats(res.data); })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
 
   useEffect(() => {
+    if (isAdmin) return;
     setRevenueLoading(true);
     fetch(`/api/dashboard/revenue-monthly?year=${selectedYear}`)
       .then((r) => r.ok ? r.json() : null)
       .then((res) => { if (res?.success) setRevenueData(res.months); })
       .catch(() => {})
       .finally(() => setRevenueLoading(false));
-  }, [selectedYear]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYear, isAdmin]);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
@@ -87,6 +113,209 @@ export default function DashboardPage() {
     );
   }
 
+  // ─── Admin Dashboard ────────────────────────────────────────────────────────
+  if (isAdmin) {
+    if (!adminStats) return null;
+    const s = adminStats;
+    return (
+      <>
+        {/* Hero */}
+        <div className="bs-hero-banner">
+          <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+              <div className="bs-hero-title">Xin chào, {session?.user?.name?.split(' ').pop() ?? 'Admin'}! 👋</div>
+              <div className="bs-hero-sub">{now}</div>
+              <div className="bs-hero-stats">
+                <div className="bs-hero-stat">
+                  <div className="bs-hero-stat-val">{s.tongToaNha}</div>
+                  <div className="bs-hero-stat-lbl">Tòa nhà</div>
+                </div>
+                <div style={{ width: 1, background: 'rgba(255,255,255,0.25)', margin: '0 4px' }} />
+                <div className="bs-hero-stat">
+                  <div className="bs-hero-stat-val">{s.tongNguoiDung}</div>
+                  <div className="bs-hero-stat-lbl">Người dùng</div>
+                </div>
+                <div style={{ width: 1, background: 'rgba(255,255,255,0.25)', margin: '0 4px' }} />
+                <div className="bs-hero-stat">
+                  <div className="bs-hero-stat-val">{s.tongChuNha}</div>
+                  <div className="bs-hero-stat-lbl">Chủ trọ</div>
+                </div>
+              </div>
+            </div>
+            <div className="d-none d-md-flex align-items-center gap-3">
+              <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 18px', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', textAlign: 'center', minWidth: 100 }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{s.tongKhachThue}</div>
+                <div style={{ fontSize: 11, opacity: 0.8, color: '#fff' }}>Khách thuê</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 18px', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', textAlign: 'center', minWidth: 100 }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{s.khachThueCoTaiKhoan}</div>
+                <div style={{ fontSize: 11, opacity: 0.8, color: '#fff' }}>Có tài khoản</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI Row */}
+        <div className="bs-section-header">
+          <h2 className="bs-section-title">Thống kê hệ thống</h2>
+          <span style={{ fontSize: 12, color: '#9ca3af' }}>
+            <i className="bi bi-clock me-1" />Cập nhật lúc {new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+
+        <div className="row g-3 mb-4">
+          {[
+            { label: 'Tòa nhà', value: s.tongToaNha, icon: 'bi-buildings', color: '#6366f1', bg: 'card-indigo', href: '/dashboard/toa-nha' },
+            { label: 'Chủ trọ', value: s.tongChuNha, icon: 'bi-person-fill-gear', color: '#10b981', bg: 'card-emerald', href: '/dashboard/quan-ly-tai-khoan' },
+            { label: 'Quản lý', value: s.tongQuanLy, icon: 'bi-person-badge-fill', color: '#3b82f6', bg: 'card-blue', href: '/dashboard/quan-ly-tai-khoan' },
+            { label: 'Khách thuê', value: s.tongKhachThue, icon: 'bi-people-fill', color: '#f59e0b', bg: 'card-amber', href: null },
+          ].map((item) => (
+            <div key={item.label} className="col-6 col-sm-6 col-lg-3">
+              <div className={`bs-stat-card ${item.bg}`}>
+                <div className="d-flex align-items-start justify-content-between">
+                  <div>
+                    <div className="bs-stat-label">{item.label}</div>
+                    <div className="bs-stat-value">{item.value}</div>
+                    {item.href && (
+                      <Link href={item.href} style={{ fontSize: 11, color: item.color }}>Xem danh sách →</Link>
+                    )}
+                  </div>
+                  <div className="bs-stat-icon" style={{ background: `${item.color}18`, color: item.color }}>
+                    <i className={`bi ${item.icon}`} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Row 2: Nhân viên + Tài khoản khách */}
+        <div className="row g-3 mb-4">
+          <div className="col-6 col-md-3">
+            <div className="bs-stat-card card-violet">
+              <div className="d-flex align-items-center gap-3">
+                <div className="bs-stat-icon icon-violet" style={{ width: 40, height: 40, fontSize: 18 }}>
+                  <i className="bi bi-person-workspace" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Nhân viên</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#7c3aed' }}>{s.tongNhanVien}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div className="bs-stat-card card-blue">
+              <div className="d-flex align-items-center gap-3">
+                <div className="bs-stat-icon icon-blue" style={{ width: 40, height: 40, fontSize: 18 }}>
+                  <i className="bi bi-shield-lock-fill" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Admin</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb' }}>{s.tongAdmin}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div className="bs-stat-card card-emerald">
+              <div className="d-flex align-items-center gap-3">
+                <div className="bs-stat-icon icon-emerald" style={{ width: 40, height: 40, fontSize: 18 }}>
+                  <i className="bi bi-person-check-fill" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Khách có tài khoản</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#059669' }}>{s.khachThueCoTaiKhoan}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="col-6 col-md-3">
+            <div className="bs-stat-card card-indigo">
+              <div className="d-flex align-items-center gap-3">
+                <div className="bs-stat-icon icon-indigo" style={{ width: 40, height: 40, fontSize: 18 }}>
+                  <i className="bi bi-person-x-fill" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Chưa có TK</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#4f46e5' }}>{s.tongKhachThue - s.khachThueCoTaiKhoan}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 3: Danh sách tòa nhà mới + Quick actions */}
+        <div className="row g-3">
+          <div className="col-12 col-lg-8">
+            <div className="bs-card">
+              <div className="bs-card-header">
+                <div>
+                  <h5 className="bs-card-title"><i className="bi bi-buildings-fill" /> Tòa nhà mới nhất</h5>
+                  <div className="bs-card-subtitle">5 tòa nhà được thêm gần đây</div>
+                </div>
+                <Link href="/dashboard/toa-nha" className="bs-section-link">
+                  Xem tất cả <i className="bi bi-arrow-right" />
+                </Link>
+              </div>
+              <div className="bs-card-body" style={{ padding: '12px 24px' }}>
+                {s.toaNhaMoiNhat.length === 0 ? (
+                  <p style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: '20px 0' }}>Chưa có tòa nhà nào</p>
+                ) : (
+                  <ul className="bs-activity-list">
+                    {s.toaNhaMoiNhat.map((tn) => (
+                      <li key={tn.id} className="bs-activity-item">
+                        <div className="bs-activity-icon" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
+                          <i className="bi bi-building" />
+                        </div>
+                        <div className="bs-activity-content">
+                          <div className="bs-activity-text">{tn.tenToaNha}</div>
+                          <div className="bs-activity-meta">{tn.diaChi}</div>
+                        </div>
+                        <div className="bs-activity-time">
+                          {new Date(tn.ngayTao).toLocaleDateString('vi-VN')}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="col-12 col-lg-4">
+            <div className="bs-card h-100">
+              <div className="bs-card-header">
+                <div>
+                  <h5 className="bs-card-title"><i className="bi bi-lightning-charge-fill" /> Thao tác nhanh</h5>
+                  <div className="bs-card-subtitle">Truy cập tính năng quản trị</div>
+                </div>
+              </div>
+              <div className="bs-card-body">
+                <div className="row g-2">
+                  {[
+                    { href: '/dashboard/toa-nha', icon: 'bi-buildings', label: 'Quản lý tòa nhà', color: '#6366f1' },
+                    { href: '/dashboard/quan-ly-tai-khoan', icon: 'bi-people-fill', label: 'Tài khoản', color: '#10b981' },
+                    { href: '/dashboard/cai-dat', icon: 'bi-gear-fill', label: 'Cài đặt', color: '#f59e0b' },
+                    { href: '/dashboard/ho-so', icon: 'bi-person-circle', label: 'Hồ sơ', color: '#3b82f6' },
+                  ].map((item) => (
+                    <div key={item.href} className="col-6">
+                      <Link href={item.href} className="bs-quick-btn">
+                        <i className={`bi ${item.icon}`} style={{ color: item.color, fontSize: 22 }} />
+                        <span style={{ fontSize: 11, lineHeight: 1.3 }}>{item.label}</span>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ─── chuNha / quanLy Dashboard ──────────────────────────────────────────────
   if (!stats) return null;
 
   const occupancyRate = stats.tongSoPhong > 0
