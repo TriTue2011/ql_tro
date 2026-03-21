@@ -110,8 +110,7 @@ async function getTargets(toaNhaId: string, category: NotifCategory): Promise<No
   const chuNhan: boolean = chuSettings ? !!(chuSettings as any)[nhanKey] : true;
   const chuyenChoQL: boolean = chuSettings ? !!(chuSettings as any)[chuyenKey] : false;
 
-  if (!chuNhan) return [];
-
+  // "Chuyển QL" và "Nhận" độc lập nhau: ủy quyền cho QL không phụ thuộc vào chuNha có bật nhận hay không
   if (chuyenChoQL && quanLys.length > 0) {
     const qlTargets: NotifTarget[] = [];
     for (const ql of quanLys) {
@@ -123,10 +122,11 @@ async function getTargets(toaNhaId: string, category: NotifCategory): Promise<No
       if (qlNhan) qlTargets.push({ chatId: ql.zaloChatId });
     }
     if (qlTargets.length > 0) return qlTargets;
-    // Fallback: không có QL nhận → gửi chủ trọ
+    // Fallback: không có QL nhận → gửi chủ trọ nếu chủ trọ bật nhận
   }
 
-  if (chu.zaloChatId) return [{ chatId: chu.zaloChatId }];
+  // Gửi chủ trọ chỉ khi họ bật nhận loại thông báo này
+  if (chuNhan && chu.zaloChatId) return [{ chatId: chu.zaloChatId }];
   return [];
 }
 
