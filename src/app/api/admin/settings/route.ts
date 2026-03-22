@@ -82,6 +82,8 @@ const DEFAULT_SETTINGS = [
   { khoa: 'rate_limit_login', giaTri: '10', moTa: 'Số lần đăng nhập tối đa / phút', nhom: 'baoMat', laBiMat: false },
   { khoa: 'cloudflare_tunnel', giaTri: 'false', moTa: 'Ứng dụng chạy qua Cloudflare Tunnel (true/false)', nhom: 'baoMat', laBiMat: false },
   { khoa: 'allowed_origins', giaTri: '', moTa: 'Danh sách origin được phép (phân cách bằng dấu phẩy)', nhom: 'baoMat', laBiMat: false },
+  // Quản lý tài khoản — giới hạn vai trò trên mỗi tòa nhà
+  { khoa: 'role_limits', giaTri: '{"dongChuTro":2,"quanLy":3,"nhanVien":5}', moTa: 'Giới hạn số lượng mỗi vai trò trên mỗi tòa nhà (JSON)', nhom: 'heThong', laBiMat: false },
 ];
 
 function maskSecret(value: string | null | undefined): string {

@@ -164,9 +164,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Không có quyền tạo tài khoản với vai trò này' }, { status: 403 });
     }
 
-    // Giới hạn số lượng vai trò trên mỗi tòa nhà
-    const ROLE_LIMITS: Record<string, number> = { dongChuTro: 2, quanLy: 3, nhanVien: 5 };
-    const maxForRole = ROLE_LIMITS[role];
+    // Giới hạn số lượng vai trò trên mỗi tòa nhà (đọc từ cài đặt DB)
+    const DEFAULT_LIMITS: Record<string, number> = { dongChuTro: 2, quanLy: 3, nhanVien: 5 };
+    let roleLimits = DEFAULT_LIMITS;
+    try {
+      const row = await prisma.caiDat.findUnique({ where: { khoa: 'role_limits' } });
+      if (row?.giaTri) roleLimits = { ...DEFAULT_LIMITS, ...JSON.parse(row.giaTri) };
+    } catch {}
+    const maxForRole = roleLimits[role];
     if (maxForRole && toaNhaIds.length > 0) {
       for (const tid of toaNhaIds) {
         const count = await prisma.toaNhaNguoiQuanLy.count({
