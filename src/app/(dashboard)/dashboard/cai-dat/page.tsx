@@ -607,6 +607,182 @@ function ChuNhaHeThongTab() {
   );
 }
 
+// ─── Zalo Webhook URL Card ────────────────────────────────────────────────────
+
+function ZaloWebhookCard({
+  currentWebhookId,
+  webhookBaseUrl,
+  webhookDomainUrl,
+  webhookFullUrl,
+  webhookDomainFullUrl,
+  webhookIdGenerating,
+  webhookTestLoading,
+  webhookTestResult,
+  botWebhookUrl,
+  botWebhookLoading,
+  botWebhookResult,
+  onChangeBaseUrl,
+  onChangeDomainUrl,
+  onSaveBaseUrl,
+  onSaveDomainUrl,
+  onGenerate,
+  onTest,
+  onChangeBotUrl,
+  onSetBotWebhook,
+}: {
+  currentWebhookId: string | null;
+  webhookBaseUrl: string;
+  webhookDomainUrl: string;
+  webhookFullUrl: string;
+  webhookDomainFullUrl: string;
+  webhookIdGenerating: boolean;
+  webhookTestLoading: boolean;
+  webhookTestResult: { ok: boolean; message: string } | null;
+  botWebhookUrl: string;
+  botWebhookLoading: boolean;
+  botWebhookResult: Record<string, unknown> | null;
+  onChangeBaseUrl: (v: string) => void;
+  onChangeDomainUrl: (v: string) => void;
+  onSaveBaseUrl: (v: string) => void;
+  onSaveDomainUrl: (v: string) => void;
+  onGenerate: () => void;
+  onTest: () => void;
+  onChangeBotUrl: (v: string) => void;
+  onSetBotWebhook: () => void;
+}) {
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text).then(() => toast.success('Đã copy URL'));
+  }
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <MessageSquare className="h-4 w-4" />
+          Zalo Webhook
+        </CardTitle>
+        <CardDescription className="text-xs md:text-sm">
+          URL để Zalo Bot gửi tin nhắn về hệ thống. Dán URL này vào cấu hình bot server.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 space-y-4">
+        {/* App URL settings */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs font-medium">URL LAN (IP nội bộ)</Label>
+            <div className="flex gap-1.5">
+              <Input
+                value={webhookBaseUrl}
+                onChange={e => onChangeBaseUrl(e.target.value)}
+                placeholder="http://192.168.x.x:3000"
+                className="text-sm"
+              />
+              <Button size="sm" variant="outline" onClick={() => onSaveBaseUrl(webhookBaseUrl)}>
+                <Save className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-medium">URL Domain (internet)</Label>
+            <div className="flex gap-1.5">
+              <Input
+                value={webhookDomainUrl}
+                onChange={e => onChangeDomainUrl(e.target.value)}
+                placeholder="https://yourdomain.com"
+                className="text-sm"
+              />
+              <Button size="sm" variant="outline" onClick={() => onSaveDomainUrl(webhookDomainUrl)}>
+                <Save className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Webhook ID section */}
+        {!currentWebhookId ? (
+          <div className="rounded-md border border-dashed p-4 text-center space-y-2">
+            <p className="text-sm text-gray-500">Chưa có Webhook ID. Tạo ID để lấy URL webhook.</p>
+            <Button size="sm" onClick={onGenerate} disabled={webhookIdGenerating}>
+              {webhookIdGenerating ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
+              Tạo Webhook ID
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Webhook URL (dán vào bot server)</Label>
+              {webhookFullUrl && (
+                <div className="flex items-center gap-1.5 rounded-md border bg-gray-50 px-3 py-2">
+                  <Wifi className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                  <span className="text-xs font-mono flex-1 break-all text-gray-700">{webhookFullUrl}</span>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 flex-shrink-0" onClick={() => copyToClipboard(webhookFullUrl)}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+              {webhookDomainFullUrl && webhookDomainFullUrl !== webhookFullUrl && (
+                <div className="flex items-center gap-1.5 rounded-md border bg-gray-50 px-3 py-2">
+                  <Cloud className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                  <span className="text-xs font-mono flex-1 break-all text-gray-700">{webhookDomainFullUrl}</span>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 flex-shrink-0" onClick={() => copyToClipboard(webhookDomainFullUrl)}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+              {!webhookFullUrl && !webhookDomainFullUrl && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                  Cần nhập URL LAN hoặc URL Domain ở trên để hiển thị webhook URL đầy đủ.
+                </p>
+              )}
+            </div>
+
+            {/* Test + Regenerate */}
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={onTest} disabled={webhookTestLoading} className="flex-1">
+                {webhookTestLoading ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5 mr-1.5" />}
+                Test nhận tin
+              </Button>
+              <Button size="sm" variant="outline" onClick={onGenerate} disabled={webhookIdGenerating}>
+                {webhookIdGenerating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                <span className="ml-1.5">Tạo ID mới</span>
+              </Button>
+            </div>
+            {webhookTestResult && (
+              <div className={`rounded-md p-2.5 text-sm flex items-center gap-2 ${webhookTestResult.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                {webhookTestResult.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0" /> : <XCircle className="h-4 w-4 flex-shrink-0" />}
+                {webhookTestResult.message}
+              </div>
+            )}
+
+            {/* Set bot webhook */}
+            <div className="space-y-1.5 pt-2 border-t">
+              <Label className="text-xs font-medium">Cài webhook cho bot server</Label>
+              <div className="flex gap-1.5">
+                <Input
+                  value={botWebhookUrl}
+                  onChange={e => onChangeBotUrl(e.target.value)}
+                  placeholder="URL webhook (tự điền từ trên)"
+                  className="text-sm"
+                />
+                <Button size="sm" onClick={onSetBotWebhook} disabled={botWebhookLoading}>
+                  {botWebhookLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                  <span className="ml-1.5">Cài</span>
+                </Button>
+              </div>
+              {botWebhookResult && (
+                <div className={`rounded-md p-2.5 text-sm flex items-center gap-2 ${(botWebhookResult as { success?: boolean }).success ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                  {(botWebhookResult as { success?: boolean }).success ? <CheckCircle className="h-4 w-4 flex-shrink-0" /> : <XCircle className="h-4 w-4 flex-shrink-0" />}
+                  {String((botWebhookResult as { message?: string; error?: string }).message || (botWebhookResult as { error?: string }).error || '')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Admin Building Selector for HA + Storage ────────────────────────────────
 
 function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
@@ -1731,17 +1907,18 @@ export default function CaiDatPage() {
   const [botWebhookLoading, setBotWebhookLoading] = useState(false);
   const [botWebhookUrl, setBotWebhookUrl] = useState("");
 
-  // Load gợi ý webhook URL cho bot server (domain-based, chỉ dùng làm fallback)
+  // Load URL đã lưu từ lần cài bot webhook thành công trước (zalo_webhook_url trong DB)
+  // Chỉ dùng nếu URL chứa /api/webhook/ hoặc /api/zalowebhook/ (đúng cho bot server)
+  // KHÔNG dùng /api/zalo/set-webhook vì endpoint đó trả URL Zalo OA (/api/zalo/webhook)
   useEffect(() => {
     if (!canManage) return;
-    fetch("/api/zalo/set-webhook")
-      .then((r) => r.json())
+    fetch("/api/zalo-bot/saved-webhook-url")
+      .then((r) => r.ok ? r.json() : null)
       .then((d) => {
-        const url = d.webhookUrl || "";
-        // Chỉ set nếu là URL hợp lệ (tránh giá trị rác trong DB)
-        if (url.startsWith("http://") || url.startsWith("https://")) {
-          setBotWebhookUrl(url);
-        }
+        if (!d) return;
+        const url: string = d.webhookUrl || "";
+        const isBotUrl = url.includes("/api/webhook/") || url.includes("/api/zalowebhook/");
+        if (isBotUrl) setBotWebhookUrl(url);
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2045,6 +2222,27 @@ export default function CaiDatPage() {
                 Chưa có cài đặt cảnh báo nào.
               </p>
             )}
+            <ZaloWebhookCard
+              currentWebhookId={currentWebhookId}
+              webhookBaseUrl={webhookBaseUrl}
+              webhookDomainUrl={webhookDomainUrl}
+              webhookFullUrl={webhookFullUrl}
+              webhookDomainFullUrl={webhookDomainFullUrl}
+              webhookIdGenerating={webhookIdGenerating}
+              webhookTestLoading={webhookTestLoading}
+              webhookTestResult={webhookTestResult}
+              botWebhookUrl={botWebhookUrl}
+              botWebhookLoading={botWebhookLoading}
+              botWebhookResult={botWebhookResult}
+              onChangeBaseUrl={setWebhookBaseUrl}
+              onChangeDomainUrl={setWebhookDomainUrl}
+              onSaveBaseUrl={handleSaveBaseUrl}
+              onSaveDomainUrl={handleSaveDomainUrl}
+              onGenerate={handleGenerateWebhookId}
+              onTest={handleTestWebhook}
+              onChangeBotUrl={setBotWebhookUrl}
+              onSetBotWebhook={() => handleBotSetWebhook()}
+            />
           </TabsContent>
         )}
 
@@ -2053,6 +2251,27 @@ export default function CaiDatPage() {
         {isAdmin && !loadingSystem && !errorSystem && (
           <TabsContent value="homeAssistant" className="space-y-4 mt-4">
             <AdminToaNhaSettingsPanel tab="ha" />
+            <ZaloWebhookCard
+              currentWebhookId={currentWebhookId}
+              webhookBaseUrl={webhookBaseUrl}
+              webhookDomainUrl={webhookDomainUrl}
+              webhookFullUrl={webhookFullUrl}
+              webhookDomainFullUrl={webhookDomainFullUrl}
+              webhookIdGenerating={webhookIdGenerating}
+              webhookTestLoading={webhookTestLoading}
+              webhookTestResult={webhookTestResult}
+              botWebhookUrl={botWebhookUrl}
+              botWebhookLoading={botWebhookLoading}
+              botWebhookResult={botWebhookResult}
+              onChangeBaseUrl={setWebhookBaseUrl}
+              onChangeDomainUrl={setWebhookDomainUrl}
+              onSaveBaseUrl={handleSaveBaseUrl}
+              onSaveDomainUrl={handleSaveDomainUrl}
+              onGenerate={handleGenerateWebhookId}
+              onTest={handleTestWebhook}
+              onChangeBotUrl={setBotWebhookUrl}
+              onSetBotWebhook={() => handleBotSetWebhook()}
+            />
           </TabsContent>
         )}
 

@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
-import { notifyHomeAssistant } from '@/lib/zalo-message-handler';
+import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
 
 // ─── Normalize payload (giống webhook/route.ts) ──────────────────────────────
 
@@ -216,6 +216,7 @@ async function handleIncoming(
       detectAndStorePending(update),
       cleanupOldMessages(),
       notifyHomeAssistant(update),
+      handleZaloAutoReply(update),
     ]);
 
     return NextResponse.json({ message: 'Success' });
