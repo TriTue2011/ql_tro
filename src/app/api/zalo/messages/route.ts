@@ -23,13 +23,31 @@ export async function GET(request: NextRequest) {
 
   // Danh sách cuộc hội thoại
   if (searchParams.get("conversations") === "1") {
+    // CTE: lấy tin nhắn người dùng mới nhất + tin bot mới nhất mỗi chatId
     const rows = await prisma.$queryRaw<any[]>`
-      SELECT DISTINCT ON ("chatId")
-        "id", "chatId", "displayName", "content", "attachmentUrl", "role", "createdAt", "rawPayload", "eventName"
-      FROM "ZaloMessage"
-      ORDER BY "chatId", "createdAt" DESC
+      WITH latest_user AS (
+        SELECT DISTINCT ON ("chatId")
+          "id", "chatId", "displayName", "content", "attachmentUrl",
+          "role", "createdAt", "rawPayload", "eventName"
+        FROM "ZaloMessage"
+        WHERE "role" = 'user'
+        ORDER BY "chatId", "createdAt" DESC
+      ),
+      latest_bot AS (
+        SELECT DISTINCT ON ("chatId")
+          "chatId",
+          "content" AS "botContent",
+          "createdAt" AS "botCreatedAt"
+        FROM "ZaloMessage"
+        WHERE "role" = 'bot'
+        ORDER BY "chatId", "createdAt" DESC
+      )
+      SELECT u.*, b."botContent", b."botCreatedAt"
+      FROM latest_user u
+      LEFT JOIN latest_bot b ON u."chatId" = b."chatId"
+      ORDER BY u."createdAt" DESC
     `;
-    // Sắp xếp theo tin nhắn mới nhất
+    // Sắp xếp theo tin nhắn user mới nhất
     rows.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
