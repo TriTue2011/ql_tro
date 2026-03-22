@@ -8,6 +8,7 @@ import {
   Server, Webhook, Send, CheckCircle2, XCircle,
   Loader2, Eye, Terminal, Play,
   Image, FileText, Upload, MessageSquare,
+  Bot, Copy, ExternalLink, ChevronLeft,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useRealtimeEvents } from "@/hooks/use-realtime";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -680,79 +683,286 @@ function TestSendCard({ account }: { account?: AccountData }) {
 
 // ─── Monitor Card ─────────────────────────────────────────────────────────────
 
-function MonitorCard({ account }: { account?: AccountData }) {
-  const [messages, setMessages] = useState<{ id: string; chatId: string; displayName?: string; content: string; role: string; createdAt: string; attachmentUrl?: string; rawPayload?: any }[]>([]);
-  const [loading, setLoading] = useState(false);
+interface ZaloMsgItem {
+  id: string;
+  chatId: string;
+  displayName?: string | null;
+  content: string;
+  role: string;
+  createdAt: string;
+  attachmentUrl?: string | null;
+  rawPayload?: any;
+  eventName?: string | null;
+}
 
-  const fetchMessages = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = account?.zaloChatId ? `?chatId=${encodeURIComponent(account.zaloChatId)}&conversations=1` : "?conversations=1";
-      const res = await fetch(`/api/zalo/messages${params}`);
-      const data = await res.json();
-      if (data.data) setMessages(data.data.slice(0, 20) || []);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+function msgImgUrl(m: ZaloMsgItem): string | null {
+  return m.attachmentUrl || m.rawPayload?.data?.content?.href || null;
+}
 
-  useEffect(() => { fetchMessages(); }, [fetchMessages]);
+function msgFileUrl(m: ZaloMsgItem): string | null {
+  const msgType = m.rawPayload?.data?.msgType;
+  if (msgType === 'share.file') return m.rawPayload?.data?.content?.href || null;
+  return null;
+}
+
+function msgSenderName(m: ZaloMsgItem): string {
+  return m.rawPayload?.data?.dName || m.displayName || m.chatId;
+}
+
+function msgIsGroup(m: ZaloMsgItem): boolean {
+  return m.rawPayload?.type === 1;
+}
+
+function msgThreadId(m: ZaloMsgItem): string {
+  return m.rawPayload?.threadId || m.chatId;
+}
+
+function fmtTime(s: string) {
+  const d = new Date(s);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function MsgBubble({ m, compact = false }: { m: ZaloMsgItem; compact?: boolean }) {
+  const isBot = m.role === 'bot';
+  const imgUrl = msgImgUrl(m);
+  const fileUrl = msgFileUrl(m);
+  const msgType = m.rawPayload?.data?.msgType;
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Eye className="h-4 w-4 text-amber-600" />
-            Theo dõi tin nhắn
-          </CardTitle>
-          <Button size="sm" variant="ghost" onClick={fetchMessages} disabled={loading} className="h-7 px-2">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          </Button>
-        </div>
-        <CardDescription className="text-xs">20 tin nhắn gần nhất qua Zalo Bot</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {loading && messages.length === 0 ? (
-          <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải...
-          </div>
-        ) : messages.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">Chưa có tin nhắn nào</p>
-        ) : (
-          <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
-            {messages.map(m => (
-              <div key={m.id} className={`text-xs px-2 py-1.5 rounded ${m.role === "user" ? "bg-gray-50" : "bg-blue-50"}`}>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="font-medium text-gray-700 truncate max-w-[120px]">
-                    {m.displayName || m.chatId}
-                  </span>
-                  <Badge variant="outline" className={`text-[9px] h-4 px-1 ${m.role === "bot" ? "border-blue-300 text-blue-600" : "border-gray-300"}`}>
-                    {m.role === "bot" ? "Bot" : "User"}
-                  </Badge>
-                  <span className="text-[10px] text-gray-400 ml-auto">
-                    {new Date(m.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-                {(() => {
-                  const imgUrl = m.attachmentUrl || m.rawPayload?.data?.content?.href || null;
-                  if (imgUrl) {
-                    return (
-                      <a href={imgUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
-                        <img src={imgUrl} alt="" className="h-8 w-8 rounded object-cover flex-shrink-0 border"
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        <span className="truncate text-gray-500">{m.content !== '[hình ảnh]' ? m.content : '📷 Xem ảnh'}</span>
-                      </a>
-                    );
-                  }
-                  return <p className="text-gray-600 truncate">{m.content}</p>;
-                })()}
-              </div>
-            ))}
-          </div>
+    <div className={`flex items-end gap-1.5 ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
+      <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 ${isBot ? 'bg-gray-200' : 'bg-blue-100'}`}>
+        {isBot ? <Bot className="h-3.5 w-3.5 text-gray-500" /> : <User className="h-3.5 w-3.5 text-blue-600" />}
+      </div>
+      <div className={`rounded-2xl px-3 py-2 text-sm ${compact ? 'max-w-[85%]' : 'max-w-[75%]'} ${
+        isBot ? 'bg-gray-100 text-gray-800 rounded-bl-sm' : 'bg-blue-500 text-white rounded-br-sm'
+      }`}>
+        {imgUrl && msgType !== 'share.file' && (
+          <a href={imgUrl} target="_blank" rel="noopener noreferrer">
+            <img src={imgUrl} alt="" className="rounded-lg max-h-48 max-w-full mb-1 object-contain"
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          </a>
         )}
-      </CardContent>
-    </Card>
+        {fileUrl && (
+          <a href={fileUrl} target="_blank" rel="noopener noreferrer"
+            className={`flex items-center gap-1.5 text-xs underline ${isBot ? 'text-blue-600' : 'text-blue-100'}`}>
+            <FileText className="h-4 w-4 shrink-0" />
+            <span>{m.content}</span>
+          </a>
+        )}
+        {!fileUrl && (
+          <span className="whitespace-pre-wrap break-words leading-relaxed text-sm">
+            {m.content === '[hình ảnh]' && imgUrl ? '' : m.content}
+          </span>
+        )}
+        <span className={`block text-[10px] mt-0.5 ${isBot ? 'text-gray-400' : 'text-blue-100'}`}>
+          {fmtTime(m.createdAt)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ChatHistoryDialog({ chatId, name, open, onClose }: {
+  chatId: string; name: string; open: boolean; onClose: () => void;
+}) {
+  const [msgs, setMsgs] = useState<ZaloMsgItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const load = useCallback(async (before?: string) => {
+    setLoading(true);
+    try {
+      const url = `/api/zalo/messages?chatId=${encodeURIComponent(chatId)}&limit=50${before ? `&before=${before}` : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const batch: ZaloMsgItem[] = data.data ?? [];
+      if (before) setMsgs(prev => [...batch, ...prev]);
+      else {
+        setMsgs(batch);
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 80);
+      }
+      setHasMore(batch.length === 50);
+    } finally { setLoading(false); }
+  }, [chatId]);
+
+  useEffect(() => { if (open) load(); }, [open, load]);
+  useRealtimeEvents(['zalo-message'], () => { if (open) void load(); });
+
+  const tid = msgs.length ? msgThreadId(msgs[0]) : chatId;
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg h-[80vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-4 py-3 border-b shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <User className="h-4 w-4 text-blue-500" />
+            <span>{name}</span>
+          </DialogTitle>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="text-[10px] text-gray-400 font-mono">Thread ID: {tid}</span>
+            <button onClick={() => { navigator.clipboard.writeText(tid); toast.success('Đã copy'); }}
+              className="text-gray-300 hover:text-blue-500 ml-0.5">
+              <Copy className="h-3 w-3" />
+            </button>
+            <a href="/dashboard/zalo-monitor" target="_blank"
+              className="ml-2 text-[10px] text-blue-500 hover:underline flex items-center gap-0.5">
+              <ExternalLink className="h-3 w-3" />Mở trang đầy đủ
+            </a>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+          {hasMore && (
+            <div className="text-center pb-1">
+              <Button size="sm" variant="outline" className="text-xs h-7"
+                onClick={() => load(msgs[0]?.createdAt)} disabled={loading}>
+                {loading ? 'Đang tải...' : 'Tải thêm'}
+              </Button>
+            </div>
+          )}
+          {msgs.map((m, i) => {
+            const showDate = i === 0 || new Date(m.createdAt).toDateString() !== new Date(msgs[i - 1].createdAt).toDateString();
+            return (
+              <div key={m.id}>
+                {showDate && (
+                  <div className="text-center text-[10px] text-gray-400 py-1">
+                    {new Date(m.createdAt).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                  </div>
+                )}
+                <MsgBubble m={m} />
+              </div>
+            );
+          })}
+          {msgs.length === 0 && !loading && (
+            <p className="text-center text-gray-400 text-sm py-8">Chưa có tin nhắn.</p>
+          )}
+          {loading && msgs.length === 0 && (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MonitorCard({ account }: { account?: AccountData }) {
+  const [convs, setConvs] = useState<ZaloMsgItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<ZaloMsgItem | null>(null);
+
+  const fetchConvs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = account?.zaloChatId
+        ? `?chatId=${encodeURIComponent(account.zaloChatId)}&conversations=1`
+        : '?conversations=1';
+      const res = await fetch(`/api/zalo/messages${params}`);
+      const data = await res.json();
+      if (data.data) setConvs(data.data);
+    } finally { setLoading(false); }
+  }, [account?.zaloChatId]);
+
+  useEffect(() => { fetchConvs(); }, [fetchConvs]);
+  useRealtimeEvents(['zalo-message'], () => { void fetchConvs(); });
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-2 px-4 pt-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Eye className="h-4 w-4 text-amber-600" />
+              Theo dõi tin nhắn
+            </CardTitle>
+            <div className="flex items-center gap-1">
+              <a href="/dashboard/zalo-monitor" target="_blank"
+                className="text-[10px] text-blue-500 hover:underline flex items-center gap-0.5 mr-1">
+                <ExternalLink className="h-3 w-3" />Xem đầy đủ
+              </a>
+              <Button size="sm" variant="ghost" onClick={fetchConvs} disabled={loading} className="h-7 w-7 p-0">
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+          </div>
+          <CardDescription className="text-xs">Hội thoại gần đây — click để xem lịch sử chat</CardDescription>
+        </CardHeader>
+        <CardContent className="px-3 pb-3">
+          {loading && convs.length === 0 ? (
+            <div className="flex items-center gap-2 text-xs text-gray-400 py-4 justify-center">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải...
+            </div>
+          ) : convs.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-6">Chưa có tin nhắn nào</p>
+          ) : (
+            <div className="space-y-1 max-h-[320px] overflow-y-auto">
+              {convs.map(m => {
+                const isGroup = msgIsGroup(m);
+                const name = msgSenderName(m);
+                const tid = msgThreadId(m);
+                const imgUrl = msgImgUrl(m);
+                const isBot = m.role === 'bot';
+                const msgType = m.rawPayload?.data?.msgType;
+
+                return (
+                  <button key={m.id} type="button"
+                    onClick={() => setSelected(m)}
+                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all">
+                    <div className="flex items-start gap-2.5">
+                      {/* Avatar */}
+                      <div className={`mt-0.5 h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${isGroup ? 'bg-purple-100' : isBot ? 'bg-gray-100' : 'bg-blue-100'}`}>
+                        {isGroup ? <Users className="h-4.5 w-4.5 text-purple-600" /> :
+                         isBot ? <Bot className="h-4 w-4 text-gray-500" /> :
+                         <User className="h-4 w-4 text-blue-600" />}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-1 mb-0.5">
+                          <span className="text-sm font-medium text-gray-800 truncate">{name}</span>
+                          <span className="text-[10px] text-gray-400 shrink-0">{fmtTime(m.createdAt)}</span>
+                        </div>
+
+                        {/* Content preview */}
+                        <div className="flex items-center gap-1.5">
+                          {isBot && <span className="text-[10px] text-blue-500 shrink-0">🤖</span>}
+                          {imgUrl && msgType !== 'share.file' && (
+                            <img src={imgUrl} alt="" className="h-6 w-6 rounded object-cover shrink-0 border"
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          )}
+                          {msgType === 'share.file' && <FileText className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+                          <p className="text-xs text-gray-500 truncate">
+                            {m.content === '[hình ảnh]' ? '📷 Ảnh' : m.content}
+                          </p>
+                        </div>
+
+                        {/* Thread ID */}
+                        <p className="text-[10px] text-gray-400 font-mono mt-0.5 truncate">ID: {tid}</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {selected && (
+        <ChatHistoryDialog
+          chatId={selected.chatId}
+          name={msgSenderName(selected)}
+          open={!!selected}
+          onClose={() => setSelected(null)}
+        />
+      )}
+    </>
   );
 }
 
