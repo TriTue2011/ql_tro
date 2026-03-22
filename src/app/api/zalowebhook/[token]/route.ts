@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
+import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
 
 // ─── Token validation ─────────────────────────────────────────────────────────
@@ -76,6 +77,7 @@ async function saveMessage(update: Record<string, unknown>): Promise<void> {
       data: { chatId, displayName: displayName || null, content, attachmentUrl, role: 'user', eventName, rawPayload: update as any },
     });
     emitNewMessage({ ...saved, eventName: saved.eventName ?? 'message' });
+    sseEmit('zalo-message', { chatId });
   } catch (err) {
     console.error('[zalowebhook] saveMessage error:', err);
   }

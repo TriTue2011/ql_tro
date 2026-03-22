@@ -9,6 +9,7 @@ export const REALTIME_EVENTS = [
   'su-co',
   'toa-nha',
   'chi-so-dien-nuoc',
+  'zalo-message',
 ] as const;
 
 export type RealtimeEvent = (typeof REALTIME_EVENTS)[number];
