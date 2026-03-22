@@ -82,6 +82,7 @@ interface AccountData {
   zaloBotTtl: number | null;
   nhanThongBaoZalo: boolean;
   settings: ZaloSettings | null;
+  botOnline?: boolean | null; // true=online, false=bị out, null=chưa check
 }
 
 interface BuildingData {
@@ -1790,14 +1791,24 @@ function PersonRow({
           {isSelf && isAdmin && (
             <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Admin</Badge>
           )}
-          <span className={`text-[9px] ml-1 ${account.zaloChatId ? "text-green-500" : account.pendingZaloChatId ? "text-amber-400" : "text-gray-300"}`}>
-            {account.zaloChatId ? "●" : account.pendingZaloChatId ? "◐" : "○"}
+          <span className={`text-[9px] ml-1 ${
+            account.botOnline === false ? "text-red-500" :
+            account.zaloChatId ? "text-green-500" :
+            account.pendingZaloChatId ? "text-amber-400" : "text-gray-300"
+          }`}>
+            {account.botOnline === false ? "●" :
+             account.zaloChatId ? "●" :
+             account.pendingZaloChatId ? "◐" : "○"}
           </span>
-          {!account.zaloChatId && (
+          {account.botOnline === false ? (
+            <span className="text-[10px] text-red-500 font-medium">
+              Zalo đã bị đăng xuất
+            </span>
+          ) : !account.zaloChatId ? (
             <span className="text-[10px] text-gray-400">
               {account.pendingZaloChatId ? "Chờ xác nhận Zalo" : "Chưa liên kết Zalo"}
             </span>
-          )}
+          ) : null}
         </div>
         {open
           ? <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />

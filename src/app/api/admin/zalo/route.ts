@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { getAccountsFromBotServer } from '@/lib/zalo-bot-client';
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,26 @@ export async function GET() {
     },
   });
 
+  // Kiểm tra tài khoản nào đang online trên bot server
+  let botAccountIds: Set<string> = new Set();
+  try {
+    const { accounts: botAccounts } = await getAccountsFromBotServer();
+    for (const acc of botAccounts) {
+      const accId = acc.id ?? acc.ownId;
+      if (accId) botAccountIds.add(String(accId));
+      // Cũng thêm phoneNumber để match
+      if (acc.phoneNumber) botAccountIds.add(acc.phoneNumber);
+      if (acc.phone) botAccountIds.add(acc.phone);
+    }
+  } catch { /* bot server không khả dụng → không check */ }
+
+  function checkBotOnline(account: { zaloAccountId?: string | null; soDienThoai?: string | null }): boolean | null {
+    // null = chưa cấu hình bot server hoặc chưa link zaloAccountId
+    if (botAccountIds.size === 0) return null;
+    if (!account.zaloAccountId) return null;
+    return botAccountIds.has(account.zaloAccountId);
+  }
+
   // Gắn đúng ZaloThongBaoCaiDat cho từng (nguoiDung × toaNha)
   const result = buildings.map(b => ({
     id: b.id,
@@ -78,10 +99,12 @@ export async function GET() {
     chuTro: {
       ...omit(b.chuSoHuu, 'zaloThongBaoCaiDat'),
       settings: b.chuSoHuu.zaloThongBaoCaiDat.find(s => s.toaNhaId === b.id) ?? null,
+      botOnline: checkBotOnline(b.chuSoHuu),
     },
     quanLys: b.nguoiQuanLy.map(q => ({
       ...omit(q.nguoiDung, 'zaloThongBaoCaiDat'),
       settings: q.nguoiDung.zaloThongBaoCaiDat.find(s => s.toaNhaId === b.id) ?? null,
+      botOnline: checkBotOnline(q.nguoiDung),
     })),
   }));
 
