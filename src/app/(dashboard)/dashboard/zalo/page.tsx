@@ -1672,10 +1672,10 @@ function AccountSettings({
 // ─── 4 cards ẩn/hiện per-account ─────────────────────────────────────────────
 
 const ACCOUNT_CARDS = [
-  { key: "botserver", label: "Bot Server", Icon: Server, color: "text-blue-600" },
-  { key: "webhook",   label: "Webhook",    Icon: Webhook, color: "text-violet-600" },
-  { key: "testsend",  label: "Test gửi",   Icon: Send, color: "text-green-600" },
-  { key: "monitor",   label: "Theo dõi tin", Icon: Eye, color: "text-orange-500" },
+  { key: "botserver", label: "Bot Server", Icon: Server, color: "text-blue-600", adminOnly: false },
+  { key: "webhook",   label: "Webhook",    Icon: Webhook, color: "text-violet-600", adminOnly: true },
+  { key: "testsend",  label: "Test gửi",   Icon: Send, color: "text-green-600", adminOnly: false },
+  { key: "monitor",   label: "Theo dõi tin", Icon: Eye, color: "text-orange-500", adminOnly: false },
 ] as const;
 
 function PerAccountCards({ account, isAdmin, canEdit }: { account: AccountData; isAdmin: boolean; canEdit: boolean }) {
@@ -1686,7 +1686,7 @@ function PerAccountCards({ account, isAdmin, canEdit }: { account: AccountData; 
       <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Công cụ</h3>
       {/* Toggle buttons */}
       <div className="flex flex-wrap gap-2">
-        {ACCOUNT_CARDS.map(({ key, label, Icon, color }) => (
+        {ACCOUNT_CARDS.filter(c => !c.adminOnly || isAdmin).map(({ key, label, Icon, color }) => (
           <button
             key={key}
             type="button"
