@@ -5,6 +5,12 @@ import { getNguoiDungRepo } from '@/lib/repositories';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/sanitize';
 
+const zaloChatEntrySchema = z.object({
+  ten: z.string().max(100).optional().default(''),
+  userId: z.string().max(64).optional().default(''),
+  threadId: z.string().max(64).optional().default(''),
+});
+
 const updateProfileSchema = z.object({
   ten: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100).optional(),
   soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ').optional(),
@@ -14,6 +20,7 @@ const updateProfileSchema = z.object({
     'URL ảnh đại diện không hợp lệ'
   ).optional().nullable(),
   zaloChatId: z.string().max(64).optional(),
+  zaloChatIds: z.array(zaloChatEntrySchema).max(20).optional(),
 });
 
 export async function GET() {
@@ -40,6 +47,7 @@ export async function GET() {
       anhDaiDien: user.anhDaiDien,
       trangThai: user.trangThai,
       zaloChatId: user.zaloChatId ?? null,
+      zaloChatIds: (user as any).zaloChatIds ?? null,
       pendingZaloChatId: user.pendingZaloChatId ?? null,
       ngayTao: user.ngayTao?.toISOString(),
       ngayCapNhat: user.ngayCapNhat?.toISOString(),
@@ -69,7 +77,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { ten, soDienThoai, anhDaiDien, zaloChatId } = parsed.data;
+    const { ten, soDienThoai, anhDaiDien, zaloChatId, zaloChatIds } = parsed.data;
 
     const repo = await getNguoiDungRepo();
 
@@ -79,11 +87,19 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Tính zaloChatId chính từ zaloChatIds nếu có
+    const validEntries = zaloChatIds?.filter(e => e.threadId || e.userId);
+    const derivedZaloChatId = validEntries?.length
+      ? (validEntries[0].threadId || validEntries[0].userId)
+      : undefined;
+
     const updatedUser = await repo.update(existingUser.id, {
       ten: ten ? sanitizeText(ten) : undefined,
       soDienThoai,
       anhDaiDien: anhDaiDien ?? undefined,
       ...(zaloChatId !== undefined && { zaloChatId: sanitizeText(zaloChatId) }),
+      ...(validEntries !== undefined && { zaloChatIds: validEntries as any }),
+      ...(derivedZaloChatId !== undefined && !zaloChatId && { zaloChatId: derivedZaloChatId }),
     });
 
     if (!updatedUser) {

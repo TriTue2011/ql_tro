@@ -34,6 +34,8 @@ import {
   Lock,
   MessageCircle,
   Clock,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -109,6 +111,35 @@ export default function ProfilePage() {
     zaloChatId: '',
   });
 
+  // ── Zalo chatIds state ────────────────────────────────────────
+  const [zaloChatIds, setZaloChatIds] = useState<{ ten: string; userId: string; threadId: string }[]>([]);
+  const [zaloSaving, setZaloSaving] = useState(false);
+
+  async function handleSaveZaloChatIds() {
+    if (!profile?.id) return;
+    setZaloSaving(true);
+    try {
+      const valid = zaloChatIds.filter(e => e.threadId || e.userId);
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zaloChatIds: valid }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setProfile(d);
+        setZaloChatIds(Array.isArray(d.zaloChatIds) ? d.zaloChatIds : []);
+        toast.success('Đã lưu liên kết Zalo');
+      } else {
+        toast.error('Lưu thất bại');
+      }
+    } catch {
+      toast.error('Không thể kết nối máy chủ');
+    } finally {
+      setZaloSaving(false);
+    }
+  }
+
   // ── Zalo pending confirm state ────────────────────────────────
   const [zaloPendingLoading, setZaloPendingLoading] = useState(false);
 
@@ -172,6 +203,7 @@ export default function ProfilePage() {
           avatar: data.anhDaiDien || '',
           zaloChatId: data.zaloChatId || '',
         });
+        setZaloChatIds(Array.isArray(data.zaloChatIds) ? data.zaloChatIds : []);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -430,35 +462,81 @@ export default function ProfilePage() {
 
                 {/* Zalo — liên kết theo tài khoản bot */}
                 <div className="space-y-2 md:col-span-2">
-                    <Label className="text-xs md:text-sm flex items-center gap-1.5">
-                      <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
-                      Liên kết Zalo
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs md:text-sm flex items-center gap-1.5">
+                        <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
+                        Liên kết Zalo theo tài khoản bot
+                      </Label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => setZaloChatIds(prev => [...prev, { ten: '', userId: '', threadId: '' }])}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Thêm dòng
+                      </Button>
+                    </div>
 
-                    {/* Bảng các tài khoản bot */}
-                    {profile?.zaloChatIds && profile.zaloChatIds.length > 0 ? (
-                      <div className="border rounded-md overflow-hidden">
-                        {/* Header */}
-                        <div className="grid grid-cols-3 gap-0 bg-gray-50 border-b px-3 py-1.5">
-                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Tên bot</span>
-                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">User ID</span>
-                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Thread ID</span>
-                        </div>
-                        {profile.zaloChatIds.map((entry, i) => (
-                          <div key={i} className="grid grid-cols-3 gap-0 px-3 py-2 border-b last:border-b-0 text-xs">
-                            <span className="font-medium text-gray-700 truncate pr-2">{entry.ten || '—'}</span>
-                            <span className="font-mono text-green-700 flex items-center gap-1 truncate pr-2">
-                              <CheckCircle2 className="h-3 w-3 shrink-0" />
-                              {entry.userId || '—'}
-                            </span>
-                            <span className="font-mono text-blue-700 truncate">{entry.threadId || '—'}</span>
-                          </div>
-                        ))}
+                    {/* Header */}
+                    <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 px-1">
+                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Tên bot</span>
+                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">User ID</span>
+                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Thread ID</span>
+                      <span className="w-7" />
+                    </div>
+
+                    {zaloChatIds.length === 0 && (
+                      <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
+                        Chưa có liên kết — hệ thống tự điền khi bot tìm thấy số điện thoại
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2 p-2 md:p-3 border rounded-md bg-gray-50">
-                        <MessageCircle className="h-4 w-4 text-gray-400 shrink-0" />
-                        <span className="text-sm text-gray-400">Chưa liên kết Zalo</span>
+                    )}
+                    {zaloChatIds.map((entry, idx) => (
+                      <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 items-center">
+                        <Input
+                          value={entry.ten}
+                          onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, ten: e.target.value } : r))}
+                          placeholder="Tên bot..."
+                          className="h-8 text-xs font-mono"
+                        />
+                        <Input
+                          value={entry.userId}
+                          onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, userId: e.target.value } : r))}
+                          placeholder="User ID..."
+                          className="h-8 text-xs font-mono"
+                        />
+                        <Input
+                          value={entry.threadId}
+                          onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, threadId: e.target.value } : r))}
+                          placeholder="Thread ID..."
+                          className="h-8 text-xs font-mono"
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => setZaloChatIds(prev => prev.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                    {zaloChatIds.length > 0 && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-muted-foreground">Dòng đầu tiên là Chat ID chính.</p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={handleSaveZaloChatIds}
+                          disabled={zaloSaving}
+                        >
+                          <Save className="h-3.5 w-3.5 mr-1" />
+                          {zaloSaving ? 'Đang lưu...' : 'Lưu Zalo'}
+                        </Button>
                       </div>
                     )}
 
