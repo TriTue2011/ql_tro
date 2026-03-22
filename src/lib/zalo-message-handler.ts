@@ -188,6 +188,32 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
   }
 
   try {
+    // 1. Kiểm tra NguoiDung (nhân viên / chủ nhà) trước
+    const nguoiDung = await prisma.nguoiDung.findFirst({
+      where: { soDienThoai: phone },
+      select: { id: true, ten: true, zaloChatId: true },
+    });
+
+    if (nguoiDung) {
+      if (nguoiDung.zaloChatId === chatId) {
+        await sendReply(token, chatId,
+          `✅ Tài khoản ${nguoiDung.ten} đã liên kết Zalo này rồi.`,
+        );
+        return true;
+      }
+      await prisma.nguoiDung.update({
+        where: { id: nguoiDung.id },
+        data: { zaloChatId: chatId },
+      });
+      await sendReply(token, chatId,
+        `✅ Liên kết thành công!\n\n` +
+        `Xin chào ${nguoiDung.ten}, tài khoản quản lý của bạn đã được liên kết với Zalo này.\n` +
+        'Từ giờ hệ thống sẽ nhận dạng bạn qua cuộc trò chuyện này.',
+      );
+      return true;
+    }
+
+    // 2. Kiểm tra KhachThue
     const repo = await getKhachThueRepo();
     const kt = await repo.findBySoDienThoai(phone);
 
