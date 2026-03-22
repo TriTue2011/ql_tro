@@ -31,6 +31,7 @@ import {
   ArrowLeft,
   AlertTriangle,
   Loader2,
+  Copy,
 } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────────────────────────
@@ -521,6 +522,16 @@ export default function LuuTruPage() {
                                   >
                                     <Eye className="h-3.5 w-3.5" />
                                   </a>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(f.url);
+                                      toast.success('Đã sao chép URL ảnh');
+                                    }}
+                                    className="p-1 rounded hover:bg-purple-100 text-purple-400 hover:text-purple-600 transition-colors"
+                                    title="Sao chép URL MinIO"
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </button>
                                   <a
                                     href={f.url}
                                     download
