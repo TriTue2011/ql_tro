@@ -197,7 +197,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Tự động tra cứu và liên kết zaloChatId qua bot server (fire-and-forget)
-    if (phone) {
+    if (phone && toaNhaIds.length > 0) {
+      autoLinkZaloChatIds('nguoiDung', newUser.id, phone, toaNhaIds[0]).catch(() => {});
+    } else if (phone) {
       autoLinkZaloChatIds('nguoiDung', newUser.id, phone).catch(() => {});
     }
 

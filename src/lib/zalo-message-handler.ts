@@ -703,7 +703,7 @@ export async function handleZaloUpdate(update: any, token: string): Promise<void
  * Auto-reply handler — gọi từ webhook khi không muốn dùng handleZaloUpdate đầy đủ.
  * Bỏ qua bước lưu lịch sử (webhook đã lưu riêng).
  */
-export async function handleZaloAutoReply(update: any, token = ''): Promise<void> {
+export async function handleZaloAutoReply(update: any, token = '', accountSelection?: string): Promise<void> {
   const msg = update?.message;
   const data = update?.data; // bot server (zca-js)
 
