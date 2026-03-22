@@ -52,6 +52,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         icon: 'bi-chat-dots',
         items: [
           { label: 'Zalo', href: '/dashboard/zalo' },
+          { label: 'Zalo Monitor', href: '/dashboard/zalo-monitor' },
         ],
       },
       {
@@ -85,6 +86,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         icon: 'bi-chat-dots',
         items: [
           { label: 'Zalo', href: '/dashboard/zalo' },
+          { label: 'Zalo Monitor', href: '/dashboard/zalo-monitor' },
         ],
       },
       {
@@ -127,6 +129,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         { label: 'Yêu cầu duyệt', href: '/dashboard/yeu-cau-duyet' },
         { label: 'Thông báo', href: '/dashboard/thong-bao' },
         { label: 'Zalo', href: '/dashboard/zalo' },
+        { label: 'Zalo Monitor', href: '/dashboard/zalo-monitor' },
       ],
     },
   ];
