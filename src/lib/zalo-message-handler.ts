@@ -21,20 +21,43 @@ import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 import { isBotServerMode, sendMessageViaBotServer, getAllFriendsFromBotServer } from '@/lib/zalo-bot-client';
 import { askAI, classifyIntent } from '@/lib/ai-chat';
 
-// ─── Cache bạn bè (10 phút) ───────────────────────────────────────────────────
+// ─── Cache bạn bè — stale-while-revalidate ───────────────────────────────────
+// Trả về cache cũ ngay (không block tin nhắn), refresh ngầm khi hết hạn.
 let _friendsCache: { ids: Set<string>; expiresAt: number } | null = null;
+let _friendsRefreshing = false;
+
+function _refreshFriendsCache(): void {
+  if (_friendsRefreshing) return;
+  _friendsRefreshing = true;
+  getAllFriendsFromBotServer()
+    .then(result => {
+      if (result.ok && result.friends) {
+        const ids = new Set(
+          result.friends.map((f: any) => String(f.uid ?? f.id ?? f.userId ?? f.zaloId ?? '')).filter(Boolean)
+        );
+        _friendsCache = { ids, expiresAt: Date.now() + 10 * 60 * 1000 };
+      }
+    })
+    .catch(() => { /* bỏ qua lỗi network */ })
+    .finally(() => { _friendsRefreshing = false; });
+}
 
 async function isFriend(chatId: string): Promise<boolean> {
   if (!(await isBotServerMode())) return false;
   const now = Date.now();
-  if (!_friendsCache || _friendsCache.expiresAt < now) {
-    const result = await getAllFriendsFromBotServer();
-    if (result.ok && result.friends) {
-      const ids = new Set(
-        result.friends.map((f: any) => String(f.uid ?? f.id ?? f.userId ?? f.zaloId ?? '')).filter(Boolean)
-      );
-      _friendsCache = { ids, expiresAt: now + 10 * 60 * 1000 };
-    }
+  if (!_friendsCache) {
+    // Lần đầu: chưa có cache → fetch đồng bộ 1 lần (chấp nhận chờ)
+    await getAllFriendsFromBotServer().then(result => {
+      if (result.ok && result.friends) {
+        const ids = new Set(
+          result.friends.map((f: any) => String(f.uid ?? f.id ?? f.userId ?? f.zaloId ?? '')).filter(Boolean)
+        );
+        _friendsCache = { ids, expiresAt: now + 10 * 60 * 1000 };
+      }
+    }).catch(() => {});
+  } else if (_friendsCache.expiresAt < now) {
+    // Cache hết hạn → trả kết quả cũ ngay, refresh ngầm
+    _refreshFriendsCache();
   }
   return _friendsCache?.ids.has(chatId) ?? false;
 }
