@@ -10,6 +10,7 @@ import { hash } from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { sanitizeText } from '@/lib/sanitize';
+import { autoLinkZaloChatIds } from '@/lib/zalo-auto-link';
 
 const khachThueSchema = z.object({
   hoTen: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
@@ -180,6 +181,9 @@ export async function POST(request: NextRequest) {
         console.error('[khach-thue] Failed to save nguoiTaoId:', err);
       });
     }
+
+    // Tự động tra cứu và liên kết zaloChatId qua bot server (fire-and-forget)
+    autoLinkZaloChatIds('khachThue', newKhachThue.id, validatedData.soDienThoai).catch(() => {});
 
     sseEmit('khach-thue', { action: 'created' });
     return NextResponse.json({

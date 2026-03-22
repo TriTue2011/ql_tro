@@ -6,6 +6,8 @@ import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
 import { sseEmit } from '@/lib/sse-emitter';
+import { autoLinkZaloChatIds } from '@/lib/zalo-auto-link';
+import prisma from '@/lib/prisma';
 
 const phiDichVuSchema = z.object({
   ten: z.string().min(1, 'Tên dịch vụ là bắt buộc'),
@@ -162,6 +164,19 @@ export async function POST(request: NextRequest) {
 
     // Cập nhật trạng thái phòng thành 'dangThue'
     await phongRepo.update(validatedData.phong, { trangThai: 'dangThue' });
+
+    // Tự động liên kết zaloChatId cho các KhachThue trong hợp đồng (fire-and-forget)
+    const ktIds = validatedData.khachThueId as string[];
+    if (ktIds?.length) {
+      prisma.khachThue.findMany({
+        where: { id: { in: ktIds }, zaloChatId: null },
+        select: { id: true, soDienThoai: true },
+      }).then(list => {
+        for (const kt of list) {
+          autoLinkZaloChatIds('khachThue', kt.id, kt.soDienThoai!).catch(() => {});
+        }
+      }).catch(() => {});
+    }
 
     sseEmit('hop-dong', { action: 'created' });
     sseEmit('phong', { action: 'updated' }); // phòng đổi sang dangThue

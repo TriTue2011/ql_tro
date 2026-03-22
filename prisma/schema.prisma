@@ -19,7 +19,8 @@ model NguoiDung {
   vaiTro        String    @default("nhanVien") // admin | chuNha | dongChuTro | quanLy | nhanVien
   anhDaiDien    String?
   trangThai        String    @default("hoatDong") // hoatDong | khoa
-  zaloChatId        String?   // Zalo bot chat_id đã xác thực
+  zaloChatId        String?   // Zalo bot chat_id đã xác thực (tài khoản bot mặc định)
+  zaloChatIds       Json?     // Map { [botAccountId]: chatId } — lưu chatId theo từng tài khoản bot
   pendingZaloChatId String?  // Zalo bot chat_id chờ xác nhận (từ getUpdates)
   nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
   zaloAccountId     String?  // Account ID (own_id) trên bot server dùng gửi tin
@@ -149,7 +150,8 @@ model KhachThue {
   anhCCCD       Json?     // { matTruoc, matSau }
   ngheNghiep    String?
   matKhau       String?
-  zaloChatId        String?   // Zalo bot chat_id đã xác thực
+  zaloChatId        String?   // Zalo bot chat_id đã xác thực (tài khoản bot mặc định)
+  zaloChatIds       Json?     // Map { [botAccountId]: chatId } — lưu chatId theo từng tài khoản bot
   pendingZaloChatId String?   // Zalo bot chat_id chờ xác nhận (phát hiện từ getUpdates)
   nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
   trangThai         String    @default("chuaThue") // dangThue | daTraPhong | chuaThue

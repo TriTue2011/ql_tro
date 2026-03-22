@@ -408,7 +408,7 @@ async function tryAutoLinkByPhone(token: string, chatId: string): Promise<boolea
   try {
     const [unlinkedKt, unlinkedNd] = await Promise.all([
       prisma.khachThue.findMany({
-        where: { zaloChatId: null, soDienThoai: { not: null } },
+        where: { zaloChatId: null },
         select: { id: true, hoTen: true, soDienThoai: true },
         take: 30,
       }),
@@ -424,6 +424,14 @@ async function tryAutoLinkByPhone(token: string, chatId: string): Promise<boolea
       ...unlinkedNd.map(n => ({ type: 'nd' as const, id: n.id, ten: n.ten, phone: n.soDienThoai! })),
     ];
 
+    // Lấy default accountId của bot server để lưu vào zaloChatIds
+    let defaultBotAccountId = 'default';
+    try {
+      const { getAccountsFromBotServer } = await import('@/lib/zalo-bot-client');
+      const { accounts } = await getAccountsFromBotServer();
+      if (accounts?.[0]) defaultBotAccountId = String(accounts[0].id || accounts[0].name || 'default');
+    } catch { /* dùng 'default' */ }
+
     for (const c of candidates) {
       try {
         const result = await findUserViaBotServer(c.phone);
@@ -432,10 +440,12 @@ async function tryAutoLinkByPhone(token: string, chatId: string): Promise<boolea
         const ownerUid = String(d.userId ?? d.uid ?? d.id ?? '');
         if (!ownerUid || ownerUid !== chatId) continue;
 
-        // Khớp → liên kết
+        // Khớp → liên kết (kể cả lưu vào zaloChatIds cho account hiện tại)
+        const { storeChatIdForAccount } = await import('@/lib/zalo-auto-link');
         if (c.type === 'kt') {
           const repo = await getKhachThueRepo();
           await repo.update(c.id, { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true });
+          storeChatIdForAccount('khachThue', c.id, defaultBotAccountId, chatId).catch(() => {});
           await sendReply(token, chatId,
             `✅ Đăng ký thành công!\n\n` +
             `Xin chào ${c.ten}, từ giờ bạn sẽ nhận thông báo hóa đơn và hợp đồng qua Zalo này.\n\n` +
@@ -443,6 +453,7 @@ async function tryAutoLinkByPhone(token: string, chatId: string): Promise<boolea
           );
         } else {
           await prisma.nguoiDung.update({ where: { id: c.id }, data: { zaloChatId: chatId } });
+          storeChatIdForAccount('nguoiDung', c.id, defaultBotAccountId, chatId).catch(() => {});
           await sendReply(token, chatId,
             `✅ Liên kết thành công!\n\n` +
             `Xin chào ${c.ten}, tài khoản quản lý của bạn đã được liên kết với Zalo này.`,
