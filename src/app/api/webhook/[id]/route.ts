@@ -105,7 +105,7 @@ async function saveMessage(update: any): Promise<void> {
         rawPayload: update as any,
       },
     });
-    emitNewMessage({ ...saved });
+    emitNewMessage({ ...saved, eventName: saved.eventName ?? 'message' });
   } catch (err) {
     console.error('[webhook] saveMessage error:', err);
   }

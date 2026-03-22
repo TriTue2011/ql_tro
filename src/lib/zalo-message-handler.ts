@@ -19,6 +19,7 @@ import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 import { isBotServerMode, sendMessageViaBotServer, getAllFriendsFromBotServer, getAllGroupsFromBotServer, getGroupMembersFromBotServer } from '@/lib/zalo-bot-client';
+import { emitNewMessage } from '@/lib/zalo-message-events';
 import { askAI, classifyIntent } from '@/lib/ai-chat';
 
 // ─── Cache bạn bè + thành viên nhóm ─────────────────────────────────────────
@@ -130,7 +131,7 @@ async function saveMessage(update: any): Promise<void> {
   try {
     const msg = update?.message;
     if (!msg?.from?.id) return;
-    await prisma.zaloMessage.create({
+    const saved = await prisma.zaloMessage.create({
       data: {
         chatId: String(msg.from.id),
         displayName: msg.from.display_name || null,
@@ -140,6 +141,8 @@ async function saveMessage(update: any): Promise<void> {
         rawPayload: update as any,
       },
     });
+    // Đẩy xuống SSE ngay lập tức (dùng cho polling mode)
+    emitNewMessage({ ...saved, eventName: saved.eventName ?? 'message' });
   } catch { /* không dừng vì lỗi log */ }
 }
 
@@ -620,9 +623,12 @@ export async function handleZaloAutoReply(update: any, token = ''): Promise<void
   // Bỏ qua tin nhắn từ nhóm (type = 1)
   if (update?.type === 1) return;
 
-  // Trigger refresh bạn bè + thành viên nhóm ngầm ngay khi nhận tin nhắn
-  refreshFriendsCacheInBackground();
-  refreshGroupMembersCacheInBackground();
+  // Chỉ refresh cache khi nhận đúng event liên quan (event-driven, không polling)
+  const eventName: string = update?.event_name ?? update?.event ?? '';
+  const isFriendEvent = /user_follow|user_unfollow|friend_request|add_friend/i.test(eventName);
+  const isGroupEvent  = /join_group|leave_group|remove_member|add_member|group_member/i.test(eventName);
+  if (isFriendEvent) refreshFriendsCacheInBackground();
+  if (isGroupEvent)  refreshGroupMembersCacheInBackground();
 
   const displayName: string =
     msg?.from?.display_name ||
