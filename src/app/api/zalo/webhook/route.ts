@@ -11,6 +11,7 @@ import prisma from '@/lib/prisma';
 import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
 import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
+import { storeChatIdForAccount } from '@/lib/zalo-auto-link';
 
 function normalizeName(name: string): string {
   return name
@@ -122,6 +123,42 @@ async function saveMessage(update: any): Promise<void> {
   }
 }
 
+/**
+ * Khi nhận tin nhắn từ 1 user, lưu threadId vào zaloChatIds cho đúng tài khoản bot đã nhận.
+ * Chỉ chạy khi biết được botAccountId (idTo từ bot server / own_id).
+ * Fire-and-forget.
+ */
+async function captureThreadIdForBotAccount(update: any, chatId: string): Promise<void> {
+  try {
+    const data = update?.data;
+    // own_id / idTo = tài khoản bot nhận tin nhắn
+    const botAccountId: string =
+      String(data?.idTo ?? data?.toId ?? update?.idTo ?? update?.own_id ?? '').trim();
+    if (!botAccountId || botAccountId === chatId) return; // không xác định được bot account
+
+    // Tìm KhachThue hoặc NguoiDung có zaloChatId = chatId
+    const [kt, nd] = await Promise.all([
+      prisma.khachThue.findFirst({ where: { zaloChatId: chatId }, select: { id: true, zaloChatIds: true } }),
+      prisma.nguoiDung.findFirst({ where: { zaloChatId: chatId }, select: { id: true, zaloChatIds: true } }),
+    ]);
+
+    if (kt) {
+      const entries: any[] = Array.isArray(kt.zaloChatIds) ? kt.zaloChatIds as any[] : [];
+      const existing = entries.find((e: any) => e.ten === botAccountId || e.userId === chatId);
+      if (!existing?.threadId) {
+        storeChatIdForAccount('khachThue', kt.id, botAccountId, chatId).catch(() => {});
+      }
+    }
+    if (nd) {
+      const entries: any[] = Array.isArray(nd.zaloChatIds) ? nd.zaloChatIds as any[] : [];
+      const existing = entries.find((e: any) => e.ten === botAccountId || e.userId === chatId);
+      if (!existing?.threadId) {
+        storeChatIdForAccount('nguoiDung', nd.id, botAccountId, chatId).catch(() => {});
+      }
+    }
+  } catch { /* fire-and-forget */ }
+}
+
 async function detectAndStorePending(update: any): Promise<void> {
   const { chatId, displayName } = normalizeWebhookPayload(update);
   if (!chatId || !displayName) return;
@@ -183,12 +220,15 @@ export async function POST(request: NextRequest) {
     const update = body?.result ?? body;
 
     // Lưu tin nhắn vào DB + phát hiện chat ID + cleanup + notify HA song song
+    const { chatId: wChatId } = normalizeWebhookPayload(update);
     await Promise.all([
       saveMessage(update),
       detectAndStorePending(update),
       cleanupOldMessages(),
       notifyHomeAssistant(update),
       handleZaloAutoReply(update),
+      // Ghi nhớ threadId theo tài khoản bot nếu có own_id trong payload
+      wChatId ? captureThreadIdForBotAccount(update, wChatId) : Promise.resolve(),
     ]);
 
     return NextResponse.json({ message: 'Success' });

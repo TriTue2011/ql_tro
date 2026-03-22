@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { CCCDUpload } from '@/components/ui/cccd-upload';
-import { KhachThue } from '@/types';
+import { KhachThue, ZaloChatEntry } from '@/types';
 import { toast } from 'sonner';
 import {
   Info,
@@ -25,6 +25,8 @@ import {
   Clock,
   Users,
   RefreshCw,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 
 export function KhachThueForm({
@@ -59,6 +61,11 @@ export function KhachThueForm({
     zaloChatId: khachThue?.zaloChatId || '',
     nhanThongBaoZalo: khachThue?.nhanThongBaoZalo ?? false,
   });
+
+  // Bảng liên kết Zalo theo từng tài khoản bot
+  const [zaloChatIds, setZaloChatIds] = useState<ZaloChatEntry[]>(
+    Array.isArray((khachThue as any)?.zaloChatIds) ? (khachThue as any).zaloChatIds : []
+  );
 
   // Phòng đang thuê
   const currentPhongId = (khachThue as any)?.hopDongHienTai?.phong?.id || '';
@@ -143,12 +150,18 @@ export function KhachThueForm({
         delete (submitData as any).matKhau;
       }
 
+      // Đồng bộ zaloChatId từ entry đầu tiên trong bảng (nếu có)
+      const validEntries = zaloChatIds.filter(e => e.threadId || e.userId);
+      if (validEntries.length > 0) {
+        submitData.zaloChatId = validEntries[0].threadId || validEntries[0].userId;
+      }
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(submitData),
+        body: JSON.stringify({ ...submitData, zaloChatIds: validEntries }),
       });
 
       if (response.ok) {
@@ -393,58 +406,88 @@ export function KhachThueForm({
 
         {khachThue && canViewZalo && (
           <TabsContent value="zalo" className="space-y-4 mt-4">
-            {/* Trạng thái hiện tại */}
-            <div className="rounded-lg border p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <MessageCircle className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium">Trạng thái liên kết Zalo</span>
+            {/* Pending confirmation */}
+            {khachThue.pendingZaloChatId && (
+              <div className="flex items-center justify-between p-2 rounded bg-amber-50 border border-amber-200">
+                <span className="text-amber-700 text-xs flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  Chờ xác nhận: <span className="font-mono font-semibold ml-1">{khachThue.pendingZaloChatId}</span>
+                </span>
               </div>
-              <div className="grid grid-cols-1 gap-2 text-sm">
-                <div className="flex items-center justify-between p-2 rounded bg-gray-50">
-                  <span className="text-gray-600">SĐT:</span>
-                  <span className="font-mono font-medium">{khachThue.soDienThoai}</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-gray-50">
-                  <span className="text-gray-600">Zalo Chat ID:</span>
-                  {khachThue.zaloChatId ? (
-                    <span className="flex items-center gap-1 text-green-600 font-mono text-xs">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {khachThue.zaloChatId}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 text-xs">Chưa liên kết</span>
-                  )}
-                </div>
-                {khachThue.pendingZaloChatId && (
-                  <div className="flex items-center justify-between p-2 rounded bg-amber-50 border border-amber-200">
-                    <span className="text-amber-700 text-xs">Chờ xác nhận:</span>
-                    <span className="flex items-center gap-1 text-amber-700 font-mono text-xs">
-                      <Clock className="h-3.5 w-3.5" />
-                      {khachThue.pendingZaloChatId}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
 
-            {/* Nhập thủ công */}
+            {/* Bảng liên kết theo từng tài khoản bot */}
             <div className="space-y-2">
-              <Label htmlFor="zaloChatId" className="text-xs md:text-sm">
-                Zalo Chat ID
-                <span className="ml-1 text-gray-400 font-normal">(nhập để liên kết thủ công)</span>
-              </Label>
-              <Input
-                id="zaloChatId"
-                value={formData.zaloChatId}
-                onChange={(e) => setFormData(prev => ({ ...prev, zaloChatId: e.target.value }))}
-                placeholder="Nhập Zalo Chat ID..."
-                className="text-sm font-mono"
-                maxLength={64}
-              />
+              <div className="flex items-center justify-between">
+                <Label className="text-xs md:text-sm flex items-center gap-1.5">
+                  <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
+                  Liên kết Zalo theo tài khoản bot
+                </Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setZaloChatIds(prev => [...prev, { ten: '', userId: '', threadId: '' }])}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Thêm dòng
+                </Button>
+              </div>
+
+              {/* Header */}
+              <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 px-1">
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Tên bot</span>
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">User ID</span>
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Thread ID</span>
+                <span className="w-7" />
+              </div>
+
+              {zaloChatIds.length === 0 && (
+                <div className="text-xs text-muted-foreground text-center py-3 border border-dashed rounded-md">
+                  Chưa có liên kết — nhấn <strong>Thêm dòng</strong> hoặc hệ thống tự điền khi bot tìm thấy SĐT
+                </div>
+              )}
+
+              {zaloChatIds.map((entry, idx) => (
+                <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 items-center">
+                  <Input
+                    value={entry.ten}
+                    onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, ten: e.target.value } : r))}
+                    placeholder="Bot chính..."
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Input
+                    value={entry.userId}
+                    onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, userId: e.target.value } : r))}
+                    placeholder="User ID..."
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Input
+                    value={entry.threadId}
+                    onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, threadId: e.target.value } : r))}
+                    placeholder="Thread ID..."
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => setZaloChatIds(prev => prev.filter((_, i) => i !== idx))}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+
               <p className="text-[10px] text-muted-foreground">
-                Chat ID lấy từ bot Zalo khi khách thuê nhắn tin cho bot. Khớp với số điện thoại: <strong>{khachThue.soDienThoai}</strong>
+                Mỗi dòng là 1 tài khoản bot. Hệ thống tự điền khi bot tìm thấy SĐT <strong>{khachThue.soDienThoai}</strong>.
+                Dòng đầu tiên được dùng làm Chat ID chính.
               </p>
             </div>
+
+            {/* Gửi thông báo */}
             <div className="flex items-center justify-between p-3 rounded-md border">
               <div className="space-y-0.5">
                 <Label className="text-xs md:text-sm">Gửi thông báo Zalo</Label>

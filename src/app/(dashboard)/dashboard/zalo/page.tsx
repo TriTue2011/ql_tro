@@ -9,6 +9,7 @@ import {
   Loader2, Eye, Terminal, Play,
   Image, FileText, Upload, MessageSquare,
   Bot, Copy, ExternalLink, ChevronLeft,
+  HardDrive, Folder,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,8 +71,10 @@ interface AccountData {
   id: string;
   ten: string;
   email: string;
+  soDienThoai?: string | null;
   vaiTro?: string;
   zaloChatId: string | null;
+  pendingZaloChatId?: string | null;
   zaloAccountId: string | null;
   zaloBotServerUrl: string | null;
   zaloBotUsername: string | null;
@@ -100,7 +103,7 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
   const [loading, setLoading] = useState(false);
 
   // Config form state (admin only)
-  const [zaloAccountId, setZaloAccountId] = useState(account?.zaloAccountId ?? "");
+  const [zaloAccountId, setZaloAccountId] = useState(account?.zaloAccountId ?? account?.soDienThoai ?? "");
   const [zaloBotServerUrl, setZaloBotServerUrl] = useState(account?.zaloBotServerUrl ?? "");
   const [zaloBotUsername, setZaloBotUsername] = useState(account?.zaloBotUsername ?? "");
   const [zaloBotPassword, setZaloBotPassword] = useState(account?.zaloBotPassword ? "••••••••" : "");
@@ -427,6 +430,119 @@ function WebhookCard({ account }: { account?: AccountData }) {
 
 type TestType = "text" | "image" | "file";
 
+// ─── MinIO File Picker ────────────────────────────────────────────────────────
+
+function fmtBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function MinioPickerDialog({ open, onClose, onSelect }: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (url: string) => void;
+}) {
+  const [buckets, setBuckets] = useState<{ name: string }[]>([]);
+  const [bucket, setBucket] = useState<string | null>(null);
+  const [prefix, setPrefix] = useState("");
+  const [folders, setFolders] = useState<string[]>([]);
+  const [files, setFiles] = useState<{ name: string; size: number; url: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) { setBucket(null); setPrefix(""); setFolders([]); setFiles([]); return; }
+    fetch("/api/admin/storage/buckets")
+      .then(r => r.json())
+      .then(d => setBuckets(d.buckets || []));
+  }, [open]);
+
+  const loadObjects = useCallback(async (b: string, p: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/storage/objects?bucket=${encodeURIComponent(b)}&prefix=${encodeURIComponent(p)}`);
+      const data = await res.json();
+      setFolders(data.folders || []);
+      setFiles(data.files || []);
+    } finally { setLoading(false); }
+  }, []);
+
+  const selectBucket = (b: string) => { setBucket(b); setPrefix(""); loadObjects(b, ""); };
+  const enterFolder = (f: string) => { setPrefix(f); loadObjects(bucket!, f); };
+  const goBack = () => {
+    const parts = prefix.split("/").filter(Boolean);
+    parts.pop();
+    const p = parts.length ? parts.join("/") + "/" : "";
+    setPrefix(p);
+    loadObjects(bucket!, p);
+  };
+  const shortName = (path: string) => path.replace(prefix, "").replace(/\/$/, "");
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-sm flex items-center gap-2">
+            <HardDrive className="h-4 w-4 text-blue-600" /> Chọn file từ MinIO
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-1 max-h-80 overflow-y-auto">
+          {!bucket ? (
+            <>
+              <p className="text-xs text-gray-500 mb-2">Chọn bucket:</p>
+              {buckets.map(b => (
+                <button key={b.name} type="button" onClick={() => selectBucket(b.name)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-md border hover:bg-blue-50 text-sm text-left">
+                  <HardDrive className="h-4 w-4 text-blue-500 shrink-0" /> {b.name}
+                </button>
+              ))}
+              {buckets.length === 0 && <p className="text-xs text-gray-400">Không có bucket</p>}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
+                <button type="button" onClick={() => { setBucket(null); setPrefix(""); }}
+                  className="hover:text-blue-600 font-medium">{bucket}</button>
+                {prefix && <><ChevronRight className="h-3 w-3" /><span className="truncate max-w-[200px]">{prefix}</span></>}
+              </div>
+              {prefix && (
+                <button type="button" onClick={goBack}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-md w-full text-left">
+                  <ChevronLeft className="h-3.5 w-3.5" /> Quay lại
+                </button>
+              )}
+              {loading && (
+                <div className="flex items-center gap-2 text-xs text-gray-400 py-3">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải...
+                </div>
+              )}
+              {folders.map(f => (
+                <button key={f} type="button" onClick={() => enterFolder(f)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-md border hover:bg-yellow-50 text-sm text-left">
+                  <Folder className="h-4 w-4 text-yellow-500 shrink-0" /> {shortName(f)}
+                </button>
+              ))}
+              {files.map(f => (
+                <button key={f.name} type="button" onClick={() => { onSelect(f.url); onClose(); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-md border hover:bg-green-50 text-sm text-left">
+                  <FileText className="h-4 w-4 text-gray-400 shrink-0" />
+                  <span className="flex-1 truncate">{shortName(f.name)}</span>
+                  <span className="text-[10px] text-gray-400 shrink-0">{fmtBytes(f.size)}</span>
+                </button>
+              ))}
+              {!loading && folders.length === 0 && files.length === 0 && (
+                <p className="text-xs text-gray-400 py-2">Thư mục trống</p>
+              )}
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Test Send Card ───────────────────────────────────────────────────────────
+
 function TestSendCard({ account }: { account?: AccountData }) {
   const [chatId, setChatId] = useState(account?.zaloChatId ?? "");
   const [testType, setTestType] = useState<TestType>("text");
@@ -438,6 +554,8 @@ function TestSendCard({ account }: { account?: AccountData }) {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showMinioPicker, setShowMinioPicker] = useState(false);
+  const [minioPickerTarget, setMinioPickerTarget] = useState<"image" | "file">("image");
 
   const switchType = (t: TestType) => {
     setTestType(t);
@@ -601,20 +719,36 @@ function TestSendCard({ account }: { account?: AccountData }) {
           onChange={handleUpload}
         />
 
+        {/* MinIO Picker */}
+        <MinioPickerDialog
+          open={showMinioPicker}
+          onClose={() => setShowMinioPicker(false)}
+          onSelect={url => { if (minioPickerTarget === "image") setImageUrl(url); else setFileUrl(url); }}
+        />
+
         {/* URL hình ảnh */}
         {testType === "image" && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-gray-500">URL hình ảnh</Label>
-              <button
-                type="button"
-                className="text-xs text-green-600 hover:underline flex items-center gap-1 disabled:opacity-50"
-                disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {uploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                {uploading ? "Đang upload..." : "Upload từ máy"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                  onClick={() => { setMinioPickerTarget("image"); setShowMinioPicker(true); }}
+                >
+                  <HardDrive className="h-3 w-3" /> Chọn từ MinIO
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-green-600 hover:underline flex items-center gap-1 disabled:opacity-50"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                  {uploading ? "Đang upload..." : "Upload từ máy"}
+                </button>
+              </div>
             </div>
             <Input
               type="url"
@@ -634,15 +768,24 @@ function TestSendCard({ account }: { account?: AccountData }) {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-gray-500">URL file</Label>
-              <button
-                type="button"
-                className="text-xs text-green-600 hover:underline flex items-center gap-1 disabled:opacity-50"
-                disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {uploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                {uploading ? "Đang upload..." : "Upload từ máy"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                  onClick={() => { setMinioPickerTarget("file"); setShowMinioPicker(true); }}
+                >
+                  <HardDrive className="h-3 w-3" /> Chọn từ MinIO
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-green-600 hover:underline flex items-center gap-1 disabled:opacity-50"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                  {uploading ? "Đang upload..." : "Upload từ máy"}
+                </button>
+              </div>
             </div>
             <Input
               type="url"
@@ -1664,11 +1807,13 @@ function PersonRow({
           {isSelf && isAdmin && (
             <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Admin</Badge>
           )}
-          <span className={`text-[9px] ml-1 ${account.zaloChatId ? "text-green-500" : "text-gray-300"}`}>
-            {account.zaloChatId ? "●" : "○"}
+          <span className={`text-[9px] ml-1 ${account.zaloChatId ? "text-green-500" : account.pendingZaloChatId ? "text-amber-400" : "text-gray-300"}`}>
+            {account.zaloChatId ? "●" : account.pendingZaloChatId ? "◐" : "○"}
           </span>
           {!account.zaloChatId && (
-            <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
+            <span className="text-[10px] text-gray-400">
+              {account.pendingZaloChatId ? "Chờ xác nhận Zalo" : "Chưa liên kết Zalo"}
+            </span>
           )}
         </div>
         {open

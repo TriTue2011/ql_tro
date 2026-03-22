@@ -21,6 +21,11 @@ const khachThueSchema = z.object({
   ngheNghiep: z.string().optional(),
   matKhau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').optional(),
   zaloChatId: z.string().max(64).optional(),
+  zaloChatIds: z.array(z.object({
+    ten: z.string(),
+    userId: z.string(),
+    threadId: z.string(),
+  })).optional(),
   nhanThongBaoZalo: z.boolean().optional(),
 });
 
@@ -109,8 +114,14 @@ export async function PUT(
     if (validatedData.matKhau) {
       updateData.matKhau = await hash(validatedData.matKhau, 12);
     }
-    // zaloChatId: chỉ update khi có giá trị thực — KHÔNG cho phép xóa liên kết Zalo qua route này
-    if (validatedData.zaloChatId) {
+    // zaloChatIds: cập nhật bảng liên kết theo tài khoản bot
+    if (validatedData.zaloChatIds !== undefined) {
+      (updateData as any).zaloChatIds = validatedData.zaloChatIds;
+      // Đồng bộ zaloChatId từ entry đầu tiên
+      if (validatedData.zaloChatIds.length > 0) {
+        updateData.zaloChatId = validatedData.zaloChatIds[0].threadId || validatedData.zaloChatIds[0].userId || undefined;
+      }
+    } else if (validatedData.zaloChatId) {
       updateData.zaloChatId = validatedData.zaloChatId;
     }
     if (validatedData.nhanThongBaoZalo !== undefined) {

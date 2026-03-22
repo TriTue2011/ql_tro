@@ -48,6 +48,7 @@ interface UserProfile {
   ngayTao: string;
   ngayCapNhat?: string;
   zaloChatId?: string | null;
+  zaloChatIds?: { ten: string; userId: string; threadId: string }[] | null;
   pendingZaloChatId?: string | null;
 }
 
@@ -427,34 +428,41 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Zalo Chat ID — tất cả người dùng */}
+                {/* Zalo — liên kết theo tài khoản bot */}
                 <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="zaloChatId" className="text-xs md:text-sm flex items-center gap-1.5">
+                    <Label className="text-xs md:text-sm flex items-center gap-1.5">
                       <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
-                      Zalo Chat ID
+                      Liên kết Zalo
                     </Label>
-                    {isEditing ? (
-                      <Input
-                        id="zaloChatId"
-                        value={formData.zaloChatId}
-                        onChange={(e) => setFormData({ ...formData, zaloChatId: e.target.value })}
-                        placeholder="Nhập Zalo Chat ID của bạn..."
-                        className="text-sm font-mono"
-                        maxLength={64}
-                      />
+
+                    {/* Bảng các tài khoản bot */}
+                    {profile?.zaloChatIds && profile.zaloChatIds.length > 0 ? (
+                      <div className="border rounded-md overflow-hidden">
+                        {/* Header */}
+                        <div className="grid grid-cols-3 gap-0 bg-gray-50 border-b px-3 py-1.5">
+                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Tên bot</span>
+                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">User ID</span>
+                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Thread ID</span>
+                        </div>
+                        {profile.zaloChatIds.map((entry, i) => (
+                          <div key={i} className="grid grid-cols-3 gap-0 px-3 py-2 border-b last:border-b-0 text-xs">
+                            <span className="font-medium text-gray-700 truncate pr-2">{entry.ten || '—'}</span>
+                            <span className="font-mono text-green-700 flex items-center gap-1 truncate pr-2">
+                              <CheckCircle2 className="h-3 w-3 shrink-0" />
+                              {entry.userId || '—'}
+                            </span>
+                            <span className="font-mono text-blue-700 truncate">{entry.threadId || '—'}</span>
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       <div className="flex items-center gap-2 p-2 md:p-3 border rounded-md bg-gray-50">
-                        <MessageCircle className="h-3 w-3 md:h-4 md:w-4 text-gray-500 shrink-0" />
-                        {profile?.zaloChatId ? (
-                          <span className="text-sm font-mono flex items-center gap-1.5 text-green-700">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            {profile.zaloChatId}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-gray-400">Chưa liên kết Zalo</span>
-                        )}
+                        <MessageCircle className="h-4 w-4 text-gray-400 shrink-0" />
+                        <span className="text-sm text-gray-400">Chưa liên kết Zalo</span>
                       </div>
                     )}
+
+                    {/* Pending confirmation */}
                     {profile?.pendingZaloChatId && (
                       <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-1.5">
                         <p className="text-[10px] text-amber-700 flex items-center gap-1">

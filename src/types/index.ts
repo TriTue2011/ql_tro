@@ -36,6 +36,13 @@ export interface NguoiDung {
   ngayCapNhat: Date;
 }
 
+/** Một dòng trong bảng liên kết Zalo — mỗi tài khoản bot có chatId riêng */
+export interface ZaloChatEntry {
+  ten: string;      // Tên/nhãn tài khoản bot (VD: "Bot chính", "0901234567")
+  userId: string;   // Zalo userId của người dùng thực
+  threadId: string; // Thread ID dùng để gửi tin (thường = userId với chat 1-1)
+}
+
 export interface LienHePhuTrach {
   ten: string;
   soDienThoai: string;
@@ -102,7 +109,9 @@ export interface KhachThue {
   ngheNghiep?: string;
   matKhau?: string;
   zaloChatId?: string;
+  zaloChatIds?: ZaloChatEntry[];
   pendingZaloChatId?: string;
+  nhanThongBaoZalo?: boolean;
   trangThai: 'dangThue' | 'daTraPhong' | 'chuaThue';
   ngayTao: Date;
   ngayCapNhat: Date;

@@ -64,6 +64,7 @@ interface User {
   isActive?: boolean;
   trangThai?: string;
   zaloChatId?: string;
+  zaloChatIds?: { ten: string; userId: string; threadId: string }[];
   nhanThongBaoZalo?: boolean;
   toaNhaId?: string | null;
   toaNhaTen?: string | null;
@@ -114,6 +115,7 @@ export default function AccountManagementPage() {
     toaNhaIds: [] as string[],
     quyenKichHoatTaiKhoan: false,
   });
+  const [editZaloChatIds, setEditZaloChatIds] = useState<{ ten: string; userId: string; threadId: string }[]>([]);
 
   useEffect(() => {
     document.title = 'Quản lý Tài khoản';
@@ -224,6 +226,10 @@ export default function AccountManagementPage() {
       if (editUserData.role === 'admin') { delete payload.toaNhaId; delete payload.toaNhaIds; }
       else { delete payload.toaNhaId; } // luôn dùng toaNhaIds cho mọi vai trò không phải admin
       delete payload.quyenKichHoatTaiKhoan; // quyền cập nhật riêng bên dưới
+      // Đồng bộ zaloChatIds và zaloChatId từ bảng
+      const validEntries = editZaloChatIds.filter(e => e.threadId || e.userId);
+      payload.zaloChatIds = validEntries;
+      if (validEntries.length > 0) payload.zaloChatId = validEntries[0].threadId || validEntries[0].userId;
       const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -293,6 +299,7 @@ export default function AccountManagementPage() {
       toaNhaIds: user.toaNhaIds?.length ? user.toaNhaIds : (user.toaNhaId ? [user.toaNhaId] : []),
       quyenKichHoatTaiKhoan: user.quyenKichHoatTaiKhoan ?? false,
     });
+    setEditZaloChatIds(Array.isArray(user.zaloChatIds) ? user.zaloChatIds : []);
     setIsEditDialogOpen(true);
   };
 
@@ -779,18 +786,66 @@ export default function AccountManagementPage() {
             )}
             {!isChuNha && (
             <div className="space-y-2">
-              <Label htmlFor="edit-zalo" className="text-xs md:text-sm flex items-center gap-1.5">
-                <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
-                Zalo Chat ID
-              </Label>
-              <Input
-                id="edit-zalo"
-                value={editUserData.zaloChatId}
-                onChange={(e) => setEditUserData({ ...editUserData, zaloChatId: e.target.value })}
-                placeholder="Nhập hoặc để trống để xóa"
-                className="text-sm font-mono"
-                maxLength={64}
-              />
+              <div className="flex items-center justify-between">
+                <Label className="text-xs md:text-sm flex items-center gap-1.5">
+                  <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
+                  Liên kết Zalo theo tài khoản bot
+                </Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setEditZaloChatIds(prev => [...prev, { ten: '', userId: '', threadId: '' }])}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Thêm dòng
+                </Button>
+              </div>
+              {/* Header */}
+              <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 px-1">
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Tên bot</span>
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">User ID</span>
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Thread ID</span>
+                <span className="w-7" />
+              </div>
+              {editZaloChatIds.length === 0 && (
+                <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
+                  Chưa có liên kết — nhấn Thêm dòng
+                </div>
+              )}
+              {editZaloChatIds.map((entry, idx) => (
+                <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 items-center">
+                  <Input
+                    value={entry.ten}
+                    onChange={e => setEditZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, ten: e.target.value } : r))}
+                    placeholder="Bot chính..."
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Input
+                    value={entry.userId}
+                    onChange={e => setEditZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, userId: e.target.value } : r))}
+                    placeholder="User ID..."
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Input
+                    value={entry.threadId}
+                    onChange={e => setEditZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, threadId: e.target.value } : r))}
+                    placeholder="Thread ID..."
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => setEditZaloChatIds(prev => prev.filter((_, i) => i !== idx))}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+              <p className="text-[10px] text-muted-foreground">Dòng đầu tiên là Chat ID chính. Hệ thống tự điền khi bot tìm thấy số điện thoại.</p>
             </div>
             )}
           </div>

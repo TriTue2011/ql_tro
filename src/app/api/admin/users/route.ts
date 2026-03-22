@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { hash } from 'bcryptjs';
+import { autoLinkZaloChatIds } from '@/lib/zalo-auto-link';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/sanitize';
 
@@ -194,6 +195,11 @@ export async function POST(request: NextRequest) {
     ).catch((err) => {
       console.error('[admin/users] Failed to save nguoiTaoId:', err);
     });
+
+    // Tự động tra cứu và liên kết zaloChatId qua bot server (fire-and-forget)
+    if (phone) {
+      autoLinkZaloChatIds('nguoiDung', newUser.id, phone).catch(() => {});
+    }
 
     // Gán tòa nhà nếu có và không phải admin (hỗ trợ nhiều tòa)
     if (role !== 'admin' && toaNhaIds.length > 0) {

@@ -30,7 +30,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, role, isActive, zaloChatId, toaNhaId, toaNhaIds } = body;
+    const { name, phone, role, isActive, zaloChatId, zaloChatIds, toaNhaId, toaNhaIds } = body;
 
     // chuNha/dongChuTro: chỉ được sửa dongChuTro/quanLy/nhanVien thuộc tòa nhà của mình
     if (callerRole !== 'admin') {
@@ -55,7 +55,12 @@ export async function PUT(
       if (phone) updateData.soDienThoai = phone;
       if (role) updateData.vaiTro = role;
       if (isActive !== undefined) updateData.trangThai = isActive ? 'hoatDong' : 'khoa';
-      if (zaloChatId !== undefined) updateData.zaloChatId = zaloChatId || null;
+      if (Array.isArray(zaloChatIds)) {
+        updateData.zaloChatIds = zaloChatIds;
+        if (zaloChatIds.length > 0) updateData.zaloChatId = zaloChatIds[0].threadId || zaloChatIds[0].userId || null;
+      } else if (zaloChatId !== undefined) {
+        updateData.zaloChatId = zaloChatId || null;
+      }
 
       await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
@@ -82,7 +87,12 @@ export async function PUT(
       vaiTro: role,
       trangThai: isActive ? 'hoatDong' : 'khoa',
     };
-    if (zaloChatId !== undefined) updateData.zaloChatId = zaloChatId || null;
+    if (Array.isArray(zaloChatIds)) {
+      updateData.zaloChatIds = zaloChatIds;
+      if (zaloChatIds.length > 0) updateData.zaloChatId = zaloChatIds[0].threadId || zaloChatIds[0].userId || null;
+    } else if (zaloChatId !== undefined) {
+      updateData.zaloChatId = zaloChatId || null;
+    }
 
     await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
