@@ -164,6 +164,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Không có quyền tạo tài khoản với vai trò này' }, { status: 403 });
     }
 
+    // Giới hạn số lượng vai trò trên mỗi tòa nhà
+    const ROLE_LIMITS: Record<string, number> = { dongChuTro: 2, quanLy: 3, nhanVien: 5 };
+    const maxForRole = ROLE_LIMITS[role];
+    if (maxForRole && toaNhaIds.length > 0) {
+      for (const tid of toaNhaIds) {
+        const count = await prisma.toaNhaNguoiQuanLy.count({
+          where: {
+            toaNhaId: tid,
+            nguoiDung: { vaiTro: role },
+          },
+        });
+        if (count >= maxForRole) {
+          const building = await prisma.toaNha.findUnique({ where: { id: tid }, select: { tenToaNha: true } });
+          return NextResponse.json(
+            { error: `Tòa nhà "${building?.tenToaNha || tid}" đã đạt giới hạn ${maxForRole} ${role} cho phép` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const cleanEmail = email?.trim() ? email.toLowerCase() : null;
 
     // Kiểm tra email trùng (nếu có nhập email)
