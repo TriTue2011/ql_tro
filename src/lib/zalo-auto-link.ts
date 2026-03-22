@@ -5,30 +5,39 @@
  * Hỗ trợ nhiều tài khoản bot: mỗi bot account có chatId riêng cho cùng 1 người.
  *
  * Lưu trữ:
- *   zaloChatId  — chatId của tài khoản bot mặc định (backward compat)
- *   zaloChatIds — JSON map { [botAccountId]: chatId } cho tất cả bot accounts
+ *   zaloChatId  — threadId của tài khoản bot đầu tiên (backward compat)
+ *   zaloChatIds — JSON array ZaloChatEntry[] { ten, userId, threadId }
  */
 
 import prisma from '@/lib/prisma';
 import { isBotServerMode, findUserViaBotServer, getAccountsFromBotServer } from '@/lib/zalo-bot-client';
+import type { ZaloChatEntry } from '@/types';
 
-/** Lấy danh sách tất cả botAccountId đang được cấu hình trong hệ thống */
-async function getAllBotAccountIds(): Promise<string[]> {
-  const { accounts } = await getAccountsFromBotServer();
-  const ids = accounts
-    .map((a: any) => String(a.id || a.name || ''))
-    .filter(Boolean);
-  return ids.length > 0 ? ids : [''];
+/** Lấy danh sách tài khoản bot đang chạy từ bot server */
+async function getAllBotAccounts(): Promise<{ id: string; ten: string }[]> {
+  try {
+    const { accounts } = await getAccountsFromBotServer();
+    return accounts.map((a: any) => ({
+      id: String(a.id || a.name || a.phone || ''),
+      ten: String(a.name || a.phone || a.id || 'Bot'),
+    })).filter(a => a.id);
+  } catch {
+    return [{ id: '', ten: 'Bot mặc định' }];
+  }
 }
 
-/** Trả về chatId từ zaloChatIds JSON cho đúng botAccountId, fallback về zaloChatId */
+/** Lấy threadId phù hợp cho botAccountId từ danh sách entry, fallback về zaloChatId */
 export function resolveChatId(
   record: { zaloChatId?: string | null; zaloChatIds?: any },
   botAccountId: string,
 ): string | null {
-  if (record.zaloChatIds && typeof record.zaloChatIds === 'object') {
-    const map = record.zaloChatIds as Record<string, string>;
-    if (map[botAccountId]) return map[botAccountId];
+  if (Array.isArray(record.zaloChatIds)) {
+    const entries = record.zaloChatIds as ZaloChatEntry[];
+    // Tìm entry khớp với botAccountId (so sánh theo ten hoặc userId)
+    const match = entries.find(e => e.ten === botAccountId || e.userId === botAccountId);
+    if (match) return match.threadId || match.userId || null;
+    // Nếu không khớp nhưng chỉ có 1 entry, dùng luôn
+    if (entries.length === 1) return entries[0].threadId || entries[0].userId || null;
   }
   return record.zaloChatId ?? null;
 }
@@ -46,39 +55,60 @@ export async function autoLinkZaloChatIds(
     const inBotMode = await isBotServerMode();
     if (!inBotMode) return;
 
-    const botAccounts = await getAllBotAccountIds();
-    const chatIdsMap: Record<string, string> = {};
-    let defaultChatId: string | null = null;
+    const botAccounts = await getAllBotAccounts();
+    const newEntries: ZaloChatEntry[] = [];
 
-    for (const accountId of botAccounts) {
+    for (const account of botAccounts) {
       try {
-        const result = await findUserViaBotServer(phone, accountId || undefined);
+        const result = await findUserViaBotServer(phone, account.id || undefined);
         if (!result.ok || !result.data) continue;
         const d = result.data as any;
         const uid = String(d.userId ?? d.uid ?? d.id ?? '');
         if (!uid) continue;
 
-        chatIdsMap[accountId || 'default'] = uid;
-        if (!defaultChatId) defaultChatId = uid;
+        newEntries.push({
+          ten: account.ten,
+          userId: uid,
+          threadId: uid, // Với chat 1-1, threadId = userId
+        });
       } catch { continue; }
     }
 
-    if (!defaultChatId) return; // Không tìm thấy ở bất kỳ account nào
+    if (newEntries.length === 0) return;
+
+    // Merge với entries hiện có (không ghi đè entry đã có cùng ten)
+    const mergeEntries = async (existing: any): Promise<ZaloChatEntry[]> => {
+      const current: ZaloChatEntry[] = Array.isArray(existing) ? existing : [];
+      const result = [...current];
+      for (const entry of newEntries) {
+        const idx = result.findIndex(e => e.ten === entry.ten);
+        if (idx >= 0) {
+          result[idx] = entry; // cập nhật
+        } else {
+          result.push(entry);
+        }
+      }
+      return result;
+    };
 
     if (entityType === 'nguoiDung') {
+      const rec = await prisma.nguoiDung.findUnique({ where: { id: entityId }, select: { zaloChatIds: true } });
+      const merged = await mergeEntries(rec?.zaloChatIds);
       await prisma.nguoiDung.update({
         where: { id: entityId },
         data: {
-          zaloChatId: defaultChatId,
-          zaloChatIds: chatIdsMap,
+          zaloChatId: merged[0]?.threadId ?? null,
+          zaloChatIds: merged as any,
         },
       });
     } else {
+      const rec = await prisma.khachThue.findUnique({ where: { id: entityId }, select: { zaloChatIds: true } });
+      const merged = await mergeEntries(rec?.zaloChatIds);
       await prisma.khachThue.update({
         where: { id: entityId },
         data: {
-          zaloChatId: defaultChatId,
-          zaloChatIds: chatIdsMap,
+          zaloChatId: merged[0]?.threadId ?? null,
+          zaloChatIds: merged as any,
           nhanThongBaoZalo: true,
         },
       });
@@ -87,31 +117,34 @@ export async function autoLinkZaloChatIds(
 }
 
 /**
- * Cập nhật zaloChatIds cho 1 record khi nhận được chatId mới từ webhook/chat.
- * Gọi này khi người dùng thực sự nhắn tin (xác nhận chatId đúng cho account đó).
+ * Cập nhật / thêm 1 entry vào zaloChatIds khi nhận được chatId từ webhook/chat.
  */
 export async function storeChatIdForAccount(
   entityType: 'nguoiDung' | 'khachThue',
   entityId: string,
-  botAccountId: string,
+  botAccountTen: string,
   chatId: string,
 ): Promise<void> {
   try {
+    const newEntry: ZaloChatEntry = { ten: botAccountTen, userId: chatId, threadId: chatId };
+
     if (entityType === 'nguoiDung') {
       const rec = await prisma.nguoiDung.findUnique({ where: { id: entityId }, select: { zaloChatIds: true, zaloChatId: true } });
-      const existing = (rec?.zaloChatIds as Record<string, string>) ?? {};
-      existing[botAccountId || 'default'] = chatId;
+      const current: ZaloChatEntry[] = Array.isArray(rec?.zaloChatIds) ? (rec!.zaloChatIds as any) : [];
+      const idx = current.findIndex(e => e.ten === botAccountTen);
+      if (idx >= 0) current[idx] = newEntry; else current.push(newEntry);
       await prisma.nguoiDung.update({
         where: { id: entityId },
-        data: { zaloChatIds: existing, zaloChatId: rec?.zaloChatId ?? chatId },
+        data: { zaloChatIds: current as any, zaloChatId: rec?.zaloChatId ?? chatId },
       });
     } else {
       const rec = await prisma.khachThue.findUnique({ where: { id: entityId }, select: { zaloChatIds: true, zaloChatId: true } });
-      const existing = (rec?.zaloChatIds as Record<string, string>) ?? {};
-      existing[botAccountId || 'default'] = chatId;
+      const current: ZaloChatEntry[] = Array.isArray(rec?.zaloChatIds) ? (rec!.zaloChatIds as any) : [];
+      const idx = current.findIndex(e => e.ten === botAccountTen);
+      if (idx >= 0) current[idx] = newEntry; else current.push(newEntry);
       await prisma.khachThue.update({
         where: { id: entityId },
-        data: { zaloChatIds: existing, zaloChatId: rec?.zaloChatId ?? chatId },
+        data: { zaloChatIds: current as any, zaloChatId: rec?.zaloChatId ?? chatId },
       });
     }
   } catch { /* bỏ qua */ }
