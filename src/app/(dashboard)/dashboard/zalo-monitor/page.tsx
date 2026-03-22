@@ -2,10 +2,15 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
-import { Copy, Trash2, Users, User, Image as ImageIcon, FileText, MessageSquare, RefreshCw, Wifi, WifiOff, Download, Clock, Building2, DoorOpen } from 'lucide-react';
+import {
+  Copy, Trash2, Users, User, RefreshCw, Wifi,
+  MessageSquare, Building2, DoorOpen, ChevronLeft, Bot,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface RoomInfo {
   tenKhach: string;
@@ -15,7 +20,7 @@ interface RoomInfo {
   diaChi: any;
 }
 
-interface MonitorMsg {
+interface ZaloMsg {
   id: string;
   chatId: string;
   displayName: string | null;
@@ -26,296 +31,338 @@ interface MonitorMsg {
   createdAt: string;
   rawPayload: any;
   roomInfo?: RoomInfo;
-  // Bot reply mới nhất trong cuộc hội thoại (từ conversations API)
+  // chỉ dùng ở conversations view
   botContent?: string | null;
   botCreatedAt?: string | null;
 }
 
-// ─── parse rawPayload từ bot server (zca-js) ──────────────────────────────────
-function parseRaw(msg: MonitorMsg) {
-  const raw = msg.rawPayload as any;
-  const data = raw?.data ?? {};
-  const isGroup = raw?.type === 1;
-  const threadId: string = raw?.threadId || msg.chatId;
-  const msgType: string = data?.msgType || 'webchat';
-  const dName: string = data?.dName || msg.displayName || '';
-  const tsMs = data?.ts ? parseInt(data.ts) : new Date(msg.createdAt).getTime();
-  const ts = new Date(isNaN(tsMs) ? msg.createdAt : tsMs);
-  const ttlMs: number | null = data?.ttl != null ? Number(data.ttl) : null;
-  const uidFrom: string = data?.uidFrom ? String(data.uidFrom) : '';
-  const accountId: string = raw?._accountId ? String(raw._accountId) : '';
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  // Nội dung tùy loại
-  let text = '';
-  let imageUrl: string | null = null;
-  let fileUrl: string | null = null;
-  let fileName: string | null = null;
-  let fileExt: string | null = null;
-  let thumb: string | null = null;
-
-  if (msgType === 'chat.photo') {
-    const c = data?.content ?? {};
-    imageUrl = typeof c === 'object' ? (c.href || c.thumb || null) : null;
-    thumb = typeof c === 'object' ? (c.thumb || c.href || null) : null;
-    text = typeof c === 'object' ? (c.title || c.description || '') : '';
-  } else if (msgType === 'share.file') {
-    const c = data?.content ?? {};
-    fileUrl = typeof c === 'object' ? (c.href || null) : null;
-    fileName = typeof c === 'object' ? (c.title || 'file') : 'file';
-    thumb = typeof c === 'object' ? (c.thumb || null) : null;
-    // Extract file extension from params or filename
-    try {
-      if (typeof c?.params === 'string') {
-        const params = JSON.parse(c.params);
-        fileExt = params.fileExt || null;
-      }
-    } catch { /* ignore */ }
-    if (!fileExt && fileName) fileExt = fileName.split('.').pop() || null;
-    text = fileName;
-  } else {
-    text = typeof data?.content === 'string'
-      ? data.content
-      : (msg.content ?? '');
-  }
-
-  return { isGroup, threadId, msgType, dName, ts, ttlMs, uidFrom, accountId, text, imageUrl, fileUrl, fileName, fileExt, thumb };
+function threadId(msg: ZaloMsg): string {
+  return (msg.rawPayload as any)?.threadId || msg.chatId;
 }
 
-function formatTtl(ttlMs: number | null): string | null {
-  if (ttlMs === null || ttlMs <= 0) return null;
-  if (ttlMs >= 86400000) return `${Math.round(ttlMs / 86400000)} ngày`;
-  if (ttlMs >= 3600000) return `${Math.round(ttlMs / 3600000)} giờ`;
-  if (ttlMs >= 60000) return `${Math.round(ttlMs / 60000)} phút`;
-  return `${Math.round(ttlMs / 1000)} giây`;
+function isGroup(msg: ZaloMsg): boolean {
+  return (msg.rawPayload as any)?.type === 1;
 }
 
-function formatTime(d: Date) {
+function senderName(msg: ZaloMsg): string {
+  const d = (msg.rawPayload as any)?.data;
+  return d?.dName || d?.fromD || msg.displayName || 'Ẩn danh';
+}
+
+function formatTime(s: string) {
+  const d = new Date(s);
   const now = new Date();
   const isToday = d.toDateString() === now.toDateString();
-  if (isToday) return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (isToday) return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function ZaloMonitorPage() {
-  const [messages, setMessages] = useState<MonitorMsg[]>([]);
+// ─── ConversationList ─────────────────────────────────────────────────────────
+
+function ConversationList({
+  convs, selectedId, onSelect, onDeleteAll, loading, onRefresh,
+}: {
+  convs: ZaloMsg[];
+  selectedId: string | null;
+  onSelect: (chatId: string) => void;
+  onDeleteAll: () => void;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      {/* toolbar */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b bg-white shrink-0">
+        <span className="flex-1 text-sm font-semibold text-gray-700">Hội thoại</span>
+        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onRefresh} disabled={loading}>
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+          onClick={onDeleteAll} title="Xóa tất cả">
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      {/* list */}
+      <div className="flex-1 overflow-y-auto divide-y">
+        {convs.length === 0 && !loading && (
+          <div className="p-8 text-center text-gray-400">
+            <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            <p className="text-xs">Chưa có tin nhắn nào.</p>
+          </div>
+        )}
+        {convs.map(msg => {
+          const tid = threadId(msg);
+          const group = isGroup(msg);
+          const name = senderName(msg);
+          const selected = selectedId === msg.chatId;
+          return (
+            <button key={msg.chatId} type="button"
+              className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors ${selected ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}
+              onClick={() => onSelect(msg.chatId)}>
+              <div className="flex items-start gap-2.5">
+                <div className={`mt-0.5 h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${group ? 'bg-purple-100' : 'bg-blue-100'}`}>
+                  {group ? <Users className="h-4 w-4 text-purple-600" /> : <User className="h-4 w-4 text-blue-600" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-sm font-medium text-gray-800 truncate">{name}</span>
+                    <span className="text-[10px] text-gray-400 shrink-0">{formatTime(msg.createdAt)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 truncate mt-0.5">
+                    {msg.role === 'bot' ? '🤖 ' : ''}{msg.content}
+                  </p>
+                  {msg.roomInfo && (
+                    <div className="flex gap-1 mt-1">
+                      <Badge variant="outline" className="text-[10px] px-1 border-green-300 text-green-700">
+                        <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{msg.roomInfo.maPhong}
+                      </Badge>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-gray-400 mt-0.5 font-mono truncate">ID: {tid}</p>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── MessageThread ────────────────────────────────────────────────────────────
+
+function MessageThread({
+  chatId, onBack, onDeleted,
+}: {
+  chatId: string;
+  onBack: () => void;
+  onDeleted: () => void;
+}) {
+  const [msgs, setMsgs] = useState<ZaloMsg[]>([]);
   const [loading, setLoading] = useState(false);
-  const [connected] = useState(true); // luôn kết nối qua /api/events SSE
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // ─── Load / reload từ DB ─────────────────────────────────────────────────
-  const loadMessages = useCallback(async () => {
+  const load = useCallback(async (before?: string) => {
     setLoading(true);
+    try {
+      const url = `/api/zalo/messages?chatId=${encodeURIComponent(chatId)}&limit=50${before ? `&before=${before}` : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const batch: ZaloMsg[] = data.data ?? [];
+      if (before) {
+        setMsgs(prev => [...batch, ...prev]);
+      } else {
+        setMsgs(batch);
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      }
+      setHasMore(batch.length === 50);
+    } finally { setLoading(false); }
+  }, [chatId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // reload khi có tin nhắn mới
+  useRealtimeEvents(['zalo-message'], () => { void load(); });
+
+  async function handleDelete(id: string) {
+    await fetch(`/api/zalo/messages?id=${id}`, { method: 'DELETE' });
+    setMsgs(prev => prev.filter(m => m.id !== id));
+    onDeleted();
+  }
+
+  async function handleDeleteAll() {
+    if (!confirm('Xóa toàn bộ lịch sử của hội thoại này?')) return;
+    await fetch(`/api/zalo/messages?chatId=${encodeURIComponent(chatId)}`, { method: 'DELETE' });
+    setMsgs([]);
+    onDeleted();
+    onBack();
+    toast.success('Đã xóa');
+  }
+
+  const info = msgs.find(m => m.roomInfo)?.roomInfo;
+  const name = msgs.length ? senderName(msgs[0]) : chatId;
+  const tid = msgs.length ? threadId(msgs[0]) : chatId;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* header */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b bg-white shrink-0">
+        <Button size="icon" variant="ghost" className="h-7 w-7 md:hidden" onClick={onBack}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-800 truncate">{name}</span>
+            {info && (
+              <Badge variant="outline" className="text-[10px] px-1.5 border-green-300 text-green-700 bg-green-50 shrink-0">
+                <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{info.maPhong}
+              </Badge>
+            )}
+            {info && (
+              <Badge variant="outline" className="text-[10px] px-1.5 border-orange-300 text-orange-700 bg-orange-50 shrink-0">
+                <Building2 className="h-2.5 w-2.5 mr-0.5" />{info.tenToaNha}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="text-[10px] text-gray-400 font-mono">ID: {tid}</span>
+            <button onClick={() => { navigator.clipboard.writeText(tid); toast.success('Đã sao chép'); }}
+              className="text-gray-300 hover:text-blue-500">
+              <Copy className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={handleDeleteAll} title="Xóa hội thoại">
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      {/* messages */}
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+        {hasMore && (
+          <div className="text-center pb-2">
+            <Button size="sm" variant="outline" className="text-xs" onClick={() => load(msgs[0]?.createdAt)} disabled={loading}>
+              {loading ? 'Đang tải...' : 'Tải thêm'}
+            </Button>
+          </div>
+        )}
+
+        {msgs.map((msg, i) => {
+          const isBot = msg.role === 'bot';
+          const showDateSep = i === 0 || new Date(msg.createdAt).toDateString() !== new Date(msgs[i - 1].createdAt).toDateString();
+
+          return (
+            <div key={msg.id}>
+              {showDateSep && (
+                <div className="text-center text-[10px] text-gray-400 py-2">
+                  {new Date(msg.createdAt).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </div>
+              )}
+              <div className={`flex items-end gap-1.5 group ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
+                {/* avatar */}
+                <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mb-0.5 ${isBot ? 'bg-gray-200' : 'bg-blue-100'}`}>
+                  {isBot ? <Bot className="h-3.5 w-3.5 text-gray-500" /> : <User className="h-3.5 w-3.5 text-blue-600" />}
+                </div>
+
+                {/* bubble */}
+                <div className={`max-w-[72%] rounded-2xl px-3 py-2 text-sm relative ${
+                  isBot
+                    ? 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                    : 'bg-blue-500 text-white rounded-br-sm'
+                }`}>
+                  {msg.attachmentUrl && (
+                    <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                      <img src={msg.attachmentUrl} alt="" className="rounded-lg max-h-48 max-w-full mb-1 object-contain"
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    </a>
+                  )}
+                  <span className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</span>
+                  <span className={`block text-[10px] mt-0.5 ${isBot ? 'text-gray-400' : 'text-blue-100'}`}>
+                    {formatTime(msg.createdAt)}
+                  </span>
+                </div>
+
+                {/* delete */}
+                <button
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 mb-1 shrink-0"
+                  onClick={() => handleDelete(msg.id)}
+                  title="Xóa tin nhắn này">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {msgs.length === 0 && !loading && (
+          <div className="text-center text-gray-400 text-sm py-12">Chưa có tin nhắn.</div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function ZaloMonitorPage() {
+  const [convs, setConvs] = useState<ZaloMsg[]>([]);
+  const [loadingConvs, setLoadingConvs] = useState(false);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+
+  const loadConvs = useCallback(async () => {
+    setLoadingConvs(true);
     try {
       const res = await fetch('/api/zalo/messages?conversations=1');
       const data = await res.json();
-      if (data.data) setMessages(data.data);
-    } catch { /* ignore */ } finally { setLoading(false); }
+      if (data.data) setConvs(data.data);
+    } catch { /* ignore */ } finally { setLoadingConvs(false); }
   }, []);
 
-  useEffect(() => { loadMessages(); }, [loadMessages]);
+  useEffect(() => { loadConvs(); }, [loadConvs]);
 
-  // ─── Webhook trigger qua /api/events SSE ────────────────────────────────
-  // Mỗi khi webhook nhận tin nhắn mới → sseEmit('zalo-message') → reload.
-  useRealtimeEvents(['zalo-message'], () => { void loadMessages(); });
+  useRealtimeEvents(['zalo-message'], () => { void loadConvs(); });
 
-  async function handleClear() {
-    if (!confirm('Xóa tất cả tin nhắn đã nhận?')) return;
+  async function handleDeleteAll() {
+    if (!confirm('Xóa tất cả tin nhắn?')) return;
     await fetch('/api/zalo/messages', { method: 'DELETE' });
-    setMessages([]);
+    setConvs([]);
+    setSelectedChatId(null);
     toast.success('Đã xóa tất cả');
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-[calc(100vh-7rem)]">
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-3 shrink-0">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Theo dõi tin nhắn Zalo Bot</h1>
-          <p className="text-xs md:text-sm text-gray-500 mt-0.5">
-            Hiển thị tin nhắn đến — lấy <strong>Thread ID</strong> để liên kết với khách thuê
+          <h1 className="text-xl font-bold text-gray-900">Theo dõi tin nhắn Zalo Bot</h1>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Lấy <strong>Thread ID</strong> để liên kết với khách thuê
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border ${
-            connected ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-500'
-          }`}>
-            {connected
-              ? <><Wifi className="h-3 w-3" /> Đang kết nối</>
-              : <><WifiOff className="h-3 w-3" /> Chờ kết nối</>}
-          </div>
-          <Button size="sm" variant="outline" onClick={loadMessages} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-            Làm mới
-          </Button>
-          <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={handleClear}>
-            <Trash2 className="h-4 w-4 mr-1" />
-            Xóa tất cả
-          </Button>
+        <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-green-50 border-green-200 text-green-700">
+          <Wifi className="h-3 w-3" /> Đang kết nối
         </div>
       </div>
 
-      {/* Messages */}
-      {messages.length === 0 ? (
-        <div className="rounded-xl border bg-white p-12 text-center text-gray-400">
-          <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Chưa có tin nhắn nào.</p>
-          <p className="text-xs mt-1">Nhắn vào Zalo Bot để xem Thread ID tại đây.</p>
+      {/* 2-column layout */}
+      <div className="flex flex-1 overflow-hidden rounded-xl border bg-white shadow-sm">
+        {/* Left — conversation list */}
+        <div className={`w-full md:w-72 lg:w-80 border-r shrink-0 ${selectedChatId ? 'hidden md:flex md:flex-col' : 'flex flex-col'}`}>
+          <ConversationList
+            convs={convs}
+            selectedId={selectedChatId}
+            onSelect={setSelectedChatId}
+            onDeleteAll={handleDeleteAll}
+            loading={loadingConvs}
+            onRefresh={loadConvs}
+          />
         </div>
-      ) : (
-        <div className="space-y-3">
-          {messages.map(msg => {
-            const { isGroup, threadId, msgType, dName, ts, ttlMs, uidFrom, text, imageUrl, fileUrl, fileName, fileExt, thumb } = parseRaw(msg);
-            const isExpanded = expandedId === msg.id;
-            const ttlLabel = formatTtl(ttlMs);
-            const room = msg.roomInfo;
 
-            return (
-              <div key={msg.id} className="rounded-xl border bg-white shadow-sm overflow-hidden">
-                {/* Thread header */}
-                <div className={`px-4 py-3 flex items-center gap-3 ${isGroup ? 'bg-purple-50' : 'bg-blue-50'}`}>
-                  <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
-                    isGroup ? 'bg-purple-200' : 'bg-blue-200'
-                  }`}>
-                    {isGroup
-                      ? <Users className="h-4 w-4 text-purple-700" />
-                      : <User className="h-4 w-4 text-blue-700" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className={`text-[10px] px-1.5 ${
-                        isGroup ? 'border-purple-300 text-purple-700 bg-purple-50' : 'border-blue-300 text-blue-700 bg-blue-50'
-                      }`}>
-                        {isGroup ? 'Nhóm' : 'Người dùng'}
-                      </Badge>
-                      <span className="font-medium text-sm text-gray-900 truncate">{dName || 'Ẩn danh'}</span>
-                      {msgType !== 'webchat' && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 border-gray-300 text-gray-600">
-                          {msgType === 'chat.photo' ? 'Hình ảnh' : fileExt ? fileExt.toUpperCase() : 'File'}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-xs text-gray-500">Thread ID:</span>
-                      <code className="text-xs font-bold text-blue-800 select-all">{threadId}</code>
-                      <button type="button"
-                        className="text-gray-400 hover:text-blue-600"
-                        onClick={() => { navigator.clipboard.writeText(threadId); toast.success('Đã sao chép Thread ID'); }}>
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
-                      {uidFrom && uidFrom !== threadId && (
-                        <span className="text-[10px] text-gray-400">UID: {uidFrom}</span>
-                      )}
-                    </div>
-                    {/* Thông tin phòng / tòa nhà */}
-                    {room && (
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <Badge variant="outline" className="text-[10px] px-1.5 border-green-300 text-green-700 bg-green-50">
-                          <DoorOpen className="h-3 w-3 mr-0.5" />
-                          {room.maPhong} (Tầng {room.tang})
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px] px-1.5 border-orange-300 text-orange-700 bg-orange-50">
-                          <Building2 className="h-3 w-3 mr-0.5" />
-                          {room.tenToaNha}
-                        </Badge>
-                        {room.diaChi && typeof room.diaChi === 'object' && (
-                          <span className="text-[10px] text-gray-400">
-                            {[room.diaChi.soNha, room.diaChi.duong, room.diaChi.phuong, room.diaChi.quan].filter(Boolean).join(', ')}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {ttlLabel && (
-                      <div className="flex items-center gap-1 mt-0.5 text-[10px] text-amber-600">
-                        <Clock className="h-3 w-3" />
-                        TTL: {ttlLabel}
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-xs text-gray-400 shrink-0">{formatTime(ts)}</span>
-                </div>
-
-                {/* Nội dung */}
-                <div className="px-4 py-3">
-                  {msgType === 'chat.photo' && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                        <ImageIcon className="h-3.5 w-3.5" />
-                        <span>Hình ảnh</span>
-                      </div>
-                      {thumb && (
-                        <a href={imageUrl || thumb} target="_blank" rel="noopener noreferrer">
-                          <img src={thumb} alt="ảnh Zalo"
-                            className="rounded-lg max-h-64 max-w-full object-contain border cursor-pointer hover:opacity-90"
-                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        </a>
-                      )}
-                      {text && <p className="text-sm text-gray-600">{text}</p>}
-                    </div>
-                  )}
-
-                  {msgType === 'share.file' && (
-                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
-                      {thumb ? (
-                        <img src={thumb} alt="" className="h-12 w-12 object-contain rounded"
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                      ) : (
-                        <div className="h-12 w-12 rounded bg-gray-200 flex items-center justify-center shrink-0">
-                          <FileText className="h-6 w-6 text-gray-500" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
-                          <FileText className="h-3.5 w-3.5" />
-                          <span>File đính kèm {fileExt && <code className="bg-gray-200 px-1 rounded text-[10px]">.{fileExt}</code>}</span>
-                        </div>
-                        <p className="text-sm font-medium text-gray-800 truncate">{fileName}</p>
-                        {fileUrl && (
-                          <a href={fileUrl} target="_blank" rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                            <Download className="h-3 w-3" />
-                            Tải xuống
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {msgType !== 'chat.photo' && msgType !== 'share.file' && (
-                    <p className="text-sm text-gray-800">{text || <span className="text-gray-400 italic">[trống]</span>}</p>
-                  )}
-
-                  {/* Bot reply preview */}
-                  {msg.botContent && (
-                    <div className="mt-2 flex items-start gap-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
-                      <span className="mt-0.5 shrink-0 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Bot</span>
-                      <p className="text-xs text-gray-500 truncate flex-1">{msg.botContent}</p>
-                      {msg.botCreatedAt && (
-                        <span className="shrink-0 text-[10px] text-gray-400">{formatTime(new Date(msg.botCreatedAt))}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Raw payload toggle */}
-                <div className="px-4 pb-3">
-                  <button type="button"
-                    className="text-xs text-gray-400 hover:text-gray-600 underline"
-                    onClick={() => setExpandedId(isExpanded ? null : msg.id)}>
-                    {isExpanded ? 'Ẩn raw payload' : 'Xem raw payload'}
-                  </button>
-                  {isExpanded && (
-                    <pre className="mt-2 p-3 bg-gray-50 border rounded-lg text-[10px] text-gray-600 overflow-x-auto max-h-64 whitespace-pre-wrap break-all">
-                      {JSON.stringify(msg.rawPayload, null, 2)}
-                    </pre>
-                  )}
-                </div>
+        {/* Right — message thread */}
+        <div className={`flex-1 flex flex-col overflow-hidden ${selectedChatId ? 'flex' : 'hidden md:flex'}`}>
+          {selectedChatId ? (
+            <MessageThread
+              key={selectedChatId}
+              chatId={selectedChatId}
+              onBack={() => setSelectedChatId(null)}
+              onDeleted={loadConvs}
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-400">
+              <div className="text-center">
+                <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                <p className="text-sm">Chọn một hội thoại để xem lịch sử tin nhắn</p>
               </div>
-            );
-          })}
-          <div ref={bottomRef} />
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
