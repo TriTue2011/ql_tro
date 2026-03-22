@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ data: messages.reverse() });
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -86,6 +86,21 @@ export async function DELETE() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Xóa 1 tin nhắn theo id
+  const id = new URL(request.url).searchParams.get("id");
+  if (id) {
+    await prisma.zaloMessage.delete({ where: { id } }).catch(() => {});
+    return NextResponse.json({ success: true });
+  }
+
+  // Xóa theo chatId
+  const chatId = new URL(request.url).searchParams.get("chatId");
+  if (chatId) {
+    const { count } = await prisma.zaloMessage.deleteMany({ where: { chatId } });
+    return NextResponse.json({ success: true, deleted: count });
+  }
+
+  // Xóa tất cả
   const { count } = await prisma.zaloMessage.deleteMany({});
   return NextResponse.json({ success: true, deleted: count });
 }
