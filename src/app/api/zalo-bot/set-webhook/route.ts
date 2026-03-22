@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
   } catch { /* bỏ qua, dùng ownId gốc */ }
 
-  // Ưu tiên: 1) URL do user nhập, 2) URL đã lưu trong DB, 3) sinh URL mới theo format /api/zalowebhook/{token}
+  // Ưu tiên: 1) URL do user nhập, 2) URL đã lưu trong DB, 3) dùng zalo_webhook_id đã sinh
   const localBase = await getLocalBaseUrl();
   const base = localBase || getPublicBaseUrl() || 'http://localhost:3000';
   const saved = await getSavedWebhookUrl();
@@ -77,15 +77,19 @@ export async function POST(request: NextRequest) {
 
   let webhookUrl: string = (body?.webhookUrl?.trim()) || validSaved || '';
   if (!webhookUrl) {
-    // Sinh token ngẫu nhiên và tạo URL dạng /api/zalowebhook/{token}
-    const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
-    webhookUrl = `${base}/api/zalowebhook/${token}`;
-    // Lưu token vào DB để validate
-    await prisma.caiDat.upsert({
-      where: { khoa: 'zalo_webhook_tokens' },
-      update: { giaTri: JSON.stringify([token]) },
-      create: { khoa: 'zalo_webhook_tokens', giaTri: JSON.stringify([token]), moTa: 'Danh sách webhook token hợp lệ' },
-    }).catch(() => {});
+    // Lấy webhook_id đã sinh ngẫu nhiên từ DB (key: zalo_webhook_id)
+    let webhookId = (await prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_id' } }))?.giaTri?.trim() || '';
+    if (!webhookId) {
+      // Chưa có → sinh mới và lưu
+      const { randomBytes } = await import('crypto');
+      webhookId = randomBytes(32).toString('base64url');
+      await prisma.caiDat.upsert({
+        where: { khoa: 'zalo_webhook_id' },
+        update: { giaTri: webhookId },
+        create: { khoa: 'zalo_webhook_id', giaTri: webhookId },
+      }).catch(() => {});
+    }
+    webhookUrl = `${base}/api/webhook/${webhookId}`;
   }
 
   const result = await setWebhookOnBotServer(ownId, webhookUrl);
