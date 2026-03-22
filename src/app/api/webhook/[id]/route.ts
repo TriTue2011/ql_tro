@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
+import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
 
 // ─── Normalize payload (giống webhook/route.ts) ──────────────────────────────
@@ -55,7 +56,11 @@ function normalizeWebhookPayload(update: any): {
     data?.dName || data?.fromD || data?.displayName ||
     update?.dName || update?.fromD || '';
 
-  const attachmentUrl = extractAttachmentUrl(msg ?? update);
+  const attachmentUrl =
+    extractAttachmentUrl(msg ?? update) ||
+    (typeof data?.content === 'object' && typeof (data.content as any)?.href === 'string'
+      ? (data.content as any).href as string
+      : null);
 
   // Xử lý content theo msgType
   const msgType: string = data?.msgType || '';
@@ -106,6 +111,7 @@ async function saveMessage(update: any): Promise<void> {
       },
     });
     emitNewMessage({ ...saved, eventName: saved.eventName ?? 'message' });
+    sseEmit('zalo-message', { chatId });
   } catch (err) {
     console.error('[webhook] saveMessage error:', err);
   }
