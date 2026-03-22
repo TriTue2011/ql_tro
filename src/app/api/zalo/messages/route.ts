@@ -4,7 +4,7 @@
  *
  * GET  /api/zalo/messages?conversations=1
  *   → Lấy danh sách cuộc hội thoại (tin nhắn cuối mỗi chatId)
- *   → Admin: tất cả; các role khác (kể cả chuNha): chỉ chatId của mình
+ *   → Admin: tất cả; chuNha: chỉ tin nhắn gửi đến tài khoản Zalo của mình (ownId)
  *
  * DELETE /api/zalo/messages
  *   → Xóa tất cả tin nhắn (Xóa tất cả trong theo dõi)
@@ -26,73 +26,95 @@ export async function GET(request: NextRequest) {
 
   const nguoiDung = await prisma.nguoiDung.findUnique({
     where: { id: userId },
-    select: { zaloChatId: true },
+    select: { zaloChatId: true, zaloAccountId: true },
   });
   const userZaloChatId = nguoiDung?.zaloChatId ?? null;
+  // zaloAccountId = ID tài khoản bot Zalo của user (dùng để filter theo ownId)
+  const userZaloAccountId = nguoiDung?.zaloAccountId ?? null;
 
   // Danh sách cuộc hội thoại
-  // Admin: xem tất cả; các role khác: chỉ chatId của mình
+  // Admin: xem tất cả; chuNha: chỉ tin nhắn gửi đến tài khoản Zalo của mình
   if (searchParams.get("conversations") === "1") {
-    if (!canViewAll && !userZaloChatId) return NextResponse.json({ data: [] });
+    if (canViewAll) {
+      const rows = await prisma.$queryRaw<any[]>`
+        WITH latest_user AS (
+          SELECT DISTINCT ON ("chatId")
+            "id", "chatId", "ownId", "displayName", "content", "attachmentUrl",
+            "role", "createdAt", "rawPayload", "eventName"
+          FROM "ZaloMessage"
+          WHERE "role" = 'user'
+          ORDER BY "chatId", "createdAt" DESC
+        ),
+        latest_bot AS (
+          SELECT DISTINCT ON ("chatId")
+            "chatId",
+            "content" AS "botContent",
+            "createdAt" AS "botCreatedAt"
+          FROM "ZaloMessage"
+          WHERE "role" = 'bot'
+          ORDER BY "chatId", "createdAt" DESC
+        )
+        SELECT u.*, b."botContent", b."botCreatedAt"
+        FROM latest_user u
+        LEFT JOIN latest_bot b ON u."chatId" = b."chatId"
+        ORDER BY u."createdAt" DESC
+      `;
+      const rowsWithRoomInfo = await attachRoomInfo(rows);
+      return NextResponse.json({ data: rowsWithRoomInfo });
+    }
 
-    const rows = canViewAll
-      ? await prisma.$queryRaw<any[]>`
-          WITH latest_user AS (
-            SELECT DISTINCT ON ("chatId")
-              "id", "chatId", "displayName", "content", "attachmentUrl",
-              "role", "createdAt", "rawPayload", "eventName"
-            FROM "ZaloMessage"
-            WHERE "role" = 'user'
-            ORDER BY "chatId", "createdAt" DESC
-          ),
-          latest_bot AS (
-            SELECT DISTINCT ON ("chatId")
-              "chatId",
-              "content" AS "botContent",
-              "createdAt" AS "botCreatedAt"
-            FROM "ZaloMessage"
-            WHERE "role" = 'bot'
-            ORDER BY "chatId", "createdAt" DESC
-          )
-          SELECT u.*, b."botContent", b."botCreatedAt"
-          FROM latest_user u
-          LEFT JOIN latest_bot b ON u."chatId" = b."chatId"
-          ORDER BY u."createdAt" DESC
-        `
-      : await prisma.$queryRaw<any[]>`
-          WITH latest_user AS (
-            SELECT DISTINCT ON ("chatId")
-              "id", "chatId", "displayName", "content", "attachmentUrl",
-              "role", "createdAt", "rawPayload", "eventName"
-            FROM "ZaloMessage"
-            WHERE "role" = 'user' AND "chatId" = ${userZaloChatId}
-            ORDER BY "chatId", "createdAt" DESC
-          ),
-          latest_bot AS (
-            SELECT DISTINCT ON ("chatId")
-              "chatId",
-              "content" AS "botContent",
-              "createdAt" AS "botCreatedAt"
-            FROM "ZaloMessage"
-            WHERE "role" = 'bot' AND "chatId" = ${userZaloChatId}
-            ORDER BY "chatId", "createdAt" DESC
-          )
-          SELECT u.*, b."botContent", b."botCreatedAt"
-          FROM latest_user u
-          LEFT JOIN latest_bot b ON u."chatId" = b."chatId"
-          ORDER BY u."createdAt" DESC
-        `;
+    // ChuNha / other roles: filter theo ownId (tài khoản bot) HOẶC chatId (fallback)
+    const filterOwnId = userZaloAccountId || userZaloChatId;
+    if (!filterOwnId) return NextResponse.json({ data: [] });
+
+    const rows = await prisma.$queryRaw<any[]>`
+      WITH latest_user AS (
+        SELECT DISTINCT ON ("chatId")
+          "id", "chatId", "ownId", "displayName", "content", "attachmentUrl",
+          "role", "createdAt", "rawPayload", "eventName"
+        FROM "ZaloMessage"
+        WHERE "role" = 'user' AND ("ownId" = ${filterOwnId} OR "chatId" = ${filterOwnId})
+        ORDER BY "chatId", "createdAt" DESC
+      ),
+      latest_bot AS (
+        SELECT DISTINCT ON ("chatId")
+          "chatId",
+          "content" AS "botContent",
+          "createdAt" AS "botCreatedAt"
+        FROM "ZaloMessage"
+        WHERE "role" = 'bot' AND ("ownId" = ${filterOwnId} OR "chatId" = ${filterOwnId})
+        ORDER BY "chatId", "createdAt" DESC
+      )
+      SELECT u.*, b."botContent", b."botCreatedAt"
+      FROM latest_user u
+      LEFT JOIN latest_bot b ON u."chatId" = b."chatId"
+      ORDER BY u."createdAt" DESC
+    `;
     const rowsWithRoomInfo = await attachRoomInfo(rows);
     return NextResponse.json({ data: rowsWithRoomInfo });
   }
 
-  // Tin nhắn theo chatId — admin xem tất cả, các role khác chỉ chatId của mình
+  // Tin nhắn theo chatId — admin xem tất cả, chuNha chỉ xem tin của tài khoản mình
   const chatId = searchParams.get("chatId");
   if (!chatId)
     return NextResponse.json({ error: "chatId required" }, { status: 400 });
 
-  if (!canViewAll && chatId !== userZaloChatId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!canViewAll) {
+    // Kiểm tra xem chatId này có thuộc tài khoản bot của user không
+    const filterOwnId = userZaloAccountId || userZaloChatId;
+    if (!filterOwnId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    // Cho phép xem nếu chatId khớp hoặc có tin nhắn với ownId đúng
+    if (chatId !== filterOwnId) {
+      const hasAccess = await prisma.zaloMessage.findFirst({
+        where: { chatId, ownId: filterOwnId },
+        select: { id: true },
+      });
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
   }
 
   const limit = Math.min(Number(searchParams.get("limit") ?? 50), 100);
