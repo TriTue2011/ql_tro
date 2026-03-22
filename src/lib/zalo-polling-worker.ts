@@ -17,6 +17,7 @@ import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
+import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant } from '@/lib/zalo-message-handler';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
@@ -99,7 +100,8 @@ async function saveMessage(update: any): Promise<void> {
     const saved = await prisma.zaloMessage.create({
       data: { chatId, displayName: displayName || null, content, attachmentUrl, role: 'user', eventName, rawPayload: update as any },
     });
-    emitNewMessage({ ...saved });
+    emitNewMessage({ ...saved, eventName: saved.eventName ?? 'message' });
+    sseEmit('zalo-message', { chatId });
   } catch {
     // Không dừng worker vì lỗi lưu message
   }

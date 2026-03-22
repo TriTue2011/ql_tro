@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getKhachThueRepo } from '@/lib/repositories';
 import prisma from '@/lib/prisma';
 import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
+import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
 
 function normalizeName(name: string): string {
@@ -114,7 +115,8 @@ async function saveMessage(update: any): Promise<void> {
         rawPayload: update as any,
       },
     });
-    emitNewMessage({ ...saved });
+    emitNewMessage({ ...saved, eventName: saved.eventName ?? 'message' });
+    sseEmit('zalo-message', { chatId: saved.chatId });
   } catch (err) {
     console.error('[zalo/webhook] saveMessage error:', err);
   }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { Copy, Trash2, Users, User, Image as ImageIcon, FileText, MessageSquare, RefreshCw, Wifi, WifiOff, Download, Clock, Building2, DoorOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -98,74 +99,25 @@ function formatTime(d: Date) {
 export default function ZaloMonitorPage() {
   const [messages, setMessages] = useState<MonitorMsg[]>([]);
   const [loading, setLoading] = useState(false);
-  const [connected, setConnected] = useState(false);
+  const [connected] = useState(true); // luôn kết nối qua /api/events SSE
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // ─── Load lần đầu từ DB ──────────────────────────────────────────────────
-  async function loadMessages() {
+  // ─── Load / reload từ DB ─────────────────────────────────────────────────
+  const loadMessages = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/zalo/messages?conversations=1');
       const data = await res.json();
       if (data.data) setMessages(data.data);
     } catch { /* ignore */ } finally { setLoading(false); }
-  }
-
-  useEffect(() => { loadMessages(); }, []);
-
-  // ─── SSE real-time ───────────────────────────────────────────────────────
-  useEffect(() => {
-    let retryDelay = 2000;
-    let timer: ReturnType<typeof setTimeout>;
-
-    function connect() {
-      const es = new EventSource('/api/zalo/messages/stream');
-
-      es.onopen = () => { setConnected(true); retryDelay = 2000; };
-      es.onerror = () => {
-        setConnected(false);
-        es.close();
-        timer = setTimeout(() => { retryDelay = Math.min(retryDelay * 2, 30_000); connect(); }, retryDelay);
-      };
-
-      es.onmessage = (e) => {
-        try {
-          const payload = JSON.parse(e.data);
-          if (payload.type !== 'messages') return;
-          const newMsgs: MonitorMsg[] = payload.data;
-          setMessages(prev => {
-            const map = new Map(prev.map(m => [m.chatId, m]));
-            for (const m of newMsgs) {
-              const existing = map.get(m.chatId);
-              if (m.role === 'bot') {
-                // Tin bot → chỉ cập nhật botContent, không thay thế card chính
-                if (existing) {
-                  map.set(m.chatId, { ...existing, botContent: m.content, botCreatedAt: m.createdAt });
-                }
-                continue;
-              }
-              if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
-                // Giữ lại roomInfo từ message cũ nếu SSE không có
-                if (existing?.roomInfo && !m.roomInfo) {
-                  m.roomInfo = existing.roomInfo;
-                }
-                map.set(m.chatId, m);
-              }
-            }
-            return Array.from(map.values()).sort(
-              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            );
-          });
-        } catch { /* ignore */ }
-      };
-
-      return es;
-    }
-
-    const es = connect();
-    return () => { clearTimeout(timer); es.close(); setConnected(false); };
   }, []);
+
+  useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  // ─── Webhook trigger qua /api/events SSE ────────────────────────────────
+  // Mỗi khi webhook nhận tin nhắn mới → sseEmit('zalo-message') → reload.
+  useRealtimeEvents(['zalo-message'], () => { void loadMessages(); });
 
   async function handleClear() {
     if (!confirm('Xóa tất cả tin nhắn đã nhận?')) return;
