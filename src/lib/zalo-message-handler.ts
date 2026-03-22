@@ -218,12 +218,8 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
     const kt = await repo.findBySoDienThoai(phone);
 
     if (!kt) {
-      await sendReply(
-        token, chatId,
-        `❌ Không tìm thấy hồ sơ với số điện thoại ${phone}.\n\n` +
-        'Vui lòng kiểm tra lại số điện thoại đã đăng ký với chủ trọ.',
-      );
-      return true;
+      // Không tìm thấy → để handleStranger chạy (gửi lời chào + forward cho admin)
+      return false;
     }
 
     if (kt.zaloChatId === chatId && kt.nhanThongBaoZalo) {
@@ -424,11 +420,12 @@ async function handleStranger(token: string, chatId: string, displayName: string
     const shouldForward = map['bot_forward_unknown'] !== 'false';
     const forwardThreadId = map['bot_forward_thread_id'];
     if (shouldForward && forwardThreadId && text) {
+      const looksLikePhone = /^[\d\s+\-()]{9,15}$/.test(text.trim());
       const fwdMsg = [
         `📨 Tin nhắn từ người lạ`,
         `👤 Tên: ${displayName || '(không rõ)'}`,
         `🆔 ChatId: ${chatId}`,
-        `💬 Nội dung: ${text}`,
+        looksLikePhone ? `📱 SĐT gửi: ${text.trim()}` : `💬 Nội dung: ${text}`,
       ].join('\n');
       await sendReply(token, forwardThreadId, fwdMsg);
     }
