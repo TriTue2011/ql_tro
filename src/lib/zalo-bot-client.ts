@@ -402,8 +402,6 @@ export async function getUserInfoViaBotServer(userId: string, accountSelection?:
 
 export async function getAllFriendsFromBotServer(
   accountSelection?: string,
-  _count?: number,
-  _page?: number,
 ): Promise<{ ok: boolean; friends?: any[]; error?: string }> {
   const r = await botRequest("POST", "/api/getAllFriendsByAccount", { accountSelection: await ac(accountSelection) }, 15_000);
   if (!r.ok) return { ok: false, error: r.error };

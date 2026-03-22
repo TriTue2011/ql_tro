@@ -4,10 +4,8 @@ import { getAllFriendsFromBotServer } from "@/lib/zalo-bot-client";
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const account = searchParams.get("account") ?? undefined;
-  const count = Number(searchParams.get("count") ?? 200);
-  const page = Number(searchParams.get("page") ?? 0);
 
-  const result = await getAllFriendsFromBotServer(account, count, page);
+  const result = await getAllFriendsFromBotServer(account);
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
   }
