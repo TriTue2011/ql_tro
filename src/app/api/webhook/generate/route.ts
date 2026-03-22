@@ -3,7 +3,7 @@
  * Tạo webhook ID mới cho Zalo Bot — giống cách HA tạo webhook_id.
  * Chỉ admin / chuNha.
  */
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
@@ -13,13 +13,21 @@ function generateWebhookId(): string {
   return randomBytes(32).toString('base64url');
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session || !['admin', 'chuNha'].includes(session.user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const webhookId = generateWebhookId();
+  // Nếu body có customId → dùng ID do người dùng nhập (ví dụ: webhook_id từ bot server)
+  let webhookId: string;
+  try {
+    const body = await request.json().catch(() => ({}));
+    const custom: string = body?.webhookId?.trim() || '';
+    webhookId = custom || generateWebhookId();
+  } catch {
+    webhookId = generateWebhookId();
+  }
 
   await prisma.caiDat.upsert({
     where: { khoa: 'zalo_webhook_id' },

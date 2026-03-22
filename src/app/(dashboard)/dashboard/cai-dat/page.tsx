@@ -645,11 +645,13 @@ function ZaloWebhookCard({
   onChangeDomainUrl: (v: string) => void;
   onSaveBaseUrl: (v: string) => void;
   onSaveDomainUrl: (v: string) => void;
-  onGenerate: () => void;
+  onGenerate: (customId?: string) => void;
   onTest: () => void;
   onChangeBotUrl: (v: string) => void;
   onSetBotWebhook: () => void;
 }) {
+  const [customId, setCustomId] = useState('');
+
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text).then(() => toast.success('Đã copy URL'));
   }
@@ -700,12 +702,20 @@ function ZaloWebhookCard({
 
         {/* Webhook ID section */}
         {!currentWebhookId ? (
-          <div className="rounded-md border border-dashed p-4 text-center space-y-2">
-            <p className="text-sm text-gray-500">Chưa có Webhook ID. Tạo ID để lấy URL webhook.</p>
-            <Button size="sm" onClick={onGenerate} disabled={webhookIdGenerating}>
-              {webhookIdGenerating ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
-              Tạo Webhook ID
-            </Button>
+          <div className="rounded-md border border-dashed p-4 space-y-3">
+            <p className="text-sm text-gray-500 text-center">Chưa có Webhook ID. Tạo ngẫu nhiên hoặc nhập ID từ bot server.</p>
+            <div className="flex gap-1.5">
+              <Input
+                value={customId}
+                onChange={e => setCustomId(e.target.value)}
+                placeholder="Nhập webhook_id từ bot server (tuỳ chọn)"
+                className="text-xs font-mono"
+              />
+              <Button size="sm" onClick={() => onGenerate(customId.trim() || undefined)} disabled={webhookIdGenerating}>
+                {webhookIdGenerating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                <span className="ml-1">{customId.trim() ? 'Dùng ID này' : 'Tạo ngẫu nhiên'}</span>
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -742,9 +752,23 @@ function ZaloWebhookCard({
                 {webhookTestLoading ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5 mr-1.5" />}
                 Test nhận tin
               </Button>
-              <Button size="sm" variant="outline" onClick={onGenerate} disabled={webhookIdGenerating}>
+              <Button size="sm" variant="outline" onClick={() => onGenerate()} disabled={webhookIdGenerating}>
                 {webhookIdGenerating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                 <span className="ml-1.5">Tạo ID mới</span>
+              </Button>
+            </div>
+
+            {/* Đổi sang ID từ bot server */}
+            <div className="flex gap-1.5 pt-1">
+              <Input
+                value={customId}
+                onChange={e => setCustomId(e.target.value)}
+                placeholder="Dán webhook_id từ bot server để đổi"
+                className="text-xs font-mono"
+              />
+              <Button size="sm" variant="outline" disabled={!customId.trim() || webhookIdGenerating}
+                onClick={() => { onGenerate(customId.trim()); setCustomId(''); }}>
+                Dùng ID này
               </Button>
             </div>
             {webhookTestResult && (
@@ -1822,16 +1846,20 @@ export default function CaiDatPage() {
     }
   }
 
-  async function handleGenerateWebhookId() {
-    if (currentWebhookId && !confirm("Tạo ID mới sẽ vô hiệu URL cũ. Tiếp tục?"))
+  async function handleGenerateWebhookId(customId?: string) {
+    if (currentWebhookId && !confirm(customId ? "Thay đổi Webhook ID sẽ vô hiệu URL cũ. Tiếp tục?" : "Tạo ID mới sẽ vô hiệu URL cũ. Tiếp tục?"))
       return;
     setWebhookIdGenerating(true);
     try {
-      const res = await fetch("/api/webhook/generate", { method: "POST" });
+      const res = await fetch("/api/webhook/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: customId ? JSON.stringify({ webhookId: customId }) : undefined,
+      });
       const data = await res.json();
       if (data.success && data.webhookId) {
         setCurrentWebhookId(data.webhookId);
-        toast.success("Đã tạo Webhook ID mới");
+        toast.success(customId ? "Đã lưu Webhook ID" : "Đã tạo Webhook ID mới");
       } else {
         toast.error(data.error || "Tạo thất bại");
       }
