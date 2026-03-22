@@ -291,6 +291,14 @@ function WebhookCard({ account }: { account?: AccountData }) {
   const [result, setResult] = useState<{ ok: boolean; webhookUrl?: string; error?: string } | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; status?: number; error?: string } | null>(null);
 
+  // Load webhook URL đã lưu từ DB khi vào trang
+  useEffect(() => {
+    fetch("/api/zalo-bot/saved-webhook-url")
+      .then(r => r.json())
+      .then(d => { if (d.webhookUrl) setWebhookUrl(d.webhookUrl); })
+      .catch(() => {});
+  }, []);
+
   const handleSet = async () => {
     setSetting(true);
     setResult(null);
