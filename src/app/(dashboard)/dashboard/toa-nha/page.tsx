@@ -215,60 +215,10 @@ export default function ToaNhaPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
-        <Card className="p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Tổng tòa nhà</p>
-              <p className="text-base md:text-2xl font-bold">{toaNhaList.length}</p>
-            </div>
-            <Building2 className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-          </div>
-        </Card>
-
-        <Card className="p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Phòng trống</p>
-              <p className="text-base md:text-2xl font-bold text-green-600">
-                {toaNhaList.reduce((sum, toaNha) => sum + ((toaNha as any).phongTrong || 0), 0)}
-              </p>
-            </div>
-            <Users className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
-          </div>
-        </Card>
-
-        <Card className="p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Đang thuê</p>
-              <p className="text-base md:text-2xl font-bold text-blue-600">
-                {toaNhaList.reduce((sum, toaNha) => sum + ((toaNha as any).phongDangThue || 0), 0)}
-              </p>
-            </div>
-            <Users className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
-          </div>
-        </Card>
-
-        <Card className="p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Tìm thấy</p>
-              <p className="text-base md:text-2xl font-bold">{filteredToaNha.length}</p>
-            </div>
-            <Search className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-          </div>
-        </Card>
-      </div>
-
       {/* Desktop Table View */}
       <Card className="hidden md:block">
         <CardHeader>
-          <CardTitle>Danh sách tòa nhà</CardTitle>
-          <CardDescription>
-            {filteredToaNha.length} tòa nhà được tìm thấy
-          </CardDescription>
+          <CardTitle>Tổng tòa nhà quản lý: {toaNhaList.length}</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <ToaNhaDataTable
@@ -284,8 +234,7 @@ export default function ToaNhaPage() {
       {/* Mobile Card View */}
       <div className="md:hidden space-y-3">
         <div className="flex justify-between items-center">
-          <h2 className="text-base font-semibold">Danh sách tòa nhà</h2>
-          <span className="text-xs text-gray-600">{filteredToaNha.length} tòa nhà</span>
+          <h2 className="text-base font-semibold">Tổng tòa nhà quản lý: {toaNhaList.length}</h2>
         </div>
 
         {/* Mobile Filters */}

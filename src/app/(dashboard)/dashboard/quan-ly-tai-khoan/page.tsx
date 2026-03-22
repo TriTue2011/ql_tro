@@ -34,13 +34,13 @@ import {
   Phone,
   Calendar,
   RefreshCw,
-  MessageCircle,
   Building2,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { UserDataTable } from './table';
 
 interface Building {
   id: string;
@@ -115,7 +115,7 @@ export default function AccountManagementPage() {
     toaNhaIds: [] as string[],
     quyenKichHoatTaiKhoan: false,
   });
-  const [editZaloChatIds, setEditZaloChatIds] = useState<{ ten: string; userId: string; threadId: string }[]>([]);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     document.title = 'Quản lý Tài khoản';
@@ -226,10 +226,6 @@ export default function AccountManagementPage() {
       if (editUserData.role === 'admin') { delete payload.toaNhaId; delete payload.toaNhaIds; }
       else { delete payload.toaNhaId; } // luôn dùng toaNhaIds cho mọi vai trò không phải admin
       delete payload.quyenKichHoatTaiKhoan; // quyền cập nhật riêng bên dưới
-      // Đồng bộ zaloChatIds và zaloChatId từ bảng
-      const validEntries = editZaloChatIds.filter(e => e.threadId || e.userId);
-      payload.zaloChatIds = validEntries;
-      if (validEntries.length > 0) payload.zaloChatId = validEntries[0].threadId || validEntries[0].userId;
       const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -299,9 +295,11 @@ export default function AccountManagementPage() {
       toaNhaIds: user.toaNhaIds?.length ? user.toaNhaIds : (user.toaNhaId ? [user.toaNhaId] : []),
       quyenKichHoatTaiKhoan: user.quyenKichHoatTaiKhoan ?? false,
     });
-    setEditZaloChatIds(Array.isArray(user.zaloChatIds) ? user.zaloChatIds : []);
     setIsEditDialogOpen(true);
   };
+
+  const toggleSection = (key: string) =>
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -529,163 +527,134 @@ export default function AccountManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
-        <Card className="p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Tổng người dùng</p>
-              <p className="text-base md:text-2xl font-bold">{users.length}</p>
-            </div>
-            <Users className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-          </div>
-        </Card>
-        <Card className="p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Quản trị viên</p>
-              <p className="text-base md:text-2xl font-bold text-red-600">
-                {users.filter(u => getUserRole(u) === 'admin').length}
-              </p>
-            </div>
-            <Shield className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
-          </div>
-        </Card>
-        <Card className="p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Chủ trọ</p>
-              <p className="text-base md:text-2xl font-bold text-blue-600">
-                {users.filter(u => getUserRole(u) === 'chuNha').length}
-              </p>
-            </div>
-            <Users className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
-          </div>
-        </Card>
-        <Card className="p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Nhân viên / QL</p>
-              <p className="text-base md:text-2xl font-bold text-green-600">
-                {users.filter(u => ['nhanVien', 'quanLy'].includes(getUserRole(u))).length}
-              </p>
-            </div>
-            <Users className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
-          </div>
-        </Card>
+      {/* Search bar */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Tìm kiếm tên, email..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 text-sm"
+        />
       </div>
 
-      {/* Desktop Table */}
-      <Card className="hidden md:block p-6">
-        <UserDataTable
-          data={filteredUsers}
-          onEdit={openEditDialog}
-          onDelete={handleDeleteUser}
-          currentUserId={session?.user?.id}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-        />
-      </Card>
-
-      {/* Mobile Cards */}
-      <div className="md:hidden">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Danh sách người dùng</h2>
-          <span className="text-sm text-gray-500">{filteredUsers.length} người dùng</span>
-        </div>
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 text-sm"
-            />
-          </div>
-        </div>
-        <div className="space-y-3">
-          {filteredUsers.map((user) => {
+      {/* Grouped by building */}
+      <div className="space-y-4">
+        {(() => {
+          const renderUserRow = (user: User) => {
             const isCurrentUser = session?.user?.id === user.id;
             return (
-              <Card key={user.id} className="p-4">
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={getUserAvatar(user)} />
-                      <AvatarFallback className="bg-blue-100 text-blue-600">
-                        {getInitials(getUserName(user))}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-gray-900 truncate">{getUserName(user)}</h3>
-                          <p className="text-sm text-gray-500 truncate">{user.email}</p>
-                        </div>
-                        {getRoleBadge(getUserRole(user))}
-                      </div>
-                      {isCurrentUser && <Badge variant="outline" className="mt-1 text-xs">Bạn</Badge>}
-                    </div>
-                  </div>
-                  <div className="space-y-1 text-sm border-t pt-2">
-                    {getUserPhone(user) && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Phone className="h-3 w-3" />
-                        <span>{getUserPhone(user)}</span>
-                      </div>
-                    )}
-                    {user.toaNhaTen && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Building2 className="h-3 w-3" />
-                        <span>{user.toaNhaTen}</span>
-                      </div>
-                    )}
-                    {user.nguoiTaoTen && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Users className="h-3 w-3" />
-                        <span>Người tạo: {user.nguoiTaoTen}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-gray-500 text-xs">
-                      <Calendar className="h-3 w-3" />
-                      <span>Tham gia: {(() => {
-                        const d = new Date(user.createdAt || user.ngayTao || '');
-                        return !isNaN(d.getTime()) ? d.toLocaleDateString('vi-VN') : '—';
-                      })()}</span>
-                    </div>
-                  </div>
-                  <div className="border-t pt-2">
-                    <Badge variant={getUserIsActive(user) ? 'default' : 'secondary'} className="text-xs">
-                      {getUserIsActive(user) ? 'Hoạt động' : 'Ngừng hoạt động'}
+              <div key={user.id ?? user._id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-50">
+                <Avatar className="h-9 w-9 shrink-0">
+                  <AvatarImage src={getUserAvatar(user)} />
+                  <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
+                    {getInitials(getUserName(user))}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm text-gray-900 truncate">{getUserName(user)}</span>
+                    {isCurrentUser && <Badge variant="outline" className="text-[10px] h-4 px-1">Bạn</Badge>}
+                    <Badge variant={getUserIsActive(user) ? 'default' : 'secondary'} className="text-[10px] h-4 px-1">
+                      {getUserIsActive(user) ? 'Hoạt động' : 'Ngừng'}
                     </Badge>
                   </div>
-                  {!isCurrentUser && (
-                    <div className="flex gap-2 pt-2 border-t">
-                      <Button variant="outline" size="sm" onClick={() => openEditDialog(user)} className="flex-1">
-                        <Edit className="h-3.5 w-3.5 mr-1" />Sửa
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteUser(user.id ?? user._id)}
-                        className="flex-1 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-1" />Xóa
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5 flex-wrap">
+                    {user.email && <span className="truncate">{user.email}</span>}
+                    {getUserPhone(user) && (
+                      <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{getUserPhone(user)}</span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {(() => { const d = new Date(user.createdAt || user.ngayTao || ''); return !isNaN(d.getTime()) ? d.toLocaleDateString('vi-VN') : '—'; })()}
+                    </span>
+                  </div>
                 </div>
-              </Card>
+                {!isCurrentUser && (
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(user)}>
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteUser(user.id ?? user._id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             );
-          })}
-        </div>
-        {filteredUsers.length === 0 && (
-          <div className="text-center py-8">
-            <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Không có người dùng nào</p>
-          </div>
-        )}
+          };
+
+          const renderSection = (key: string, label: string, users: User[]) => {
+            if (users.length === 0) return null;
+            const isOpen = !!openSections[key];
+            return (
+              <div key={key} className="border rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-left"
+                  onClick={() => toggleSection(key)}
+                >
+                  <span className="text-sm font-medium text-gray-700">
+                    {label} <span className="text-gray-400 font-normal">({users.length})</span>
+                  </span>
+                  {isOpen ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
+                </button>
+                {isOpen && (
+                  <div className="divide-y divide-gray-100 px-1">
+                    {users.map(renderUserRow)}
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          // Nhóm theo tòa nhà
+          const buildingGroups = buildings.map(b => ({
+            building: b,
+            chuTro: filteredUsers.filter(u => (u.toaNhaIds || []).includes(b.id) && ['chuNha', 'dongChuTro'].includes(getUserRole(u))),
+            quanLy: filteredUsers.filter(u => (u.toaNhaIds || []).includes(b.id) && getUserRole(u) === 'quanLy'),
+            nhanVien: filteredUsers.filter(u => (u.toaNhaIds || []).includes(b.id) && getUserRole(u) === 'nhanVien'),
+          })).filter(g => g.chuTro.length + g.quanLy.length + g.nhanVien.length > 0);
+
+          const adminUsers = filteredUsers.filter(u => getUserRole(u) === 'admin');
+
+          return (
+            <>
+              {buildingGroups.map(g => (
+                <div key={g.building.id} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-blue-500 shrink-0" />
+                    <h3 className="font-semibold text-gray-800">{g.building.tenToaNha}</h3>
+                  </div>
+                  <div className="ml-6 space-y-1.5">
+                    {renderSection(`${g.building.id}-chuTro`, 'Chủ trọ', g.chuTro)}
+                    {renderSection(`${g.building.id}-quanLy`, 'Quản lý', g.quanLy)}
+                    {renderSection(`${g.building.id}-nhanVien`, 'Nhân viên', g.nhanVien)}
+                  </div>
+                </div>
+              ))}
+
+              {adminUsers.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-red-500 shrink-0" />
+                    <h3 className="font-semibold text-gray-800">Hệ thống</h3>
+                  </div>
+                  <div className="ml-6">
+                    {renderSection('admin', 'Quản trị viên', adminUsers)}
+                  </div>
+                </div>
+              )}
+
+              {buildingGroups.length === 0 && adminUsers.length === 0 && (
+                <div className="text-center py-12">
+                  <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">Không tìm thấy tài khoản nào</p>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       {/* Edit User Dialog */}
@@ -783,70 +752,6 @@ export default function AccountManagementPage() {
                   />
                 </div>
               </div>
-            )}
-            {!isChuNha && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs md:text-sm flex items-center gap-1.5">
-                  <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
-                  Liên kết Zalo theo tài khoản bot
-                </Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1"
-                  onClick={() => setEditZaloChatIds(prev => [...prev, { ten: '', userId: '', threadId: '' }])}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Thêm dòng
-                </Button>
-              </div>
-              {/* Header */}
-              <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 px-1">
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Tên bot</span>
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">User ID</span>
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Thread ID</span>
-                <span className="w-7" />
-              </div>
-              {editZaloChatIds.length === 0 && (
-                <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
-                  Chưa có liên kết — nhấn Thêm dòng
-                </div>
-              )}
-              {editZaloChatIds.map((entry, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 items-center">
-                  <Input
-                    value={entry.ten}
-                    onChange={e => setEditZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, ten: e.target.value } : r))}
-                    placeholder="Bot chính..."
-                    className="h-8 text-xs font-mono"
-                  />
-                  <Input
-                    value={entry.userId}
-                    onChange={e => setEditZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, userId: e.target.value } : r))}
-                    placeholder="User ID..."
-                    className="h-8 text-xs font-mono"
-                  />
-                  <Input
-                    value={entry.threadId}
-                    onChange={e => setEditZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, threadId: e.target.value } : r))}
-                    placeholder="Thread ID..."
-                    className="h-8 text-xs font-mono"
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => setEditZaloChatIds(prev => prev.filter((_, i) => i !== idx))}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-              <p className="text-[10px] text-muted-foreground">Dòng đầu tiên là Chat ID chính. Hệ thống tự điền khi bot tìm thấy số điện thoại.</p>
-            </div>
             )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
