@@ -23,10 +23,13 @@ export async function GET(request: NextRequest) {
 
   // Danh sách cuộc hội thoại
   if (searchParams.get("conversations") === "1") {
+    // Chỉ lấy tin nhắn của NGƯỜI GỬI (role='user') để monitor luôn hiển thị
+    // nội dung người nhắn, không bị che bởi tin tự động của bot.
     const rows = await prisma.$queryRaw<any[]>`
       SELECT DISTINCT ON ("chatId")
         "id", "chatId", "displayName", "content", "attachmentUrl", "role", "createdAt", "rawPayload", "eventName"
       FROM "ZaloMessage"
+      WHERE "role" = 'user'
       ORDER BY "chatId", "createdAt" DESC
     `;
     // Sắp xếp theo tin nhắn mới nhất

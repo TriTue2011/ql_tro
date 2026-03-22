@@ -134,6 +134,7 @@ export default function ZaloMonitorPage() {
           setMessages(prev => {
             const map = new Map(prev.map(m => [m.chatId, m]));
             for (const m of newMsgs) {
+              if (m.role !== 'user') continue; // chỉ hiển thị tin người gửi
               const existing = map.get(m.chatId);
               if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
                 // Giữ lại roomInfo từ message cũ nếu SSE không có

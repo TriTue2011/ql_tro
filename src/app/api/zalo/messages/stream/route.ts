@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
           const messages = await prisma.zaloMessage.findMany({
             where: {
               ...(chatId ? { chatId } : {}),
+              role: 'user',
               createdAt: { gt: cursor },
             },
             orderBy: { createdAt: "asc" },
