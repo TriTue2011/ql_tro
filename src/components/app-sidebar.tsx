@@ -50,6 +50,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           isActive: true,
           items: [
             { title: "Zalo", url: "/dashboard/zalo" },
+            { title: "Zalo Monitor", url: "/dashboard/zalo-monitor" },
           ],
         },
         {
@@ -89,6 +90,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           icon: MessageCircle,
           items: [
             { title: "Zalo", url: "/dashboard/zalo" },
+            { title: "Zalo Monitor", url: "/dashboard/zalo-monitor" },
           ],
         },
         {
@@ -135,6 +137,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "Yêu cầu duyệt", url: "/dashboard/yeu-cau-duyet" },
           { title: "Thông báo", url: "/dashboard/thong-bao" },
           { title: "Zalo", url: "/dashboard/zalo" },
+          { title: "Zalo Monitor", url: "/dashboard/zalo-monitor" },
         ],
       },
     ]

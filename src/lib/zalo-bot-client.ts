@@ -402,8 +402,6 @@ export async function getUserInfoViaBotServer(userId: string, accountSelection?:
 
 export async function getAllFriendsFromBotServer(
   accountSelection?: string,
-  _count?: number,
-  _page?: number,
 ): Promise<{ ok: boolean; friends?: any[]; error?: string }> {
   const r = await botRequest("POST", "/api/getAllFriendsByAccount", { accountSelection: await ac(accountSelection) }, 15_000);
   if (!r.ok) return { ok: false, error: r.error };
@@ -782,5 +780,98 @@ export async function getStickersFromBotServer(query: string, accountSelection?:
 
 export async function getStickerDetailFromBotServer(stickerId: string, accountSelection?: string): Promise<DataResult> {
   return botRequest("POST", "/api/getStickersDetailByAccount", { stickerId, accountSelection: await ac(accountSelection) });
+}
+
+// ─── Message events ───────────────────────────────────────────────────────────
+
+export async function sendSeenEventViaBotServer(msgId: string, threadId: string, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/sendSeenEventByAccount", { msgId, threadId, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+export async function sendDeliveredEventViaBotServer(msgId: string, threadId: string, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/sendDeliveredEventByAccount", { msgId, threadId, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+export async function undoViaBotServer(msgId: string, threadId: string, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/undoByAccount", { msgId, threadId, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+export async function sendReportViaBotServer(userId: string, reason: string, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/sendReportByAccount", { userId, reason, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+// ─── Account extended ─────────────────────────────────────────────────────────
+
+export async function deleteAvatarListViaBotServer(ids: string[], accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/deleteAvatarListByAccount", { ids, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+export async function reuseAvatarViaBotServer(id: string, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/reuseAvatarByAccount", { id, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+export async function updateLangViaBotServer(lang: string, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/updateLangByAccount", { lang, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+// ─── Friend extended ──────────────────────────────────────────────────────────
+
+export async function getAliasListFromBotServer(accountSelection?: string): Promise<DataResult> {
+  return botRequest("POST", "/api/getAliasListByAccount", { accountSelection: await ac(accountSelection) });
+}
+
+export async function getFriendRecommendationsFromBotServer(accountSelection?: string): Promise<DataResult> {
+  return botRequest("POST", "/api/getFriendRecommendationsByAccount", { accountSelection: await ac(accountSelection) });
+}
+
+export async function getFriendBoardListFromBotServer(userId: string, accountSelection?: string): Promise<DataResult> {
+  return botRequest("POST", "/api/getFriendBoardListByAccount", { userId, accountSelection: await ac(accountSelection) });
+}
+
+// ─── Group extended ───────────────────────────────────────────────────────────
+
+export async function getGroupLinkInfoFromBotServer(groupId: string, accountSelection?: string): Promise<DataResult> {
+  return botRequest("POST", "/api/getGroupLinkInfoByAccount", { groupId, accountSelection: await ac(accountSelection) });
+}
+
+export async function inviteUserToGroupsViaBotServer(groupId: string, userId: string, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/inviteUserToGroupsByAccount", { groupId, userId, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+export async function updateGroupSettingsViaBotServer(groupId: string, settings: Record<string, any>, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/updateGroupSettingsByAccount", { groupId, settings, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+// ─── Note (DM) ────────────────────────────────────────────────────────────────
+
+export async function createNoteViaBotServer(threadId: string, content: string, accountSelection?: string): Promise<DataResult> {
+  return botRequest("POST", "/api/createNoteByAccount", { groupId: threadId, content, accountSelection: await ac(accountSelection) });
+}
+
+export async function editNoteViaBotServer(threadId: string, noteId: string, content: string, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/editNoteByAccount", { groupId: threadId, noteId, content, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+// ─── Label ────────────────────────────────────────────────────────────────────
+
+export async function updateLabelsViaBotServer(threadId: string, labels: string[], accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/updateLabelsByAccount", { threadId, labels, accountSelection: await ac(accountSelection) });
+  return { ok: r.ok, error: r.error };
+}
+
+// ─── Quick message extended ───────────────────────────────────────────────────
+
+export async function getQuickMessageListFromBotServer(accountSelection?: string): Promise<DataResult> {
+  return botRequest("POST", "/api/getQuickMessageListByAccount", { accountSelection: await ac(accountSelection) });
 }
 
