@@ -18,7 +18,7 @@
 import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
-import { isBotServerMode, sendMessageViaBotServer, getAllFriendsFromBotServer, getAllGroupsFromBotServer, getGroupMembersFromBotServer } from '@/lib/zalo-bot-client';
+import { isBotServerMode, sendMessageViaBotServer, getAllFriendsFromBotServer, getAllGroupsFromBotServer, getGroupMembersFromBotServer, findUserViaBotServer } from '@/lib/zalo-bot-client';
 import { emitNewMessage } from '@/lib/zalo-message-events';
 import { askAI, classifyIntent } from '@/lib/ai-chat';
 
@@ -188,6 +188,27 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
   }
 
   try {
+    // Xác minh qua bot server: SĐT này có thuộc về người đang nhắn không?
+    const inBotMode = await isBotServerMode();
+    if (inBotMode) {
+      try {
+        const result = await findUserViaBotServer(phone);
+        if (result.ok && result.data) {
+          const d = result.data as any;
+          // Bot server trả về userId / uid của chủ SĐT
+          const ownerUid = String(d.userId ?? d.uid ?? d.id ?? '');
+          if (ownerUid && ownerUid !== chatId) {
+            // SĐT này thuộc về người khác
+            await sendReply(token, chatId,
+              '❌ Số điện thoại này không khớp với tài khoản Zalo của bạn.\n\n' +
+              'Vui lòng gửi đúng số điện thoại đã đăng ký.',
+            );
+            return true;
+          }
+        }
+      } catch { /* bỏ qua nếu bot server không hỗ trợ */ }
+    }
+
     // 1. Kiểm tra NguoiDung (nhân viên / chủ nhà) trước
     const nguoiDung = await prisma.nguoiDung.findFirst({
       where: { soDienThoai: phone },
