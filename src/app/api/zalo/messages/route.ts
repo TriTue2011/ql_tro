@@ -4,7 +4,7 @@
  *
  * GET  /api/zalo/messages?conversations=1
  *   → Lấy danh sách cuộc hội thoại (tin nhắn cuối mỗi chatId)
- *   → Admin: tất cả; các role khác (kể cả chuNha): chỉ chatId của mình
+ *   → Admin/chuNha: tất cả; các role khác: chỉ chatId của mình
  *
  * DELETE /api/zalo/messages
  *   → Xóa tất cả tin nhắn (Xóa tất cả trong theo dõi)
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   const { id: userId, role: userRole } = session.user;
   const { searchParams } = new URL(request.url);
-  const isAdmin = userRole === 'admin';
+  const canViewAll = ['admin', 'chuNha'].includes(userRole);
 
   const nguoiDung = await prisma.nguoiDung.findUnique({
     where: { id: userId },
@@ -31,11 +31,11 @@ export async function GET(request: NextRequest) {
   const userZaloChatId = nguoiDung?.zaloChatId ?? null;
 
   // Danh sách cuộc hội thoại
-  // Admin: xem tất cả; các role khác (kể cả chuNha): chỉ chatId của mình
+  // Admin/chuNha: xem tất cả; các role khác: chỉ chatId của mình
   if (searchParams.get("conversations") === "1") {
-    if (!isAdmin && !userZaloChatId) return NextResponse.json({ data: [] });
+    if (!canViewAll && !userZaloChatId) return NextResponse.json({ data: [] });
 
-    const rows = isAdmin
+    const rows = canViewAll
       ? await prisma.$queryRaw<any[]>`
           WITH latest_user AS (
             SELECT DISTINCT ON ("chatId")
@@ -86,12 +86,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: rowsWithRoomInfo });
   }
 
-  // Tin nhắn theo chatId — admin xem tất cả, các role khác chỉ chatId của mình
+  // Tin nhắn theo chatId — admin/chuNha xem tất cả, các role khác chỉ chatId của mình
   const chatId = searchParams.get("chatId");
   if (!chatId)
     return NextResponse.json({ error: "chatId required" }, { status: 400 });
 
-  if (!isAdmin && chatId !== userZaloChatId) {
+  if (!canViewAll && chatId !== userZaloChatId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
