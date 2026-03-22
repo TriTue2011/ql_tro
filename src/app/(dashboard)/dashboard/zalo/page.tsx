@@ -200,22 +200,8 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
                 <span className={`text-xs font-medium ${status.ok ? "text-green-700" : "text-red-700"}`}>
                   {status.ok ? "Đang kết nối" : "Mất kết nối"}
                 </span>
-                {status.serverUrl && <span className="text-[10px] text-gray-400 font-mono truncate">{status.serverUrl}</span>}
               </div>
               {status.error && <div className="text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded">{status.error}</div>}
-              {status.accounts && status.accounts.length > 0 && (
-                <div className="divide-y border rounded overflow-hidden">
-                  {status.accounts.map((acc) => (
-                    <div key={acc.id} className="flex items-center gap-2 px-3 py-1.5">
-                      <span className="text-[10px] text-green-500">●</span>
-                      <span className="text-xs font-mono">{acc.name || acc.id}</span>
-                      {acc.id === status.accountId && (
-                        <Badge variant="outline" className="text-[9px] h-4 px-1 ml-auto">Mặc định</Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </>
           )}
         </div>
@@ -275,7 +261,7 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
               <div className="flex flex-col items-center gap-1">
                 <img
                   src={qrCode.startsWith("data:") ? qrCode : `data:image/png;base64,${qrCode}`}
-                  alt="QR Zalo" className="w-24 h-24 border rounded bg-white"
+                  alt="QR Zalo" className="w-48 h-48 border rounded bg-white"
                 />
                 <span className="text-[10px] text-gray-400">Quét bằng app Zalo</span>
               </div>

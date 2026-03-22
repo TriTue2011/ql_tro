@@ -10,7 +10,7 @@ import { sanitizeText } from '@/lib/sanitize';
 const createUserSchema = z.object({
   name: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
   email: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
-  password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').max(128),
+  password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').max(128).optional().or(z.literal('')),
   // Số điện thoại bắt buộc để có thể đăng nhập
   phone: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ (10-11 chữ số)'),
   role: z.enum(['admin', 'chuNha', 'dongChuTro', 'quanLy', 'nhanVien']),
@@ -201,13 +201,13 @@ export async function POST(request: NextRequest) {
     const bySdt = await prisma.nguoiDung.findFirst({ where: { soDienThoai: phone } });
     if (bySdt) return NextResponse.json({ error: 'Số điện thoại đã được sử dụng' }, { status: 400 });
 
-    const hashedPassword = await hash(password, 12);
+    const hashedPassword = password ? await hash(password, 12) : null;
 
     const newUser = await prisma.nguoiDung.create({
       data: {
         ten: sanitizeText(name),
         email: cleanEmail,
-        matKhau: hashedPassword,
+        ...(hashedPassword ? { matKhau: hashedPassword } : {}),
         soDienThoai: phone,
         vaiTro: role,
       },

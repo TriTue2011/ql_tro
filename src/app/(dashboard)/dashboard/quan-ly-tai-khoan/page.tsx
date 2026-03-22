@@ -538,13 +538,18 @@ export default function AccountManagementPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-xs md:text-sm">Mật khẩu</Label>
+              <Label htmlFor="password" className="text-xs md:text-sm">
+                Mật khẩu
+                {['quanLy', 'nhanVien', 'dongChuTro'].includes(createUserData.role) && (
+                  <span className="text-[10px] text-muted-foreground font-normal ml-1">(không bắt buộc)</span>
+                )}
+              </Label>
               <Input
                 id="password"
                 type="password"
                 value={createUserData.password}
                 onChange={(e) => setCreateUserData({ ...createUserData, password: e.target.value })}
-                placeholder="Nhập mật khẩu"
+                placeholder={['quanLy', 'nhanVien', 'dongChuTro'].includes(createUserData.role) ? 'Để trống nếu không cần đăng nhập web' : 'Nhập mật khẩu'}
                 className="text-sm"
               />
             </div>
