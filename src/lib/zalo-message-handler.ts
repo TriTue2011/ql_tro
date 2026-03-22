@@ -18,14 +18,15 @@
 import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
-import { isBotServerMode, sendMessageViaBotServer, getAllFriendsFromBotServer } from '@/lib/zalo-bot-client';
+import { isBotServerMode, sendMessageViaBotServer, getAllFriendsFromBotServer, getAllGroupsFromBotServer, getGroupMembersFromBotServer } from '@/lib/zalo-bot-client';
 import { askAI, classifyIntent } from '@/lib/ai-chat';
 
-// ─── Cache bạn bè — refresh mỗi khi có tin nhắn đến ─────────────────────────
-// Luôn dùng cache hiện tại (không block), refresh ngầm sau mỗi tin nhắn.
-// Vì vậy bạn bè vừa thêm + nhắn ngay thì tin kế tiếp sẽ nhận diện được.
+// ─── Cache bạn bè + thành viên nhóm ─────────────────────────────────────────
+// Refresh ngầm mỗi khi có tin nhắn đến, không block luồng xử lý.
 let _friendsCache: Set<string> | null = null;
 let _friendsRefreshing = false;
+let _groupMembersCache: Set<string> | null = null;
+let _groupMembersRefreshing = false;
 
 export function refreshFriendsCacheInBackground(): void {
   if (_friendsRefreshing) return;
@@ -42,10 +43,40 @@ export function refreshFriendsCacheInBackground(): void {
     .finally(() => { _friendsRefreshing = false; });
 }
 
+export function refreshGroupMembersCacheInBackground(): void {
+  if (_groupMembersRefreshing) return;
+  _groupMembersRefreshing = true;
+  getAllGroupsFromBotServer()
+    .then(async result => {
+      if (!result.ok || !result.groups?.length) return;
+      const allMemberIds = new Set<string>();
+      // Tối đa 10 nhóm để tránh quá nhiều API calls
+      const groups = result.groups.slice(0, 10);
+      await Promise.all(groups.map(async (g: any) => {
+        const groupId = String(g.id ?? g.groupId ?? g.threadId ?? '');
+        if (!groupId) return;
+        // Thử lấy members từ field inline trước
+        const inlineMembers: any[] = g.members ?? g.memberInfos ?? g.memberIds ?? [];
+        if (inlineMembers.length > 0) {
+          for (const m of inlineMembers) {
+            const uid = String(m.uid ?? m.id ?? m.userId ?? m ?? '');
+            if (uid) allMemberIds.add(uid);
+          }
+          return;
+        }
+        // Không có inline → gọi API riêng
+        const membersResult = await getGroupMembersFromBotServer(groupId).catch(() => null);
+        for (const uid of membersResult?.memberIds ?? []) allMemberIds.add(uid);
+      }));
+      _groupMembersCache = allMemberIds;
+    })
+    .catch(() => {})
+    .finally(() => { _groupMembersRefreshing = false; });
+}
+
 async function isFriend(chatId: string): Promise<boolean> {
   if (!(await isBotServerMode())) return false;
   if (!_friendsCache) {
-    // Lần đầu chưa có cache → fetch đồng bộ 1 lần duy nhất
     await getAllFriendsFromBotServer().then(result => {
       if (result.ok && result.friends) {
         _friendsCache = new Set(
@@ -55,6 +86,10 @@ async function isFriend(chatId: string): Promise<boolean> {
     }).catch(() => {});
   }
   return _friendsCache?.has(chatId) ?? false;
+}
+
+function isGroupMember(chatId: string): boolean {
+  return _groupMembersCache?.has(chatId) ?? false;
 }
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
@@ -345,10 +380,11 @@ async function handleStranger(token: string, chatId: string, displayName: string
     const map: Record<string, string> = {};
     for (const r of rows) map[r.khoa] = r.giaTri?.trim() ?? '';
 
-    // Gửi lời chào — bỏ qua nếu người gửi đã là bạn bè Zalo
+    // Gửi lời chào — bỏ qua nếu đã là bạn bè hoặc đã cùng nhóm
     const greeting = map['bot_greeting_stranger'];
     const alreadyFriend = await isFriend(chatId);
-    if (greeting && !alreadyFriend) {
+    const alreadyInGroup = isGroupMember(chatId);
+    if (greeting && !alreadyFriend && !alreadyInGroup) {
       await sendReply(token, chatId, greeting);
       await prisma.zaloMessage.create({
         data: { chatId, content: greeting, role: 'bot', eventName: 'bot_greeting', rawPayload: {} },
@@ -584,9 +620,9 @@ export async function handleZaloAutoReply(update: any, token = ''): Promise<void
   // Bỏ qua tin nhắn từ nhóm (type = 1)
   if (update?.type === 1) return;
 
-  // Trigger refresh danh sách bạn bè ngầm ngay khi nhận tin nhắn
-  // (không block, dùng kết quả ở tin nhắn kế tiếp)
+  // Trigger refresh bạn bè + thành viên nhóm ngầm ngay khi nhận tin nhắn
   refreshFriendsCacheInBackground();
+  refreshGroupMembersCacheInBackground();
 
   const displayName: string =
     msg?.from?.display_name ||

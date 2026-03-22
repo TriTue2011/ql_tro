@@ -474,6 +474,37 @@ export async function getAllGroupsFromBotServer(
   }
 }
 
+/** Lấy thành viên của 1 nhóm (POST /api/getGroupMembersInfoByAccount) */
+export async function getGroupMembersFromBotServer(
+  groupId: string,
+  accountSelection?: string,
+): Promise<{ ok: boolean; memberIds?: string[]; error?: string }> {
+  const config = await getBotConfig();
+  if (!config) return { ok: false, error: "Chưa cấu hình zalo_bot_server_url" };
+  try {
+    const authHeaders = await loginToBotServer(config);
+    if (!authHeaders) return { ok: false, error: "Đăng nhập thất bại" };
+    const res = await fetch(`${config.serverUrl}/api/getGroupMembersInfoByAccount`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify({ accountSelection: accountSelection ?? config.accountId, groupId }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const data = await res.json().catch(() => null);
+    // Thử nhiều format response phổ biến
+    const members: any[] = Array.isArray(data)
+      ? data
+      : (data?.data ?? data?.members ?? data?.memberInfos ?? []);
+    const memberIds = members
+      .map((m: any) => String(m.uid ?? m.id ?? m.userId ?? m.memberId ?? ''))
+      .filter(Boolean);
+    return { ok: true, memberIds };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Lỗi kết nối bot server" };
+  }
+}
+
 /** Xóa thành viên khỏi nhóm (POST /api/removeUserFromGroupByAccount) */
 export async function removeUserFromGroupViaBotServer(
   groupId: string,
