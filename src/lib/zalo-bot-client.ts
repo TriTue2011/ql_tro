@@ -1,9 +1,9 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/src/lib/zalo-bot-client.ts b/src/lib/zalo-bot-client.ts
-index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb42063ec9887 100644
+index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..d653f2cf7f887de000f3841d0f67152d972dcbfe 100644
 --- a/src/lib/zalo-bot-client.ts
 +++ b/src/lib/zalo-bot-client.ts
-@@ -1,572 +1,513 @@
+@@ -1,572 +1,523 @@
 -/**
 - * zalo-bot-client.ts
 - *
@@ -615,10 +615,9 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -    );
 -  } catch (err: any) {
 -    return { ok: false, error: err?.message || "Lỗi kết nối bot server" };
-   }
-+  return [];
- }
- 
+-  }
+-}
+-
 -/** Gửi video qua bot server (POST /api/sendVideoByAccount) */
 -export async function sendVideoViaBotServer(
 -  chatId: string,
@@ -669,14 +668,8 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -    );
 -  } catch (err: any) {
 -    return { ok: false, error: err?.message || "Lỗi kết nối bot server" };
--  }
-+async function withBotClient<T>(handler: (ctx: { config: BotConfig; client: ZaloBotClient }) => Promise<T>): Promise<T> {
-+  const config = await getBotConfig();
-+  if (!config) throw new Error("Chưa cấu hình zalo_bot_server_url");
-+  const authHeaders = await loginToBotServer(config);
-+  if (!authHeaders) throw new Error("Không đăng nhập được bot server");
-+  const client = createAuthedClient(config, authHeaders);
-+  return handler({ config, client });
+   }
++  return [];
  }
  
 -/** Gửi tin nhắn văn bản qua bot server */
@@ -685,8 +678,7 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -  text: string,
 -  threadType: 0 | 1 = 0,
 -): Promise<{ ok: boolean; error?: string }> {
-+async function botCall<T>(handler: (ctx: { config: BotConfig; client: ZaloBotClient }) => Promise<T>): Promise<BotCallResult<T>> {
-   try {
+-  try {
 -    const config = await getBotConfig();
 -    if (!config || !config.accountId)
 -      return {
@@ -721,14 +713,16 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -      "/api/sendMessageByAccount",
 -      payload,
 -      15_000,
--    );
++function requireAccountSelection(config: BotConfig, accountSelection?: string): string {
++  const resolved = accountSelection ?? config.accountId;
++  if (!resolved) {
++    throw new Error(
++      "Chưa cấu hình zalo_bot_account_id cho bot server",
+     );
 -  } catch (err: any) {
 -    return { ok: false, error: err?.message || "Lỗi kết nối bot server" };
-+    const data = await withBotClient(handler);
-+    return { ok: true, data };
-+  } catch (error) {
-+    return { ok: false, error: error instanceof Error ? error.message : "Lỗi kết nối bot server" };
    }
++  return resolved;
  }
  
 -/** Lấy danh sách tài khoản đang đăng nhập trên bot server */
@@ -737,15 +731,23 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -  accounts: any[];
 -  error?: string;
 -}> {
--  const config = await getBotConfig();
++async function withBotClient<T>(handler: (ctx: { config: BotConfig; client: ZaloBotClient }) => Promise<T>): Promise<T> {
+   const config = await getBotConfig();
 -  if (!config)
 -    return {
 -      serverUrl: "",
 -      accounts: [],
 -      error: "Chưa cấu hình zalo_bot_server_url",
 -    };
--
--  try {
++  if (!config) throw new Error("Chưa cấu hình zalo_bot_server_url");
++  const authHeaders = await loginToBotServer(config);
++  if (!authHeaders) throw new Error("Không đăng nhập được bot server");
++  const client = createAuthedClient(config, authHeaders);
++  return handler({ config, client });
++}
+ 
++async function botCall<T>(handler: (ctx: { config: BotConfig; client: ZaloBotClient }) => Promise<T>): Promise<BotCallResult<T>> {
+   try {
 -    const authHeaders = await loginToBotServer(config);
 -    if (!authHeaders) {
 -      return {
@@ -778,9 +780,11 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -      accounts: [],
 -      error: e?.message || "Lỗi kết nối đến bot server",
 -    };
--  }
-+export async function sendMessageViaBotServer(chatId: string, text: string, threadType: 0 | 1 = 0): Promise<BotCallResult> {
-+  return botCall(async ({ config, client }) => client.sendMessage({ message: text.length > 2000 ? `${text.slice(0, 1997)}...` : text, threadId: chatId, accountSelection: config.accountId, type: threadType, ttl: config.ttl }));
++    const data = await withBotClient(handler);
++    return { ok: true, data };
++  } catch (error) {
++    return { ok: false, error: error instanceof Error ? error.message : "Lỗi kết nối bot server" };
+   }
  }
  
 -/** Lấy QR code để quét đăng nhập Zalo */
@@ -796,7 +800,10 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -
 -    const body: Record<string, any> = {};
 -    if (accountSelection) body.accountSelection = accountSelection;
--
++export async function sendMessageViaBotServer(chatId: string, text: string, threadType: 0 | 1 = 0): Promise<BotCallResult> {
++  return botCall(async ({ config, client }) => client.sendMessage({ message: text.length > 2000 ? `${text.slice(0, 1997)}...` : text, threadId: chatId, accountSelection: requireAccountSelection(config), type: threadType, ttl: config.ttl }));
++}
+ 
 -    const res = await fetch(`${config.serverUrl}/zalo-login`, {
 -      method: "POST",
 -      headers: { "Content-Type": "application/json", ...(authHeaders ?? {}) },
@@ -805,7 +812,7 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -    });
 -    if (!res.ok) return { error: `HTTP ${res.status}` };
 +export async function sendImageViaBotServer(chatId: string, imageUrl: string, caption?: string, threadType: 0 | 1 = 0): Promise<BotCallResult> {
-+  return botCall(async ({ config, client }) => client.sendImage({ imagePath: imageUrl, threadId: chatId, accountSelection: config.accountId, type: threadType === 1 ? "group" : "user", message: caption?.slice(0, 1024) ?? "", ttl: config.ttl }));
++  return botCall(async ({ config, client }) => client.sendImage({ imagePath: imageUrl, threadId: chatId, accountSelection: requireAccountSelection(config), type: threadType === 1 ? "group" : "user", message: caption?.slice(0, 1024) ?? "", ttl: config.ttl }));
 +}
  
 -    const data = await res.json().catch(() => null);
@@ -815,7 +822,7 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -      data?.data?.qrCodeImage ||
 -      data?.image;
 +export async function sendFileViaBotServer(chatId: string, fileUrl: string, caption?: string, threadType: 0 | 1 = 0): Promise<BotCallResult> {
-+  return botCall(async ({ config, client }) => client.sendFile({ fileUrl, threadId: chatId, accountSelection: config.accountId, type: threadType === 1 ? "group" : "user", message: caption?.slice(0, 1024) ?? "", ttl: config.ttl }));
++  return botCall(async ({ config, client }) => client.sendFile({ fileUrl, threadId: chatId, accountSelection: requireAccountSelection(config), type: threadType === 1 ? "group" : "user", message: caption?.slice(0, 1024) ?? "", ttl: config.ttl }));
 +}
  
 -    if (!qrCode)
@@ -825,7 +832,7 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -    return { error: e?.message || "Lỗi kết nối đến bot server" };
 -  }
 +export async function sendVideoViaBotServer(chatId: string, videoUrl: string, opts?: { thumbnailUrl?: string; durationMs?: number; width?: number; height?: number; threadType?: 0 | 1; message?: string; }): Promise<BotCallResult> {
-+  return botCall(async ({ config, client }) => client.sendVideo({ threadId: chatId, accountSelection: config.accountId, type: opts?.threadType ?? 0, videoUrl, thumbnailUrl: opts?.thumbnailUrl, message: opts?.message ?? "", duration: opts?.durationMs ?? 10000, width: opts?.width ?? 1280, height: opts?.height ?? 720, ttl: config.ttl }));
++  return botCall(async ({ config, client }) => client.sendVideo({ threadId: chatId, accountSelection: requireAccountSelection(config), type: opts?.threadType ?? 0, videoUrl, thumbnailUrl: opts?.thumbnailUrl, message: opts?.message ?? "", duration: opts?.durationMs ?? 10000, width: opts?.width ?? 1280, height: opts?.height ?? 720, ttl: config.ttl }));
  }
  
 -/** Lấy danh sách bạn bè (POST /api/getAllFriendsByAccount) */
@@ -918,7 +925,7 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -    return { ok: false, error: e?.message || "Lỗi kết nối bot server" };
 -  }
 +export async function getAllFriendsFromBotServer(accountSelection?: string, count = 200, page = 0): Promise<{ ok: boolean; friends?: unknown[]; error?: string }> {
-+  const result = await botCall(async ({ config, client }) => client.request({ method: "POST", url: "/api/getAllFriendsByAccount", data: { accountSelection: accountSelection ?? config.accountId, count, page } }));
++  const result = await botCall(async ({ config, client }) => client.request({ method: "POST", url: "/api/getAllFriendsByAccount", data: { accountSelection: requireAccountSelection(config, accountSelection), count, page } }));
 +  return result.ok ? { ok: true, friends: resolveList(result.data, "friends") } : { ok: false, error: result.error };
  }
  
@@ -952,7 +959,7 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -    return { ok: false, error: e?.message || "Lỗi kết nối bot server" };
 -  }
 +export async function getAllGroupsFromBotServer(accountSelection?: string): Promise<{ ok: boolean; groups?: unknown[]; error?: string }> {
-+  const result = await botCall(async ({ config, client }) => client.getAllGroups(accountSelection ?? config.accountId));
++  const result = await botCall(async ({ config, client }) => client.getAllGroups(requireAccountSelection(config, accountSelection)));
 +  return result.ok ? { ok: true, groups: resolveList(result.data, "groups") } : { ok: false, error: result.error };
  }
  
@@ -964,7 +971,7 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -  const config = await getBotConfig();
 -  if (!config) return { ok: false, error: "Chưa cấu hình zalo_bot_server_url" };
 +export async function getGroupMembersFromBotServer(groupId: string, accountSelection?: string): Promise<{ ok: boolean; memberIds?: string[]; error?: string }> {
-+  const result = await botCall(async ({ config, client }) => client.request({ method: "POST", url: "/api/getGroupMembersInfoByAccount", data: { accountSelection: accountSelection ?? config.accountId, groupId } }));
++  const result = await botCall(async ({ config, client }) => client.request({ method: "POST", url: "/api/getGroupMembersInfoByAccount", data: { accountSelection: requireAccountSelection(config, accountSelection), groupId } }));
 +  if (!result.ok) return { ok: false, error: result.error };
 +  const members = resolveList<Record<string, unknown>>(result.data, "members", "memberInfos");
 +  const memberIds = members.map((member) => String(member.uid ?? member.id ?? member.userId ?? member.memberId ?? "")).filter(Boolean);
@@ -975,7 +982,7 @@ index 20bfc7ed7fbe6b9b5f35404dda3414417228c343..b868afd9c9890ba721c410e8e60eb420
 -    const authHeaders = await loginToBotServer(config);
 -    if (!authHeaders) return { ok: false, error: "Đăng nhập thất bại" };
 +export async function removeUserFromGroupViaBotServer(groupId: string, memberId: string, accountSelection?: string): Promise<BotCallResult> {
-+  return botCall(async ({ config, client }) => client.removeUserFromGroup({ groupId, memberId: [memberId], accountSelection: accountSelection ?? config.accountId }));
++  return botCall(async ({ config, client }) => client.removeUserFromGroup({ groupId, memberId: [memberId], accountSelection: requireAccountSelection(config, accountSelection) }));
 +}
  
 -    const res = await fetch(`${config.serverUrl}/api/account-webhook`, {
