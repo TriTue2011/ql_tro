@@ -12,6 +12,7 @@ import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
 import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
 import { storeChatIdForAccount } from '@/lib/zalo-auto-link';
+import { handlePendingConfirmation } from '@/lib/zalo-pending-confirm';
 
 function normalizeName(name: string): string {
   return name
@@ -219,18 +220,31 @@ export async function POST(request: NextRequest) {
 
     const update = body?.result ?? body;
 
-    // Lưu tin nhắn vào DB + phát hiện chat ID + cleanup + notify HA song song
-    const { chatId: wChatId } = normalizeWebhookPayload(update);
+    const { chatId: wChatId, content } = normalizeWebhookPayload(update);
+
+    // Bỏ qua tin nhắn nhóm (type = 1)
+    if (update?.type === 1) {
+      await Promise.all([saveMessage(update), notifyHomeAssistant(update)]);
+      return NextResponse.json({ message: 'Group message skipped' });
+    }
+
     await Promise.all([
       saveMessage(update),
       detectAndStorePending(update),
       cleanupOldMessages(),
       notifyHomeAssistant(update),
-      handleZaloAutoReply(update),
-      // Ghi nhớ threadId theo tài khoản bot nếu có own_id trong payload
       wChatId ? captureThreadIdForBotAccount(update, wChatId) : Promise.resolve(),
     ]);
 
+    // Xử lý xác nhận pending trước (ưu tiên cao nhất)
+    if (wChatId && content) {
+      const confirmedPending = await handlePendingConfirmation(wChatId, content);
+      if (confirmedPending) {
+        return NextResponse.json({ message: 'Pending confirmed' });
+      }
+    }
+
+    await handleZaloAutoReply(update);
     return NextResponse.json({ message: 'Success' });
   } catch (error) {
     console.error('[zalo/webhook] Error:', error);

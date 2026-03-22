@@ -167,13 +167,14 @@ export async function POST(request: NextRequest) {
 
     // Tự động liên kết zaloChatId cho các KhachThue trong hợp đồng (fire-and-forget)
     const ktIds = validatedData.khachThueId as string[];
+    const toaNhaId: string = phong.toaNhaId;
     if (ktIds?.length) {
       prisma.khachThue.findMany({
-        where: { id: { in: ktIds }, zaloChatId: null },
+        where: { id: { in: ktIds }, zaloChatId: null, pendingZaloChatId: null },
         select: { id: true, soDienThoai: true },
       }).then(list => {
         for (const kt of list) {
-          autoLinkZaloChatIds('khachThue', kt.id, kt.soDienThoai!).catch(() => {});
+          autoLinkZaloChatIds('khachThue', kt.id, kt.soDienThoai!, toaNhaId).catch(() => {});
         }
       }).catch(() => {});
     }
