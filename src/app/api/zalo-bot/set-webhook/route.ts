@@ -116,20 +116,15 @@ export async function POST(request: NextRequest) {
       },
     }).catch(() => {});
 
-    // Đồng bộ webhook + auto-link zaloAccountId cho tất cả tài khoản trên bot server
+    // Đồng bộ webhook riêng cho từng tài khoản bot (mỗi account → webhook per-nguoiDung)
     try {
       const { accounts } = await getAccountsFromBotServer();
+
+      // Auto-link zaloAccountId cho các user chưa có
       for (const acc of accounts) {
         const accId = acc.id ?? acc.ownId;
         if (!accId) continue;
 
-        // Set webhook cho tài khoản khác
-        if (accId !== ownId) {
-          await setWebhookOnBotServer(accId, webhookUrl).catch(() => {});
-        }
-
-        // Auto-link: tìm NguoiDung (chuNha/admin) chưa có zaloAccountId
-        // dựa trên số điện thoại khớp tài khoản bot
         const phone = acc.phoneNumber || acc.phone || '';
         if (phone) {
           const phoneVariants = [phone, phone.replace(/^\+84/, '0'), phone.replace(/^0/, '+84')];
@@ -156,6 +151,30 @@ export async function POST(request: NextRequest) {
             data: { zaloAccountId: singleAccId, zaloChatId: singleAccId },
           }).catch(() => {});
         }
+      }
+
+      // Set webhook riêng cho từng tài khoản bot → per-nguoiDung webhook URL
+      for (const acc of accounts) {
+        const accId = acc.id ?? acc.ownId;
+        if (!accId || accId === ownId) continue; // ownId đã set ở trên
+
+        // Tìm NguoiDung có zaloAccountId = accId → dùng webhook riêng
+        const linkedUser = await prisma.nguoiDung.findFirst({
+          where: { zaloAccountId: accId, vaiTro: { in: ['admin', 'chuNha'] } },
+          select: { id: true },
+        });
+
+        const accWebhookUrl = linkedUser
+          ? `${base}/api/zalo/webhook/${linkedUser.id}`
+          : webhookUrl; // fallback dùng webhook chung nếu chưa link user
+
+        await setWebhookOnBotServer(accId, accWebhookUrl).catch(() => {});
+      }
+
+      // Set webhook riêng cho user hiện tại (ownId) nếu khác webhook chung
+      const perUserUrl = `${base}/api/zalo/webhook/${session.user.id}`;
+      if (perUserUrl !== webhookUrl) {
+        await setWebhookOnBotServer(ownId, perUserUrl).catch(() => {});
       }
     } catch { /* bỏ qua nếu không lấy được danh sách */ }
   }

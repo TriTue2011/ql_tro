@@ -28,6 +28,17 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get("chatId") || undefined;
   const afterParam = searchParams.get("after");
+  const isAdmin = session.user.role === 'admin';
+
+  // Non-admin: chỉ stream tin nhắn của tài khoản bot mình
+  let filterOwnId: string | null = null;
+  if (!isAdmin) {
+    const nd = await prisma.nguoiDung.findUnique({
+      where: { id: session.user.id },
+      select: { zaloAccountId: true, zaloChatId: true },
+    });
+    filterOwnId = nd?.zaloAccountId || nd?.zaloChatId || null;
+  }
 
   const encoder = new TextEncoder();
   let cursor = afterParam ? new Date(afterParam) : new Date(Date.now() - 5000);
@@ -55,6 +66,8 @@ export async function GET(request: NextRequest) {
         if (closed) return;
         // Lọc theo chatId nếu client chỉ quan tâm 1 cuộc trò chuyện
         if (chatId && msg.chatId !== chatId) return;
+        // Non-admin: chỉ nhận tin nhắn thuộc tài khoản bot của mình
+        if (filterOwnId && msg.ownId && msg.ownId !== filterOwnId) return;
         if (msg.createdAt <= cursor) return;
         cursor = msg.createdAt;
         void send([msg]);
@@ -70,6 +83,7 @@ export async function GET(request: NextRequest) {
           const messages = await prisma.zaloMessage.findMany({
             where: {
               ...(chatId ? { chatId } : {}),
+              ...(filterOwnId ? { OR: [{ ownId: filterOwnId }, { ownId: null }] } : {}),
               createdAt: { gt: cursor },
             },
             orderBy: { createdAt: "asc" },

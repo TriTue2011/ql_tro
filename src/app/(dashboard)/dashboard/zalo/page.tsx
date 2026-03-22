@@ -989,14 +989,11 @@ function MonitorCard({ account }: { account?: AccountData }) {
   const fetchConvs = useCallback(async () => {
     setLoading(true);
     try {
-      const params = account?.zaloChatId
-        ? `?chatId=${encodeURIComponent(account.zaloChatId)}&conversations=1`
-        : '?conversations=1';
-      const res = await fetch(`/api/zalo/messages${params}`);
+      const res = await fetch('/api/zalo/messages?conversations=1');
       const data = await res.json();
       if (data.data) setConvs(data.data);
     } finally { setLoading(false); }
-  }, [account?.zaloChatId]);
+  }, []);
 
   useEffect(() => { fetchConvs(); }, [fetchConvs]);
   useRealtimeEvents(['zalo-message'], () => { void fetchConvs(); });
