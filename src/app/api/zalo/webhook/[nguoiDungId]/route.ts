@@ -32,6 +32,7 @@ function extractAttachmentUrl(msg: any): string | null {
 
 function normalizeWebhookPayload(update: any): {
   chatId: string | null;
+  ownId: string | null;
   displayName: string;
   content: string;
   eventName: string;
@@ -58,7 +59,18 @@ function normalizeWebhookPayload(update: any): {
 
   const eventName: string = update?.event_name || update?.event || update?.type || 'message';
 
-  return { chatId, displayName, content, eventName, attachmentUrl };
+  // ownId = ID tài khoản Zalo nhận tin nhắn (bot account)
+  const ownId: string | null =
+    update?.ownId ? String(update.ownId) :
+    update?.toId ? String(update.toId) :
+    data?.ownId ? String(data.ownId) :
+    data?.idTo ? String(data.idTo) :
+    data?.toId ? String(data.toId) :
+    update?.idTo ? String(update.idTo) :
+    update?.own_id ? String(update.own_id) :
+    null;
+
+  return { chatId, ownId, displayName, content, eventName, attachmentUrl };
 }
 
 // ─── Lấy thông tin chủ tài khoản ─────────────────────────────────────────────
@@ -78,12 +90,13 @@ async function getNguoiDungInfo(nguoiDungId: string) {
 
 async function saveMessage(update: any): Promise<void> {
   try {
-    const { chatId, displayName, content, eventName, attachmentUrl } = normalizeWebhookPayload(update);
+    const { chatId, ownId, displayName, content, eventName, attachmentUrl } = normalizeWebhookPayload(update);
     if (!chatId) return;
 
     const saved = await prisma.zaloMessage.create({
       data: {
         chatId,
+        ownId: ownId || null,
         displayName: displayName || null,
         content,
         attachmentUrl,

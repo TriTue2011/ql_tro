@@ -315,7 +315,8 @@ model ThongBaoPhong {
 // Lịch sử tin nhắn Zalo Bot (webhook inbound + bot outbound)
 model ZaloMessage {
   id            String   @id @default(cuid())
-  chatId        String   // Zalo ID của người dùng
+  chatId        String   // Zalo ID của người dùng (người gửi)
+  ownId         String?  // Zalo ID tài khoản nhận (bot account)
   displayName   String?  // Tên hiển thị Zalo
   content       String   // Nội dung tin nhắn (text)
   attachmentUrl String?  // URL ảnh / file đính kèm đầu tiên
@@ -325,6 +326,7 @@ model ZaloMessage {
   createdAt     DateTime @default(now())
 
   @@index([chatId, createdAt])
+  @@index([ownId, createdAt])
   @@index([createdAt])
 }
 

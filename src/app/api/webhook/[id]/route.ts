@@ -28,6 +28,7 @@ function extractAttachmentUrl(msg: any): string | null {
 
 function normalizeWebhookPayload(update: any): {
   chatId: string | null;
+  ownId: string | null;
   displayName: string;
   content: string;
   eventName: string;
@@ -84,14 +85,22 @@ function normalizeWebhookPayload(update: any): {
   const eventName: string =
     update?.event_name || update?.event || String(update?.type ?? 'message');
 
-  return { chatId, displayName, content, eventName, attachmentUrl, isGroup, senderUid };
+  // ownId = ID tài khoản Zalo nhận tin nhắn (bot account)
+  const ownId: string | null =
+    update?.ownId ? String(update.ownId) :
+    update?.toId ? String(update.toId) :
+    update?.data?.ownId ? String(update.data.ownId) :
+    update?.data?.toId ? String(update.data.toId) :
+    null;
+
+  return { chatId, ownId, displayName, content, eventName, attachmentUrl, isGroup, senderUid };
 }
 
 // ─── Lưu tin nhắn ────────────────────────────────────────────────────────────
 
 async function saveMessage(update: any): Promise<void> {
   try {
-    const { chatId, displayName, content, eventName, attachmentUrl } = normalizeWebhookPayload(update);
+    const { chatId, ownId, displayName, content, eventName, attachmentUrl } = normalizeWebhookPayload(update);
     if (!chatId) {
       console.warn('[webhook] Không tìm thấy chatId, raw:', JSON.stringify(update).slice(0, 300));
       return;
@@ -102,6 +111,7 @@ async function saveMessage(update: any): Promise<void> {
     const saved = await prisma.zaloMessage.create({
       data: {
         chatId,
+        ownId: ownId || null,
         displayName: displayName || null,
         content,
         attachmentUrl,
