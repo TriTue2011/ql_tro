@@ -18,8 +18,26 @@
 import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
-import { isBotServerMode, sendMessageViaBotServer } from '@/lib/zalo-bot-client';
+import { isBotServerMode, sendMessageViaBotServer, getAllFriendsFromBotServer } from '@/lib/zalo-bot-client';
 import { askAI, classifyIntent } from '@/lib/ai-chat';
+
+// ─── Cache bạn bè (10 phút) ───────────────────────────────────────────────────
+let _friendsCache: { ids: Set<string>; expiresAt: number } | null = null;
+
+async function isFriend(chatId: string): Promise<boolean> {
+  if (!(await isBotServerMode())) return false;
+  const now = Date.now();
+  if (!_friendsCache || _friendsCache.expiresAt < now) {
+    const result = await getAllFriendsFromBotServer();
+    if (result.ok && result.friends) {
+      const ids = new Set(
+        result.friends.map((f: any) => String(f.uid ?? f.id ?? f.userId ?? f.zaloId ?? '')).filter(Boolean)
+      );
+      _friendsCache = { ids, expiresAt: now + 10 * 60 * 1000 };
+    }
+  }
+  return _friendsCache?.ids.has(chatId) ?? false;
+}
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
@@ -309,9 +327,10 @@ async function handleStranger(token: string, chatId: string, displayName: string
     const map: Record<string, string> = {};
     for (const r of rows) map[r.khoa] = r.giaTri?.trim() ?? '';
 
-    // Gửi lời chào
+    // Gửi lời chào — bỏ qua nếu người gửi đã là bạn bè Zalo
     const greeting = map['bot_greeting_stranger'];
-    if (greeting) {
+    const alreadyFriend = await isFriend(chatId);
+    if (greeting && !alreadyFriend) {
       await sendReply(token, chatId, greeting);
       await prisma.zaloMessage.create({
         data: { chatId, content: greeting, role: 'bot', eventName: 'bot_greeting', rawPayload: {} },

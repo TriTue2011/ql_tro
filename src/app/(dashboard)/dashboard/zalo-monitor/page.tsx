@@ -25,6 +25,9 @@ interface MonitorMsg {
   createdAt: string;
   rawPayload: any;
   roomInfo?: RoomInfo;
+  // Bot reply mới nhất trong cuộc hội thoại (từ conversations API)
+  botContent?: string | null;
+  botCreatedAt?: string | null;
 }
 
 // ─── parse rawPayload từ bot server (zca-js) ──────────────────────────────────
@@ -134,8 +137,14 @@ export default function ZaloMonitorPage() {
           setMessages(prev => {
             const map = new Map(prev.map(m => [m.chatId, m]));
             for (const m of newMsgs) {
-              if (m.role !== 'user') continue; // chỉ hiển thị tin người gửi
               const existing = map.get(m.chatId);
+              if (m.role === 'bot') {
+                // Tin bot → chỉ cập nhật botContent, không thay thế card chính
+                if (existing) {
+                  map.set(m.chatId, { ...existing, botContent: m.content, botCreatedAt: m.createdAt });
+                }
+                continue;
+              }
               if (!existing || new Date(m.createdAt) > new Date(existing.createdAt)) {
                 // Giữ lại roomInfo từ message cũ nếu SSE không có
                 if (existing?.roomInfo && !m.roomInfo) {
@@ -322,6 +331,17 @@ export default function ZaloMonitorPage() {
 
                   {msgType !== 'chat.photo' && msgType !== 'share.file' && (
                     <p className="text-sm text-gray-800">{text || <span className="text-gray-400 italic">[trống]</span>}</p>
+                  )}
+
+                  {/* Bot reply preview */}
+                  {msg.botContent && (
+                    <div className="mt-2 flex items-start gap-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+                      <span className="mt-0.5 shrink-0 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Bot</span>
+                      <p className="text-xs text-gray-500 truncate flex-1">{msg.botContent}</p>
+                      {msg.botCreatedAt && (
+                        <span className="shrink-0 text-[10px] text-gray-400">{formatTime(new Date(msg.botCreatedAt))}</span>
+                      )}
+                    </div>
                   )}
                 </div>
 
