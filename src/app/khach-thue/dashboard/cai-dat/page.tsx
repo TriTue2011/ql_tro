@@ -561,7 +561,7 @@ export default function CaiDatPage() {
                     <p className="text-sm font-medium">{item.label}</p>
                     <p className="text-xs text-muted-foreground">{item.desc}</p>
                   </div>
-                  <Switch checked disabled />
+                  <Switch checked onCheckedChange={() => {}} disabled />
                 </div>
               ))}
             </CardContent>
