@@ -681,7 +681,7 @@ function TestSendCard({ account }: { account?: AccountData }) {
 // ─── Monitor Card ─────────────────────────────────────────────────────────────
 
 function MonitorCard({ account }: { account?: AccountData }) {
-  const [messages, setMessages] = useState<{ id: string; chatId: string; displayName?: string; content: string; role: string; createdAt: string; attachmentUrl?: string }[]>([]);
+  const [messages, setMessages] = useState<{ id: string; chatId: string; displayName?: string; content: string; role: string; createdAt: string; attachmentUrl?: string; rawPayload?: any }[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchMessages = useCallback(async () => {
@@ -734,7 +734,19 @@ function MonitorCard({ account }: { account?: AccountData }) {
                     {new Date(m.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
-                <p className="text-gray-600 truncate">{m.content}</p>
+                {(() => {
+                  const imgUrl = m.attachmentUrl || m.rawPayload?.data?.content?.href || null;
+                  if (imgUrl) {
+                    return (
+                      <a href={imgUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
+                        <img src={imgUrl} alt="" className="h-8 w-8 rounded object-cover flex-shrink-0 border"
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        <span className="truncate text-gray-500">{m.content !== '[hình ảnh]' ? m.content : '📷 Xem ảnh'}</span>
+                      </a>
+                    );
+                  }
+                  return <p className="text-gray-600 truncate">{m.content}</p>;
+                })()}
               </div>
             ))}
           </div>
