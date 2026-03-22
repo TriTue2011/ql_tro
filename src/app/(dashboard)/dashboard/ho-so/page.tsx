@@ -265,12 +265,12 @@ export default function ProfilePage() {
     setIsEditing(false);
   };
 
-  // Load notif prefs when profile loads
+  // Load notif prefs when profile loads (admin không cần)
   useEffect(() => {
-    if (profile?.id) {
+    if (profile?.id && profile?.vaiTro !== 'admin') {
       setNotifPrefs(loadNotifPrefs(profile.id));
     }
-  }, [profile?.id]);
+  }, [profile?.id, profile?.vaiTro]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -353,7 +353,7 @@ export default function ProfilePage() {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-4 md:space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${profile?.vaiTro === 'admin' ? 'grid-cols-2' : 'grid-cols-3'}`}>
           <TabsTrigger value="profile" className="text-xs md:text-sm">
             <User className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
             <span className="hidden sm:inline">Thông tin</span>
@@ -364,11 +364,13 @@ export default function ProfilePage() {
             <span className="hidden sm:inline">Bảo mật</span>
             <span className="sm:hidden">BM</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="text-xs md:text-sm">
-            <Bell className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-            <span className="hidden sm:inline">Thông báo</span>
-            <span className="sm:hidden">TB</span>
-          </TabsTrigger>
+          {profile?.vaiTro !== 'admin' && (
+            <TabsTrigger value="notifications" className="text-xs md:text-sm">
+              <Bell className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">Thông báo</span>
+              <span className="sm:hidden">TB</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4 md:space-y-6">
@@ -805,8 +807,8 @@ export default function ProfilePage() {
           </Card>
         </TabsContent>
 
-        {/* ── Thông báo ── */}
-        <TabsContent value="notifications" className="space-y-4 md:space-y-6">
+        {/* ── Thông báo (ẩn với admin) ── */}
+        {profile?.vaiTro !== 'admin' && <TabsContent value="notifications" className="space-y-4 md:space-y-6">
           <Card>
             <CardHeader className="p-4 md:p-6">
               <CardTitle className="flex items-center gap-2 text-base md:text-lg">
@@ -866,7 +868,7 @@ export default function ProfilePage() {
               </Button>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
     </div>
   );

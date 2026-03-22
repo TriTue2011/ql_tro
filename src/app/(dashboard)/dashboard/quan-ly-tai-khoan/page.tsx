@@ -47,6 +47,13 @@ interface Building {
   tenToaNha: string;
 }
 
+// Giới hạn số lượng mỗi vai trò trên mỗi tòa nhà
+const ROLE_LIMITS: Record<string, { max: number; label: string }> = {
+  dongChuTro: { max: 2, label: 'Đồng chủ trọ' },
+  quanLy: { max: 3, label: 'Quản lý' },
+  nhanVien: { max: 5, label: 'Nhân viên' },
+};
+
 interface User {
   _id: string;
   id?: string;
@@ -117,6 +124,28 @@ export default function AccountManagementPage() {
   });
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
+  // Đếm số lượng vai trò đang có trên mỗi tòa nhà
+  const getRoleCountPerBuilding = (buildingId: string, role: string, excludeUserId?: string) => {
+    return users.filter(u => {
+      if (excludeUserId && (u.id === excludeUserId || u._id === excludeUserId)) return false;
+      return getUserRole(u) === role && (u.toaNhaIds || []).includes(buildingId);
+    }).length;
+  };
+
+  // Kiểm tra xem có vượt giới hạn vai trò trên tòa nhà nào không
+  const checkRoleLimitExceeded = (toaNhaIds: string[], role: string, excludeUserId?: string): string | null => {
+    const limit = ROLE_LIMITS[role];
+    if (!limit) return null;
+    for (const tid of toaNhaIds) {
+      const count = getRoleCountPerBuilding(tid, role, excludeUserId);
+      if (count >= limit.max) {
+        const building = buildings.find(b => b.id === tid);
+        return `Tòa nhà "${building?.tenToaNha || tid}" đã đạt giới hạn ${limit.max} ${limit.label}`;
+      }
+    }
+    return null;
+  };
+
   useEffect(() => {
     document.title = 'Quản lý Tài khoản';
   }, []);
@@ -177,6 +206,14 @@ export default function AccountManagementPage() {
   };
 
   const handleCreateUser = async () => {
+    // Kiểm tra giới hạn vai trò trên mỗi tòa nhà
+    if (createUserData.role !== 'admin' && createUserData.toaNhaIds.length > 0) {
+      const limitError = checkRoleLimitExceeded(createUserData.toaNhaIds, createUserData.role);
+      if (limitError) {
+        toast.error(limitError);
+        return;
+      }
+    }
     try {
       const payload: Record<string, unknown> = { ...createUserData };
       if (createUserData.role === 'admin') { delete payload.toaNhaId; delete payload.toaNhaIds; }
@@ -221,6 +258,14 @@ export default function AccountManagementPage() {
 
   const handleEditUser = async () => {
     if (!selectedUser) return;
+    // Kiểm tra giới hạn vai trò trên mỗi tòa nhà (bỏ qua user đang sửa)
+    if (editUserData.role !== 'admin' && editUserData.toaNhaIds.length > 0) {
+      const limitError = checkRoleLimitExceeded(editUserData.toaNhaIds, editUserData.role, selectedUser.id ?? selectedUser._id);
+      if (limitError) {
+        toast.error(limitError);
+        return;
+      }
+    }
     try {
       const payload: Record<string, unknown> = { ...editUserData };
       if (editUserData.role === 'admin') { delete payload.toaNhaId; delete payload.toaNhaIds; }
@@ -479,23 +524,40 @@ export default function AccountManagementPage() {
                 <Label className="text-xs md:text-sm flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-blue-500" />
                   Gán tòa nhà
+                  {ROLE_LIMITS[createUserData.role] && (
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      (tối đa {ROLE_LIMITS[createUserData.role].max} {ROLE_LIMITS[createUserData.role].label}/tòa)
+                    </span>
+                  )}
                 </Label>
                 <div className="border rounded-md p-2 space-y-1.5 max-h-40 overflow-y-auto">
                   {buildings.length === 0 && <p className="text-xs text-muted-foreground">Chưa có tòa nhà</p>}
-                  {buildings.map(b => (
-                    <label key={b.id} className="flex items-center gap-2 cursor-pointer py-0.5">
-                      <Checkbox
-                        checked={createUserData.toaNhaIds.includes(b.id)}
-                        onCheckedChange={(checked) => {
-                          const next = checked
-                            ? [...createUserData.toaNhaIds, b.id]
-                            : createUserData.toaNhaIds.filter(id => id !== b.id);
-                          setCreateUserData({ ...createUserData, toaNhaIds: next });
-                        }}
-                      />
-                      <span className="text-sm">{b.tenToaNha}</span>
-                    </label>
-                  ))}
+                  {buildings.map(b => {
+                    const limit = ROLE_LIMITS[createUserData.role];
+                    const currentCount = limit ? getRoleCountPerBuilding(b.id, createUserData.role) : 0;
+                    const isAtLimit = limit ? currentCount >= limit.max : false;
+                    const isChecked = createUserData.toaNhaIds.includes(b.id);
+                    return (
+                      <label key={b.id} className={`flex items-center gap-2 py-0.5 ${isAtLimit && !isChecked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                        <Checkbox
+                          checked={isChecked}
+                          disabled={isAtLimit && !isChecked}
+                          onCheckedChange={(checked) => {
+                            const next = checked
+                              ? [...createUserData.toaNhaIds, b.id]
+                              : createUserData.toaNhaIds.filter(id => id !== b.id);
+                            setCreateUserData({ ...createUserData, toaNhaIds: next });
+                          }}
+                        />
+                        <span className="text-sm flex-1">{b.tenToaNha}</span>
+                        {limit && (
+                          <span className={`text-[10px] ${isAtLimit ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
+                            {currentCount}/{limit.max}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -584,9 +646,10 @@ export default function AccountManagementPage() {
             );
           };
 
-          const renderSection = (key: string, label: string, users: User[]) => {
+          const renderSection = (key: string, label: string, users: User[], roleKey?: string, buildingId?: string) => {
             if (users.length === 0) return null;
             const isOpen = !!openSections[key];
+            const limit = roleKey ? ROLE_LIMITS[roleKey] : null;
             return (
               <div key={key} className="border rounded-lg overflow-hidden">
                 <button
@@ -595,7 +658,7 @@ export default function AccountManagementPage() {
                   onClick={() => toggleSection(key)}
                 >
                   <span className="text-sm font-medium text-gray-700">
-                    {label} <span className="text-gray-400 font-normal">({users.length})</span>
+                    {label} <span className="text-gray-400 font-normal">({users.length}{limit ? `/${limit.max}` : ''})</span>
                   </span>
                   {isOpen ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
                 </button>
@@ -627,9 +690,9 @@ export default function AccountManagementPage() {
                     <h3 className="font-semibold text-gray-800">{g.building.tenToaNha}</h3>
                   </div>
                   <div className="ml-6 space-y-1.5">
-                    {renderSection(`${g.building.id}-chuTro`, 'Chủ trọ', g.chuTro)}
-                    {renderSection(`${g.building.id}-quanLy`, 'Quản lý', g.quanLy)}
-                    {renderSection(`${g.building.id}-nhanVien`, 'Nhân viên', g.nhanVien)}
+                    {renderSection(`${g.building.id}-chuTro`, 'Chủ trọ', g.chuTro, 'dongChuTro', g.building.id)}
+                    {renderSection(`${g.building.id}-quanLy`, 'Quản lý', g.quanLy, 'quanLy', g.building.id)}
+                    {renderSection(`${g.building.id}-nhanVien`, 'Nhân viên', g.nhanVien, 'nhanVien', g.building.id)}
                   </div>
                 </div>
               ))}
@@ -717,23 +780,41 @@ export default function AccountManagementPage() {
                 <Label className="text-xs md:text-sm flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-blue-500" />
                   Gán tòa nhà
+                  {ROLE_LIMITS[editUserData.role] && (
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      (tối đa {ROLE_LIMITS[editUserData.role].max} {ROLE_LIMITS[editUserData.role].label}/tòa)
+                    </span>
+                  )}
                 </Label>
                 <div className="border rounded-md p-2 space-y-1.5 max-h-40 overflow-y-auto">
                   {buildings.length === 0 && <p className="text-xs text-muted-foreground">Chưa có tòa nhà</p>}
-                  {buildings.map(b => (
-                    <label key={b.id} className="flex items-center gap-2 cursor-pointer py-0.5">
-                      <Checkbox
-                        checked={editUserData.toaNhaIds.includes(b.id)}
-                        onCheckedChange={(checked) => {
-                          const next = checked
-                            ? [...editUserData.toaNhaIds, b.id]
-                            : editUserData.toaNhaIds.filter(id => id !== b.id);
-                          setEditUserData({ ...editUserData, toaNhaIds: next });
-                        }}
-                      />
-                      <span className="text-sm">{b.tenToaNha}</span>
-                    </label>
-                  ))}
+                  {buildings.map(b => {
+                    const limit = ROLE_LIMITS[editUserData.role];
+                    const excludeId = selectedUser?.id ?? selectedUser?._id;
+                    const currentCount = limit ? getRoleCountPerBuilding(b.id, editUserData.role, excludeId) : 0;
+                    const isAtLimit = limit ? currentCount >= limit.max : false;
+                    const isChecked = editUserData.toaNhaIds.includes(b.id);
+                    return (
+                      <label key={b.id} className={`flex items-center gap-2 py-0.5 ${isAtLimit && !isChecked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                        <Checkbox
+                          checked={isChecked}
+                          disabled={isAtLimit && !isChecked}
+                          onCheckedChange={(checked) => {
+                            const next = checked
+                              ? [...editUserData.toaNhaIds, b.id]
+                              : editUserData.toaNhaIds.filter(id => id !== b.id);
+                            setEditUserData({ ...editUserData, toaNhaIds: next });
+                          }}
+                        />
+                        <span className="text-sm flex-1">{b.tenToaNha}</span>
+                        {limit && (
+                          <span className={`text-[10px] ${isAtLimit ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
+                            {currentCount}/{limit.max}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             )}
