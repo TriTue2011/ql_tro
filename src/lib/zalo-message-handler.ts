@@ -21,45 +21,40 @@ import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 import { isBotServerMode, sendMessageViaBotServer, getAllFriendsFromBotServer } from '@/lib/zalo-bot-client';
 import { askAI, classifyIntent } from '@/lib/ai-chat';
 
-// ─── Cache bạn bè — stale-while-revalidate ───────────────────────────────────
-// Trả về cache cũ ngay (không block tin nhắn), refresh ngầm khi hết hạn.
-let _friendsCache: { ids: Set<string>; expiresAt: number } | null = null;
+// ─── Cache bạn bè — refresh mỗi khi có tin nhắn đến ─────────────────────────
+// Luôn dùng cache hiện tại (không block), refresh ngầm sau mỗi tin nhắn.
+// Vì vậy bạn bè vừa thêm + nhắn ngay thì tin kế tiếp sẽ nhận diện được.
+let _friendsCache: Set<string> | null = null;
 let _friendsRefreshing = false;
 
-function _refreshFriendsCache(): void {
+export function refreshFriendsCacheInBackground(): void {
   if (_friendsRefreshing) return;
   _friendsRefreshing = true;
   getAllFriendsFromBotServer()
     .then(result => {
       if (result.ok && result.friends) {
-        const ids = new Set(
+        _friendsCache = new Set(
           result.friends.map((f: any) => String(f.uid ?? f.id ?? f.userId ?? f.zaloId ?? '')).filter(Boolean)
         );
-        _friendsCache = { ids, expiresAt: Date.now() + 10 * 60 * 1000 };
       }
     })
-    .catch(() => { /* bỏ qua lỗi network */ })
+    .catch(() => {})
     .finally(() => { _friendsRefreshing = false; });
 }
 
 async function isFriend(chatId: string): Promise<boolean> {
   if (!(await isBotServerMode())) return false;
-  const now = Date.now();
   if (!_friendsCache) {
-    // Lần đầu: chưa có cache → fetch đồng bộ 1 lần (chấp nhận chờ)
+    // Lần đầu chưa có cache → fetch đồng bộ 1 lần duy nhất
     await getAllFriendsFromBotServer().then(result => {
       if (result.ok && result.friends) {
-        const ids = new Set(
+        _friendsCache = new Set(
           result.friends.map((f: any) => String(f.uid ?? f.id ?? f.userId ?? f.zaloId ?? '')).filter(Boolean)
         );
-        _friendsCache = { ids, expiresAt: now + 10 * 60 * 1000 };
       }
     }).catch(() => {});
-  } else if (_friendsCache.expiresAt < now) {
-    // Cache hết hạn → trả kết quả cũ ngay, refresh ngầm
-    _refreshFriendsCache();
   }
-  return _friendsCache?.ids.has(chatId) ?? false;
+  return _friendsCache?.has(chatId) ?? false;
 }
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
@@ -588,6 +583,10 @@ export async function handleZaloAutoReply(update: any, token = ''): Promise<void
 
   // Bỏ qua tin nhắn từ nhóm (type = 1)
   if (update?.type === 1) return;
+
+  // Trigger refresh danh sách bạn bè ngầm ngay khi nhận tin nhắn
+  // (không block, dùng kết quả ở tin nhắn kế tiếp)
+  refreshFriendsCacheInBackground();
 
   const displayName: string =
     msg?.from?.display_name ||
