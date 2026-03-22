@@ -523,10 +523,17 @@ export async function setWebhookOnBotServer(
       body: JSON.stringify({ ownId, messageWebhookUrl }),
       signal: AbortSignal.timeout(10_000),
     });
+    const text = await res.text().catch(() => "");
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
       return { ok: false, error: `HTTP ${res.status}: ${text.slice(0, 100)}` };
     }
+    // Kiểm tra response body cho lỗi ẩn (một số server trả HTTP 200 nhưng body có error)
+    try {
+      const data = JSON.parse(text);
+      if (data && (data.success === false || data.ok === false || data.error)) {
+        return { ok: false, error: data.error || data.message || "Bot server báo lỗi" };
+      }
+    } catch { /* không phải JSON, bỏ qua */ }
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || "Lỗi kết nối" };

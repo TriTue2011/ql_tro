@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { setWebhookOnBotServer, getBotConfig } from '@/lib/zalo-bot-client';
+import { setWebhookOnBotServer, getBotConfig, getAccountsFromBotServer } from '@/lib/zalo-bot-client';
 import prisma from '@/lib/prisma';
 
 function getPublicBaseUrl(): string {
@@ -41,10 +41,33 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const ownId: string = body?.ownId || config.accountId;
+  let ownId: string = body?.ownId || config.accountId;
   if (!ownId) {
     return NextResponse.json({ ok: false, error: 'Cần nhập Zalo Account ID (zalo_bot_account_id) trong Cài đặt' });
   }
+
+  // Resolve ownId: bot server cần numeric Zalo ID, không phải số điện thoại.
+  // Fetch danh sách tài khoản → tìm account khớp id hoặc phoneNumber/phone.
+  try {
+    const { accounts } = await getAccountsFromBotServer();
+    if (accounts.length > 0) {
+      const match = accounts.find((a: any) =>
+        a.id === ownId ||
+        a.ownId === ownId ||
+        a.phoneNumber === ownId ||
+        a.phone === ownId ||
+        // normalize: bỏ dấu + và so sánh
+        a.phoneNumber?.replace(/\D/g, '') === ownId.replace(/\D/g, '') ||
+        a.phone?.replace(/\D/g, '') === ownId.replace(/\D/g, '')
+      );
+      if (match) {
+        ownId = match.id ?? match.ownId ?? ownId;
+      } else if (accounts.length === 1) {
+        // Chỉ có 1 tài khoản → dùng luôn
+        ownId = accounts[0].id ?? ownId;
+      }
+    }
+  } catch { /* bỏ qua, dùng ownId gốc */ }
 
   // Ưu tiên: 1) URL do user nhập, 2) URL đã lưu trong DB, 3) sinh URL mới theo format /api/zalowebhook/{token}
   const localBase = await getLocalBaseUrl();
