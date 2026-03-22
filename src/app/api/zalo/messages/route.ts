@@ -63,7 +63,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: rowsWithRoomInfo });
     }
 
-    // ChuNha / other roles: filter theo ownId (tài khoản bot) HOẶC chatId (fallback)
+    // ChuNha / other roles: filter theo ownId (tài khoản bot)
+    // Bao gồm cả tin nhắn cũ chưa có ownId (ownId IS NULL)
     const filterOwnId = userZaloAccountId || userZaloChatId;
     if (!filterOwnId) return NextResponse.json({ data: [] });
 
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
           "id", "chatId", "ownId", "displayName", "content", "attachmentUrl",
           "role", "createdAt", "rawPayload", "eventName"
         FROM "ZaloMessage"
-        WHERE "role" = 'user' AND ("ownId" = ${filterOwnId} OR "chatId" = ${filterOwnId})
+        WHERE "role" = 'user' AND ("ownId" = ${filterOwnId} OR "ownId" IS NULL)
         ORDER BY "chatId", "createdAt" DESC
       ),
       latest_bot AS (
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
           "content" AS "botContent",
           "createdAt" AS "botCreatedAt"
         FROM "ZaloMessage"
-        WHERE "role" = 'bot' AND ("ownId" = ${filterOwnId} OR "chatId" = ${filterOwnId})
+        WHERE "role" = 'bot' AND ("ownId" = ${filterOwnId} OR "ownId" IS NULL)
         ORDER BY "chatId", "createdAt" DESC
       )
       SELECT u.*, b."botContent", b."botCreatedAt"
@@ -100,20 +101,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "chatId required" }, { status: 400 });
 
   if (!canViewAll) {
-    // Kiểm tra xem chatId này có thuộc tài khoản bot của user không
+    // Kiểm tra: có tin nhắn thuộc tài khoản của user hoặc chưa gán ownId
     const filterOwnId = userZaloAccountId || userZaloChatId;
     if (!filterOwnId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    // Cho phép xem nếu chatId khớp hoặc có tin nhắn với ownId đúng
-    if (chatId !== filterOwnId) {
-      const hasAccess = await prisma.zaloMessage.findFirst({
-        where: { chatId, ownId: filterOwnId },
-        select: { id: true },
-      });
-      if (!hasAccess) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
+    const hasAccess = await prisma.zaloMessage.findFirst({
+      where: { chatId, OR: [{ ownId: filterOwnId }, { ownId: null }] },
+      select: { id: true },
+    });
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
 

@@ -102,13 +102,59 @@ export async function POST(request: NextRequest) {
       create: { khoa: 'zalo_webhook_url', giaTri: webhookUrl },
     }).catch(() => {});
 
-    // Đồng bộ webhook cho tất cả tài khoản khác trên bot server
+    // Tự động liên kết Zalo cho user hiện tại (zaloAccountId + zaloChatId)
+    const currentUser = await prisma.nguoiDung.findUnique({
+      where: { id: session.user.id },
+      select: { zaloChatId: true },
+    });
+    await prisma.nguoiDung.update({
+      where: { id: session.user.id },
+      data: {
+        zaloAccountId: ownId,
+        // Nếu chưa có zaloChatId → set = ownId (tài khoản bot = tài khoản cá nhân)
+        ...(currentUser?.zaloChatId ? {} : { zaloChatId: ownId }),
+      },
+    }).catch(() => {});
+
+    // Đồng bộ webhook + auto-link zaloAccountId cho tất cả tài khoản trên bot server
     try {
       const { accounts } = await getAccountsFromBotServer();
       for (const acc of accounts) {
         const accId = acc.id ?? acc.ownId;
-        if (accId && accId !== ownId) {
+        if (!accId) continue;
+
+        // Set webhook cho tài khoản khác
+        if (accId !== ownId) {
           await setWebhookOnBotServer(accId, webhookUrl).catch(() => {});
+        }
+
+        // Auto-link: tìm NguoiDung (chuNha/admin) chưa có zaloAccountId
+        // dựa trên số điện thoại khớp tài khoản bot
+        const phone = acc.phoneNumber || acc.phone || '';
+        if (phone) {
+          const phoneVariants = [phone, phone.replace(/^\+84/, '0'), phone.replace(/^0/, '+84')];
+          await prisma.nguoiDung.updateMany({
+            where: {
+              sdt: { in: phoneVariants },
+              zaloAccountId: null,
+              vaiTro: { in: ['admin', 'chuNha'] },
+            },
+            data: { zaloAccountId: accId, zaloChatId: accId },
+          }).catch(() => {});
+        }
+      }
+
+      // Nếu chỉ có 1 tài khoản bot → gán cho tất cả chuNha/admin chưa link
+      if (accounts.length === 1) {
+        const singleAccId = accounts[0].id ?? accounts[0].ownId;
+        if (singleAccId) {
+          await prisma.nguoiDung.updateMany({
+            where: {
+              zaloAccountId: null,
+              vaiTro: { in: ['admin', 'chuNha'] },
+            },
+            data: { zaloAccountId: singleAccId, zaloChatId: singleAccId },
+          }).catch(() => {});
         }
       }
     } catch { /* bỏ qua nếu không lấy được danh sách */ }
