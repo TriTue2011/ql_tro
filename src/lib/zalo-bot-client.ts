@@ -784,12 +784,3 @@ export async function getStickerDetailFromBotServer(stickerId: string, accountSe
   return botRequest("POST", "/api/getStickersDetailByAccount", { stickerId, accountSelection: await ac(accountSelection) });
 }
 
-// ─── Proxy ────────────────────────────────────────────────────────────────────
-
-export async function getProxies(): Promise<DataResult> { return botRequest("GET", "/api/proxies"); }
-export async function addProxy(proxyUrl: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/proxies", { proxyUrl }); return { ok: r.ok, error: r.error };
-}
-export async function removeProxy(proxyUrl: string): Promise<OkResult> {
-  const r = await botRequest("DELETE", "/api/proxies", { proxyUrl }); return { ok: r.ok, error: r.error };
-}
