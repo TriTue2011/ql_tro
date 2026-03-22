@@ -101,6 +101,17 @@ export async function POST(request: NextRequest) {
       update: { giaTri: webhookUrl },
       create: { khoa: 'zalo_webhook_url', giaTri: webhookUrl },
     }).catch(() => {});
+
+    // Đồng bộ webhook cho tất cả tài khoản khác trên bot server
+    try {
+      const { accounts } = await getAccountsFromBotServer();
+      for (const acc of accounts) {
+        const accId = acc.id ?? acc.ownId;
+        if (accId && accId !== ownId) {
+          await setWebhookOnBotServer(accId, webhookUrl).catch(() => {});
+        }
+      }
+    } catch { /* bỏ qua nếu không lấy được danh sách */ }
   }
 
   return NextResponse.json({ ...result, webhookUrl, ownId });
