@@ -32,7 +32,7 @@ async function sendTextOA(token: string, chatId: string, text: string) {
 /** Gửi text — tự chọn OA hoặc bot server theo cài đặt zalo_mode */
 async function sendText(chatId: string, text: string): Promise<boolean> {
   if (await isBotServerMode()) {
-    return sendMessageViaBotServer(chatId, text);
+    return sendMessageViaBotServer(chatId, text).then(r => r.ok);
   }
   const token = await getZaloToken();
   if (!token) return false;

@@ -185,7 +185,7 @@ async function getRecentHistory(chatId: string, limit = 6): Promise<{ role: 'use
   try {
     const msgs = await prisma.zaloMessage.findMany({
       where: { chatId },
-      orderBy: { thoiGian: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: limit,
       select: { role: true, content: true },
     });
@@ -538,6 +538,11 @@ export async function handleZaloAutoReply(update: any, token = ''): Promise<void
     data?.uidFrom ? String(data.uidFrom) :
     update?.uidFrom ? String(update.uidFrom) : '';
   if (!chatId) return;
+
+  // Nếu token không được truyền vào và đang ở OA mode, tự fetch từ DB
+  if (!token && !(await isBotServerMode())) {
+    token = (await prisma.caiDat.findFirst({ where: { khoa: 'zalo_access_token' } }))?.giaTri?.trim() ?? '';
+  }
 
   // Bỏ qua tin nhắn từ nhóm (type = 1)
   if (update?.type === 1) return;
