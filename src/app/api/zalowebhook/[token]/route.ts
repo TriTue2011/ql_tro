@@ -41,12 +41,16 @@ function extractAttachmentUrl(msg: Record<string, unknown>): string | null {
 function normalizePayload(update: Record<string, unknown>) {
   const msg = update?.message as Record<string, unknown> | undefined;
   const data = update?.data as Record<string, unknown> | undefined;
+  const isGroup = update?.type === 1;
 
-  const chatId: string | null =
+  const senderUid: string | null =
+    data?.uidFrom ? String(data.uidFrom) :
     (msg?.from as Record<string, unknown>)?.id ? String((msg!.from as Record<string, unknown>).id) :
     (update?.sender as Record<string, unknown>)?.id ? String((update.sender as Record<string, unknown>).id) :
-    data?.uidFrom ? String(data.uidFrom) :
     update?.uidFrom ? String(update.uidFrom) : null;
+
+  const chatId: string | null =
+    (isGroup && update?.threadId) ? String(update.threadId) : senderUid;
 
   const displayName: string =
     (msg?.from as Record<string, unknown>)?.display_name as string ||
@@ -55,15 +59,32 @@ function normalizePayload(update: Record<string, unknown>) {
     data?.dName as string || data?.fromD as string ||
     update?.dName as string || update?.fromD as string || '';
 
-  const attachmentUrl = extractAttachmentUrl(msg ?? update);
-  const content: string =
-    msg?.text as string ||
-    data?.content as string || data?.msg as string ||
-    update?.content as string || update?.msg as string ||
-    (attachmentUrl ? '[hình ảnh]' : '[đính kèm]');
+  const attachmentUrl =
+    extractAttachmentUrl(msg ?? update) ||
+    (typeof data?.content === 'object' && typeof (data.content as Record<string, unknown>)?.href === 'string'
+      ? (data.content as Record<string, unknown>).href as string
+      : null);
+
+  // Xử lý content theo msgType
+  const msgType = data?.msgType as string || '';
+  let content: string;
+  if (msgType === 'chat.photo') {
+    const c = data?.content as Record<string, unknown> ?? {};
+    content = typeof c === 'object' ? (c.title as string || c.description as string || '[hình ảnh]') : '[hình ảnh]';
+  } else if (msgType === 'share.file') {
+    const c = data?.content as Record<string, unknown> ?? {};
+    content = typeof c === 'object' ? (c.title as string || 'file') : 'file';
+  } else {
+    content =
+      msg?.text as string ||
+      (typeof data?.content === 'string' ? data.content : '') ||
+      data?.msg as string ||
+      update?.content as string || update?.msg as string ||
+      (attachmentUrl ? '[hình ảnh]' : '[đính kèm]');
+  }
 
   const eventName: string =
-    update?.event_name as string || update?.event as string || update?.type as string || 'message';
+    update?.event_name as string || update?.event as string || String(update?.type ?? 'message');
 
   return { chatId, displayName, content, eventName, attachmentUrl };
 }

@@ -56,7 +56,11 @@ function normalizeWebhookPayload(update: any): {
     data?.dName || data?.fromD || data?.displayName ||
     update?.dName || update?.fromD || '';
 
-  const attachmentUrl = extractAttachmentUrl(msg ?? update);
+  const attachmentUrl =
+    extractAttachmentUrl(msg ?? update) ||
+    (typeof data?.content === 'object' && typeof (data.content as any)?.href === 'string'
+      ? (data.content as any).href as string
+      : null);
 
   // Xử lý content theo msgType
   const msgType: string = data?.msgType || '';
