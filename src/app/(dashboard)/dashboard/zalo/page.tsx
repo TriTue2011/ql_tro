@@ -72,6 +72,7 @@ interface AccountData {
   email: string;
   vaiTro?: string;
   zaloChatId: string | null;
+  pendingZaloChatId?: string | null;
   zaloAccountId: string | null;
   zaloBotServerUrl: string | null;
   zaloBotUsername: string | null;
@@ -1664,11 +1665,13 @@ function PersonRow({
           {isSelf && isAdmin && (
             <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Admin</Badge>
           )}
-          <span className={`text-[9px] ml-1 ${account.zaloChatId ? "text-green-500" : "text-gray-300"}`}>
-            {account.zaloChatId ? "●" : "○"}
+          <span className={`text-[9px] ml-1 ${account.zaloChatId ? "text-green-500" : account.pendingZaloChatId ? "text-amber-400" : "text-gray-300"}`}>
+            {account.zaloChatId ? "●" : account.pendingZaloChatId ? "◐" : "○"}
           </span>
           {!account.zaloChatId && (
-            <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
+            <span className="text-[10px] text-gray-400">
+              {account.pendingZaloChatId ? "Chờ xác nhận Zalo" : "Chưa liên kết Zalo"}
+            </span>
           )}
         </div>
         {open

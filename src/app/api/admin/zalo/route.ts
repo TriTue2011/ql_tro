@@ -53,7 +53,7 @@ export async function GET() {
       chuSoHuu: {
         select: {
           id: true, ten: true, email: true, vaiTro: true,
-          zaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, nhanThongBaoZalo: true,
+          zaloChatId: true, pendingZaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, nhanThongBaoZalo: true,
           zaloThongBaoCaiDat: { where: { toaNhaId: undefined }, select: allSettingFields() },
         },
       },
@@ -62,7 +62,7 @@ export async function GET() {
           nguoiDung: {
             select: {
               id: true, ten: true, email: true, vaiTro: true,
-              zaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, nhanThongBaoZalo: true,
+              zaloChatId: true, pendingZaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, nhanThongBaoZalo: true,
               zaloThongBaoCaiDat: { select: allSettingFields() },
             },
           },
