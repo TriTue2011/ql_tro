@@ -281,7 +281,7 @@ export async function sendVideoViaBotServer(
   const r = await botRequest("POST", "/api/sendVideoByAccount", {
     threadId: String(chatId),
     accountSelection: await ac(opts?.accountSelection),
-    type: (opts?.threadType ?? 0) === 1 ? "group" : "user",
+    type: opts?.threadType ?? 0,
     options: {
       videoUrl,
       thumbnailUrl: opts?.thumbnailUrl || videoUrl,
@@ -653,8 +653,8 @@ export async function removeReminderViaBotServer(reminderId: string, threadId: s
   return { ok: r.ok, error: r.error };
 }
 
-export async function editReminderViaBotServer(threadId: string, topicId: string, title: string, type = "0", accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/editReminderByAccount", { threadId, topicId, title, type, accountSelection: await ac(accountSelection) });
+export async function editReminderViaBotServer(threadId: string, topicId: string, title: string, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/editReminderByAccount", { threadId, topicId, title, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
