@@ -1907,17 +1907,18 @@ export default function CaiDatPage() {
   const [botWebhookLoading, setBotWebhookLoading] = useState(false);
   const [botWebhookUrl, setBotWebhookUrl] = useState("");
 
-  // Load gợi ý webhook URL cho bot server (domain-based, chỉ dùng làm fallback)
+  // Load URL đã lưu từ lần cài bot webhook thành công trước (zalo_webhook_url trong DB)
+  // Chỉ dùng nếu URL chứa /api/webhook/ hoặc /api/zalowebhook/ (đúng cho bot server)
+  // KHÔNG dùng /api/zalo/set-webhook vì endpoint đó trả URL Zalo OA (/api/zalo/webhook)
   useEffect(() => {
     if (!canManage) return;
-    fetch("/api/zalo/set-webhook")
-      .then((r) => r.json())
+    fetch("/api/zalo-bot/saved-webhook-url")
+      .then((r) => r.ok ? r.json() : null)
       .then((d) => {
-        const url = d.webhookUrl || "";
-        // Chỉ set nếu là URL hợp lệ (tránh giá trị rác trong DB)
-        if (url.startsWith("http://") || url.startsWith("https://")) {
-          setBotWebhookUrl(url);
-        }
+        if (!d) return;
+        const url: string = d.webhookUrl || "";
+        const isBotUrl = url.includes("/api/webhook/") || url.includes("/api/zalowebhook/");
+        if (isBotUrl) setBotWebhookUrl(url);
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
