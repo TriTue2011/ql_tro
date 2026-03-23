@@ -62,7 +62,7 @@ export async function GET() {
         select: {
           nguoiDung: {
             select: {
-              id: true, ten: true, email: true, vaiTro: true,
+              id: true, ten: true, email: true, soDienThoai: true, vaiTro: true,
               zaloChatId: true, pendingZaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, nhanThongBaoZalo: true,
               zaloThongBaoCaiDat: { select: allSettingFields() },
             },

@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     try {
       const { accounts } = await getAccountsFromBotServer();
 
-      // Auto-link zaloAccountId cho các user (match theo SĐT)
+      // Auto-link zaloAccountId cho tất cả user (match theo SĐT) — không giới hạn role
       for (const acc of accounts) {
         const accId = acc.id ?? acc.ownId;
         if (!accId) continue;
@@ -134,7 +134,6 @@ export async function POST(request: NextRequest) {
             where: {
               soDienThoai: { in: phoneVariants },
               zaloAccountId: null,
-              vaiTro: { in: ['admin', 'chuNha'] },
             },
             data: { zaloAccountId: accId, zaloChatId: accId },
           }).catch(() => {});
@@ -143,14 +142,13 @@ export async function POST(request: NextRequest) {
           await prisma.nguoiDung.updateMany({
             where: {
               zaloAccountId: { in: phoneVariants },
-              vaiTro: { in: ['admin', 'chuNha'] },
             },
             data: { zaloAccountId: accId, zaloChatId: accId },
           }).catch(() => {});
         }
       }
 
-      // Nếu chỉ có 1 tài khoản bot → gán cho tất cả chuNha/admin chưa link
+      // Nếu chỉ có 1 tài khoản bot → gán cho tất cả user chưa link
       if (accounts.length === 1) {
         const singleAccId = accounts[0].id ?? accounts[0].ownId;
         if (singleAccId) {
@@ -158,7 +156,6 @@ export async function POST(request: NextRequest) {
             where: {
               zaloAccountId: null,
               zaloChatId: null,
-              vaiTro: { in: ['admin', 'chuNha'] },
             },
             data: { zaloAccountId: singleAccId, zaloChatId: singleAccId },
           }).catch(() => {});
@@ -172,7 +169,7 @@ export async function POST(request: NextRequest) {
 
         // Tìm NguoiDung có zaloAccountId = accId → dùng webhook riêng
         const linkedUser = await prisma.nguoiDung.findFirst({
-          where: { zaloAccountId: accId, vaiTro: { in: ['admin', 'chuNha'] } },
+          where: { zaloAccountId: accId },
           select: { id: true },
         });
 
