@@ -292,11 +292,15 @@ function WebhookCard({ account }: { account?: AccountData }) {
   const loadStatus = useCallback(async () => {
     setLoadingStatus(true);
     try {
-      const statusRes = await fetch(`/api/zalo-bot/webhook-status${account?.zaloAccountId ? `?ownId=${account.zaloAccountId}` : ''}`).then(r => r.json()).catch(() => null);
+      const params = new URLSearchParams();
+      if (account?.zaloAccountId) params.set('ownId', account.zaloAccountId);
+      if (account?.id) params.set('targetUserId', account.id);
+      const qs = params.toString();
+      const statusRes = await fetch(`/api/zalo-bot/webhook-status${qs ? `?${qs}` : ''}`).then(r => r.json()).catch(() => null);
       if (statusRes?.ok && statusRes.webhooks) setWebhookStatus(statusRes.webhooks);
       else if (statusRes?.error) setWebhookStatus([]);
     } finally { setLoadingStatus(false); }
-  }, [account?.zaloAccountId]);
+  }, [account?.zaloAccountId, account?.id]);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
@@ -352,7 +356,7 @@ function WebhookCard({ account }: { account?: AccountData }) {
           <Webhook className="h-4 w-4 text-violet-600" />
           Webhook
         </CardTitle>
-        <CardDescription className="text-xs">Cài webhook cho tài khoản Zalo của bạn (dùng IP LAN từ app_local_url)</CardDescription>
+        <CardDescription className="text-xs">Cài webhook cho tài khoản Zalo {account?.ten ? `của ${account.ten}` : ""}</CardDescription>
       </CardHeader>
       <CardContent className="px-4 pb-4 space-y-3">
         {/* Trạng thái webhook trên bot server */}
@@ -366,50 +370,64 @@ function WebhookCard({ account }: { account?: AccountData }) {
               <div className="text-xs px-2 py-1.5 rounded bg-amber-50 text-amber-700">
                 Không kết nối được bot server
               </div>
-            ) : webhookStatus.map(wh => {
-              const shortUrl = (url: string) => {
-                const apiPart = url.split('/api/')[1];
-                return apiPart ? '/api/' + apiPart : url.replace(/^https?:\/\//, '');
-              };
-              return (
-                <div key={wh.ownId} className={`text-xs px-2 py-2 rounded ${
-                  !wh.isOnline ? "bg-red-50 text-red-600" :
-                  wh.hasWebhook ? "bg-green-50 text-green-700" :
-                  "bg-amber-50 text-amber-700"
-                }`}>
-                  <div className="flex items-center gap-1.5 font-medium">
-                    <span className={`text-[9px] ${!wh.isOnline ? "text-red-500" : wh.hasWebhook ? "text-green-500" : "text-amber-500"}`}>●</span>
-                    <span className="font-mono">{wh.phoneNumber || wh.ownId}</span>
-                    <span className="mx-0.5">—</span>
-                    {!wh.isOnline ? "Đã đăng xuất" :
-                     wh.hasWebhook ? "Webhook OK" :
-                     "Chưa cài webhook"}
-                  </div>
-                  {wh.hasWebhook && (
-                    <div className="mt-1 ml-4 space-y-0.5 text-[10px] text-gray-500 font-mono">
-                      {wh.messageWebhookUrl && (
-                        <div title={wh.messageWebhookUrl}>Tin nhắn: <span className="text-green-600">{shortUrl(wh.messageWebhookUrl)}</span></div>
-                      )}
-                      {wh.groupEventWebhookUrl && (
-                        <div title={wh.groupEventWebhookUrl}>Nhóm: <span className="text-green-600">{shortUrl(wh.groupEventWebhookUrl)}</span></div>
-                      )}
-                      {wh.reactionWebhookUrl && (
-                        <div title={wh.reactionWebhookUrl}>Reaction: <span className="text-green-600">{shortUrl(wh.reactionWebhookUrl)}</span></div>
-                      )}
-                      {!wh.messageWebhookUrl && !wh.groupEventWebhookUrl && !wh.reactionWebhookUrl && (
-                        <div className="text-amber-500">Không có URL</div>
-                      )}
-                    </div>
-                  )}
+            ) : webhookStatus.map(wh => (
+              <div key={wh.ownId} className={`text-xs px-2 py-2 rounded ${
+                !wh.isOnline ? "bg-red-50 text-red-600" :
+                wh.hasWebhook ? "bg-green-50 text-green-700" :
+                "bg-amber-50 text-amber-700"
+              }`}>
+                <div className="flex items-center gap-1.5 font-medium">
+                  <span className={`text-[9px] ${!wh.isOnline ? "text-red-500" : wh.hasWebhook ? "text-green-500" : "text-amber-500"}`}>●</span>
+                  <span className="font-mono">{wh.phoneNumber || wh.ownId}</span>
+                  <span className="mx-0.5">—</span>
+                  {!wh.isOnline ? "Đã đăng xuất" :
+                   wh.hasWebhook ? "Webhook OK" :
+                   "Chưa cài webhook"}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
 
+        {/* Hiển thị Webhook URL hiện tại (luôn hiển thị để tra cứu) */}
+        {(() => {
+          // Lấy URL từ kết quả cài đặt gần nhất, hoặc từ trạng thái webhook trên bot server
+          const currentUrl = result?.webhookUrl || webhookStatus?.find(wh => wh.hasWebhook)?.messageWebhookUrl;
+          const currentGroupUrl = webhookStatus?.find(wh => wh.hasWebhook)?.groupEventWebhookUrl;
+          const currentReactionUrl = webhookStatus?.find(wh => wh.hasWebhook)?.reactionWebhookUrl;
+          if (!currentUrl && !result) return null;
+          return (
+            <div className="border rounded-md p-2.5 space-y-1.5 bg-gray-50">
+              <div className="text-[11px] font-medium text-gray-600">Webhook URL hiện tại</div>
+              {currentUrl ? (
+                <div className="space-y-1">
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-[10px] text-gray-400 shrink-0 mt-0.5 w-14">Tin nhắn:</span>
+                    <span className="text-[11px] font-mono text-green-700 break-all select-all">{currentUrl}</span>
+                  </div>
+                  {currentGroupUrl && currentGroupUrl !== currentUrl && (
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-[10px] text-gray-400 shrink-0 mt-0.5 w-14">Nhóm:</span>
+                      <span className="text-[11px] font-mono text-green-700 break-all select-all">{currentGroupUrl}</span>
+                    </div>
+                  )}
+                  {currentReactionUrl && currentReactionUrl !== currentUrl && (
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-[10px] text-gray-400 shrink-0 mt-0.5 w-14">Reaction:</span>
+                      <span className="text-[11px] font-mono text-green-700 break-all select-all">{currentReactionUrl}</span>
+                    </div>
+                  )}
+                </div>
+              ) : result && !result.ok ? (
+                <div className="text-[11px] text-red-600">{result.error}</div>
+              ) : null}
+            </div>
+          );
+        })()}
+
         {result && (
           <div className={`text-xs px-2 py-1.5 rounded ${result.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-            {result.ok ? `✓ ${result.webhookUrl}` : `✗ ${result.error}`}
+            {result.ok ? `✓ Đã cài webhook thành công` : `✗ ${result.error}`}
           </div>
         )}
         {testResult && (
@@ -417,6 +435,14 @@ function WebhookCard({ account }: { account?: AccountData }) {
             {testResult.ok ? `✓ Webhook OK (HTTP ${testResult.status})` : `✗ ${testResult.error || "Không phản hồi"}`}
           </div>
         )}
+
+        {/* Bot Server đang dùng */}
+        {account?.zaloBotServerUrl && (
+          <div className="text-[10px] text-gray-400">
+            Bot Server: <span className="font-mono">{account.zaloBotServerUrl}</span>
+          </div>
+        )}
+
         <div className="flex gap-2">
           <Button size="sm" onClick={handleSet} disabled={setting} className="flex-1 text-xs gap-1.5">
             <Webhook className="h-3.5 w-3.5" />

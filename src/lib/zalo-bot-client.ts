@@ -160,12 +160,12 @@ export async function getAccountDetailsFromBotServer(ownId: string): Promise<Dat
   return botRequest("GET", `/api/accounts/${ownId}`);
 }
 
-export async function getAccountWebhooksFromBotServer(): Promise<DataResult> {
-  return botRequest("GET", "/api/account-webhooks");
+export async function getAccountWebhooksFromBotServer(configOverride?: BotConfig | null): Promise<DataResult> {
+  return botRequest("GET", "/api/account-webhooks", undefined, 15_000, configOverride);
 }
 
-export async function getAccountWebhookFromBotServer(ownId: string): Promise<DataResult> {
-  return botRequest("GET", `/api/account-webhook/${ownId}`);
+export async function getAccountWebhookFromBotServer(ownId: string, configOverride?: BotConfig | null): Promise<DataResult> {
+  return botRequest("GET", `/api/account-webhook/${ownId}`, undefined, 15_000, configOverride);
 }
 
 export async function setWebhookOnBotServer(

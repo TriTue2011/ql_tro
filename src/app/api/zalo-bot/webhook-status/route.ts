@@ -1,7 +1,7 @@
 /**
- * GET /api/zalo-bot/webhook-status?ownId=xxx
+ * GET /api/zalo-bot/webhook-status?ownId=xxx&targetUserId=xxx
  * Kiểm tra webhook đã cài trên bot server cho từng account.
- * Trả về danh sách account + webhook URL đã cài (3 loại).
+ * Ưu tiên dùng Bot Server config riêng của target user, fallback sang global.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -10,7 +10,10 @@ import {
   getAccountsFromBotServer,
   getAccountWebhooksFromBotServer,
   getAccountWebhookFromBotServer,
+  getBotConfig,
+  BotConfig,
 } from '@/lib/zalo-bot-client';
+import prisma from '@/lib/prisma';
 
 interface WebhookInfo {
   ownId: string;
@@ -29,9 +32,34 @@ export async function GET(req: NextRequest) {
   }
 
   const ownId = req.nextUrl.searchParams.get('ownId') || undefined;
+  const targetUserId = req.nextUrl.searchParams.get('targetUserId') || undefined;
+
+  // Lấy bot config riêng của target user (nếu có)
+  let botConfig: BotConfig | null = null;
+  const userId = targetUserId || session.user.id;
+  try {
+    const user = await prisma.nguoiDung.findUnique({
+      where: { id: userId },
+      select: { zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloAccountId: true },
+    });
+    if (user?.zaloBotServerUrl) {
+      botConfig = {
+        serverUrl: user.zaloBotServerUrl.replace(/\/$/, ''),
+        username: user.zaloBotUsername || 'admin',
+        password: user.zaloBotPassword || 'admin',
+        accountId: user.zaloAccountId || '',
+        ttl: user.zaloBotTtl ?? 0,
+      };
+    }
+  } catch { /* ignore */ }
+
+  // Fallback sang global config
+  if (!botConfig) {
+    botConfig = await getBotConfig();
+  }
 
   try {
-    const { accounts, error: accError } = await getAccountsFromBotServer();
+    const { accounts, error: accError } = await getAccountsFromBotServer(botConfig);
     if (accError) {
       return NextResponse.json({ ok: false, error: accError, webhooks: [] });
     }
@@ -50,7 +78,7 @@ export async function GET(req: NextRequest) {
     if (ownId) {
       // Query 1 account
       const acc = accMap.get(ownId);
-      const wh = await getAccountWebhookFromBotServer(ownId);
+      const wh = await getAccountWebhookFromBotServer(ownId, botConfig);
       const d = wh.data;
       const msgUrl = d?.messageWebhookUrl || null;
       const grpUrl = d?.groupEventWebhookUrl || null;
@@ -66,7 +94,7 @@ export async function GET(req: NextRequest) {
       });
     } else {
       // Batch: /api/account-webhooks trả về { data: { default: {...}, accounts: { [key]: {...} } } }
-      const allWh = await getAccountWebhooksFromBotServer();
+      const allWh = await getAccountWebhooksFromBotServer(botConfig);
       const whAccounts: Record<string, any> = allWh.ok && allWh.data
         ? (allWh.data.accounts ?? allWh.data.data?.accounts ?? {})
         : {};
