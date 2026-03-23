@@ -176,8 +176,8 @@ export async function setWebhookOnBotServer(
   const r = await botRequest("POST", "/api/account-webhook", {
     ownId,
     messageWebhookUrl,
-    ...(groupEventWebhookUrl ? { groupEventWebhookUrl } : {}),
-    ...(reactionWebhookUrl ? { reactionWebhookUrl } : {}),
+    groupEventWebhookUrl: groupEventWebhookUrl || messageWebhookUrl,
+    reactionWebhookUrl: reactionWebhookUrl || messageWebhookUrl,
   }, 10_000);
   return { ok: r.ok, error: r.error };
 }

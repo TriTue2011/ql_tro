@@ -284,7 +284,9 @@ function WebhookCard({ account }: { account?: AccountData }) {
   const [result, setResult] = useState<{ ok: boolean; webhookUrl?: string; error?: string } | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; status?: number; error?: string } | null>(null);
   const [webhookStatus, setWebhookStatus] = useState<{
-    ownId: string; phoneNumber: string; isOnline: boolean; webhookUrl: string | null; hasWebhook: boolean;
+    ownId: string; phoneNumber: string; isOnline: boolean;
+    messageWebhookUrl: string | null; groupEventWebhookUrl: string | null; reactionWebhookUrl: string | null;
+    hasWebhook: boolean;
   }[] | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
 
@@ -393,25 +395,44 @@ function WebhookCard({ account }: { account?: AccountData }) {
               <div className="text-xs px-2 py-1.5 rounded bg-amber-50 text-amber-700">
                 Không kết nối được bot server
               </div>
-            ) : webhookStatus.map(wh => (
-              <div key={wh.ownId} className={`text-xs px-2 py-1.5 rounded flex items-center gap-1.5 ${
-                !wh.isOnline ? "bg-red-50 text-red-600" :
-                wh.hasWebhook ? "bg-green-50 text-green-700" :
-                "bg-amber-50 text-amber-700"
-              }`}>
-                <span className={`text-[9px] ${!wh.isOnline ? "text-red-500" : wh.hasWebhook ? "text-green-500" : "text-amber-500"}`}>●</span>
-                <span className="font-mono">{wh.phoneNumber || wh.ownId}</span>
-                <span className="mx-0.5">—</span>
-                {!wh.isOnline ? "Đã đăng xuất" :
-                 wh.hasWebhook ? "Webhook OK" :
-                 "Chưa cài webhook"}
-                {wh.hasWebhook && wh.webhookUrl && (
-                  <span className="text-[10px] text-gray-400 truncate ml-1 max-w-[150px]" title={wh.webhookUrl}>
-                    ({wh.webhookUrl.replace(/^https?:\/\//, '').split('/api/')[1] ? '/api/' + wh.webhookUrl.split('/api/')[1] : wh.webhookUrl})
-                  </span>
-                )}
-              </div>
-            ))}
+            ) : webhookStatus.map(wh => {
+              const shortUrl = (url: string) => {
+                const apiPart = url.split('/api/')[1];
+                return apiPart ? '/api/' + apiPart : url.replace(/^https?:\/\//, '');
+              };
+              return (
+                <div key={wh.ownId} className={`text-xs px-2 py-2 rounded ${
+                  !wh.isOnline ? "bg-red-50 text-red-600" :
+                  wh.hasWebhook ? "bg-green-50 text-green-700" :
+                  "bg-amber-50 text-amber-700"
+                }`}>
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <span className={`text-[9px] ${!wh.isOnline ? "text-red-500" : wh.hasWebhook ? "text-green-500" : "text-amber-500"}`}>●</span>
+                    <span className="font-mono">{wh.phoneNumber || wh.ownId}</span>
+                    <span className="mx-0.5">—</span>
+                    {!wh.isOnline ? "Đã đăng xuất" :
+                     wh.hasWebhook ? "Webhook OK" :
+                     "Chưa cài webhook"}
+                  </div>
+                  {wh.hasWebhook && (
+                    <div className="mt-1 ml-4 space-y-0.5 text-[10px] text-gray-500 font-mono">
+                      {wh.messageWebhookUrl && (
+                        <div title={wh.messageWebhookUrl}>Tin nhắn: <span className="text-green-600">{shortUrl(wh.messageWebhookUrl)}</span></div>
+                      )}
+                      {wh.groupEventWebhookUrl && (
+                        <div title={wh.groupEventWebhookUrl}>Nhóm: <span className="text-green-600">{shortUrl(wh.groupEventWebhookUrl)}</span></div>
+                      )}
+                      {wh.reactionWebhookUrl && (
+                        <div title={wh.reactionWebhookUrl}>Reaction: <span className="text-green-600">{shortUrl(wh.reactionWebhookUrl)}</span></div>
+                      )}
+                      {!wh.messageWebhookUrl && !wh.groupEventWebhookUrl && !wh.reactionWebhookUrl && (
+                        <div className="text-amber-500">Không có URL</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
