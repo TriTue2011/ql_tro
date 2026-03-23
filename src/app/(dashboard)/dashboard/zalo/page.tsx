@@ -307,7 +307,10 @@ function WebhookCard({ account }: { account?: AccountData }) {
       const res = await fetch("/api/zalo-bot/set-webhook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          targetUserId: account?.id || undefined,
+          ownId: account?.zaloAccountId || undefined,
+        }),
       });
       const data = await res.json();
       setResult(data);

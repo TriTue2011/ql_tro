@@ -1,8 +1,9 @@
 /**
  * POST /api/zalo-bot/set-webhook
- * Cài đặt webhook trên bot server cho tài khoản của user đang đăng nhập.
- * Body: { ownId?: string }
- * Mở cho tất cả role có zaloAccountId.
+ * Cài đặt webhook trên bot server cho tài khoản đang được trỏ tới.
+ * Body: { ownId?: string, targetUserId?: string }
+ *   - targetUserId: ID của NguoiDung cần cài webhook (admin dùng khi xem tài khoản người khác)
+ *   - ownId: Zalo Account ID (nếu không truyền, lấy từ targetUser hoặc user đang đăng nhập)
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -46,13 +47,19 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
 
-  // Xác định ownId: body > user's zaloAccountId > config
-  const currentUser = await prisma.nguoiDung.findUnique({
-    where: { id: session.user.id },
-    select: { zaloAccountId: true, zaloChatId: true, soDienThoai: true },
-  });
+  // targetUserId: admin đang xem tài khoản của người khác → cài webhook cho người đó
+  // Nếu không truyền → cài cho chính mình
+  const targetUserId: string = body?.targetUserId || session.user.id;
 
-  let ownId: string = body?.ownId || currentUser?.zaloAccountId || config.accountId || '';
+  const targetUser = await prisma.nguoiDung.findUnique({
+    where: { id: targetUserId },
+    select: { id: true, zaloAccountId: true, zaloChatId: true, soDienThoai: true },
+  });
+  if (!targetUser) {
+    return NextResponse.json({ ok: false, error: 'Không tìm thấy người dùng' });
+  }
+
+  let ownId: string = body?.ownId || targetUser.zaloAccountId || config.accountId || '';
 
   // Resolve ownId → numeric Zalo ID (không dùng SĐT)
   let accounts: any[] = [];
@@ -68,9 +75,9 @@ export async function POST(request: NextRequest) {
       );
       if (match) {
         ownId = String(match.id ?? match.ownId ?? ownId);
-      } else if (!ownId && currentUser?.soDienThoai) {
-        // Thử match theo SĐT của user
-        const userPhone = currentUser.soDienThoai.replace(/\D/g, '');
+      } else if (!ownId && targetUser.soDienThoai) {
+        // Thử match theo SĐT của target user
+        const userPhone = targetUser.soDienThoai.replace(/\D/g, '');
         const phoneMatch = accounts.find((a: any) =>
           (a.phoneNumber || a.phone || '').replace(/\D/g, '') === userPhone
         );
@@ -88,19 +95,19 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Webhook URL riêng cho user này (per-nguoiDung)
-  const webhookUrl = `${localBase}/api/zalo/webhook/${session.user.id}`;
+  // Webhook URL riêng cho target user (per-nguoiDung)
+  const webhookUrl = `${localBase}/api/zalo/webhook/${targetUser.id}`;
 
-  // Cài webhook chỉ cho tài khoản của user đang đăng nhập
+  // Cài webhook cho tài khoản đang trỏ tới
   const result = await setWebhookOnBotServer(ownId, webhookUrl, webhookUrl, webhookUrl);
 
   if (result.ok) {
-    // Cập nhật zaloAccountId cho user
+    // Cập nhật zaloAccountId cho target user
     await prisma.nguoiDung.update({
-      where: { id: session.user.id },
+      where: { id: targetUser.id },
       data: {
         zaloAccountId: ownId,
-        ...(currentUser?.zaloChatId ? {} : { zaloChatId: ownId }),
+        ...(targetUser.zaloChatId ? {} : { zaloChatId: ownId }),
       },
     }).catch(() => {});
 
@@ -112,7 +119,7 @@ export async function POST(request: NextRequest) {
       await prisma.nguoiDung.updateMany({
         where: {
           soDienThoai: { in: phoneVariants },
-          id: { not: session.user.id },
+          id: { not: targetUser.id },
           zaloAccountId: null,
         },
         data: { zaloAccountId: ownId, zaloChatId: ownId },
@@ -130,7 +137,6 @@ export async function POST(request: NextRequest) {
 
       for (const key of Object.keys(whAccounts)) {
         if (!activeOwnIds.has(key) && !activePhones.has(key)) {
-          // Webhook cho account không còn tồn tại → xóa
           await deleteAccountWebhookFromBotServer(key).catch(() => {});
         }
       }
