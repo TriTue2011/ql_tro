@@ -292,11 +292,15 @@ function WebhookCard({ account }: { account?: AccountData }) {
   const loadStatus = useCallback(async () => {
     setLoadingStatus(true);
     try {
-      const statusRes = await fetch(`/api/zalo-bot/webhook-status${account?.zaloAccountId ? `?ownId=${account.zaloAccountId}` : ''}`).then(r => r.json()).catch(() => null);
+      const params = new URLSearchParams();
+      if (account?.zaloAccountId) params.set('ownId', account.zaloAccountId);
+      if (account?.id) params.set('targetUserId', account.id);
+      const qs = params.toString();
+      const statusRes = await fetch(`/api/zalo-bot/webhook-status${qs ? `?${qs}` : ''}`).then(r => r.json()).catch(() => null);
       if (statusRes?.ok && statusRes.webhooks) setWebhookStatus(statusRes.webhooks);
       else if (statusRes?.error) setWebhookStatus([]);
     } finally { setLoadingStatus(false); }
-  }, [account?.zaloAccountId]);
+  }, [account?.zaloAccountId, account?.id]);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
