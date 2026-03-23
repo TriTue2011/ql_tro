@@ -487,8 +487,11 @@ async function tryAutoLinkByPhone(token: string, chatId: string, accountSelectio
   return false;
 }
 
-/** Gửi lời chào cho người lạ + forward đến nhóm quản lý nếu được cấu hình */
-async function handleStranger(token: string, chatId: string, displayName: string, text: string, accountSelection?: string): Promise<void> {
+/** Gửi lời chào cho người lạ + forward đến nhóm quản lý nếu được cấu hình.
+ *  @param isFromBotServer — true nếu tin nhắn đến từ bot server (zca-js / personal Zalo).
+ *    Trên Zalo cá nhân, chỉ bạn bè mới nhắn được → luôn skip greeting.
+ */
+async function handleStranger(token: string, chatId: string, displayName: string, text: string, accountSelection?: string, isFromBotServer = false): Promise<void> {
   try {
     const rows = await prisma.caiDat.findMany({
       where: { khoa: { in: ['bot_greeting_stranger', 'bot_forward_unknown', 'bot_forward_thread_id'] } },
@@ -496,9 +499,11 @@ async function handleStranger(token: string, chatId: string, displayName: string
     const map: Record<string, string> = {};
     for (const r of rows) map[r.khoa] = r.giaTri?.trim() ?? '';
 
-    // Gửi lời chào — bỏ qua nếu đã là bạn bè, đã cùng nhóm, hoặc đã có lịch sử trò chuyện
+    // Gửi lời chào — bỏ qua nếu:
+    //   - Tin nhắn từ bot server (personal Zalo) → sender đều là bạn bè
+    //   - Đã là bạn bè, đã cùng nhóm, hoặc đã có lịch sử trò chuyện
     const greeting = map['bot_greeting_stranger'];
-    if (greeting) {
+    if (greeting && !isFromBotServer) {
       const alreadyFriend = await isFriend(chatId, displayName);
       const alreadyInGroup = isGroupMember(chatId);
       // Kiểm tra lịch sử: webhook đã lưu tin nhắn hiện tại trước khi gọi hàm này,
@@ -727,8 +732,9 @@ export async function handleZaloUpdate(update: any, token: string): Promise<void
   if (autoLinked) return;
 
   // 6. Không nhận diện được → lời chào + forward + detect pending
+  const isFromBotServer = !!(update?.data?.uidFrom);
   await Promise.all([
-    handleStranger(token, chatId, displayName, text),
+    handleStranger(token, chatId, displayName, text, undefined, isFromBotServer),
     detectAndStorePending(update),
   ]);
 }
@@ -778,5 +784,7 @@ export async function handleZaloAutoReply(update: any, token = '', accountSelect
   if (isRegistered) return;
 
   // Người lạ → lời chào + forward
-  await handleStranger(token, chatId, displayName, text, accountSelection);
+  // Bot server (zca-js / personal Zalo): tất cả người gửi đều là bạn bè → skip greeting
+  const isFromBotServer = !!(data?.uidFrom || (!msg?.from?.id && update?.uidFrom));
+  await handleStranger(token, chatId, displayName, text, accountSelection, isFromBotServer);
 }
