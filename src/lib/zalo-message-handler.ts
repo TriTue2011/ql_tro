@@ -25,25 +25,35 @@ import { askAI, classifyIntent } from '@/lib/ai-chat';
 // ─── Cache bạn bè + thành viên nhóm ─────────────────────────────────────────
 // Refresh ngầm mỗi khi có tin nhắn đến, không block luồng xử lý.
 let _friendsCache: Set<string> | null = null;
+let _friendsNamesCache: Set<string> | null = null; // tên bạn bè (normalized) để match khi ID khác format
 let _friendsRefreshing = false;
 let _groupMembersCache: Set<string> | null = null;
 let _groupMembersRefreshing = false;
+
+function buildFriendsCache(friends: any[]): void {
+  const ids = new Set<string>();
+  const names = new Set<string>();
+  for (const f of friends) {
+    for (const key of ['uid', 'id', 'userId', 'userKey', 'zaloId', 'globalId']) {
+      const v = f[key];
+      if (v) ids.add(String(v));
+    }
+    // Cache tên để match khi webhook chatId khác userId format
+    for (const key of ['displayName', 'zaloName', 'name']) {
+      const n = f[key];
+      if (n && typeof n === 'string' && n.trim()) names.add(n.trim().toLowerCase());
+    }
+  }
+  _friendsCache = ids;
+  _friendsNamesCache = names;
+}
 
 export function refreshFriendsCacheInBackground(): void {
   if (_friendsRefreshing) return;
   _friendsRefreshing = true;
   getAllFriendsFromBotServer()
     .then(result => {
-      if (result.ok && result.friends) {
-        const ids = new Set<string>();
-        for (const f of result.friends) {
-          for (const key of ['uid', 'id', 'userId', 'userKey', 'zaloId', 'globalId']) {
-            const v = f[key];
-            if (v) ids.add(String(v));
-          }
-        }
-        _friendsCache = ids;
-      }
+      if (result.ok && result.friends) buildFriendsCache(result.friends);
     })
     .catch(() => {})
     .finally(() => { _friendsRefreshing = false; });
@@ -80,23 +90,18 @@ export function refreshGroupMembersCacheInBackground(): void {
     .finally(() => { _groupMembersRefreshing = false; });
 }
 
-async function isFriend(chatId: string): Promise<boolean> {
+async function isFriend(chatId: string, displayName?: string): Promise<boolean> {
   if (!_friendsCache) {
     await getAllFriendsFromBotServer().then(result => {
-      if (result.ok && result.friends) {
-        const ids = new Set<string>();
-        for (const f of result.friends) {
-          // Cache tất cả các dạng ID vì webhook chatId có thể khác userId
-          for (const key of ['uid', 'id', 'userId', 'userKey', 'zaloId', 'globalId']) {
-            const v = f[key];
-            if (v) ids.add(String(v));
-          }
-        }
-        _friendsCache = ids;
-      }
+      if (result.ok && result.friends) buildFriendsCache(result.friends);
     }).catch(() => {});
   }
-  return _friendsCache?.has(chatId) ?? false;
+  // Check bằng ID trước
+  if (_friendsCache?.has(chatId)) return true;
+  // Zalo webhook dùng chatId khác format userId trong friend list,
+  // nên fallback match theo displayName
+  if (displayName && _friendsNamesCache?.has(displayName.trim().toLowerCase())) return true;
+  return false;
 }
 
 function isGroupMember(chatId: string): boolean {
@@ -483,7 +488,7 @@ async function handleStranger(token: string, chatId: string, displayName: string
     // Gửi lời chào — bỏ qua nếu đã là bạn bè, đã cùng nhóm, hoặc đã có lịch sử trò chuyện
     const greeting = map['bot_greeting_stranger'];
     if (greeting) {
-      const alreadyFriend = await isFriend(chatId);
+      const alreadyFriend = await isFriend(chatId, displayName);
       const alreadyInGroup = isGroupMember(chatId);
       // Kiểm tra lịch sử: webhook đã lưu tin nhắn hiện tại trước khi gọi hàm này,
       // nên nếu có > 1 tin nhắn → đã có hội thoại trước đó → không phải người mới.
