@@ -68,21 +68,26 @@ export function buildFriendRequestMessage(
   toaNha: { tenToaNha: string; diaChi: any } | null,
 ): string {
   const MAX = 150;
-  const loai = entityType === 'khachThue' ? 'ở' : 'làm việc';
-  const tenToaNha = toaNha?.tenToaNha ?? '';
+  const dc = toaNha?.diaChi as Record<string, string | undefined> | null;
+  const soNha = dc?.soNha ?? '';
+  const duong = dc?.duong ?? '';
+  const diaChiNgan = [soNha, duong].filter(Boolean).join(', ');
 
-  // Thử bản đầy đủ trước
-  if (tenToaNha) {
-    const full = `Chào ${ten}, mình từ ${tenToaNha}. Bạn vừa được thêm vào hệ thống quản lý. Nhắn "Đúng" để nhận thông báo qua Zalo.`;
-    if (full.length <= MAX) return full;
+  if (entityType === 'khachThue') {
+    // Khách thuê: Chào {tên}, kết bạn với tôi để nhận thông báo từ nhà trọ {số nhà}, {đường}.
+    if (diaChiNgan) {
+      const full = `Chào ${ten}, kết bạn với tôi để nhận thông báo từ nhà trọ ${diaChiNgan}.`;
+      if (full.length <= MAX) return full;
+    }
+    return `Chào ${ten}, kết bạn với tôi để nhận thông báo từ nhà trọ.`.slice(0, MAX);
   }
 
-  // Bản rút gọn không có tên tòa nhà
-  const short = `Chào ${ten}, bạn vừa được thêm vào hệ thống quản lý nhà trọ. Nhắn "Đúng" để nhận thông báo qua Zalo.`;
-  if (short.length <= MAX) return short;
-
-  // Bản tối giản
-  return `Chào ${ten}, bạn được thêm vào hệ thống nhà trọ. Nhắn "Đúng" để nhận thông báo Zalo.`.slice(0, MAX);
+  // Quản lý, nhân viên: Chào {tên}, Bạn đồng ý kết bạn để xác nhận bây giờ làm việc nhà trọ {số nhà}, {đường}
+  if (diaChiNgan) {
+    const full = `Chào ${ten}, Bạn đồng ý kết bạn để xác nhận bây giờ làm việc nhà trọ ${diaChiNgan}.`;
+    if (full.length <= MAX) return full;
+  }
+  return `Chào ${ten}, Bạn đồng ý kết bạn để xác nhận bây giờ làm việc nhà trọ.`.slice(0, MAX);
 }
 
 // ─── Gửi: ưu tiên kết bạn kèm nội dung nếu chưa là bạn ──────────────────────
