@@ -80,6 +80,8 @@ interface AccountData {
   zaloBotUsername: string | null;
   zaloBotPassword: string | null;
   zaloBotTtl: number | null;
+  zaloWebhookToken: string | null;
+  zaloWebhookBaseUrl: string | null;
   nhanThongBaoZalo: boolean;
   settings: ZaloSettings | null;
   botOnline?: boolean | null; // true=online, false=bị out, null=chưa check
@@ -109,6 +111,7 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
   const [zaloBotUsername, setZaloBotUsername] = useState(account?.zaloBotUsername ?? "");
   const [zaloBotPassword, setZaloBotPassword] = useState(account?.zaloBotPassword ? "••••••••" : "");
   const [zaloBotTtl, setZaloBotTtl] = useState(String(account?.zaloBotTtl ?? ""));
+  const [zaloWebhookBaseUrl, setZaloWebhookBaseUrl] = useState(account?.zaloWebhookBaseUrl ?? "");
   const [saving, setSaving] = useState(false);
 
   // QR state
@@ -144,6 +147,7 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
           zaloBotUsername: zaloBotUsername.trim() || null,
           zaloBotPassword: zaloBotPassword.includes("••••") ? undefined : (zaloBotPassword || null),
           zaloBotTtl: zaloBotTtl.trim() ? parseInt(zaloBotTtl, 10) || 0 : null,
+          zaloWebhookBaseUrl: zaloWebhookBaseUrl.trim() || null,
         }),
       });
       const data = await res.json();
@@ -239,6 +243,11 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
                 <Input value={zaloBotTtl} onChange={e => setZaloBotTtl(e.target.value)}
                   type="number" min={0} className="h-7 text-xs font-mono" placeholder="0 = không tự hủy" disabled={!canEdit} />
               </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-gray-500">URL App (webhook callback)</Label>
+                <Input value={zaloWebhookBaseUrl} onChange={e => setZaloWebhookBaseUrl(e.target.value)}
+                  className="h-7 text-xs font-mono" placeholder="http://172.16.10.27:3000" disabled={!canEdit} />
+              </div>
             </div>
             {canEdit && (
               <Button size="sm" onClick={handleSaveConfig} disabled={saving} className="text-xs gap-1.5">
@@ -279,6 +288,8 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
 function WebhookCard({ account }: { account?: AccountData }) {
   const [setting, setSetting] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [result, setResult] = useState<{ ok: boolean; webhookUrl?: string; error?: string; ownId?: string } | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; status?: number; error?: string } | null>(null);
   const [webhookStatus, setWebhookStatus] = useState<{
@@ -307,6 +318,26 @@ function WebhookCard({ account }: { account?: AccountData }) {
   }, [account?.zaloAccountId, account?.id]);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/zalo-bot/generate-webhook-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: account?.id || undefined }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setGeneratedUrl(data.webhookUrl);
+        toast.success("Đã tạo URL webhook mới");
+      } else {
+        toast.error(data.error || "Tạo URL thất bại");
+      }
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSet = async () => {
     setSetting(true);
@@ -441,6 +472,15 @@ function WebhookCard({ account }: { account?: AccountData }) {
           </div>
         )}
 
+        {/* URL webhook đã tạo */}
+        {generatedUrl && (
+          <div className="border rounded-md p-2.5 space-y-1.5 bg-blue-50">
+            <div className="text-[11px] font-medium text-blue-700">URL webhook mới (đã tạo)</div>
+            <div className="text-[11px] font-mono text-blue-800 break-all select-all">{generatedUrl}</div>
+            <div className="text-[10px] text-blue-500">Nhấn &quot;Cài webhook&quot; để cài URL này lên bot server</div>
+          </div>
+        )}
+
         {/* Bot Server đang dùng */}
         {account?.zaloBotServerUrl && (
           <div className="text-[10px] text-gray-400">
@@ -449,6 +489,10 @@ function WebhookCard({ account }: { account?: AccountData }) {
         )}
 
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generating} className="text-xs gap-1.5">
+            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Tạo URL
+          </Button>
           <Button size="sm" onClick={handleSet} disabled={setting} className="flex-1 text-xs gap-1.5">
             <Webhook className="h-3.5 w-3.5" />
             {setting ? "Đang cài..." : "Cài webhook"}

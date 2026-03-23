@@ -75,15 +75,27 @@ function normalizeWebhookPayload(update: any): {
 
 // ─── Lấy thông tin chủ tài khoản ─────────────────────────────────────────────
 
-async function getNguoiDungInfo(nguoiDungId: string) {
-  return prisma.nguoiDung.findUnique({
-    where: { id: nguoiDungId },
+async function getNguoiDungInfo(nguoiDungIdOrToken: string) {
+  // Thử tìm bằng ID trước, nếu không có thì thử bằng zaloWebhookToken
+  let nd = await prisma.nguoiDung.findUnique({
+    where: { id: nguoiDungIdOrToken },
     select: {
       id: true,
       zaloAccountId: true,
       toaNhaQuanLy: { select: { toaNhaId: true } },
     },
   });
+  if (!nd) {
+    nd = await prisma.nguoiDung.findUnique({
+      where: { zaloWebhookToken: nguoiDungIdOrToken },
+      select: {
+        id: true,
+        zaloAccountId: true,
+        toaNhaQuanLy: { select: { toaNhaId: true } },
+      },
+    });
+  }
+  return nd;
 }
 
 // ─── Lưu tin nhắn ─────────────────────────────────────────────────────────────

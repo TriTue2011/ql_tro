@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
     select: {
       id: true, zaloAccountId: true, zaloChatId: true, soDienThoai: true,
       zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true,
+      zaloWebhookToken: true, zaloWebhookBaseUrl: true,
     },
   });
   if (!targetUser) {
@@ -67,12 +68,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Chưa cấu hình Bot Server (cả riêng lẫn hệ thống)' });
   }
 
-  // Base URL: bắt buộc dùng app_local_url (IP LAN) — bot server cùng mạng LAN
-  const localBase = await getLocalBaseUrl();
+  // Base URL: ưu tiên zaloWebhookBaseUrl riêng của user, fallback sang app_local_url
+  const userBaseUrl = targetUser.zaloWebhookBaseUrl?.replace(/\/$/, '') || null;
+  const localBase = userBaseUrl || await getLocalBaseUrl();
   if (!localBase) {
     return NextResponse.json({
       ok: false,
-      error: 'Chưa cấu hình app_local_url trong Cài đặt. Cần IP LAN của ứng dụng (VD: http://172.16.10.27:3000)',
+      error: 'Chưa cấu hình URL App (webhook callback) trong Bot Server hoặc app_local_url trong Cài đặt.',
     });
   }
 
@@ -111,8 +113,9 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Webhook URL riêng cho target user (per-nguoiDung)
-  const webhookUrl = `${localBase}/api/zalo/webhook/${targetUser.id}`;
+  // Webhook URL riêng cho target user — dùng token ngẫu nhiên nếu có, fallback sang userId
+  const webhookPath = targetUser.zaloWebhookToken || targetUser.id;
+  const webhookUrl = `${localBase}/api/zalo/webhook/${webhookPath}`;
 
   // Cài webhook trên bot server của target user
   const result = await setWebhookOnBotServer(ownId, webhookUrl, webhookUrl, webhookUrl, botConfig);
