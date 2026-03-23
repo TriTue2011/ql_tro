@@ -8,7 +8,7 @@ import prisma from "@/lib/prisma";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface BotConfig {
+export interface BotConfig {
   serverUrl: string;
   username: string;
   password: string;
@@ -92,8 +92,9 @@ async function botRequest(
   endpoint: string,
   body?: Record<string, any>,
   timeoutMs = 15_000,
+  configOverride?: BotConfig | null,
 ): Promise<DataResult> {
-  const config = await getBotConfig();
+  const config = configOverride ?? await getBotConfig();
   if (!config) return { ok: false, error: "Chưa cấu hình zalo_bot_server_url" };
 
   let headers = await getAuth(config);
@@ -146,10 +147,10 @@ async function ac(accountSelection?: string): Promise<string> {
 
 // ─── Account / Server ─────────────────────────────────────────────────────────
 
-export async function getAccountsFromBotServer(): Promise<{ serverUrl: string; accounts: any[]; error?: string }> {
-  const config = await getBotConfig();
+export async function getAccountsFromBotServer(configOverride?: BotConfig | null): Promise<{ serverUrl: string; accounts: any[]; error?: string }> {
+  const config = configOverride ?? await getBotConfig();
   if (!config) return { serverUrl: "", accounts: [], error: "Chưa cấu hình zalo_bot_server_url" };
-  const r = await botRequest("GET", "/api/accounts");
+  const r = await botRequest("GET", "/api/accounts", undefined, 15_000, config);
   if (!r.ok) return { serverUrl: config.serverUrl, accounts: [], error: r.error };
   const accounts = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.accounts ?? []);
   return { serverUrl: config.serverUrl, accounts };
@@ -172,13 +173,14 @@ export async function setWebhookOnBotServer(
   messageWebhookUrl: string,
   groupEventWebhookUrl?: string,
   reactionWebhookUrl?: string,
+  configOverride?: BotConfig | null,
 ): Promise<OkResult> {
   const r = await botRequest("POST", "/api/account-webhook", {
     ownId,
     messageWebhookUrl,
     groupEventWebhookUrl: groupEventWebhookUrl || messageWebhookUrl,
     reactionWebhookUrl: reactionWebhookUrl || messageWebhookUrl,
-  }, 10_000);
+  }, 10_000, configOverride);
   return { ok: r.ok, error: r.error };
 }
 
