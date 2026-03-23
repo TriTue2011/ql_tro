@@ -132,8 +132,8 @@ export default async function middleware(req: NextRequest) {
 
   // ── Authorization checks ──────────────────────────────────────────────────
 
-  // /api/webhook/* không cần session (public endpoint)
-  if (pathname.startsWith('/api/webhook/')) {
+  // /api/webhook/* và /api/zalo/webhook/* không cần session (public endpoint)
+  if (pathname.startsWith('/api/webhook/') || pathname.startsWith('/api/zalo/webhook/')) {
     const response = NextResponse.next();
     return addSecurityHeaders(response, req);
   }
@@ -226,6 +226,7 @@ export default async function middleware(req: NextRequest) {
     !pathname.startsWith('/api/auth/') &&
     !pathname.startsWith('/api/khach-thue/') &&
     !pathname.startsWith('/api/webhook/') &&
+    !pathname.startsWith('/api/zalo/webhook/') &&
     pathname !== '/api/upload';
   if (isManagementApi && token?.role === 'khachThue') {
     return new NextResponse(

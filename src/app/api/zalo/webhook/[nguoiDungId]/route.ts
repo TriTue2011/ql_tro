@@ -172,14 +172,11 @@ export async function POST(
   { params }: { params: { nguoiDungId: string } },
 ) {
   try {
-    // Xác thực secret (dùng chung secret toàn cục)
-    const secretRow = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_secret' } });
-    const secret = secretRow?.giaTri?.trim() || null;
-    if (secret) {
-      const headerSecret = request.headers.get('X-Bot-Api-Secret-Token');
-      if (!headerSecret || headerSecret !== secret) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
+    // Xác thực qua token trong URL (nguoiDungId chính là zaloWebhookToken)
+    // Không cần check zalo_webhook_secret vì bot server không hỗ trợ gửi header secret
+    const nd = await getNguoiDungInfo(params.nguoiDungId);
+    if (!nd) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     let body: any;
@@ -198,8 +195,7 @@ export async function POST(
       return NextResponse.json({ message: 'Group message skipped' });
     }
 
-    // Lấy thông tin chủ bot (để biết accountId khi gửi phản hồi)
-    const nd = await getNguoiDungInfo(params.nguoiDungId);
+    // nd đã được lấy ở trên khi xác thực token
     const accountId = nd?.zaloAccountId ?? undefined;
 
     await Promise.all([
