@@ -283,14 +283,26 @@ function WebhookCard({ account }: { account?: AccountData }) {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; webhookUrl?: string; error?: string } | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; status?: number; error?: string } | null>(null);
+  const [webhookStatus, setWebhookStatus] = useState<{
+    ownId: string; phoneNumber: string; isOnline: boolean; webhookUrl: string | null; hasWebhook: boolean;
+  }[] | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(false);
 
-  // Load webhook URL đã lưu từ DB khi vào trang
-  useEffect(() => {
-    fetch("/api/zalo-bot/saved-webhook-url")
-      .then(r => r.json())
-      .then(d => { if (d.webhookUrl) setWebhookUrl(d.webhookUrl); })
-      .catch(() => {});
-  }, []);
+  // Load webhook URL đã lưu + kiểm tra trạng thái webhook trên bot server
+  const loadStatus = useCallback(async () => {
+    setLoadingStatus(true);
+    try {
+      const [savedRes, statusRes] = await Promise.all([
+        fetch("/api/zalo-bot/saved-webhook-url").then(r => r.json()).catch(() => null),
+        fetch(`/api/zalo-bot/webhook-status${account?.zaloAccountId ? `?ownId=${account.zaloAccountId}` : ''}`).then(r => r.json()).catch(() => null),
+      ]);
+      if (savedRes?.webhookUrl) setWebhookUrl(savedRes.webhookUrl);
+      if (statusRes?.ok && statusRes.webhooks) setWebhookStatus(statusRes.webhooks);
+      else if (statusRes?.error) setWebhookStatus([]);
+    } finally { setLoadingStatus(false); }
+  }, [account?.zaloAccountId]);
+
+  useEffect(() => { loadStatus(); }, [loadStatus]);
 
   const handleSet = async () => {
     setSetting(true);
@@ -306,6 +318,7 @@ function WebhookCard({ account }: { account?: AccountData }) {
       if (data.ok) {
         setWebhookUrl(data.webhookUrl || "");
         toast.success("Đã cài đặt webhook thành công");
+        loadStatus(); // Reload trạng thái webhook
       } else {
         toast.error(data.error || "Cài đặt webhook thất bại");
       }
@@ -369,6 +382,39 @@ function WebhookCard({ account }: { account?: AccountData }) {
         <CardDescription className="text-xs">Cài đặt webhook nhận tin nhắn Zalo từ bot server</CardDescription>
       </CardHeader>
       <CardContent className="px-4 pb-4 space-y-3">
+        {/* Trạng thái webhook trên bot server */}
+        {loadingStatus ? (
+          <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
+            <Loader2 className="h-3 w-3 animate-spin" /> Đang kiểm tra webhook...
+          </div>
+        ) : webhookStatus !== null && (
+          <div className="space-y-1">
+            {webhookStatus.length === 0 ? (
+              <div className="text-xs px-2 py-1.5 rounded bg-amber-50 text-amber-700">
+                Không kết nối được bot server
+              </div>
+            ) : webhookStatus.map(wh => (
+              <div key={wh.ownId} className={`text-xs px-2 py-1.5 rounded flex items-center gap-1.5 ${
+                !wh.isOnline ? "bg-red-50 text-red-600" :
+                wh.hasWebhook ? "bg-green-50 text-green-700" :
+                "bg-amber-50 text-amber-700"
+              }`}>
+                <span className={`text-[9px] ${!wh.isOnline ? "text-red-500" : wh.hasWebhook ? "text-green-500" : "text-amber-500"}`}>●</span>
+                <span className="font-mono">{wh.phoneNumber || wh.ownId}</span>
+                <span className="mx-0.5">—</span>
+                {!wh.isOnline ? "Đã đăng xuất" :
+                 wh.hasWebhook ? "Webhook OK" :
+                 "Chưa cài webhook"}
+                {wh.hasWebhook && wh.webhookUrl && (
+                  <span className="text-[10px] text-gray-400 truncate ml-1 max-w-[150px]" title={wh.webhookUrl}>
+                    ({wh.webhookUrl.replace(/^https?:\/\//, '').split('/api/')[1] ? '/api/' + wh.webhookUrl.split('/api/')[1] : wh.webhookUrl})
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <Label className="text-xs text-gray-500">Zalo Account ID (ownId)</Label>
           <Input value={ownId} onChange={e => setOwnId(e.target.value)}
