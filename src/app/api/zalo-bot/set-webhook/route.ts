@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     webhookUrl = `${base}/api/webhook/${webhookId}`;
   }
 
-  const result = await setWebhookOnBotServer(ownId, webhookUrl);
+  const result = await setWebhookOnBotServer(ownId, webhookUrl, webhookUrl, webhookUrl);
 
   // Lưu URL vào DB để form load lại đúng
   if (result.ok) {
@@ -177,13 +177,13 @@ export async function POST(request: NextRequest) {
           ? `${base}/api/zalo/webhook/${linkedUser.id}`
           : webhookUrl; // fallback dùng webhook chung nếu chưa link user
 
-        await setWebhookOnBotServer(accId, accWebhookUrl).catch(() => {});
+        await setWebhookOnBotServer(accId, accWebhookUrl, accWebhookUrl, accWebhookUrl).catch(() => {});
       }
 
       // Set webhook riêng cho user hiện tại (ownId) nếu khác webhook chung
       const perUserUrl = `${base}/api/zalo/webhook/${session.user.id}`;
       if (perUserUrl !== webhookUrl) {
-        await setWebhookOnBotServer(ownId, perUserUrl).catch(() => {});
+        await setWebhookOnBotServer(ownId, perUserUrl, perUserUrl, perUserUrl).catch(() => {});
       }
     } catch { /* bỏ qua nếu không lấy được danh sách */ }
   }
