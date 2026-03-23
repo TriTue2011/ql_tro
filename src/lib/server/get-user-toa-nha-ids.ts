@@ -16,7 +16,8 @@ export async function getUserToaNhaIds(userId: string, role: string): Promise<st
 
   const [owned, managed] = await Promise.all([
     // chuNha thấy tòa nhà họ sở hữu qua chuSoHuuId
-    (role === 'chuNha' || role === 'dongChuTro')
+    // dongChuTro KHÔNG sở hữu tòa nhà — chỉ thấy qua ToaNhaNguoiQuanLy
+    role === 'chuNha'
       ? prisma.toaNha.findMany({ where: { chuSoHuuId: userId }, select: { id: true } })
       : [],
     // Tất cả role thấy tòa nhà được gán qua ToaNhaNguoiQuanLy
