@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
     select: {
       id: true, zaloAccountId: true, zaloChatId: true, soDienThoai: true,
       zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true,
+      zaloWebhookToken: true,
     },
   });
   if (!targetUser) {
@@ -111,8 +112,9 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Webhook URL riêng cho target user (per-nguoiDung)
-  const webhookUrl = `${localBase}/api/zalo/webhook/${targetUser.id}`;
+  // Webhook URL riêng cho target user — dùng token ngẫu nhiên nếu có, fallback sang userId
+  const webhookPath = targetUser.zaloWebhookToken || targetUser.id;
+  const webhookUrl = `${localBase}/api/zalo/webhook/${webhookPath}`;
 
   // Cài webhook trên bot server của target user
   const result = await setWebhookOnBotServer(ownId, webhookUrl, webhookUrl, webhookUrl, botConfig);
