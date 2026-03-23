@@ -112,10 +112,10 @@ function normalizeName(name: string): string {
     .trim();
 }
 
-async function sendReply(token: string, chatId: string, text: string): Promise<void> {
+async function sendReply(token: string, chatId: string, text: string, accountSelection?: string): Promise<void> {
   try {
     if (await isBotServerMode()) {
-      await sendMessageViaBotServer(chatId, text);
+      await sendMessageViaBotServer(chatId, text, 0, accountSelection);
       return;
     }
     await fetch(`${ZALO_API}/bot${token}/sendMessage`, {
@@ -169,7 +169,7 @@ async function findKhachThueByZaloChatId(chatId: string) {
 }
 
 /** Đăng ký tự động khi khách thuê gửi số điện thoại */
-async function handlePhoneRegistration(token: string, chatId: string, rawText: string): Promise<boolean> {
+async function handlePhoneRegistration(token: string, chatId: string, rawText: string, accountSelection?: string): Promise<boolean> {
   const text = rawText.trim();
 
   const looksLikePhone = /^[\d\s+\-()]{9,15}$/.test(text);
@@ -183,6 +183,7 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
       '❌ Số điện thoại không đúng định dạng.\n\n' +
       'Vui lòng gửi số điện thoại 10 số bắt đầu bằng 0.\n' +
       'Ví dụ: 0912345678',
+      accountSelection,
     );
     return true;
   }
@@ -198,6 +199,7 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
       if (nguoiDung.zaloChatId === chatId) {
         await sendReply(token, chatId,
           `✅ Tài khoản ${nguoiDung.ten} đã liên kết Zalo này rồi.`,
+          accountSelection,
         );
         return true;
       }
@@ -209,6 +211,7 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
         `✅ Liên kết thành công!\n\n` +
         `Xin chào ${nguoiDung.ten}, tài khoản quản lý của bạn đã được liên kết với Zalo này.\n` +
         'Từ giờ hệ thống sẽ nhận dạng bạn qua cuộc trò chuyện này.',
+        accountSelection,
       );
       return true;
     }
@@ -227,6 +230,7 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
         token, chatId,
         '✅ Bạn đã đăng ký nhận thông báo Zalo rồi.\n\n' +
         'Để điều chỉnh cài đặt, đăng nhập cổng thông tin khách thuê → Thông tin cá nhân.',
+        accountSelection,
       );
       return true;
     }
@@ -241,6 +245,7 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
       '▶ Đăng nhập cổng thông tin khách thuê\n' +
       '▶ Vào mục "Thông tin cá nhân"\n' +
       '▶ Chọn bật/tắt "Nhận thông báo qua Zalo"',
+      accountSelection,
     );
     return true;
   } catch (err) {
@@ -340,7 +345,7 @@ async function getTenantContext(chatId: string): Promise<string> {
  * - Fallback: liên hệ phụ trách hoặc zalo_tin_nhan_ho_tro
  * Trả về true nếu đã xử lý.
  */
-async function handleRegisteredTenant(token: string, chatId: string, text: string): Promise<boolean> {
+async function handleRegisteredTenant(token: string, chatId: string, text: string, accountSelection?: string): Promise<boolean> {
   const kt = await findKhachThueByZaloChatId(chatId);
   if (!kt) return false;
 
@@ -364,7 +369,7 @@ async function handleRegisteredTenant(token: string, chatId: string, text: strin
       ];
       const aiReply = await askAI(messages);
       if (aiReply) {
-        await sendReply(token, chatId, aiReply);
+        await sendReply(token, chatId, aiReply, accountSelection);
         // Lưu tin nhắn bot vào lịch sử
         await prisma.zaloMessage.create({
           data: { chatId, content: aiReply, role: 'bot', eventName: 'bot_reply', rawPayload: {} },
@@ -385,14 +390,14 @@ async function handleRegisteredTenant(token: string, chatId: string, text: strin
         return `${i + 1}. ${c.ten}${vaiTro}\n   📱 ${c.soDienThoai}`;
       }),
     ];
-    await sendReply(token, chatId, lines.join('\n'));
+    await sendReply(token, chatId, lines.join('\n'), accountSelection);
     return true;
   }
 
   // Fallback: nội dung toàn cục
   const hoTroMsg = await getHoTroMessage();
   if (!hoTroMsg) return true; // đã đăng ký nhưng chưa cấu hình → im lặng
-  await sendReply(token, chatId, hoTroMsg);
+  await sendReply(token, chatId, hoTroMsg, accountSelection);
   return true;
 }
 
@@ -401,7 +406,7 @@ async function handleRegisteredTenant(token: string, chatId: string, text: strin
  * Chỉ chạy khi đang ở bot server mode.
  * Trả về true nếu đã liên kết thành công (bỏ qua stranger flow).
  */
-async function tryAutoLinkByPhone(token: string, chatId: string): Promise<boolean> {
+async function tryAutoLinkByPhone(token: string, chatId: string, accountSelection?: string): Promise<boolean> {
   const inBotMode = await isBotServerMode();
   if (!inBotMode) return false;
 
@@ -450,6 +455,7 @@ async function tryAutoLinkByPhone(token: string, chatId: string): Promise<boolea
             `✅ Đăng ký thành công!\n\n` +
             `Xin chào ${c.ten}, từ giờ bạn sẽ nhận thông báo hóa đơn và hợp đồng qua Zalo này.\n\n` +
             'Để điều chỉnh cài đặt, đăng nhập cổng thông tin khách thuê → Thông tin cá nhân.',
+            accountSelection,
           );
         } else {
           await prisma.nguoiDung.update({ where: { id: c.id }, data: { zaloChatId: chatId } });
@@ -457,6 +463,7 @@ async function tryAutoLinkByPhone(token: string, chatId: string): Promise<boolea
           await sendReply(token, chatId,
             `✅ Liên kết thành công!\n\n` +
             `Xin chào ${c.ten}, tài khoản quản lý của bạn đã được liên kết với Zalo này.`,
+            accountSelection,
           );
         }
         return true;
@@ -468,7 +475,7 @@ async function tryAutoLinkByPhone(token: string, chatId: string): Promise<boolea
 }
 
 /** Gửi lời chào cho người lạ + forward đến nhóm quản lý nếu được cấu hình */
-async function handleStranger(token: string, chatId: string, displayName: string, text: string): Promise<void> {
+async function handleStranger(token: string, chatId: string, displayName: string, text: string, accountSelection?: string): Promise<void> {
   try {
     const rows = await prisma.caiDat.findMany({
       where: { khoa: { in: ['bot_greeting_stranger', 'bot_forward_unknown', 'bot_forward_thread_id'] } },
@@ -481,7 +488,7 @@ async function handleStranger(token: string, chatId: string, displayName: string
     const alreadyFriend = await isFriend(chatId);
     const alreadyInGroup = isGroupMember(chatId);
     if (greeting && !alreadyFriend && !alreadyInGroup) {
-      await sendReply(token, chatId, greeting);
+      await sendReply(token, chatId, greeting, accountSelection);
       await prisma.zaloMessage.create({
         data: { chatId, content: greeting, role: 'bot', eventName: 'bot_greeting', rawPayload: {} },
       }).catch(() => {});
@@ -498,7 +505,7 @@ async function handleStranger(token: string, chatId: string, displayName: string
         `🆔 ChatId: ${chatId}`,
         looksLikePhone ? `📱 SĐT gửi: ${text.trim()}` : `💬 Nội dung: ${text}`,
       ].join('\n');
-      await sendReply(token, forwardThreadId, fwdMsg);
+      await sendReply(token, forwardThreadId, fwdMsg, accountSelection);
     }
   } catch { /* fire-and-forget */ }
 }
@@ -740,14 +747,14 @@ export async function handleZaloAutoReply(update: any, token = '', accountSelect
 
   // Số điện thoại → đăng ký
   if (text) {
-    const handled = await handlePhoneRegistration(token, chatId, text);
+    const handled = await handlePhoneRegistration(token, chatId, text, accountSelection);
     if (handled) return;
   }
 
   // Khách thuê đã đăng ký → AI reply
-  const isRegistered = await handleRegisteredTenant(token, chatId, text);
+  const isRegistered = await handleRegisteredTenant(token, chatId, text, accountSelection);
   if (isRegistered) return;
 
   // Người lạ → lời chào + forward
-  await handleStranger(token, chatId, displayName, text);
+  await handleStranger(token, chatId, displayName, text, accountSelection);
 }

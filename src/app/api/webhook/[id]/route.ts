@@ -227,12 +227,14 @@ async function handleIncoming(
 
     const update = body?.result ?? body;
 
+    const { ownId: updateOwnId } = normalizeWebhookPayload(update);
+
     await Promise.all([
       saveMessage(update),
       detectAndStorePending(update),
       cleanupOldMessages(),
       notifyHomeAssistant(update),
-      handleZaloAutoReply(update),
+      handleZaloAutoReply(update, '', updateOwnId || undefined),
     ]);
 
     return NextResponse.json({ message: 'Success' });
