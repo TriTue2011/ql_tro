@@ -68,12 +68,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Chưa cấu hình Bot Server (cả riêng lẫn hệ thống)' });
   }
 
-  // Base URL: dùng zaloBotServerUrl (URL bot server) làm base cho webhook, fallback sang app_local_url
-  const localBase = botConfig.serverUrl || await getLocalBaseUrl();
+  // Base URL: dùng app_local_url (URL app ql_tro, VD: http://172.16.10.27:3000)
+  // KHÔNG dùng zaloBotServerUrl vì đó là URL bot server (port khác)
+  const localBase = await getLocalBaseUrl();
   if (!localBase) {
     return NextResponse.json({
       ok: false,
-      error: 'Chưa cấu hình URL Bot Server hoặc app_local_url trong Cài đặt.',
+      error: 'Chưa cấu hình app_local_url trong Cài đặt. Cần URL ứng dụng (VD: http://172.16.10.27:3000)',
     });
   }
 
