@@ -88,8 +88,14 @@ export async function GET() {
   function checkBotOnline(account: { zaloAccountId?: string | null; soDienThoai?: string | null }): boolean | null {
     // null = chưa cấu hình bot server hoặc chưa link zaloAccountId
     if (botAccountIds.size === 0) return null;
-    if (!account.zaloAccountId) return null;
-    return botAccountIds.has(account.zaloAccountId);
+    if (!account.zaloAccountId && !account.soDienThoai) return null;
+    // Check bằng zaloAccountId hoặc SĐT (trường hợp zaloAccountId lưu dạng SĐT)
+    if (account.zaloAccountId && botAccountIds.has(account.zaloAccountId)) return true;
+    if (account.soDienThoai) {
+      const phone = account.soDienThoai;
+      if (botAccountIds.has(phone) || botAccountIds.has(phone.replace(/^0/, '+84')) || botAccountIds.has(phone.replace(/^\+84/, '0'))) return true;
+    }
+    return account.zaloAccountId ? false : null;
   }
 
   // Gắn đúng ZaloThongBaoCaiDat cho từng (nguoiDung × toaNha)
