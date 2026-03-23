@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { notifyTenantsOfNewManager } from '@/lib/zalo-auto-link';
 
 async function getMyBuildingIds(userId: string) {
   const rows = await prisma.toaNha.findMany({
@@ -68,12 +69,28 @@ export async function PUT(
       const hasArrayIds = Array.isArray(toaNhaIds);
       const hasSingleId = toaNhaId !== undefined;
       if (hasArrayIds || hasSingleId) {
+        // Lấy danh sách tòa nhà cũ để so sánh
+        const oldAssignments = await prisma.toaNhaNguoiQuanLy.findMany({
+          where: { nguoiDungId: id, toaNhaId: { in: myBuildingIds } },
+          select: { toaNhaId: true },
+        });
+        const oldToaNhaIds = new Set(oldAssignments.map(a => a.toaNhaId));
+
         const idsToAssign: string[] = hasArrayIds
           ? (toaNhaIds as string[]).filter((tid: string) => myBuildingIds.includes(tid))
           : (toaNhaId && myBuildingIds.includes(toaNhaId) ? [toaNhaId] : []);
         await prisma.toaNhaNguoiQuanLy.deleteMany({ where: { nguoiDungId: id, toaNhaId: { in: myBuildingIds } } });
         for (const tid of idsToAssign) {
           await prisma.toaNhaNguoiQuanLy.create({ data: { toaNhaId: tid, nguoiDungId: id } }).catch(() => {});
+        }
+
+        // Gửi thông báo đến khách thuê nếu quản lý được gán tòa nhà mới
+        const targetRole = role ?? (await prisma.nguoiDung.findUnique({ where: { id }, select: { vaiTro: true } }))?.vaiTro;
+        if (targetRole === 'quanLy' || targetRole === 'dongChuTro') {
+          const newToaNhaIds = idsToAssign.filter(tid => !oldToaNhaIds.has(tid));
+          for (const tid of newToaNhaIds) {
+            notifyTenantsOfNewManager(tid, id).catch(() => {});
+          }
         }
       }
 
@@ -97,6 +114,13 @@ export async function PUT(
     await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
     if (role !== 'admin') {
+      // Lấy danh sách tòa nhà cũ để so sánh
+      const oldAssignments = await prisma.toaNhaNguoiQuanLy.findMany({
+        where: { nguoiDungId: id },
+        select: { toaNhaId: true },
+      });
+      const oldToaNhaIds = new Set(oldAssignments.map(a => a.toaNhaId));
+
       await prisma.toaNhaNguoiQuanLy.deleteMany({ where: { nguoiDungId: id } });
       // toaNhaIds (array) ưu tiên hơn toaNhaId (single)
       const idsToAssign: string[] = Array.isArray(toaNhaIds) && toaNhaIds.length > 0
@@ -104,6 +128,14 @@ export async function PUT(
         : (toaNhaId ? [toaNhaId] : []);
       for (const tid of idsToAssign) {
         await prisma.toaNhaNguoiQuanLy.create({ data: { toaNhaId: tid, nguoiDungId: id } }).catch(() => {});
+      }
+
+      // Gửi thông báo đến khách thuê nếu quản lý được gán tòa nhà mới
+      if (role === 'quanLy' || role === 'dongChuTro') {
+        const newToaNhaIds = idsToAssign.filter(tid => !oldToaNhaIds.has(tid));
+        for (const tid of newToaNhaIds) {
+          notifyTenantsOfNewManager(tid, id).catch(() => {});
+        }
       }
     }
 

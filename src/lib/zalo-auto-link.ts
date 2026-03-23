@@ -42,7 +42,7 @@ function formatDiaChiNgan(diaChi: any): string {
   return [soNha, duong, phuong, thanhPho].filter(Boolean).join(', ');
 }
 
-/** Tin nhắn gửi khi đã là bạn bè */
+/** Tin nhắn gửi khi đã là bạn bè — yêu cầu xác nhận */
 export function buildWelcomeMessage(
   ten: string,
   entityType: 'nguoiDung' | 'khachThue',
@@ -52,12 +52,12 @@ export function buildWelcomeMessage(
   const nhaTro = diaChiStr ? `nhà trọ ${diaChiStr}` : 'nhà trọ';
 
   if (entityType === 'khachThue') {
-    return `Chào ${ten}, bạn đã được thêm vào ${nhaTro}. Bạn sẽ nhận thông báo qua Zalo từ bây giờ!`;
+    return `Chào ${ten}, bạn đang ở ${nhaTro}. Bạn cần xác nhận "đúng" hay "không phải" để nhận thông báo qua Zalo từ bây giờ!`;
   }
-  return `Chào ${ten}, bạn đã được xác nhận làm việc tại ${nhaTro}.`;
+  return `Chào ${ten}, bạn đang làm việc tại ${nhaTro}. Bạn cần xác nhận "đúng" hay "không phải".`;
 }
 
-/** Tin nhắn gửi thêm sau khi gửi lời kết bạn */
+/** Tin nhắn gửi thêm sau khi gửi lời kết bạn — yêu cầu xác nhận */
 export function buildFollowUpMessage(
   ten: string,
   entityType: 'nguoiDung' | 'khachThue',
@@ -67,9 +67,22 @@ export function buildFollowUpMessage(
   const nhaTro = diaChiStr ? `nhà trọ ${diaChiStr}` : 'nhà trọ';
 
   if (entityType === 'khachThue') {
-    return `Chào ${ten}, tôi gửi lời kết bạn để bạn nhận thông báo từ ${nhaTro}. Bạn vui lòng đồng ý kết bạn nhé!`;
+    return `Chào ${ten}, bạn đang ở ${nhaTro}. Bạn cần xác nhận "đúng" hay "không phải" để nhận thông báo qua Zalo từ bây giờ!`;
   }
-  return `Chào ${ten}, tôi gửi lời kết bạn để xác nhận bạn làm việc tại ${nhaTro}. Bạn vui lòng đồng ý kết bạn nhé!`;
+  return `Chào ${ten}, bạn đang làm việc tại ${nhaTro}. Bạn cần xác nhận "đúng" hay "không phải".`;
+}
+
+/**
+ * Tin nhắn quản lý mới gửi đến toàn bộ khách thuê trong tòa nhà.
+ * Dùng khi thêm hoặc thay quản lý mới cho tòa nhà.
+ */
+export function buildManagerGreetingMessage(
+  tenQuanLy: string,
+  toaNha: { tenToaNha: string; diaChi: any } | null,
+): string {
+  const diaChiStr = toaNha ? formatDiaChiNgan(toaNha.diaChi) : '';
+  const nhaTro = diaChiStr ? `nhà trọ ${diaChiStr}` : 'nhà trọ';
+  return `Chào bạn, ${tenQuanLy} là quản lý mới của ${nhaTro}. Sau này mọi thông tin xin liên hệ với mình nhé!`;
 }
 
 /**
@@ -413,6 +426,70 @@ export async function autoLinkZaloChatIds(
       await saveChatIdDirectToDB(entityType, entityId, newEntries);
     }
   } catch { /* fire-and-forget, bỏ qua lỗi */ }
+}
+
+// ─── Gửi lời chào quản lý mới đến toàn bộ khách thuê ─────────────────────────
+
+/**
+ * Khi thêm/thay quản lý mới cho tòa nhà, gửi tin nhắn thông báo
+ * đến tất cả khách thuê đang có hợp đồng (có zaloChatId).
+ *
+ * Dùng tài khoản quản lý nếu có quyền (hasDelegate), ngược lại dùng chủ trọ.
+ * Fire-and-forget — gọi không cần await.
+ */
+export async function notifyTenantsOfNewManager(
+  toaNhaId: string,
+  nguoiQuanLyId: string,
+): Promise<void> {
+  try {
+    const inBotMode = await isBotServerMode();
+    if (!inBotMode) return;
+
+    // Lấy thông tin quản lý
+    const quanLy = await prisma.nguoiDung.findUnique({
+      where: { id: nguoiQuanLyId },
+      select: { ten: true, zaloAccountId: true },
+    });
+    if (!quanLy) return;
+
+    // Lấy bot selection (dùng account quản lý nếu có quyền delegate)
+    const sel = await getBotSelectionForBuilding(toaNhaId);
+    const toaNhaInfo = sel.toaNha;
+
+    // Ưu tiên dùng tài khoản quản lý nếu quản lý có zaloAccountId
+    const accountId = quanLy.zaloAccountId ?? sel.accountId;
+
+    // Lấy tất cả khách thuê đang ở trong tòa nhà (có hợp đồng hoạt động + có zaloChatId)
+    const khachThues = await prisma.khachThue.findMany({
+      where: {
+        hopDong: {
+          some: {
+            phong: { toaNhaId },
+            trangThai: 'dangThue',
+          },
+        },
+        zaloChatId: { not: null },
+      },
+      select: { id: true, hoTen: true, zaloChatId: true },
+    });
+
+    if (khachThues.length === 0) {
+      console.log(`[zalo-auto-link] Tòa nhà ${toaNhaId}: không có khách thuê nào có zaloChatId`);
+      return;
+    }
+
+    const msg = buildManagerGreetingMessage(quanLy.ten ?? 'Quản lý', toaNhaInfo);
+
+    console.log(`[zalo-auto-link] Gửi thông báo quản lý mới đến ${khachThues.length} khách thuê`);
+    for (const kt of khachThues) {
+      if (!kt.zaloChatId) continue;
+      await sendMessageViaBotServer(kt.zaloChatId, msg, 0, accountId).catch((e) => {
+        console.log(`[zalo-auto-link] Gửi tin nhắn quản lý mới cho KT ${kt.id} thất bại:`, e);
+      });
+    }
+  } catch (e) {
+    console.error(`[zalo-auto-link] notifyTenantsOfNewManager error:`, e);
+  }
 }
 
 // ─── Helpers nội bộ ───────────────────────────────────────────────────────────
