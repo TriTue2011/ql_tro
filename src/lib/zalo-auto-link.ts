@@ -80,11 +80,15 @@ export async function sendWelcomeOrFriendRequest(
       );
 
     if (!isFriend) {
-      await sendFriendRequestViaBotServer(chatId, message, accountSelection);
+      console.log(`[zalo-auto-link] chatId=${chatId} chưa là bạn → gửi lời kết bạn`);
+      const fr = await sendFriendRequestViaBotServer(chatId, message, accountSelection);
+      console.log(`[zalo-auto-link] Kết quả gửi kết bạn:`, fr.ok ? 'OK' : fr.error);
     } else {
+      console.log(`[zalo-auto-link] chatId=${chatId} đã là bạn → gửi tin nhắn`);
       await sendMessageViaBotServer(chatId, message, 0, accountSelection);
     }
-  } catch {
+  } catch (e) {
+    console.error(`[zalo-auto-link] sendWelcomeOrFriendRequest error:`, e);
     // fallback: thử gửi tin nhắn thẳng
     await sendMessageViaBotServer(chatId, message, 0, accountSelection).catch(() => {});
   }
@@ -304,15 +308,27 @@ export async function autoLinkZaloChatIds(
       // ── Chế độ tòa nhà: dùng bot của tòa nhà, gửi welcome, lưu pending ──
 
       // Bỏ qua nếu đã nhập tay (zaloChatId đã có giá trị)
-      if (await isManuallyLinked(entityType, entityId)) return;
+      if (await isManuallyLinked(entityType, entityId)) {
+        console.log(`[zalo-auto-link] ${entityType} ${entityId} đã có zaloChatId, bỏ qua`);
+        return;
+      }
 
       const sel = await getBotSelectionForBuilding(toaNhaId);
+      console.log(`[zalo-auto-link] Bot selection cho tòa nhà ${toaNhaId}:`, sel.accountId ?? 'default');
       const result = await findUserViaBotServer(phone, sel.accountId);
-      if (!result.ok || !result.data) return;
+      if (!result.ok || !result.data) {
+        console.log(`[zalo-auto-link] Không tìm thấy Zalo user cho SĐT ${phone}:`, result.error ?? 'no data');
+        return;
+      }
 
       const d = result.data as any;
       const uid = String(d.userId ?? d.uid ?? d.id ?? '');
-      if (!uid) return;
+      if (!uid) {
+        console.log(`[zalo-auto-link] findUser trả về nhưng không có userId:`, JSON.stringify(d));
+        return;
+      }
+
+      console.log(`[zalo-auto-link] Tìm thấy Zalo uid=${uid} cho SĐT ${phone}`);
 
       // Lưu vào pendingZaloChatId (chờ xác nhận từ người dùng)
       await savePendingToDB(entityType, entityId, uid, sel.accountId ?? 'Bot');
@@ -320,7 +336,9 @@ export async function autoLinkZaloChatIds(
       // Gửi lời kết bạn hoặc tin nhắn chào mừng
       const ten = await getEntityName(entityType, entityId);
       const msg = buildWelcomeMessage(ten, entityType, sel.toaNha);
-      await sendWelcomeOrFriendRequest(uid, msg, sel.accountId).catch(() => {});
+      await sendWelcomeOrFriendRequest(uid, msg, sel.accountId).catch((e) => {
+        console.error(`[zalo-auto-link] sendWelcomeOrFriendRequest lỗi:`, e);
+      });
     } else {
       // ── Fallback: thử tất cả bot accounts, lưu thẳng zaloChatId ──
       const botAccounts = await getAllBotAccounts();
