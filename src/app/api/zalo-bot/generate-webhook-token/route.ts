@@ -32,11 +32,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
   }
 
-  const localBase = await getLocalBaseUrl();
+  // Lấy user để check zaloWebhookBaseUrl riêng
+  const user = await prisma.nguoiDung.findUnique({
+    where: { id: targetUserId },
+    select: { zaloWebhookBaseUrl: true },
+  });
+
+  const userBaseUrl = user?.zaloWebhookBaseUrl?.replace(/\/$/, '') || null;
+  const localBase = userBaseUrl || await getLocalBaseUrl();
   if (!localBase) {
     return NextResponse.json({
       ok: false,
-      error: 'Chưa cấu hình app_local_url trong Cài đặt.',
+      error: 'Chưa cấu hình URL App (webhook callback) trong Bot Server hoặc app_local_url trong Cài đặt.',
     });
   }
 

@@ -29,6 +29,7 @@ model NguoiDung {
   zaloBotPassword   String?  // Password bot server riêng
   zaloBotTtl        Int?     // TTL tin nhắn (ms), 0 = không tự hủy
   zaloWebhookToken  String?  @unique // Token ngẫu nhiên cho webhook URL riêng
+  zaloWebhookBaseUrl String?  // Base URL app cho webhook callback (ghi đè app_local_url)
   ngayTao          DateTime  @default(now())
   ngayCapNhat      DateTime  @updatedAt
 

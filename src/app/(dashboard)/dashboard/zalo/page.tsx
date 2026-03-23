@@ -81,6 +81,7 @@ interface AccountData {
   zaloBotPassword: string | null;
   zaloBotTtl: number | null;
   zaloWebhookToken: string | null;
+  zaloWebhookBaseUrl: string | null;
   nhanThongBaoZalo: boolean;
   settings: ZaloSettings | null;
   botOnline?: boolean | null; // true=online, false=bị out, null=chưa check
@@ -110,6 +111,7 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
   const [zaloBotUsername, setZaloBotUsername] = useState(account?.zaloBotUsername ?? "");
   const [zaloBotPassword, setZaloBotPassword] = useState(account?.zaloBotPassword ? "••••••••" : "");
   const [zaloBotTtl, setZaloBotTtl] = useState(String(account?.zaloBotTtl ?? ""));
+  const [zaloWebhookBaseUrl, setZaloWebhookBaseUrl] = useState(account?.zaloWebhookBaseUrl ?? "");
   const [saving, setSaving] = useState(false);
 
   // QR state
@@ -145,6 +147,7 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
           zaloBotUsername: zaloBotUsername.trim() || null,
           zaloBotPassword: zaloBotPassword.includes("••••") ? undefined : (zaloBotPassword || null),
           zaloBotTtl: zaloBotTtl.trim() ? parseInt(zaloBotTtl, 10) || 0 : null,
+          zaloWebhookBaseUrl: zaloWebhookBaseUrl.trim() || null,
         }),
       });
       const data = await res.json();
@@ -239,6 +242,11 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
                 <Label className="text-[10px] text-gray-500">TTL tin nhắn (ms)</Label>
                 <Input value={zaloBotTtl} onChange={e => setZaloBotTtl(e.target.value)}
                   type="number" min={0} className="h-7 text-xs font-mono" placeholder="0 = không tự hủy" disabled={!canEdit} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-gray-500">URL App (webhook callback)</Label>
+                <Input value={zaloWebhookBaseUrl} onChange={e => setZaloWebhookBaseUrl(e.target.value)}
+                  className="h-7 text-xs font-mono" placeholder="http://172.16.10.27:3000" disabled={!canEdit} />
               </div>
             </div>
             {canEdit && (
