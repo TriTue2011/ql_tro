@@ -186,9 +186,10 @@ export async function POST(
 
     const update = body?.result ?? body;
 
-    // Inject ownId từ thông tin user (biết từ token URL) nếu payload chưa có
-    const accountId = nd?.zaloAccountId ?? undefined;
-    if (accountId && !update.ownId && !update.toId && !update.idTo && !update.own_id) {
+    // Inject ownId từ thông tin user (biết từ token URL)
+    // Ưu tiên: zaloAccountId (ID Zalo) > nd.id (ID user trong DB)
+    const accountId = nd.zaloAccountId || nd.id;
+    if (!update.ownId && !update.toId && !update.idTo && !update.own_id) {
       update.ownId = accountId;
       if (update.data && !update.data.ownId && !update.data.idTo && !update.data.toId) {
         update.data.ownId = accountId;

@@ -30,7 +30,9 @@ export async function GET(request: NextRequest) {
   });
   const userZaloChatId = nguoiDung?.zaloChatId ?? null;
   // zaloAccountId = ID tài khoản bot Zalo của user (dùng để filter theo ownId)
+  // Fallback sang userId vì per-user webhook inject nd.id khi chưa có zaloAccountId
   const userZaloAccountId = nguoiDung?.zaloAccountId ?? null;
+  const userOwnId = userZaloAccountId || userId;
 
   // Danh sách cuộc hội thoại
   // Admin: xem tất cả; chuNha: chỉ tin nhắn gửi đến tài khoản Zalo của mình
@@ -66,9 +68,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: rowsWithRoomInfo });
     }
 
-    // Filter theo ownId: admin filter theo param, chuNha filter theo tài khoản Zalo
-    const filterOwnId = adminFilterOwnId || userZaloAccountId || userZaloChatId;
-    if (!filterOwnId) return NextResponse.json({ data: [] });
+    // Filter theo ownId: admin filter theo param, chuNha filter theo tài khoản Zalo hoặc userId
+    const filterOwnId = adminFilterOwnId || userOwnId;
 
     const rows = await prisma.$queryRaw<any[]>`
       WITH latest_user AS (
@@ -103,13 +104,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "chatId required" }, { status: 400 });
 
   if (!canViewAll) {
-    // Kiểm tra: có tin nhắn thuộc tài khoản của user hoặc chưa gán ownId
-    const filterOwnId = userZaloAccountId || userZaloChatId;
-    if (!filterOwnId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    // Kiểm tra: có tin nhắn thuộc tài khoản của user
     const hasAccess = await prisma.zaloMessage.findFirst({
-      where: { chatId, OR: [{ ownId: filterOwnId }, { ownId: null }] },
+      where: { chatId, OR: [{ ownId: userOwnId }, { ownId: null }] },
       select: { id: true },
     });
     if (!hasAccess) {
