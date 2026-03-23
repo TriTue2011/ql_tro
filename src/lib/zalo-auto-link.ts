@@ -35,27 +35,41 @@ function formatDiaChi(diaChi: any): string {
   return [soNha, duong, phuong, quan, thanhPho].filter(Boolean).join(', ');
 }
 
-/** Nội dung tin nhắn chào mừng đầy đủ (gửi khi đã là bạn bè) */
+/** Địa chỉ ngắn: số nhà, đường, phường, thành phố (bỏ quận) */
+function formatDiaChiNgan(diaChi: any): string {
+  if (!diaChi || typeof diaChi !== 'object') return '';
+  const { soNha, duong, phuong, thanhPho } = diaChi as Record<string, string | undefined>;
+  return [soNha, duong, phuong, thanhPho].filter(Boolean).join(', ');
+}
+
+/** Tin nhắn gửi khi đã là bạn bè */
 export function buildWelcomeMessage(
   ten: string,
   entityType: 'nguoiDung' | 'khachThue',
   toaNha: { tenToaNha: string; diaChi: any } | null,
 ): string {
-  const loai = entityType === 'khachThue' ? 'đến ở' : 'đến làm việc';
-  const diaChiStr = toaNha ? formatDiaChi(toaNha.diaChi) : '';
-  const diaDiem = toaNha
-    ? `nhà trọ ${toaNha.tenToaNha}${diaChiStr ? ` - ${diaChiStr}` : ''}`
-    : 'hệ thống quản lý nhà trọ';
+  const diaChiStr = toaNha ? formatDiaChiNgan(toaNha.diaChi) : '';
+  const nhaTro = diaChiStr ? `nhà trọ ${diaChiStr}` : 'nhà trọ';
 
-  return (
-    `Xin chào ${ten},\n\n` +
-    `Chào mừng bạn ${loai} tại ${diaDiem}.\n\n` +
-    `Tôi là trợ lý tự động của nhà trọ. Để nhận thông báo hóa đơn ` +
-    `và các thông tin quan trọng qua Zalo, bạn vui lòng nhắn lại:\n` +
-    `• "Đúng" — nếu thông tin trên chính xác\n` +
-    `• "Không" — nếu có sự nhầm lẫn\n\n` +
-    `Cảm ơn bạn!`
-  );
+  if (entityType === 'khachThue') {
+    return `Chào ${ten}, bạn đã được thêm vào ${nhaTro}. Bạn sẽ nhận thông báo qua Zalo từ bây giờ!`;
+  }
+  return `Chào ${ten}, bạn đã được xác nhận làm việc tại ${nhaTro}.`;
+}
+
+/** Tin nhắn gửi thêm sau khi gửi lời kết bạn */
+export function buildFollowUpMessage(
+  ten: string,
+  entityType: 'nguoiDung' | 'khachThue',
+  toaNha: { tenToaNha: string; diaChi: any } | null,
+): string {
+  const diaChiStr = toaNha ? formatDiaChiNgan(toaNha.diaChi) : '';
+  const nhaTro = diaChiStr ? `nhà trọ ${diaChiStr}` : 'nhà trọ';
+
+  if (entityType === 'khachThue') {
+    return `Chào ${ten}, tôi gửi lời kết bạn để bạn nhận thông báo từ ${nhaTro}. Bạn vui lòng đồng ý kết bạn nhé!`;
+  }
+  return `Chào ${ten}, tôi gửi lời kết bạn để xác nhận bạn làm việc tại ${nhaTro}. Bạn vui lòng đồng ý kết bạn nhé!`;
 }
 
 /**
@@ -94,13 +108,14 @@ export function buildFriendRequestMessage(
 
 /**
  * Gửi tin nhắn hoặc lời kết bạn kèm nội dung tùy trạng thái bạn bè.
- * - Nếu chưa là bạn → sendFriendRequest với friendRequestMsg (≤150 ký tự)
- * - Nếu đã là bạn   → sendMessage với welcomeMsg (đầy đủ)
+ * - Nếu chưa là bạn → sendFriendRequest + gửi thêm followUpMsg
+ * - Nếu đã là bạn   → sendMessage với welcomeMsg
  */
 export async function sendWelcomeOrFriendRequest(
   chatId: string,
   welcomeMsg: string,
   friendRequestMsg: string,
+  followUpMsg: string,
   accountSelection?: string,
 ): Promise<void> {
   try {
@@ -116,6 +131,10 @@ export async function sendWelcomeOrFriendRequest(
       console.log(`[zalo-auto-link] chatId=${chatId} chưa là bạn → gửi lời kết bạn (${friendRequestMsg.length} ký tự)`);
       const fr = await sendFriendRequestViaBotServer(chatId, friendRequestMsg, accountSelection);
       console.log(`[zalo-auto-link] Kết quả gửi kết bạn:`, fr.ok ? 'OK' : fr.error);
+      // Gửi thêm tin nhắn sau khi kết bạn
+      await sendMessageViaBotServer(chatId, followUpMsg, 0, accountSelection).catch((e) => {
+        console.log(`[zalo-auto-link] Gửi tin nhắn sau kết bạn thất bại (chưa accept):`, e);
+      });
     } else {
       console.log(`[zalo-auto-link] chatId=${chatId} đã là bạn → gửi tin nhắn`);
       await sendMessageViaBotServer(chatId, welcomeMsg, 0, accountSelection);
@@ -370,7 +389,8 @@ export async function autoLinkZaloChatIds(
       const ten = await getEntityName(entityType, entityId);
       const welcomeMsg = buildWelcomeMessage(ten, entityType, sel.toaNha);
       const frMsg = buildFriendRequestMessage(ten, entityType, sel.toaNha);
-      await sendWelcomeOrFriendRequest(uid, welcomeMsg, frMsg, sel.accountId).catch((e) => {
+      const followUpMsg = buildFollowUpMessage(ten, entityType, sel.toaNha);
+      await sendWelcomeOrFriendRequest(uid, welcomeMsg, frMsg, followUpMsg, sel.accountId).catch((e) => {
         console.error(`[zalo-auto-link] sendWelcomeOrFriendRequest lỗi:`, e);
       });
     } else {
