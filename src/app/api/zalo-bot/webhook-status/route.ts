@@ -76,16 +76,46 @@ export async function GET(req: NextRequest) {
     const webhooks: WebhookInfo[] = [];
 
     if (ownId) {
-      // Query 1 account
+      // Resolve ownId → numeric Zalo ID (bot server lưu webhook theo numeric ID, không phải SĐT)
       const acc = accMap.get(ownId);
-      const wh = await getAccountWebhookFromBotServer(ownId, botConfig);
-      // Bot server có thể trả { data: { messageWebhookUrl } } hoặc { messageWebhookUrl }
-      const d = wh.data?.data ?? wh.data;
-      const msgUrl = d?.messageWebhookUrl || null;
-      const grpUrl = d?.groupEventWebhookUrl || null;
-      const reactUrl = d?.reactionWebhookUrl || null;
+      const resolvedId = acc ? String(acc.id ?? acc.ownId) : ownId;
+
+      // Thử query bằng resolvedId trước, nếu không có thì thử ownId gốc
+      let wh = await getAccountWebhookFromBotServer(resolvedId, botConfig);
+      if (!wh.ok && resolvedId !== ownId) {
+        wh = await getAccountWebhookFromBotServer(ownId, botConfig);
+      }
+      // Nếu vẫn không có kết quả đơn lẻ → fallback sang batch endpoint
+      let msgUrl: string | null = null;
+      let grpUrl: string | null = null;
+      let reactUrl: string | null = null;
+
+      if (wh.ok) {
+        // Bot server có thể trả { data: { messageWebhookUrl } } hoặc { messageWebhookUrl }
+        const d = wh.data?.data ?? wh.data;
+        msgUrl = d?.messageWebhookUrl || null;
+        grpUrl = d?.groupEventWebhookUrl || null;
+        reactUrl = d?.reactionWebhookUrl || null;
+      }
+
+      // Nếu single endpoint không trả webhook → thử batch endpoint
+      if (!msgUrl && !grpUrl && !reactUrl) {
+        const allWh = await getAccountWebhooksFromBotServer(botConfig);
+        const whAccounts: Record<string, any> = allWh.ok && allWh.data
+          ? (allWh.data.accounts ?? allWh.data.data?.accounts ?? {})
+          : {};
+        // Tìm theo resolvedId, ownId, hoặc phoneNumber
+        const whData = whAccounts[resolvedId] || whAccounts[ownId]
+          || whAccounts[acc?.phoneNumber] || whAccounts[acc?.phone] || null;
+        if (whData) {
+          msgUrl = whData.messageWebhookUrl || null;
+          grpUrl = whData.groupEventWebhookUrl || null;
+          reactUrl = whData.reactionWebhookUrl || null;
+        }
+      }
+
       webhooks.push({
-        ownId,
+        ownId: resolvedId,
         phoneNumber: acc?.phoneNumber || acc?.phone || '',
         isOnline: acc?.isOnline ?? !!acc,
         messageWebhookUrl: msgUrl,
