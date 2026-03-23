@@ -56,7 +56,8 @@ export async function isBotServerMode(): Promise<boolean> {
 
 // ─── Auth + cache ─────────────────────────────────────────────────────────────
 
-let _authCache: { url: string; headers: Record<string, string>; exp: number } | null = null;
+// Cache auth per serverUrl (hỗ trợ nhiều bot server cùng lúc)
+const _authCacheMap = new Map<string, { headers: Record<string, string>; exp: number }>();
 
 async function loginToBotServer(config: BotConfig): Promise<Record<string, string> | null> {
   try {
@@ -78,10 +79,10 @@ async function loginToBotServer(config: BotConfig): Promise<Record<string, strin
 }
 
 async function getAuth(config: BotConfig): Promise<Record<string, string> | null> {
-  if (_authCache && _authCache.url === config.serverUrl && _authCache.exp > Date.now())
-    return _authCache.headers;
+  const cached = _authCacheMap.get(config.serverUrl);
+  if (cached && cached.exp > Date.now()) return cached.headers;
   const h = await loginToBotServer(config);
-  if (h !== null) _authCache = { url: config.serverUrl, headers: h, exp: Date.now() + 25 * 60 * 1000 };
+  if (h !== null) _authCacheMap.set(config.serverUrl, { headers: h, exp: Date.now() + 25 * 60 * 1000 });
   return h;
 }
 
@@ -116,7 +117,7 @@ async function botRequest(
 
     // 401 → clear cache, retry
     if (status === 401) {
-      _authCache = null;
+      _authCacheMap.delete(config.serverUrl);
       headers = await getAuth(config);
       if (!headers) return { ok: false, error: "Đăng nhập thất bại" };
       ({ status, text } = await doFetch(headers));
@@ -184,8 +185,8 @@ export async function setWebhookOnBotServer(
   return { ok: r.ok, error: r.error };
 }
 
-export async function deleteAccountWebhookFromBotServer(ownId: string): Promise<OkResult> {
-  const r = await botRequest("DELETE", `/api/account-webhook/${ownId}`);
+export async function deleteAccountWebhookFromBotServer(ownId: string, configOverride?: BotConfig | null): Promise<OkResult> {
+  const r = await botRequest("DELETE", `/api/account-webhook/${ownId}`, undefined, 15_000, configOverride);
   return { ok: r.ok, error: r.error };
 }
 
