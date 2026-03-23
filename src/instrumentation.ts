@@ -44,6 +44,14 @@ export async function register() {
         name: 'ZaloMessage.attachmentUrl',
         sql: `ALTER TABLE "ZaloMessage" ADD COLUMN IF NOT EXISTS "attachmentUrl" TEXT`,
       },
+      {
+        name: 'ZaloMessage.ownId',
+        sql: `ALTER TABLE "ZaloMessage" ADD COLUMN IF NOT EXISTS "ownId" TEXT`,
+      },
+      {
+        name: 'ZaloMessage.ownId index',
+        sql: `CREATE INDEX IF NOT EXISTS "ZaloMessage_ownId_createdAt_idx" ON "ZaloMessage"("ownId", "createdAt")`,
+      },
     ];
 
     for (const m of migrations) {
