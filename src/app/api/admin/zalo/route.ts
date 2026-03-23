@@ -62,7 +62,7 @@ export async function GET() {
         select: {
           nguoiDung: {
             select: {
-              id: true, ten: true, email: true, vaiTro: true,
+              id: true, ten: true, email: true, soDienThoai: true, vaiTro: true,
               zaloChatId: true, pendingZaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, nhanThongBaoZalo: true,
               zaloThongBaoCaiDat: { select: allSettingFields() },
             },
@@ -72,28 +72,88 @@ export async function GET() {
     },
   });
 
-  // Kiểm tra tài khoản nào đang online trên bot server
+  // Kiểm tra tài khoản nào đang online trên bot server + auto-fix data
   let botAccountIds: Set<string> = new Set();
+  // Map SĐT → ownId (Zalo ID số) để auto-fix
+  const phoneToOwnId: Map<string, string> = new Map();
   try {
     const { accounts: botAccounts } = await getAccountsFromBotServer();
     for (const acc of botAccounts) {
       const accId = acc.id ?? acc.ownId;
       if (accId) botAccountIds.add(String(accId));
-      // Cũng thêm phoneNumber để match
-      if (acc.phoneNumber) botAccountIds.add(acc.phoneNumber);
-      if (acc.phone) botAccountIds.add(acc.phone);
+      if (acc.phoneNumber) { botAccountIds.add(acc.phoneNumber); phoneToOwnId.set(acc.phoneNumber, String(accId)); }
+      if (acc.phone) { botAccountIds.add(acc.phone); phoneToOwnId.set(acc.phone, String(accId)); }
+    }
+
+    // Auto-fix: tự động gán zaloAccountId + zaloChatId cho user match SĐT
+    for (const acc of botAccounts) {
+      const accId = String(acc.id ?? acc.ownId);
+      if (!accId) continue;
+      const phone = acc.phoneNumber || acc.phone || '';
+      if (!phone) continue;
+      const phoneVariants = [phone, phone.replace(/^\+84/, '0'), phone.replace(/^0/, '+84')];
+
+      // User chưa có zaloAccountId → gán theo SĐT
+      await prisma.nguoiDung.updateMany({
+        where: { soDienThoai: { in: phoneVariants }, zaloAccountId: null },
+        data: { zaloAccountId: accId, zaloChatId: accId },
+      }).catch(() => {});
+
+      // User có zaloAccountId = SĐT (sai) → fix thành ownId
+      await prisma.nguoiDung.updateMany({
+        where: { zaloAccountId: { in: phoneVariants } },
+        data: { zaloAccountId: accId, zaloChatId: accId },
+      }).catch(() => {});
+
+      // User có zaloAccountId đúng nhưng zaloChatId null → gán
+      await prisma.nguoiDung.updateMany({
+        where: { zaloAccountId: accId, zaloChatId: null },
+        data: { zaloChatId: accId },
+      }).catch(() => {});
     }
   } catch { /* bot server không khả dụng → không check */ }
 
+  // Re-fetch buildings sau auto-fix
+  const updatedBuildings = await prisma.toaNha.findMany({
+    where: toaNhaFilter,
+    orderBy: { tenToaNha: 'asc' },
+    select: {
+      id: true,
+      tenToaNha: true,
+      chuSoHuu: {
+        select: {
+          id: true, ten: true, email: true, soDienThoai: true, vaiTro: true,
+          zaloChatId: true, pendingZaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, nhanThongBaoZalo: true,
+          zaloThongBaoCaiDat: { where: { toaNhaId: undefined }, select: allSettingFields() },
+        },
+      },
+      nguoiQuanLy: {
+        select: {
+          nguoiDung: {
+            select: {
+              id: true, ten: true, email: true, soDienThoai: true, vaiTro: true,
+              zaloChatId: true, pendingZaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, nhanThongBaoZalo: true,
+              zaloThongBaoCaiDat: { select: allSettingFields() },
+            },
+          },
+        },
+      },
+    },
+  });
+
   function checkBotOnline(account: { zaloAccountId?: string | null; soDienThoai?: string | null }): boolean | null {
-    // null = chưa cấu hình bot server hoặc chưa link zaloAccountId
     if (botAccountIds.size === 0) return null;
-    if (!account.zaloAccountId) return null;
-    return botAccountIds.has(account.zaloAccountId);
+    if (!account.zaloAccountId && !account.soDienThoai) return null;
+    if (account.zaloAccountId && botAccountIds.has(account.zaloAccountId)) return true;
+    if (account.soDienThoai) {
+      const phone = account.soDienThoai;
+      if (botAccountIds.has(phone) || botAccountIds.has(phone.replace(/^0/, '+84')) || botAccountIds.has(phone.replace(/^\+84/, '0'))) return true;
+    }
+    return account.zaloAccountId ? false : null;
   }
 
   // Gắn đúng ZaloThongBaoCaiDat cho từng (nguoiDung × toaNha)
-  const result = buildings.map(b => ({
+  const result = updatedBuildings.map(b => ({
     id: b.id,
     tenToaNha: b.tenToaNha,
     chuTro: {
