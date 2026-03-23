@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
 
     const update = body?.result ?? body;
 
-    const { chatId: wChatId, content } = normalizeWebhookPayload(update);
+    const { chatId: wChatId, content, ownId: webhookOwnId } = normalizeWebhookPayload(update);
 
     // Bỏ qua tin nhắn nhóm (type = 1)
     if (update?.type === 1) {
@@ -257,7 +257,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await handleZaloAutoReply(update);
+    await handleZaloAutoReply(update, '', webhookOwnId || undefined);
     return NextResponse.json({ message: 'Success' });
   } catch (error) {
     console.error('[zalo/webhook] Error:', error);
