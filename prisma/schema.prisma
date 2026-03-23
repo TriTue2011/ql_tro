@@ -404,6 +404,10 @@ model CaiDatToaNha {
   cloudinaryPreset      String?
   uploadMaxSizeMb  Int     @default(10)
 
+  // Giới hạn vai trò theo tòa nhà — JSON: {"dongChuTro":2,"quanLy":3,"nhanVien":5}
+  // null = dùng giới hạn chung (global)
+  roleLimits       String?
+
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
 }

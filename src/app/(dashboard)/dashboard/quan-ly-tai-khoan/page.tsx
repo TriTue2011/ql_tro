@@ -126,9 +126,11 @@ export default function AccountManagementPage() {
     quyenKichHoatTaiKhoan: false,
   });
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  const [roleLimits, setRoleLimits] = useState<Record<string, number>>(DEFAULT_ROLE_LIMITS);
+  const [globalLimits, setGlobalLimits] = useState<Record<string, number>>(DEFAULT_ROLE_LIMITS);
+  const [perBuildingLimits, setPerBuildingLimits] = useState<Record<string, Record<string, number>>>({});
   const [isLimitsDialogOpen, setIsLimitsDialogOpen] = useState(false);
-  const [editLimits, setEditLimits] = useState<Record<string, number>>(DEFAULT_ROLE_LIMITS);
+  const [editGlobalLimits, setEditGlobalLimits] = useState<Record<string, number>>(DEFAULT_ROLE_LIMITS);
+  const [editBuildingLimits, setEditBuildingLimits] = useState<Record<string, Record<string, number>>>({});
   const [limitsSaving, setLimitsSaving] = useState(false);
 
   // Đếm số lượng vai trò đang có trên mỗi tòa nhà
@@ -139,11 +141,18 @@ export default function AccountManagementPage() {
     }).length;
   };
 
+  // Lấy giới hạn role cho một tòa nhà cụ thể (ưu tiên per-building, fallback global)
+  const getRoleLimitForBuilding = (toaNhaId: string, role: string): number => {
+    const buildingLimits = perBuildingLimits[toaNhaId];
+    if (buildingLimits && buildingLimits[role] != null) return buildingLimits[role];
+    return globalLimits[role] ?? 0;
+  };
+
   // Kiểm tra xem có vượt giới hạn vai trò trên tòa nhà nào không
   const checkRoleLimitExceeded = (toaNhaIds: string[], role: string, excludeUserId?: string): string | null => {
-    const max = roleLimits[role];
-    if (!max) return null;
     for (const tid of toaNhaIds) {
+      const max = getRoleLimitForBuilding(tid, role);
+      if (!max) continue;
       const count = getRoleCountPerBuilding(tid, role, excludeUserId);
       if (count >= max) {
         const building = buildings.find(b => b.id === tid);
@@ -181,11 +190,11 @@ export default function AccountManagementPage() {
 
   const fetchRoleLimits = async () => {
     try {
-      const res = await fetch('/api/admin/role-limits');
+      const res = await fetch('/api/admin/role-limits?all=1');
       if (res.ok) {
         const data = await res.json();
-        setRoleLimits(data);
-        setEditLimits(data);
+        setGlobalLimits(data.global || DEFAULT_ROLE_LIMITS);
+        setPerBuildingLimits(data.perBuilding || {});
       }
     } catch {}
   };
@@ -193,20 +202,32 @@ export default function AccountManagementPage() {
   const handleSaveLimits = async () => {
     setLimitsSaving(true);
     try {
-      const res = await fetch('/api/admin/role-limits', {
+      // Lưu global
+      const globalRes = await fetch('/api/admin/role-limits', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editLimits),
+        body: JSON.stringify(editGlobalLimits),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setRoleLimits(data);
-        setIsLimitsDialogOpen(false);
-        toast.success('Đã lưu giới hạn vai trò');
-      } else {
-        const err = await res.json();
-        toast.error(err.error || 'Lưu thất bại');
+      if (!globalRes.ok) {
+        const err = await globalRes.json();
+        toast.error(err.error || 'Lưu giới hạn chung thất bại');
+        return;
       }
+
+      // Lưu per-building (chỉ những tòa nhà có thay đổi)
+      for (const building of buildings) {
+        const edited = editBuildingLimits[building.id];
+        if (!edited) continue;
+        await fetch('/api/admin/role-limits', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ toaNhaId: building.id, ...edited }),
+        });
+      }
+
+      await fetchRoleLimits();
+      setIsLimitsDialogOpen(false);
+      toast.success('Đã lưu giới hạn vai trò');
     } catch {
       toast.error('Không thể kết nối máy chủ');
     } finally {
@@ -464,7 +485,7 @@ export default function AccountManagementPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { setEditLimits({ ...roleLimits }); setIsLimitsDialogOpen(true); }}
+              onClick={() => { setEditGlobalLimits({ ...globalLimits }); setEditBuildingLimits({ ...perBuildingLimits }); setIsLimitsDialogOpen(true); }}
               className="flex-1 sm:flex-none"
             >
               <Settings className="h-4 w-4 sm:mr-2" />
@@ -583,18 +604,13 @@ export default function AccountManagementPage() {
                 <Label className="text-xs md:text-sm flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-blue-500" />
                   Gán tòa nhà
-                  {roleLimits[createUserData.role] != null && (
-                    <span className="text-[10px] text-muted-foreground font-normal">
-                      (tối đa {roleLimits[createUserData.role]} {ROLE_LABELS[createUserData.role]}/tòa)
-                    </span>
-                  )}
                 </Label>
                 <div className="border rounded-md p-2 space-y-1.5 max-h-40 overflow-y-auto">
                   {buildings.length === 0 && <p className="text-xs text-muted-foreground">Chưa có tòa nhà</p>}
                   {buildings.map(b => {
-                    const max = roleLimits[createUserData.role];
-                    const currentCount = max != null ? getRoleCountPerBuilding(b.id, createUserData.role) : 0;
-                    const isAtLimit = max != null ? currentCount >= max : false;
+                    const max = getRoleLimitForBuilding(b.id, createUserData.role);
+                    const currentCount = max ? getRoleCountPerBuilding(b.id, createUserData.role) : 0;
+                    const isAtLimit = max ? currentCount >= max : false;
                     const isChecked = createUserData.toaNhaIds.includes(b.id);
                     return (
                       <label key={b.id} className={`flex items-center gap-2 py-0.5 ${isAtLimit && !isChecked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
@@ -609,7 +625,7 @@ export default function AccountManagementPage() {
                           }}
                         />
                         <span className="text-sm flex-1">{b.tenToaNha}</span>
-                        {max != null && (
+                        {max > 0 && (
                           <span className={`text-[10px] ${isAtLimit ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
                             {currentCount}/{max}
                           </span>
@@ -708,7 +724,7 @@ export default function AccountManagementPage() {
           const renderSection = (key: string, label: string, users: User[], roleKey?: string, buildingId?: string) => {
             if (users.length === 0) return null;
             const isOpen = !!openSections[key];
-            const limit = roleKey ? roleLimits[roleKey] : null;
+            const limit = roleKey && buildingId ? getRoleLimitForBuilding(buildingId, roleKey) : null;
             return (
               <div key={key} className="border rounded-lg overflow-hidden">
                 <button
@@ -717,7 +733,7 @@ export default function AccountManagementPage() {
                   onClick={() => toggleSection(key)}
                 >
                   <span className="text-sm font-medium text-gray-700">
-                    {label} <span className="text-gray-400 font-normal">({users.length}{limit != null ? `/${limit}` : ''})</span>
+                    {label} <span className="text-gray-400 font-normal">({users.length}{limit ? `/${limit}` : ''})</span>
                   </span>
                   {isOpen ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
                 </button>
@@ -839,19 +855,14 @@ export default function AccountManagementPage() {
                 <Label className="text-xs md:text-sm flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-blue-500" />
                   Gán tòa nhà
-                  {roleLimits[editUserData.role] != null && (
-                    <span className="text-[10px] text-muted-foreground font-normal">
-                      (tối đa {roleLimits[editUserData.role]} {ROLE_LABELS[editUserData.role]}/tòa)
-                    </span>
-                  )}
                 </Label>
                 <div className="border rounded-md p-2 space-y-1.5 max-h-40 overflow-y-auto">
                   {buildings.length === 0 && <p className="text-xs text-muted-foreground">Chưa có tòa nhà</p>}
                   {buildings.map(b => {
-                    const max = roleLimits[editUserData.role];
+                    const max = getRoleLimitForBuilding(b.id, editUserData.role);
                     const excludeId = selectedUser?.id ?? selectedUser?._id;
-                    const currentCount = max != null ? getRoleCountPerBuilding(b.id, editUserData.role, excludeId) : 0;
-                    const isAtLimit = max != null ? currentCount >= max : false;
+                    const currentCount = max ? getRoleCountPerBuilding(b.id, editUserData.role, excludeId) : 0;
+                    const isAtLimit = max ? currentCount >= max : false;
                     const isChecked = editUserData.toaNhaIds.includes(b.id);
                     return (
                       <label key={b.id} className={`flex items-center gap-2 py-0.5 ${isAtLimit && !isChecked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
@@ -866,7 +877,7 @@ export default function AccountManagementPage() {
                           }}
                         />
                         <span className="text-sm flex-1">{b.tenToaNha}</span>
-                        {max != null && (
+                        {max > 0 && (
                           <span className={`text-[10px] ${isAtLimit ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
                             {currentCount}/{max}
                           </span>
@@ -907,27 +918,78 @@ export default function AccountManagementPage() {
 
       {/* Role Limits Dialog */}
       <Dialog open={isLimitsDialogOpen} onOpenChange={setIsLimitsDialogOpen}>
-        <DialogContent className="w-[95vw] sm:w-full sm:max-w-[360px]">
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-[520px] max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-base md:text-lg">Giới hạn vai trò mỗi tòa nhà</DialogTitle>
+            <DialogTitle className="text-base md:text-lg">Giới hạn vai trò</DialogTitle>
             <DialogDescription className="text-xs md:text-sm">
-              Cài đặt số lượng tối đa mỗi vai trò trên mỗi tòa nhà
+              Cài đặt số lượng tối đa mỗi vai trò. Tòa nhà không có giới hạn riêng sẽ dùng giới hạn chung.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 py-2">
-            {Object.entries(ROLE_LABELS).map(([key, label]) => (
-              <div key={key} className="flex items-center justify-between gap-3">
-                <Label className="text-sm">{label}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={editLimits[key] ?? 0}
-                  onChange={(e) => setEditLimits({ ...editLimits, [key]: parseInt(e.target.value) || 0 })}
-                  className="w-20 text-sm text-center"
-                />
+          <div className="overflow-y-auto flex-1 space-y-4 py-2 pr-1">
+            {/* Global limits */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Giới hạn chung (mặc định)</p>
+              <div className="grid gap-2">
+                {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                  <div key={key} className="flex items-center justify-between gap-3">
+                    <Label className="text-sm">{label}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={editGlobalLimits[key] ?? 0}
+                      onChange={(e) => setEditGlobalLimits({ ...editGlobalLimits, [key]: parseInt(e.target.value) || 0 })}
+                      className="w-20 text-sm text-center"
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Per-building limits */}
+            {buildings.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Giới hạn theo tòa nhà</p>
+                <p className="text-[10px] text-muted-foreground">Để trống (0) = dùng giới hạn chung</p>
+                <div className="space-y-3">
+                  {buildings.map(b => {
+                    const bLimits = editBuildingLimits[b.id] || {};
+                    const hasCustom = Object.values(bLimits).some(v => v > 0);
+                    return (
+                      <div key={b.id} className="border rounded-md p-2.5 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="h-3.5 w-3.5 text-blue-500" />
+                          <span className="text-sm font-medium">{b.tenToaNha}</span>
+                          {hasCustom && <Badge variant="outline" className="text-[9px] px-1 py-0">Riêng</Badge>}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                            <div key={key} className="space-y-0.5">
+                              <Label className="text-[10px] text-muted-foreground">{label}</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                placeholder={String(editGlobalLimits[key] ?? 0)}
+                                value={bLimits[key] || ''}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  setEditBuildingLimits({
+                                    ...editBuildingLimits,
+                                    [b.id]: { ...bLimits, [key]: val },
+                                  });
+                                }}
+                                className="h-8 text-xs text-center"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setIsLimitsDialogOpen(false)} className="w-full sm:w-auto">
