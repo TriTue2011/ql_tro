@@ -154,30 +154,32 @@ async function captureThreadId(update: any, chatId: string, botAccountId: string
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { nguoiDungId: string } },
+  { params }: { params: Promise<{ nguoiDungId: string }> },
 ) {
+  const { nguoiDungId } = await params;
   const challenge = request.nextUrl.searchParams.get('challenge');
   if (challenge) {
     return new NextResponse(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } });
   }
-  const nd = await getNguoiDungInfo(params.nguoiDungId);
+  const nd = await getNguoiDungInfo(nguoiDungId);
   return NextResponse.json({
     ok: true,
     endpoint: 'zalo-webhook-per-user',
-    nguoiDungId: params.nguoiDungId,
+    nguoiDungId,
     accountId: nd?.zaloAccountId ?? null,
   });
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { nguoiDungId: string } },
+  { params }: { params: Promise<{ nguoiDungId: string }> },
 ) {
+  const { nguoiDungId } = await params;
   try {
     // Xác thực qua token trong URL (nguoiDungId chính là zaloWebhookToken)
     // Không cần check zalo_webhook_secret vì bot server không hỗ trợ gửi header secret
-    const nd = await getNguoiDungInfo(params.nguoiDungId);
-    console.log(`[webhook/${params.nguoiDungId}] User found:`, nd ? { id: nd.id, zaloAccountId: nd.zaloAccountId } : 'NOT FOUND');
+    const nd = await getNguoiDungInfo(nguoiDungId);
+    console.log(`[webhook/${nguoiDungId}] User found:`, nd ? { id: nd.id, zaloAccountId: nd.zaloAccountId } : 'NOT FOUND');
     if (!nd) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -200,7 +202,7 @@ export async function POST(
     }
 
     const { chatId, content } = normalizeWebhookPayload(update);
-    console.log(`[webhook/${params.nguoiDungId}] accountId=${accountId}, chatId=${chatId}, content=${content?.substring(0, 50)}`);
+    console.log(`[webhook/${nguoiDungId}] accountId=${accountId}, chatId=${chatId}, content=${content?.substring(0, 50)}`);
     if (!chatId) {
       return NextResponse.json({ message: 'No chatId' });
     }
@@ -214,7 +216,7 @@ export async function POST(
       saveMessage(update),
       cleanupOldMessages(),
       notifyHomeAssistant(update),
-      captureThreadId(update, chatId, accountId ?? params.nguoiDungId),
+      captureThreadId(update, chatId, accountId ?? nguoiDungId),
     ]);
 
     // Xử lý xác nhận pending trước (ưu tiên cao nhất)
@@ -228,7 +230,7 @@ export async function POST(
 
     return NextResponse.json({ message: 'Success' });
   } catch (error) {
-    console.error(`[zalo/webhook/${params.nguoiDungId}] Error:`, error);
+    console.error(`[zalo/webhook/${nguoiDungId}] Error:`, error);
     return NextResponse.json({ error: 'Lỗi máy chủ' }, { status: 500 });
   }
 }
