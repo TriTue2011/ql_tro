@@ -474,12 +474,19 @@ async function handleStranger(token: string, chatId: string, displayName: string
     if (greeting) {
       const alreadyFriend = await isFriend(chatId);
       const alreadyInGroup = isGroupMember(chatId);
-      // Kiểm tra lịch sử: nếu đã có tin nhắn trước đó trong DB → không phải người lạ
-      const existingMsg = await prisma.zaloMessage.findFirst({
-        where: { chatId },
-        select: { id: true },
-      }).catch(() => null);
-      const isNewUser = !alreadyFriend && !alreadyInGroup && !existingMsg;
+      // Kiểm tra lịch sử: webhook đã lưu tin nhắn hiện tại trước khi gọi hàm này,
+      // nên nếu có > 1 tin nhắn → đã có hội thoại trước đó → không phải người mới.
+      // Cũng kiểm tra đã từng gửi greeting chưa để tránh gửi lặp.
+      const [msgCount, alreadyGreeted] = await Promise.all([
+        prisma.zaloMessage.count({ where: { chatId } }).catch(() => 0),
+        prisma.zaloMessage.findFirst({
+          where: { chatId, eventName: 'bot_greeting' },
+          select: { id: true },
+        }).catch(() => null),
+      ]);
+      const hasHistory = msgCount > 1; // > 1 vì tin nhắn hiện tại đã được lưu
+      const isNewUser = !alreadyFriend && !alreadyInGroup && !hasHistory && !alreadyGreeted;
+      console.log(`[handleStranger] chatId=${chatId} greeting=${!!greeting} alreadyFriend=${alreadyFriend} alreadyInGroup=${alreadyInGroup} msgCount=${msgCount} hasHistory=${hasHistory} alreadyGreeted=${!!alreadyGreeted} isNewUser=${isNewUser}`);
       if (isNewUser) {
         await sendReply(token, chatId, greeting, accountSelection);
         await prisma.zaloMessage.create({
@@ -732,18 +739,29 @@ export async function handleZaloAutoReply(update: any, token = '', accountSelect
 
   // Kiểm tra bot_auto_reply_enabled
   const autoReplyRow = await prisma.caiDat.findFirst({ where: { khoa: 'bot_auto_reply_enabled' } });
-  if (autoReplyRow?.giaTri?.trim() === 'false') return;
+  const autoReplyEnabled = autoReplyRow?.giaTri?.trim();
+  if (autoReplyEnabled === 'false') {
+    console.log(`[handleZaloAutoReply] chatId=${chatId} → auto_reply DISABLED`);
+    return;
+  }
 
   // Số điện thoại → đăng ký
   if (text) {
     const handled = await handlePhoneRegistration(token, chatId, text, accountSelection);
-    if (handled) return;
+    if (handled) {
+      console.log(`[handleZaloAutoReply] chatId=${chatId} → phone registration handled`);
+      return;
+    }
   }
 
   // Khách thuê đã đăng ký → AI reply
   const isRegistered = await handleRegisteredTenant(token, chatId, text, accountSelection);
-  if (isRegistered) return;
+  if (isRegistered) {
+    console.log(`[handleZaloAutoReply] chatId=${chatId} → registered tenant handled`);
+    return;
+  }
 
+  console.log(`[handleZaloAutoReply] chatId=${chatId} → forwarding to handleStranger`);
   // Người lạ → lời chào + forward
   await handleStranger(token, chatId, displayName, text, accountSelection);
 }
