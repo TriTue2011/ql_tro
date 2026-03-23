@@ -18,7 +18,7 @@
 import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
-import { isBotServerMode, sendMessageViaBotServer, getAllFriendsFromBotServer, getAllGroupsFromBotServer, getGroupMembersFromBotServer, findUserViaBotServer } from '@/lib/zalo-bot-client';
+import { sendMessageViaBotServer, getAllFriendsFromBotServer, getAllGroupsFromBotServer, getGroupMembersFromBotServer, findUserViaBotServer } from '@/lib/zalo-bot-client';
 import { emitNewMessage } from '@/lib/zalo-message-events';
 import { askAI, classifyIntent } from '@/lib/ai-chat';
 
@@ -76,7 +76,6 @@ export function refreshGroupMembersCacheInBackground(): void {
 }
 
 async function isFriend(chatId: string): Promise<boolean> {
-  if (!(await isBotServerMode())) return false;
   if (!_friendsCache) {
     await getAllFriendsFromBotServer().then(result => {
       if (result.ok && result.friends) {
@@ -92,8 +91,6 @@ async function isFriend(chatId: string): Promise<boolean> {
 function isGroupMember(chatId: string): boolean {
   return _groupMembersCache?.has(chatId) ?? false;
 }
-
-const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
 const PHONE_REGEX = /^(\+84|0)[0-9]{9}$/;
 
@@ -112,18 +109,9 @@ function normalizeName(name: string): string {
     .trim();
 }
 
-async function sendReply(token: string, chatId: string, text: string, accountSelection?: string): Promise<void> {
+async function sendReply(_token: string, chatId: string, text: string, accountSelection?: string): Promise<void> {
   try {
-    if (await isBotServerMode()) {
-      await sendMessageViaBotServer(chatId, text, 0, accountSelection);
-      return;
-    }
-    await fetch(`${ZALO_API}/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text }),
-      signal: AbortSignal.timeout(8_000),
-    });
+    await sendMessageViaBotServer(chatId, text, 0, accountSelection);
   } catch { /* không dừng xử lý */ }
 }
 
@@ -407,8 +395,6 @@ async function handleRegisteredTenant(token: string, chatId: string, text: strin
  * Trả về true nếu đã liên kết thành công (bỏ qua stranger flow).
  */
 async function tryAutoLinkByPhone(token: string, chatId: string, accountSelection?: string): Promise<boolean> {
-  const inBotMode = await isBotServerMode();
-  if (!inBotMode) return false;
 
   try {
     const [unlinkedKt, unlinkedNd] = await Promise.all([
@@ -719,11 +705,6 @@ export async function handleZaloAutoReply(update: any, token = '', accountSelect
     data?.uidFrom ? String(data.uidFrom) :
     update?.uidFrom ? String(update.uidFrom) : '';
   if (!chatId) return;
-
-  // Nếu token không được truyền vào và đang ở OA mode, tự fetch từ DB
-  if (!token && !(await isBotServerMode())) {
-    token = (await prisma.caiDat.findFirst({ where: { khoa: 'zalo_access_token' } }))?.giaTri?.trim() ?? '';
-  }
 
   // Bỏ qua tin nhắn từ nhóm (type = 1)
   if (update?.type === 1) return;

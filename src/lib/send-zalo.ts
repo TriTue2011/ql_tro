@@ -2,32 +2,10 @@
  * Internal Zalo notification utility — no HTTP session required.
  * Use this from server-side API routes to send Zalo messages.
  *
- * Hỗ trợ 2 chế độ (cài đặt zalo_mode):
- *   "oa"          — Zalo Official Account Bot API (mặc định)
- *   "bot_server"  — Docker Zalo Bot server (zca-js / web login cá nhân)
+ * Gửi tin nhắn qua Docker Zalo Bot server (zca-js / web login cá nhân).
  */
 import prisma from '@/lib/prisma';
-import { isBotServerMode, sendMessageViaBotServer, getBotConfig, BotConfig } from '@/lib/zalo-bot-client';
-
-const ZALO_API = 'https://bot-api.zaloplatforms.com';
-
-async function getZaloToken(): Promise<string | null> {
-  try {
-    const s = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_access_token' } });
-    return s?.giaTri?.trim() || null;
-  } catch { return null; }
-}
-
-/** Gửi text qua OA Bot API */
-async function sendTextOA(token: string, chatId: string, text: string) {
-  const body = { chat_id: chatId, text: text.length > 2000 ? text.slice(0, 1997) + '...' : text };
-  return fetch(`${ZALO_API}/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(10000),
-  }).catch(() => null);
-}
+import { sendMessageViaBotServer, getBotConfig, BotConfig } from '@/lib/zalo-bot-client';
 
 /** Lấy bot config riêng từ chủ sở hữu tòa nhà, fallback sang global */
 async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null> {
@@ -54,15 +32,9 @@ async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null
   return getBotConfig();
 }
 
-/** Gửi text — tự chọn OA hoặc bot server theo cài đặt zalo_mode */
+/** Gửi text qua bot server */
 async function sendText(chatId: string, text: string, configOverride?: BotConfig | null): Promise<boolean> {
-  if (await isBotServerMode()) {
-    return sendMessageViaBotServer(chatId, text, 0, undefined, configOverride).then(r => r.ok);
-  }
-  const token = await getZaloToken();
-  if (!token) return false;
-  const res = await sendTextOA(token, chatId, text);
-  return !!res?.ok;
+  return sendMessageViaBotServer(chatId, text, 0, undefined, configOverride).then(r => r.ok);
 }
 
 /** Gửi Zalo cho khách thuê theo ID (kiểm tra nhanThongBaoZalo) */
@@ -73,7 +45,6 @@ export async function notifyKhachThue(khachThueId: string, message: string): Pro
       select: { zaloChatId: true, nhanThongBaoZalo: true },
     });
     if (!kt?.nhanThongBaoZalo || !kt.zaloChatId) return;
-    // Lấy bot config từ tòa nhà khách thuê đang ở
     const toaNhaId = await getToaNhaIdOfKhachThue(khachThueId);
     const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
     await sendText(kt.zaloChatId, message, botConfig);

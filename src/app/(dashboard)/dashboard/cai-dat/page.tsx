@@ -1936,8 +1936,6 @@ export default function CaiDatPage() {
   const [botWebhookUrl, setBotWebhookUrl] = useState("");
 
   // Load URL đã lưu từ lần cài bot webhook thành công trước (zalo_webhook_url trong DB)
-  // Chỉ dùng nếu URL chứa /api/webhook/ hoặc /api/zalowebhook/ (đúng cho bot server)
-  // KHÔNG dùng /api/zalo/set-webhook vì endpoint đó trả URL Zalo OA (/api/zalo/webhook)
   useEffect(() => {
     if (!canManage) return;
     fetch("/api/zalo-bot/saved-webhook-url")

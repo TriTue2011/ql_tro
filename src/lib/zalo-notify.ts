@@ -19,11 +19,9 @@
  */
 
 import prisma from '@/lib/prisma';
-import { sendMessageViaBotServer, isBotServerMode, getBotConfig, BotConfig } from '@/lib/zalo-bot-client';
+import { sendMessageViaBotServer, getBotConfig, BotConfig } from '@/lib/zalo-bot-client';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
 async function getSetting(khoa: string): Promise<string> {
   const row = await prisma.caiDat.findFirst({ where: { khoa } });
@@ -57,19 +55,8 @@ async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null
 
 async function sendZalo(chatId: string, text: string, toaNhaId?: string): Promise<void> {
   try {
-    if (await isBotServerMode()) {
-      const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
-      await sendMessageViaBotServer(chatId, text, 0, undefined, botConfig);
-      return;
-    }
-    const token = await getSetting('zalo_bot_token');
-    if (!token) return;
-    await fetch(`${ZALO_API}/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text }),
-      signal: AbortSignal.timeout(8_000),
-    });
+    const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
+    await sendMessageViaBotServer(chatId, text, 0, undefined, botConfig);
   } catch { /* fire-and-forget */ }
 }
 
