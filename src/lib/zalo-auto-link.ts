@@ -35,39 +35,100 @@ function formatDiaChi(diaChi: any): string {
   return [soNha, duong, phuong, quan, thanhPho].filter(Boolean).join(', ');
 }
 
-/** Nội dung tin nhắn chào mừng và yêu cầu xác nhận */
+/** Địa chỉ ngắn: số nhà, đường, phường, thành phố (bỏ quận) */
+function formatDiaChiNgan(diaChi: any): string {
+  if (!diaChi || typeof diaChi !== 'object') return '';
+  const { soNha, duong, phuong, thanhPho } = diaChi as Record<string, string | undefined>;
+  return [soNha, duong, phuong, thanhPho].filter(Boolean).join(', ');
+}
+
+/** Tin nhắn gửi khi đã là bạn bè — yêu cầu xác nhận */
 export function buildWelcomeMessage(
   ten: string,
   entityType: 'nguoiDung' | 'khachThue',
   toaNha: { tenToaNha: string; diaChi: any } | null,
 ): string {
-  const loai = entityType === 'khachThue' ? 'đến ở' : 'đến làm việc';
-  const diaChiStr = toaNha ? formatDiaChi(toaNha.diaChi) : '';
-  const diaDiem = toaNha
-    ? `nhà trọ ${toaNha.tenToaNha}${diaChiStr ? ` - ${diaChiStr}` : ''}`
-    : 'hệ thống quản lý nhà trọ';
+  const diaChiStr = toaNha ? formatDiaChiNgan(toaNha.diaChi) : '';
+  const nhaTro = diaChiStr ? `nhà trọ ${diaChiStr}` : 'nhà trọ';
 
-  return (
-    `Xin chào ${ten},\n\n` +
-    `Chào mừng bạn ${loai} tại ${diaDiem}.\n\n` +
-    `Tôi là trợ lý tự động của nhà trọ. Để nhận thông báo hóa đơn ` +
-    `và các thông tin quan trọng qua Zalo, bạn vui lòng nhắn lại:\n` +
-    `• "Đúng" — nếu thông tin trên chính xác\n` +
-    `• "Không" — nếu có sự nhầm lẫn\n\n` +
-    `Cảm ơn bạn!`
-  );
+  if (entityType === 'khachThue') {
+    return `Chào ${ten}, bạn đang ở ${nhaTro}. Bạn cần xác nhận "đúng" hay "không phải" để nhận thông báo qua Zalo từ bây giờ!`;
+  }
+  return `Chào ${ten}, bạn đang làm việc tại ${nhaTro}. Bạn cần xác nhận "đúng" hay "không phải".`;
+}
+
+/** Tin nhắn gửi thêm sau khi gửi lời kết bạn — yêu cầu xác nhận */
+export function buildFollowUpMessage(
+  ten: string,
+  entityType: 'nguoiDung' | 'khachThue',
+  toaNha: { tenToaNha: string; diaChi: any } | null,
+): string {
+  const diaChiStr = toaNha ? formatDiaChiNgan(toaNha.diaChi) : '';
+  const nhaTro = diaChiStr ? `nhà trọ ${diaChiStr}` : 'nhà trọ';
+
+  if (entityType === 'khachThue') {
+    return `Chào ${ten}, bạn đang ở ${nhaTro}. Bạn cần xác nhận "đúng" hay "không phải" để nhận thông báo qua Zalo từ bây giờ!`;
+  }
+  return `Chào ${ten}, bạn đang làm việc tại ${nhaTro}. Bạn cần xác nhận "đúng" hay "không phải".`;
+}
+
+/**
+ * Tin nhắn quản lý mới gửi đến toàn bộ khách thuê trong tòa nhà.
+ * Dùng khi thêm hoặc thay quản lý mới cho tòa nhà.
+ */
+export function buildManagerGreetingMessage(
+  tenQuanLy: string,
+  toaNha: { tenToaNha: string; diaChi: any } | null,
+): string {
+  const diaChiStr = toaNha ? formatDiaChiNgan(toaNha.diaChi) : '';
+  const nhaTro = diaChiStr ? `nhà trọ ${diaChiStr}` : 'nhà trọ';
+  return `Chào bạn, ${tenQuanLy} là quản lý mới của ${nhaTro}. Sau này mọi thông tin xin liên hệ với mình nhé!`;
+}
+
+/**
+ * Nội dung lời mời kết bạn (tối đa 150 ký tự).
+ * Zalo giới hạn tin nhắn trong lời mời kết bạn là 150 ký tự.
+ */
+export function buildFriendRequestMessage(
+  ten: string,
+  entityType: 'nguoiDung' | 'khachThue',
+  toaNha: { tenToaNha: string; diaChi: any } | null,
+): string {
+  const MAX = 150;
+  const dc = toaNha?.diaChi as Record<string, string | undefined> | null;
+  const soNha = dc?.soNha ?? '';
+  const duong = dc?.duong ?? '';
+  const diaChiNgan = [soNha, duong].filter(Boolean).join(', ');
+
+  if (entityType === 'khachThue') {
+    // Khách thuê: Chào {tên}, kết bạn với tôi để nhận thông báo từ nhà trọ {số nhà}, {đường}.
+    if (diaChiNgan) {
+      const full = `Chào ${ten}, kết bạn với tôi để nhận thông báo từ nhà trọ ${diaChiNgan}.`;
+      if (full.length <= MAX) return full;
+    }
+    return `Chào ${ten}, kết bạn với tôi để nhận thông báo từ nhà trọ.`.slice(0, MAX);
+  }
+
+  // Quản lý, nhân viên: Chào {tên}, Bạn đồng ý kết bạn để xác nhận bây giờ làm việc nhà trọ {số nhà}, {đường}
+  if (diaChiNgan) {
+    const full = `Chào ${ten}, Bạn đồng ý kết bạn để xác nhận bây giờ làm việc nhà trọ ${diaChiNgan}.`;
+    if (full.length <= MAX) return full;
+  }
+  return `Chào ${ten}, Bạn đồng ý kết bạn để xác nhận bây giờ làm việc nhà trọ.`.slice(0, MAX);
 }
 
 // ─── Gửi: ưu tiên kết bạn kèm nội dung nếu chưa là bạn ──────────────────────
 
 /**
  * Gửi tin nhắn hoặc lời kết bạn kèm nội dung tùy trạng thái bạn bè.
- * - Nếu chưa là bạn → sendFriendRequest với message = nội dung chào mừng
- * - Nếu đã là bạn   → sendMessage như bình thường
+ * - Nếu chưa là bạn → sendFriendRequest + gửi thêm followUpMsg
+ * - Nếu đã là bạn   → sendMessage với welcomeMsg
  */
 export async function sendWelcomeOrFriendRequest(
   chatId: string,
-  message: string,
+  welcomeMsg: string,
+  friendRequestMsg: string,
+  followUpMsg: string,
   accountSelection?: string,
 ): Promise<void> {
   try {
@@ -80,13 +141,21 @@ export async function sendWelcomeOrFriendRequest(
       );
 
     if (!isFriend) {
-      await sendFriendRequestViaBotServer(chatId, message, accountSelection);
+      console.log(`[zalo-auto-link] chatId=${chatId} chưa là bạn → gửi lời kết bạn (${friendRequestMsg.length} ký tự)`);
+      const fr = await sendFriendRequestViaBotServer(chatId, friendRequestMsg, accountSelection);
+      console.log(`[zalo-auto-link] Kết quả gửi kết bạn:`, fr.ok ? 'OK' : fr.error);
+      // Gửi thêm tin nhắn sau khi kết bạn
+      await sendMessageViaBotServer(chatId, followUpMsg, 0, accountSelection).catch((e) => {
+        console.log(`[zalo-auto-link] Gửi tin nhắn sau kết bạn thất bại (chưa accept):`, e);
+      });
     } else {
-      await sendMessageViaBotServer(chatId, message, 0, accountSelection);
+      console.log(`[zalo-auto-link] chatId=${chatId} đã là bạn → gửi tin nhắn`);
+      await sendMessageViaBotServer(chatId, welcomeMsg, 0, accountSelection);
     }
-  } catch {
+  } catch (e) {
+    console.error(`[zalo-auto-link] sendWelcomeOrFriendRequest error:`, e);
     // fallback: thử gửi tin nhắn thẳng
-    await sendMessageViaBotServer(chatId, message, 0, accountSelection).catch(() => {});
+    await sendMessageViaBotServer(chatId, welcomeMsg, 0, accountSelection).catch(() => {});
   }
 }
 
@@ -304,23 +373,39 @@ export async function autoLinkZaloChatIds(
       // ── Chế độ tòa nhà: dùng bot của tòa nhà, gửi welcome, lưu pending ──
 
       // Bỏ qua nếu đã nhập tay (zaloChatId đã có giá trị)
-      if (await isManuallyLinked(entityType, entityId)) return;
+      if (await isManuallyLinked(entityType, entityId)) {
+        console.log(`[zalo-auto-link] ${entityType} ${entityId} đã có zaloChatId, bỏ qua`);
+        return;
+      }
 
       const sel = await getBotSelectionForBuilding(toaNhaId);
+      console.log(`[zalo-auto-link] Bot selection cho tòa nhà ${toaNhaId}:`, sel.accountId ?? 'default');
       const result = await findUserViaBotServer(phone, sel.accountId);
-      if (!result.ok || !result.data) return;
+      if (!result.ok || !result.data) {
+        console.log(`[zalo-auto-link] Không tìm thấy Zalo user cho SĐT ${phone}:`, result.error ?? 'no data');
+        return;
+      }
 
       const d = result.data as any;
       const uid = String(d.userId ?? d.uid ?? d.id ?? '');
-      if (!uid) return;
+      if (!uid) {
+        console.log(`[zalo-auto-link] findUser trả về nhưng không có userId:`, JSON.stringify(d));
+        return;
+      }
+
+      console.log(`[zalo-auto-link] Tìm thấy Zalo uid=${uid} cho SĐT ${phone}`);
 
       // Lưu vào pendingZaloChatId (chờ xác nhận từ người dùng)
       await savePendingToDB(entityType, entityId, uid, sel.accountId ?? 'Bot');
 
       // Gửi lời kết bạn hoặc tin nhắn chào mừng
       const ten = await getEntityName(entityType, entityId);
-      const msg = buildWelcomeMessage(ten, entityType, sel.toaNha);
-      await sendWelcomeOrFriendRequest(uid, msg, sel.accountId).catch(() => {});
+      const welcomeMsg = buildWelcomeMessage(ten, entityType, sel.toaNha);
+      const frMsg = buildFriendRequestMessage(ten, entityType, sel.toaNha);
+      const followUpMsg = buildFollowUpMessage(ten, entityType, sel.toaNha);
+      await sendWelcomeOrFriendRequest(uid, welcomeMsg, frMsg, followUpMsg, sel.accountId).catch((e) => {
+        console.error(`[zalo-auto-link] sendWelcomeOrFriendRequest lỗi:`, e);
+      });
     } else {
       // ── Fallback: thử tất cả bot accounts, lưu thẳng zaloChatId ──
       const botAccounts = await getAllBotAccounts();
@@ -341,6 +426,70 @@ export async function autoLinkZaloChatIds(
       await saveChatIdDirectToDB(entityType, entityId, newEntries);
     }
   } catch { /* fire-and-forget, bỏ qua lỗi */ }
+}
+
+// ─── Gửi lời chào quản lý mới đến toàn bộ khách thuê ─────────────────────────
+
+/**
+ * Khi thêm/thay quản lý mới cho tòa nhà, gửi tin nhắn thông báo
+ * đến tất cả khách thuê đang có hợp đồng (có zaloChatId).
+ *
+ * Dùng tài khoản quản lý nếu có quyền (hasDelegate), ngược lại dùng chủ trọ.
+ * Fire-and-forget — gọi không cần await.
+ */
+export async function notifyTenantsOfNewManager(
+  toaNhaId: string,
+  nguoiQuanLyId: string,
+): Promise<void> {
+  try {
+    const inBotMode = await isBotServerMode();
+    if (!inBotMode) return;
+
+    // Lấy thông tin quản lý
+    const quanLy = await prisma.nguoiDung.findUnique({
+      where: { id: nguoiQuanLyId },
+      select: { ten: true, zaloAccountId: true },
+    });
+    if (!quanLy) return;
+
+    // Lấy bot selection (dùng account quản lý nếu có quyền delegate)
+    const sel = await getBotSelectionForBuilding(toaNhaId);
+    const toaNhaInfo = sel.toaNha;
+
+    // Ưu tiên dùng tài khoản quản lý nếu quản lý có zaloAccountId
+    const accountId = quanLy.zaloAccountId ?? sel.accountId;
+
+    // Lấy tất cả khách thuê đang ở trong tòa nhà (có hợp đồng hoạt động + có zaloChatId)
+    const khachThues = await prisma.khachThue.findMany({
+      where: {
+        hopDong: {
+          some: {
+            phong: { toaNhaId },
+            trangThai: 'dangThue',
+          },
+        },
+        zaloChatId: { not: null },
+      },
+      select: { id: true, hoTen: true, zaloChatId: true },
+    });
+
+    if (khachThues.length === 0) {
+      console.log(`[zalo-auto-link] Tòa nhà ${toaNhaId}: không có khách thuê nào có zaloChatId`);
+      return;
+    }
+
+    const msg = buildManagerGreetingMessage(quanLy.ten ?? 'Quản lý', toaNhaInfo);
+
+    console.log(`[zalo-auto-link] Gửi thông báo quản lý mới đến ${khachThues.length} khách thuê`);
+    for (const kt of khachThues) {
+      if (!kt.zaloChatId) continue;
+      await sendMessageViaBotServer(kt.zaloChatId, msg, 0, accountId).catch((e) => {
+        console.log(`[zalo-auto-link] Gửi tin nhắn quản lý mới cho KT ${kt.id} thất bại:`, e);
+      });
+    }
+  } catch (e) {
+    console.error(`[zalo-auto-link] notifyTenantsOfNewManager error:`, e);
+  }
 }
 
 // ─── Helpers nội bộ ───────────────────────────────────────────────────────────

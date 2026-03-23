@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { hash } from 'bcryptjs';
-import { autoLinkZaloChatIds } from '@/lib/zalo-auto-link';
+import { autoLinkZaloChatIds, notifyTenantsOfNewManager } from '@/lib/zalo-auto-link';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/sanitize';
 
@@ -235,6 +235,13 @@ export async function POST(request: NextRequest) {
         await prisma.toaNhaNguoiQuanLy.create({
           data: { toaNhaId: tid, nguoiDungId: newUser.id },
         }).catch(() => {});
+      }
+
+      // Nếu là quản lý mới → gửi thông báo đến toàn bộ khách thuê
+      if (role === 'quanLy' || role === 'dongChuTro') {
+        for (const tid of toaNhaIds) {
+          notifyTenantsOfNewManager(tid, newUser.id).catch(() => {});
+        }
       }
     }
 

@@ -115,6 +115,9 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
   // QR state
   const [qrLoading, setQrLoading] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [autoSetupRunning, setAutoSetupRunning] = useState(false);
+  const [autoSetupResult, setAutoSetupResult] = useState<{ ok: boolean; steps?: string[]; message?: string; error?: string } | null>(null);
+  const qrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchStatus = useCallback(async () => {
     setLoading(true);
@@ -173,6 +176,41 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
   };
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  // Sau khi hiển thị QR, poll bot server 3s/lần để detect login → auto-setup
+  useEffect(() => {
+    if (!qrCode || !account?.id) return;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/zalo-bot/auto-setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetUserId: account.id }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (qrPollRef.current) clearInterval(qrPollRef.current);
+          qrPollRef.current = null;
+          setAutoSetupRunning(false);
+          setAutoSetupResult(data);
+          setQrCode(null);
+          toast.success(data.message || "Thiết lập tự động thành công");
+          fetchStatus();
+        }
+      } catch { /* ignore */ }
+    };
+    setAutoSetupRunning(true);
+    setAutoSetupResult(null);
+    qrPollRef.current = setInterval(poll, 3000);
+    const firstPoll = setTimeout(poll, 2000);
+    return () => {
+      if (qrPollRef.current) clearInterval(qrPollRef.current);
+      qrPollRef.current = null;
+      clearTimeout(firstPoll);
+      setAutoSetupRunning(false);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrCode, account?.id]);
 
   return (
     <Card className="rounded-none border-0 shadow-none">
@@ -265,7 +303,16 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
                   src={qrCode.startsWith("data:") ? qrCode : `data:image/png;base64,${qrCode}`}
                   alt="QR Zalo" className="w-48 h-48 border rounded bg-white"
                 />
-                <span className="text-[10px] text-gray-400">Quét bằng app Zalo</span>
+                <span className="text-[10px] text-gray-400">
+                  {autoSetupRunning ? "Đang chờ quét QR... (tự động cài đặt sau khi đăng nhập)" : "Quét bằng app Zalo"}
+                </span>
+                {autoSetupRunning && <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />}
+              </div>
+            )}
+            {autoSetupResult?.ok && (
+              <div className="text-xs text-green-700 bg-green-50 px-2 py-1.5 rounded space-y-0.5">
+                <div className="font-medium">{autoSetupResult.message}</div>
+                {autoSetupResult.steps?.map((s, i) => <div key={i}>• {s}</div>)}
               </div>
             )}
           </div>

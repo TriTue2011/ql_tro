@@ -425,7 +425,7 @@ export async function getSentFriendRequestsFromBotServer(accountSelection?: stri
 }
 
 export async function sendFriendRequestViaBotServer(userId: string, message: string, accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/sendFriendRequestByAccount", { userId, message, accountSelection: await ac(accountSelection) });
+  const r = await botRequest("POST", "/api/sendFriendRequestByAccount", { userId, msg: message, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 

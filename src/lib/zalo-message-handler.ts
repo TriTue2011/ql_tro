@@ -18,7 +18,7 @@
 import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
-import { sendMessageViaBotServer, getAllFriendsFromBotServer, getAllGroupsFromBotServer, getGroupMembersFromBotServer, findUserViaBotServer } from '@/lib/zalo-bot-client';
+import { sendMessageViaBotServer, getAllFriendsFromBotServer, getAllGroupsFromBotServer, getGroupMembersFromBotServer, findUserViaBotServer, getUserInfoViaBotServer } from '@/lib/zalo-bot-client';
 import { emitNewMessage } from '@/lib/zalo-message-events';
 import { askAI, classifyIntent } from '@/lib/ai-chat';
 
@@ -101,6 +101,17 @@ async function isFriend(chatId: string, displayName?: string): Promise<boolean> 
   // Zalo webhook dùng chatId khác format userId trong friend list,
   // nên fallback match theo displayName
   if (displayName && _friendsNamesCache?.has(displayName.trim().toLowerCase())) return true;
+
+  // Fallback: gọi API real-time kiểm tra user info (chatId webhook có thể khác userId friend list)
+  try {
+    const info = await getUserInfoViaBotServer(chatId);
+    if (info.ok && info.data) {
+      // Có thông tin user → đã là bạn bè (chỉ lấy được info của bạn bè)
+      _friendsCache?.add(chatId); // cache lại để lần sau không cần gọi API
+      return true;
+    }
+  } catch { /* ignore */ }
+
   return false;
 }
 
