@@ -185,6 +185,17 @@ export async function POST(
     }
 
     const update = body?.result ?? body;
+
+    // Inject ownId từ thông tin user (biết từ token URL)
+    // Ưu tiên: zaloAccountId (ID Zalo) > nd.id (ID user trong DB)
+    const accountId = nd.zaloAccountId || nd.id;
+    if (!update.ownId && !update.toId && !update.idTo && !update.own_id) {
+      update.ownId = accountId;
+      if (update.data && !update.data.ownId && !update.data.idTo && !update.data.toId) {
+        update.data.ownId = accountId;
+      }
+    }
+
     const { chatId, content } = normalizeWebhookPayload(update);
     if (!chatId) {
       return NextResponse.json({ message: 'No chatId' });
@@ -194,9 +205,6 @@ export async function POST(
     if (update?.type === 1) {
       return NextResponse.json({ message: 'Group message skipped' });
     }
-
-    // nd đã được lấy ở trên khi xác thực token
-    const accountId = nd?.zaloAccountId ?? undefined;
 
     await Promise.all([
       saveMessage(update),
