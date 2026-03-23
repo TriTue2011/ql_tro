@@ -648,6 +648,7 @@ function TestSendCard({ account }: { account?: AccountData }) {
         chatId: chatId.trim(),
         threadType,
       };
+      if (account?.id) body.targetUserId = account.id;
       if (testType === "text") body.message = message;
       else if (testType === "image") {
         body.imageUrl = imageUrl.trim();
@@ -1040,11 +1041,13 @@ function MonitorCard({ account }: { account?: AccountData }) {
   const fetchConvs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/zalo/messages?conversations=1');
+      const params = new URLSearchParams({ conversations: '1' });
+      if (account?.zaloAccountId) params.set('ownId', account.zaloAccountId);
+      const res = await fetch(`/api/zalo/messages?${params}`);
       const data = await res.json();
       if (data.data) setConvs(data.data);
     } finally { setLoading(false); }
-  }, []);
+  }, [account?.zaloAccountId]);
 
   useEffect(() => { fetchConvs(); }, [fetchConvs]);
   useRealtimeEvents(['zalo-message'], () => { void fetchConvs(); });

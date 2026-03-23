@@ -35,7 +35,10 @@ export async function GET(request: NextRequest) {
   // Danh sách cuộc hội thoại
   // Admin: xem tất cả; chuNha: chỉ tin nhắn gửi đến tài khoản Zalo của mình
   if (searchParams.get("conversations") === "1") {
-    if (canViewAll) {
+    // Admin có thể filter theo ownId cụ thể (khi xem tài khoản cụ thể)
+    const adminFilterOwnId = canViewAll ? searchParams.get("ownId") : null;
+
+    if (canViewAll && !adminFilterOwnId) {
       const rows = await prisma.$queryRaw<any[]>`
         WITH latest_user AS (
           SELECT DISTINCT ON ("chatId")
@@ -63,9 +66,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: rowsWithRoomInfo });
     }
 
-    // ChuNha / other roles: filter theo ownId (tài khoản bot)
-    // Bao gồm cả tin nhắn cũ chưa có ownId (ownId IS NULL)
-    const filterOwnId = userZaloAccountId || userZaloChatId;
+    // Filter theo ownId: admin filter theo param, chuNha filter theo tài khoản Zalo
+    const filterOwnId = adminFilterOwnId || userZaloAccountId || userZaloChatId;
     if (!filterOwnId) return NextResponse.json({ data: [] });
 
     const rows = await prisma.$queryRaw<any[]>`

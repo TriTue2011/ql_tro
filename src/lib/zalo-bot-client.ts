@@ -140,9 +140,9 @@ async function botRequest(
 }
 
 // Helper lấy accountId mặc định
-async function ac(accountSelection?: string): Promise<string> {
+async function ac(accountSelection?: string, configOverride?: BotConfig | null): Promise<string> {
   if (accountSelection) return accountSelection;
-  const c = await getBotConfig();
+  const c = configOverride ?? await getBotConfig();
   return c?.accountId || "";
 }
 
@@ -221,16 +221,17 @@ export async function sendMessageViaBotServer(
   text: string,
   threadType: 0 | 1 = 0,
   accountSelection?: string,
+  configOverride?: BotConfig | null,
 ): Promise<OkResult> {
   const truncated = text.length > 2000 ? text.slice(0, 1997) + "..." : text;
-  const config = await getBotConfig();
+  const config = configOverride ?? await getBotConfig();
   const ttl = config?.ttl ?? 0;
   const r = await botRequest("POST", "/api/sendMessageByAccount", {
     message: { msg: truncated, ttl, quote: null },
     threadId: chatId,
-    accountSelection: await ac(accountSelection),
+    accountSelection: await ac(accountSelection, config),
     type: threadType,
-  }, 15_000);
+  }, 15_000, config);
   return { ok: r.ok, error: r.error };
 }
 
@@ -240,17 +241,18 @@ export async function sendImageViaBotServer(
   caption?: string,
   threadType: 0 | 1 = 0,
   accountSelection?: string,
+  configOverride?: BotConfig | null,
 ): Promise<OkResult> {
-  const config = await getBotConfig();
+  const config = configOverride ?? await getBotConfig();
   const ttl = config?.ttl ?? 0;
   const r = await botRequest("POST", "/api/sendImageByAccount", {
     imagePath: imageUrl,
     threadId: chatId,
-    accountSelection: await ac(accountSelection),
+    accountSelection: await ac(accountSelection, config),
     type: threadType === 1 ? "group" : "user",
     message: caption?.slice(0, 1024) || "",
     ttl,
-  }, 20_000);
+  }, 20_000, config);
   return { ok: r.ok, error: r.error };
 }
 
@@ -260,30 +262,31 @@ export async function sendFileViaBotServer(
   caption?: string,
   threadType: 0 | 1 = 0,
   accountSelection?: string,
+  configOverride?: BotConfig | null,
 ): Promise<OkResult> {
-  const config = await getBotConfig();
+  const config = configOverride ?? await getBotConfig();
   const ttl = config?.ttl ?? 0;
   const r = await botRequest("POST", "/api/sendFileByAccount", {
     fileUrl,
     message: caption?.slice(0, 1024) || "",
     threadId: chatId,
-    accountSelection: await ac(accountSelection),
+    accountSelection: await ac(accountSelection, config),
     type: threadType === 1 ? "group" : "user",
     ttl,
-  }, 30_000);
+  }, 30_000, config);
   return { ok: r.ok, error: r.error };
 }
 
 export async function sendVideoViaBotServer(
   chatId: string,
   videoUrl: string,
-  opts?: { thumbnailUrl?: string; durationMs?: number; width?: number; height?: number; threadType?: 0 | 1; accountSelection?: string },
+  opts?: { thumbnailUrl?: string; durationMs?: number; width?: number; height?: number; threadType?: 0 | 1; accountSelection?: string; configOverride?: BotConfig | null },
 ): Promise<OkResult> {
-  const config = await getBotConfig();
+  const config = opts?.configOverride ?? await getBotConfig();
   const ttl = config?.ttl ?? 0;
   const r = await botRequest("POST", "/api/sendVideoByAccount", {
     threadId: String(chatId),
-    accountSelection: await ac(opts?.accountSelection),
+    accountSelection: await ac(opts?.accountSelection, config),
     type: opts?.threadType ?? 0,
     options: {
       videoUrl,
@@ -294,7 +297,7 @@ export async function sendVideoViaBotServer(
       height: opts?.height ?? 720,
       ttl,
     },
-  }, 60_000);
+  }, 60_000, config);
   return { ok: r.ok, error: r.error };
 }
 
@@ -303,13 +306,15 @@ export async function sendStickerViaBotServer(
   stickerId: number,
   threadType: 0 | 1 = 0,
   accountSelection?: string,
+  configOverride?: BotConfig | null,
 ): Promise<OkResult> {
+  const config = configOverride ?? undefined;
   const r = await botRequest("POST", "/api/sendStickerByAccount", {
-    accountSelection: await ac(accountSelection),
+    accountSelection: await ac(accountSelection, config),
     threadId: chatId,
     sticker: { id: stickerId, cateId: 526, type: 1 },
     type: threadType,
-  });
+  }, 15_000, config);
   return { ok: r.ok, error: r.error };
 }
 
@@ -317,20 +322,23 @@ export async function sendVoiceViaBotServer(
   chatId: string,
   voiceUrl: string,
   accountSelection?: string,
+  configOverride?: BotConfig | null,
 ): Promise<OkResult> {
+  const config = configOverride ?? undefined;
   const r = await botRequest("POST", "/api/sendVoiceByAccount", {
     threadId: chatId,
-    accountSelection: await ac(accountSelection),
+    accountSelection: await ac(accountSelection, config),
     options: { voiceUrl },
-  });
+  }, 15_000, config);
   return { ok: r.ok, error: r.error };
 }
 
-export async function sendTypingEventViaBotServer(chatId: string, accountSelection?: string): Promise<OkResult> {
+export async function sendTypingEventViaBotServer(chatId: string, accountSelection?: string, configOverride?: BotConfig | null): Promise<OkResult> {
+  const config = configOverride ?? undefined;
   const r = await botRequest("POST", "/api/sendTypingEventByAccount", {
     threadId: chatId,
-    accountSelection: await ac(accountSelection),
-  });
+    accountSelection: await ac(accountSelection, config),
+  }, 15_000, config);
   return { ok: r.ok, error: r.error };
 }
 
