@@ -474,12 +474,18 @@ async function handleStranger(token: string, chatId: string, displayName: string
     if (greeting) {
       const alreadyFriend = await isFriend(chatId);
       const alreadyInGroup = isGroupMember(chatId);
-      // Kiểm tra lịch sử: nếu đã có tin nhắn trước đó trong DB → không phải người lạ
-      const existingMsg = await prisma.zaloMessage.findFirst({
-        where: { chatId },
-        select: { id: true },
-      }).catch(() => null);
-      const isNewUser = !alreadyFriend && !alreadyInGroup && !existingMsg;
+      // Kiểm tra lịch sử: webhook đã lưu tin nhắn hiện tại trước khi gọi hàm này,
+      // nên nếu có > 1 tin nhắn → đã có hội thoại trước đó → không phải người mới.
+      // Cũng kiểm tra đã từng gửi greeting chưa để tránh gửi lặp.
+      const [msgCount, alreadyGreeted] = await Promise.all([
+        prisma.zaloMessage.count({ where: { chatId } }).catch(() => 0),
+        prisma.zaloMessage.findFirst({
+          where: { chatId, eventName: 'bot_greeting' },
+          select: { id: true },
+        }).catch(() => null),
+      ]);
+      const hasHistory = msgCount > 1; // > 1 vì tin nhắn hiện tại đã được lưu
+      const isNewUser = !alreadyFriend && !alreadyInGroup && !hasHistory && !alreadyGreeted;
       if (isNewUser) {
         await sendReply(token, chatId, greeting, accountSelection);
         await prisma.zaloMessage.create({
