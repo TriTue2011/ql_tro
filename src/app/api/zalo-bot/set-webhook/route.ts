@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     // Dọn webhook cũ: xóa webhook của account không còn trên server
     try {
-      const allWh = await getAccountWebhooksFromBotServer();
+      const allWh = await getAccountWebhooksFromBotServer(botConfig);
       const whAccounts: Record<string, any> = allWh.ok && allWh.data
         ? (allWh.data.accounts ?? allWh.data.data?.accounts ?? {})
         : {};
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
 
       for (const key of Object.keys(whAccounts)) {
         if (!activeOwnIds.has(key) && !activePhones.has(key)) {
-          await deleteAccountWebhookFromBotServer(key).catch(() => {});
+          await deleteAccountWebhookFromBotServer(key, botConfig).catch(() => {});
         }
       }
     } catch { /* bỏ qua */ }

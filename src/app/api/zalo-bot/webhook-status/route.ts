@@ -79,7 +79,8 @@ export async function GET(req: NextRequest) {
       // Query 1 account
       const acc = accMap.get(ownId);
       const wh = await getAccountWebhookFromBotServer(ownId, botConfig);
-      const d = wh.data;
+      // Bot server có thể trả { data: { messageWebhookUrl } } hoặc { messageWebhookUrl }
+      const d = wh.data?.data ?? wh.data;
       const msgUrl = d?.messageWebhookUrl || null;
       const grpUrl = d?.groupEventWebhookUrl || null;
       const reactUrl = d?.reactionWebhookUrl || null;

@@ -297,7 +297,11 @@ function WebhookCard({ account }: { account?: AccountData }) {
       if (account?.id) params.set('targetUserId', account.id);
       const qs = params.toString();
       const statusRes = await fetch(`/api/zalo-bot/webhook-status${qs ? `?${qs}` : ''}`).then(r => r.json()).catch(() => null);
-      if (statusRes?.ok && statusRes.webhooks) setWebhookStatus(statusRes.webhooks);
+      if (statusRes?.ok && statusRes.webhooks) {
+        setWebhookStatus(statusRes.webhooks);
+        // Clear result cũ khi status đã load xong (tránh mâu thuẫn hiển thị)
+        setResult(null);
+      }
       else if (statusRes?.error) setWebhookStatus([]);
     } finally { setLoadingStatus(false); }
   }, [account?.zaloAccountId, account?.id]);
@@ -392,9 +396,10 @@ function WebhookCard({ account }: { account?: AccountData }) {
         {/* Hiển thị Webhook URL hiện tại (luôn hiển thị để tra cứu) */}
         {(() => {
           // Lấy URL từ kết quả cài đặt gần nhất, hoặc từ trạng thái webhook trên bot server
-          const currentUrl = result?.webhookUrl || webhookStatus?.find(wh => wh.hasWebhook)?.messageWebhookUrl;
-          const currentGroupUrl = webhookStatus?.find(wh => wh.hasWebhook)?.groupEventWebhookUrl;
-          const currentReactionUrl = webhookStatus?.find(wh => wh.hasWebhook)?.reactionWebhookUrl;
+          const whEntry = webhookStatus?.find(wh => wh.messageWebhookUrl);
+          const currentUrl = result?.webhookUrl || whEntry?.messageWebhookUrl;
+          const currentGroupUrl = whEntry?.groupEventWebhookUrl;
+          const currentReactionUrl = whEntry?.reactionWebhookUrl;
           if (!currentUrl && !result) return null;
           return (
             <div className="border rounded-md p-2.5 space-y-1.5 bg-gray-50">
