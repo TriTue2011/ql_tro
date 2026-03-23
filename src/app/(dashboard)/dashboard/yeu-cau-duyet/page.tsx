@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { CheckCircle2, XCircle, Clock, RefreshCw, User, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { useCanEdit } from '@/hooks/use-can-edit';
 
 interface YeuCau {
   id: string;
@@ -128,6 +129,7 @@ function renderChange(noiDung: any, loai: string) {
 }
 
 export default function YeuCauDuyetPage() {
+  const canEdit = useCanEdit();
   const [yeuCaus, setYeuCaus] = useState<YeuCau[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTT, setFilterTT] = useState('choPheduyet');
@@ -236,7 +238,7 @@ export default function YeuCauDuyetPage() {
                         <Calendar className="h-3 w-3" /> {fmtDate(yc.ngayTao)}
                       </div>
                     </div>
-                    {yc.trangThai === 'choPheduyet' && (
+                    {canEdit && yc.trangThai === 'choPheduyet' && (
                       <div className="flex gap-2 shrink-0">
                         <Button size="sm" variant="outline" className="text-green-600 border-green-300 hover:bg-green-50"
                           onClick={e => { e.stopPropagation(); setSelected(yc); setGhiChu(''); }}>
@@ -284,7 +286,7 @@ export default function YeuCauDuyetPage() {
                 {renderChange(selected.noiDung, selected.loai)}
               </div>
 
-              {selected.trangThai === 'choPheduyet' && (
+              {canEdit && selected.trangThai === 'choPheduyet' && (
                 <>
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Ghi chú (tùy chọn)</label>

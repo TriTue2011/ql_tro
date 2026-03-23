@@ -42,12 +42,14 @@ import {
 } from 'lucide-react';
 import { HopDong, Phong, KhachThue, ToaNha } from '@/types';
 import { HopDongDataTable } from './table';
+import { useCanEdit } from '@/hooks/use-can-edit';
 import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
 
 export default function HopDongPage() {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const cache = useCache<{
     hopDongList: HopDong[];
     phongList: Phong[];
@@ -922,11 +924,13 @@ export default function HopDongPage() {
             <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
           </Button>
-          <Button size="sm" onClick={() => router.push('/dashboard/hop-dong/them-moi')} className="flex-1 sm:flex-none">
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Thêm hợp đồng</span>
-            <span className="sm:hidden">Thêm</span>
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={() => router.push('/dashboard/hop-dong/them-moi')} className="flex-1 sm:flex-none">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Thêm hợp đồng</span>
+              <span className="sm:hidden">Thêm</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1095,13 +1099,15 @@ export default function HopDongPage() {
                 <Download className="h-3 w-3 md:h-4 md:w-4 mr-2" />
                 Tải xuống
               </Button>
-              <Button size="sm" onClick={() => {
-                setViewingHopDong(null);
-                handleEdit(viewingHopDong);
-              }} className="flex-1 sm:flex-none">
-                <Edit className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                Chỉnh sửa
-              </Button>
+              {canEdit && (
+                <Button size="sm" onClick={() => {
+                  setViewingHopDong(null);
+                  handleEdit(viewingHopDong);
+                }} className="flex-1 sm:flex-none">
+                  <Edit className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                  Chỉnh sửa
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -1177,6 +1183,7 @@ export default function HopDongPage() {
             onGiaHan={handleGiaHan}
             onHuy={handleHuy}
             actionLoading={actionLoading}
+            canEdit={canEdit}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             statusFilter={statusFilter}
@@ -1329,15 +1336,17 @@ export default function HopDongPage() {
                       <FileText className="h-3.5 w-3.5 mr-1" />
                       Xem
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(hopDong)}
-                      className="flex-1"
-                    >
-                      <Edit className="h-3.5 w-3.5 mr-1" />
-                      Sửa
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(hopDong)}
+                        className="flex-1"
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-1" />
+                        Sửa
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

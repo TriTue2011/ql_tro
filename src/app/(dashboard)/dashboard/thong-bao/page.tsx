@@ -55,8 +55,10 @@ import {
 import { ThongBao, ToaNha, Phong, KhachThue } from '@/types';
 import { toast } from 'sonner';
 import { useCache } from '@/hooks/use-cache';
+import { useCanEdit } from '@/hooks/use-can-edit';
 
 export default function ThongBaoPage() {
+  const canEdit = useCanEdit();
   const cache = useCache<{
     thongBaoList: ThongBao[];
     toaNhaList: ToaNha[];
@@ -322,6 +324,7 @@ export default function ThongBaoPage() {
             <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
           </Button>
+          {canEdit && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" onClick={() => setEditingThongBao(null)} className="flex-1 sm:flex-none">
@@ -339,8 +342,8 @@ export default function ThongBaoPage() {
                 {editingThongBao ? 'Cập nhật thông tin thông báo' : 'Nhập thông tin thông báo mới'}
               </DialogDescription>
             </DialogHeader>
-            
-            <ThongBaoForm 
+
+            <ThongBaoForm
               thongBao={editingThongBao}
               toaNhaList={toaNhaList}
               phongList={phongList}
@@ -354,6 +357,7 @@ export default function ThongBaoPage() {
             />
           </DialogContent>
         </Dialog>
+          )}
         </div>
       </div>
 
@@ -501,6 +505,7 @@ export default function ThongBaoPage() {
                     <TableCell>
                       {getTrangThaiXuLyBadge(thongBao.trangThaiXuLy)}
                     </TableCell>
+                    {canEdit && (
                     <TableCell>
                       {(!thongBao.trangThaiXuLy || thongBao.trangThaiXuLy === 'chuaXuLy') ? (
                         <div className="flex gap-1">
@@ -541,6 +546,8 @@ export default function ThongBaoPage() {
                         </Button>
                       )}
                     </TableCell>
+                    )}
+                    {canEdit && (
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button
@@ -560,6 +567,7 @@ export default function ThongBaoPage() {
                         </Button>
                       </div>
                     </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -652,7 +660,7 @@ export default function ThongBaoPage() {
                   </div>
 
                   {/* Nút hành động theo loại thông báo */}
-                  {(!thongBao.trangThaiXuLy || thongBao.trangThaiXuLy === 'chuaXuLy') ? (
+                  {canEdit && ((!thongBao.trangThaiXuLy || thongBao.trangThaiXuLy === 'chuaXuLy') ? (
                     <div className="flex gap-2 pt-2 border-t">
                       {(() => {
                         const actions = getActionButtons(thongBao.loai);
@@ -691,9 +699,10 @@ export default function ThongBaoPage() {
                         Hoàn tác trạng thái
                       </Button>
                     </div>
-                  )}
+                  ))}
 
                   {/* Action buttons */}
+                  {canEdit && (
                   <div className="flex flex-wrap gap-2 pt-2 border-t">
                     <Button
                       variant="outline"
@@ -714,6 +723,7 @@ export default function ThongBaoPage() {
                       Xóa
                     </Button>
                   </div>
+                  )}
                 </div>
               </Card>
             );

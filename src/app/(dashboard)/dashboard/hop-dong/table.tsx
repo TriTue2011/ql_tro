@@ -162,6 +162,7 @@ type HopDongTableProps = {
   onGiaHan: (hopDong: HopDong) => void
   onHuy: (hopDong: HopDong) => void
   actionLoading: string | null
+  canEdit?: boolean
 }
 
 const getPhongName = (phong: string | { maPhong: string }, phongList: Phong[]) => {
@@ -307,9 +308,9 @@ const createColumns = (props: HopDongTableProps): ColumnDef<HopDong>[] => [
       </div>
     ),
   },
-  {
+  ...(props.canEdit !== false ? [{
     id: "actions",
-    cell: ({ row }) => (
+    cell: ({ row }: { row: Row<HopDong> }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -348,7 +349,7 @@ const createColumns = (props: HopDongTableProps): ColumnDef<HopDong>[] => [
             </>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem 
+          <DropdownMenuItem
             className="text-destructive"
             onClick={() => props.onDelete(row.original.id!)}
           >
@@ -359,7 +360,7 @@ const createColumns = (props: HopDongTableProps): ColumnDef<HopDong>[] => [
       </DropdownMenu>
     ),
     enableHiding: false,
-  },
+  }] : []),
 ]
 
 function DraggableRow({ row }: { row: Row<HopDong> }) {

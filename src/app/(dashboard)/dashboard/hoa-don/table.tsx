@@ -170,6 +170,7 @@ type HoaDonTableProps = {
   onPayment: (hoaDon: HoaDon) => void
   onSend?: (hoaDon: HoaDon) => void
   onDeleteMultiple?: (ids: string[]) => void
+  canEdit?: boolean
 }
 
 const getPhongName = (phong: string | { maPhong: string }, phongList: Phong[]) => {
@@ -294,9 +295,9 @@ const createColumns = (props: HoaDonTableProps): ColumnDef<HoaDon>[] => [
       </div>
     ),
   },
-  {
+  ...(props.canEdit !== false ? [{
     id: "actions",
-    cell: ({ row }) => (
+    cell: ({ row }: { row: Row<HoaDon> }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -343,7 +344,7 @@ const createColumns = (props: HoaDonTableProps): ColumnDef<HoaDon>[] => [
             Tải HTML
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem 
+          <DropdownMenuItem
             className="text-destructive"
             onClick={() => props.onDelete(row.original.id!)}
           >
@@ -354,7 +355,7 @@ const createColumns = (props: HoaDonTableProps): ColumnDef<HoaDon>[] => [
       </DropdownMenu>
     ),
     enableHiding: false,
-  },
+  }] : []),
 ]
 
 function DraggableRow({ row }: { row: Row<HoaDon> }) {

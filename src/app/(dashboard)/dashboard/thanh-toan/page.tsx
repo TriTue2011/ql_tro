@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { useSession } from 'next-auth/react';
+import { useCanEdit } from '@/hooks/use-can-edit';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,8 +64,9 @@ type ThanhToanPopulated = Omit<ThanhToan, 'hoaDon'> & {
 
 export default function ThanhToanPage() {
   const { data: session } = useSession();
+  const canEdit = useCanEdit();
   const role = session?.user?.role ?? '';
-  const canDelete = ['admin', 'chuNha', 'dongChuTro'].includes(role);
+  const canDelete = canEdit && ['admin', 'chuNha'].includes(role);
 
   const cache = useCache<{
     thanhToanList: ThanhToanPopulated[];
@@ -280,6 +282,7 @@ export default function ThanhToanPage() {
             <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
           </Button>
+          {canEdit && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" onClick={() => setEditingThanhToan(null)} className="flex-1 sm:flex-none">
@@ -297,8 +300,8 @@ export default function ThanhToanPage() {
                 {editingThanhToan ? 'Cập nhật thông tin thanh toán' : 'Nhập thông tin thanh toán mới'}
               </DialogDescription>
             </DialogHeader>
-            
-            <ThanhToanForm 
+
+            <ThanhToanForm
               thanhToan={editingThanhToan}
               hoaDonList={hoaDonList}
               onClose={() => setIsDialogOpen(false)}
@@ -310,6 +313,7 @@ export default function ThanhToanPage() {
             />
           </DialogContent>
         </Dialog>
+          )}
         </div>
       </div>
 
@@ -378,6 +382,7 @@ export default function ThanhToanPage() {
             onDelete={handleDelete}
             onDownload={handleDownload}
             canDelete={canDelete}
+            canEdit={canEdit}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             methodFilter={methodFilter}
@@ -512,6 +517,7 @@ export default function ThanhToanPage() {
                   )}
 
                   {/* Action buttons */}
+                  {canEdit && (
                   <div className="flex justify-between items-center pt-2 border-t">
                     <Button
                       variant="outline"
@@ -529,6 +535,7 @@ export default function ThanhToanPage() {
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
+                  )}
                 </div>
               </Card>
             );

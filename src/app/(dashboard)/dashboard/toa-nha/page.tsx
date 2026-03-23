@@ -52,8 +52,10 @@ import { ToaNha, LienHePhuTrach } from '@/types';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { toast } from 'sonner';
 import { ToaNhaDataTable } from './table';
+import { useCanEdit } from '@/hooks/use-can-edit';
 
 export default function ToaNhaPage() {
+  const canEdit = useCanEdit();
   const cache = useCache<{ toaNhaList: ToaNha[] }>({ key: 'toa-nha-data', duration: 300000 });
   const [toaNhaList, setToaNhaList] = useState<ToaNha[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,6 +185,7 @@ export default function ToaNhaPage() {
             <span className="hidden sm:inline ml-2">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            {canEdit && (
             <DialogTrigger asChild>
               <Button size="sm" onClick={() => setEditingToaNha(null)} className="flex-1 sm:flex-none">
                 <Plus className="h-4 w-4 sm:mr-2" />
@@ -190,6 +193,7 @@ export default function ToaNhaPage() {
                 <span className="sm:hidden">Thêm</span>
               </Button>
             </DialogTrigger>
+            )}
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-full">
             <DialogHeader>
               <DialogTitle className="text-base md:text-lg">
@@ -227,6 +231,7 @@ export default function ToaNhaPage() {
             onDelete={handleDelete}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
+            canEdit={canEdit}
           />
         </CardContent>
       </Card>
@@ -327,6 +332,8 @@ export default function ToaNhaPage() {
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </Button>
+                        {canEdit && (
+                        <>
                         <Button
                           variant="outline"
                           size="sm"
@@ -342,6 +349,8 @@ export default function ToaNhaPage() {
                           description="Bạn có chắc chắn muốn xóa tòa nhà này?"
                           className="text-black hover:text-red-700 hover:bg-red-50"
                         />
+                        </>
+                        )}
                       </div>
                     </div>
                   </CardContent>

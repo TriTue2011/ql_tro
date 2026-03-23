@@ -57,8 +57,10 @@ import { buildUploadFolder } from '@/lib/upload-path';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { useCanEdit } from '@/hooks/use-can-edit';
 
 export default function PhongPage() {
+  const canEdit = useCanEdit();
   const cache = useCache<{
     phongList: Phong[];
     toaNhaList: ToaNha[];
@@ -292,36 +294,38 @@ export default function PhongPage() {
             {cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}
           </Button>
      
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={() => setEditingPhong(null)} className="w-full sm:w-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                Thêm phòng
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-full">
-              <DialogHeader>
-                <DialogTitle className="text-base md:text-lg">
-                  {editingPhong ? 'Chỉnh sửa phòng' : 'Thêm phòng mới'}
-                </DialogTitle>
-                <DialogDescription className="text-xs md:text-sm">
-                  {editingPhong ? 'Cập nhật thông tin phòng' : 'Nhập thông tin phòng mới'}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <PhongForm 
-                phong={editingPhong}
-                toaNhaList={toaNhaList}
-                onClose={() => setIsDialogOpen(false)}
-                onSuccess={() => {
-                  cache.clearCache();
-                  setIsDialogOpen(false);
-                  fetchPhong(true);
-                  toast.success(editingPhong ? 'Cập nhật phòng thành công!' : 'Thêm phòng thành công!');
-                }}
-              />
-            </DialogContent>
-          </Dialog>
+          {canEdit && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" onClick={() => setEditingPhong(null)} className="w-full sm:w-auto">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Thêm phòng
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-full">
+                <DialogHeader>
+                  <DialogTitle className="text-base md:text-lg">
+                    {editingPhong ? 'Chỉnh sửa phòng' : 'Thêm phòng mới'}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs md:text-sm">
+                    {editingPhong ? 'Cập nhật thông tin phòng' : 'Nhập thông tin phòng mới'}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <PhongForm
+                  phong={editingPhong}
+                  toaNhaList={toaNhaList}
+                  onClose={() => setIsDialogOpen(false)}
+                  onSuccess={() => {
+                    cache.clearCache();
+                    setIsDialogOpen(false);
+                    fetchPhong(true);
+                    toast.success(editingPhong ? 'Cập nhật phòng thành công!' : 'Thêm phòng thành công!');
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -433,6 +437,7 @@ export default function PhongPage() {
                         selectedTrangThai={selectedTrangThai}
                         onTrangThaiChange={setSelectedTrangThai}
                         allToaNhaList={toaNhaList}
+                        canEdit={canEdit}
                       />
                     </div>
                     {/* Mobile cards */}
@@ -479,17 +484,19 @@ export default function PhongPage() {
                                   )}
                                 </div>
                               )}
-                              <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => handleEdit(phong)} className="flex-1 text-xs">
-                                  <Edit className="h-3.5 w-3.5 mr-1" />Sửa
-                                </Button>
-                                <DeleteConfirmPopover
-                                  onConfirm={() => handleDelete(phong.id!)}
-                                  title="Xóa phòng"
-                                  description="Bạn có chắc chắn muốn xóa phòng này?"
-                                  className="text-black hover:text-red-700 hover:bg-red-50"
-                                />
-                              </div>
+                              {canEdit && (
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm" onClick={() => handleEdit(phong)} className="flex-1 text-xs">
+                                    <Edit className="h-3.5 w-3.5 mr-1" />Sửa
+                                  </Button>
+                                  <DeleteConfirmPopover
+                                    onConfirm={() => handleDelete(phong.id!)}
+                                    title="Xóa phòng"
+                                    description="Bạn có chắc chắn muốn xóa phòng này?"
+                                    className="text-black hover:text-red-700 hover:bg-red-50"
+                                  />
+                                </div>
+                              )}
                             </CardContent>
                           </Card>
                         );

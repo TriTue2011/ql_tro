@@ -113,6 +113,7 @@ type ToaNhaTableProps = {
   onView?: (toaNha: ToaNha) => void
   onEdit: (toaNha: ToaNha) => void
   onDelete: (id: string) => void
+  canEdit?: boolean
 }
 
 const createColumns = (props: ToaNhaTableProps): ColumnDef<ToaNha>[] => [
@@ -235,9 +236,9 @@ const createColumns = (props: ToaNhaTableProps): ColumnDef<ToaNha>[] => [
       </span>
     ),
   },
-  {
+  ...(props.canEdit !== false ? [{
     id: "actions",
-    cell: ({ row }) => (
+    cell: ({ row }: { row: Row<ToaNha> }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -261,7 +262,7 @@ const createColumns = (props: ToaNhaTableProps): ColumnDef<ToaNha>[] => [
             Chỉnh sửa
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem 
+          <DropdownMenuItem
             className="text-destructive"
             onClick={() => props.onDelete(row.original.id!)}
           >
@@ -272,7 +273,7 @@ const createColumns = (props: ToaNhaTableProps): ColumnDef<ToaNha>[] => [
       </DropdownMenu>
     ),
     enableHiding: false,
-  },
+  } as ColumnDef<ToaNha>] : []),
 ]
 
 function DraggableRow({ row }: { row: Row<ToaNha> }) {

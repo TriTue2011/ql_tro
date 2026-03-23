@@ -144,6 +144,7 @@ type KhachThueTableProps = {
   onDelete: (id: string) => void
   onKichHoatTaiKhoan?: (id: string, hasAccount: boolean) => void
   actionLoading: string | null
+  canEdit?: boolean
 }
 
 const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
@@ -328,9 +329,9 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
       )
     },
   },
-  {
+  ...(props.canEdit !== false ? [{
     id: "actions",
-    cell: ({ row }) => (
+    cell: ({ row }: { row: Row<KhachThue> }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -381,7 +382,7 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
       </DropdownMenu>
     ),
     enableHiding: false,
-  },
+  } as ColumnDef<KhachThue>] : []),
 ]
 
 function DraggableRow({ row }: { row: Row<KhachThue> }) {

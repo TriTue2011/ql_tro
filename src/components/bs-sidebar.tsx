@@ -33,14 +33,16 @@ type Role = 'admin' | 'chuNha' | 'dongChuTro' | 'quanLy' | 'nhanVien' | string;
 /**
  * Trả về danh sách NavGroup dựa vào role hiện tại.
  *
- * admin    → toàn quyền: đủ tất cả tab + section "Quản trị" riêng (tách với chủ trọ)
- * chuNha   → quản lý bất động sản đầy đủ; KHÔNG có "Quản trị"
- * quanLy   → như chuNha nhưng không có cài đặt hệ thống
- * nhanVien → chỉ: Phòng, Khách thuê, Hóa đơn, Sự cố, Thông báo, Xem Web, Hồ sơ
+ * admin      → toàn quyền: đủ tất cả tab + section "Quản trị" riêng
+ * chuNha     → quản lý bất động sản đầy đủ; KHÔNG có "Quản trị"
+ * dongChuTro → chỉ xem, không Zalo/Monitor/Cài đặt/Quản lý TK, có Giao diện
+ * quanLy     → như chuNha nhưng không có cài đặt hệ thống
+ * nhanVien   → chỉ: Zalo + Hồ sơ
  */
 function buildNavGroups(role: Role): NavGroup[] {
   const isAdmin = role === 'admin';
-  const isChuNha = role === 'chuNha' || role === 'dongChuTro';
+  const isDongChuTro = role === 'dongChuTro';
+  const isChuNha = role === 'chuNha';
   const isQuanLy = role === 'quanLy';
   const isNhanVien = role === 'nhanVien';
 
@@ -100,6 +102,47 @@ function buildNavGroups(role: Role): NavGroup[] {
     ];
   }
 
+  // ── Đồng chủ trọ: chỉ xem — không Zalo/Monitor/Cài đặt/Quản lý TK ──────
+  if (isDongChuTro) {
+    return [
+      {
+        label: 'Quản lý cơ bản',
+        icon: 'bi-building',
+        items: [
+          { label: 'Tòa nhà', href: '/dashboard/toa-nha' },
+          { label: 'Phòng', href: '/dashboard/phong' },
+          { label: 'Khách thuê', href: '/dashboard/khach-thue' },
+        ],
+      },
+      {
+        label: 'Tài chính',
+        icon: 'bi-receipt',
+        items: [
+          { label: 'Hợp đồng', href: '/dashboard/hop-dong' },
+          { label: 'Hóa đơn', href: '/dashboard/hoa-don' },
+          { label: 'Thanh toán', href: '/dashboard/thanh-toan' },
+        ],
+      },
+      {
+        label: 'Vận hành',
+        icon: 'bi-tools',
+        items: [
+          { label: 'Sự cố', href: '/dashboard/su-co' },
+          { label: 'Yêu cầu duyệt', href: '/dashboard/yeu-cau-duyet' },
+          { label: 'Thông báo', href: '/dashboard/thong-bao' },
+        ],
+      },
+      {
+        label: 'Tài khoản',
+        icon: 'bi-person',
+        items: [
+          { label: 'Hồ sơ', href: '/dashboard/ho-so' },
+          { label: 'Giao diện', href: '/dashboard/giao-dien' },
+        ],
+      },
+    ];
+  }
+
   // ── Chủ trọ, Quản lý: đầy đủ tab quản lý bất động sản ───────────────────
   const groups: NavGroup[] = [
     {
@@ -147,7 +190,7 @@ function buildNavGroups(role: Role): NavGroup[] {
       icon: 'bi-gear',
       items: [
         { label: 'Hồ sơ', href: '/dashboard/ho-so' },
-        ...(isChuNha ? [{ label: 'Cài đặt', href: '/dashboard/cai-dat' }] : []),
+        { label: 'Cài đặt', href: '/dashboard/cai-dat' },
       ],
     });
   }
@@ -286,9 +329,10 @@ function getItemIcon(label: string): string {
     'Thông báo':          'bi-bell',
     'Zalo':               'bi-chat-dots',
     'Quản lý tài khoản': 'bi-person-badge',
-    'Quản lý tài khoản': 'bi-person-badge',
+    'Yêu cầu duyệt':    'bi-check2-circle',
     'Hồ sơ':             'bi-person-circle',
     'Cài đặt':           'bi-sliders',
+    'Giao diện':         'bi-palette',
   };
   return iconMap[label] ?? 'bi-dot';
 }
