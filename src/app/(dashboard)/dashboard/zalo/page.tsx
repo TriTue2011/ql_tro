@@ -277,11 +277,9 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
 // ─── Webhook Card ─────────────────────────────────────────────────────────────
 
 function WebhookCard({ account }: { account?: AccountData }) {
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [ownId, setOwnId] = useState(account?.zaloAccountId ?? "");
   const [setting, setSetting] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; webhookUrl?: string; error?: string } | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; webhookUrl?: string; error?: string; ownId?: string } | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; status?: number; error?: string } | null>(null);
   const [webhookStatus, setWebhookStatus] = useState<{
     ownId: string; phoneNumber: string; isOnline: boolean;
@@ -290,15 +288,11 @@ function WebhookCard({ account }: { account?: AccountData }) {
   }[] | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
 
-  // Load webhook URL đã lưu + kiểm tra trạng thái webhook trên bot server
+  // Kiểm tra trạng thái webhook trên bot server (chỉ cho tài khoản của user)
   const loadStatus = useCallback(async () => {
     setLoadingStatus(true);
     try {
-      const [savedRes, statusRes] = await Promise.all([
-        fetch("/api/zalo-bot/saved-webhook-url").then(r => r.json()).catch(() => null),
-        fetch(`/api/zalo-bot/webhook-status${account?.zaloAccountId ? `?ownId=${account.zaloAccountId}` : ''}`).then(r => r.json()).catch(() => null),
-      ]);
-      if (savedRes?.webhookUrl) setWebhookUrl(savedRes.webhookUrl);
+      const statusRes = await fetch(`/api/zalo-bot/webhook-status${account?.zaloAccountId ? `?ownId=${account.zaloAccountId}` : ''}`).then(r => r.json()).catch(() => null);
       if (statusRes?.ok && statusRes.webhooks) setWebhookStatus(statusRes.webhooks);
       else if (statusRes?.error) setWebhookStatus([]);
     } finally { setLoadingStatus(false); }
@@ -313,14 +307,13 @@ function WebhookCard({ account }: { account?: AccountData }) {
       const res = await fetch("/api/zalo-bot/set-webhook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ webhookUrl: webhookUrl || undefined, ownId: ownId || undefined }),
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       setResult(data);
       if (data.ok) {
-        setWebhookUrl(data.webhookUrl || "");
         toast.success("Đã cài đặt webhook thành công");
-        loadStatus(); // Reload trạng thái webhook
+        loadStatus();
       } else {
         toast.error(data.error || "Cài đặt webhook thất bại");
       }
@@ -329,33 +322,8 @@ function WebhookCard({ account }: { account?: AccountData }) {
     }
   };
 
-  const handleGenerateRandom = async () => {
-    const bytes = crypto.getRandomValues(new Uint8Array(32));
-    // base64url (A-Z a-z 0-9 - _)
-    const token = btoa(String.fromCharCode(...bytes))
-      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    const base = typeof window !== "undefined" ? window.location.origin : "";
-    const url = `${base}/api/zalowebhook/${token}`;
-    setWebhookUrl(url);
-    // Lưu token vào DB để route [token] có thể validate
-    try {
-      const existing = await fetch("/api/admin/settings").then(r => r.json())
-        .then((d: { success: boolean; data?: { khoa: string; giaTri: string }[] }) =>
-          d.success ? (d.data?.find((s: { khoa: string }) => s.khoa === "zalo_webhook_tokens")?.giaTri) : null
-        ).catch(() => null);
-      const tokens: string[] = existing ? JSON.parse(existing) : [];
-      if (!tokens.includes(token)) tokens.push(token);
-      await fetch("/api/admin/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: [{ khoa: "zalo_webhook_tokens", giaTri: JSON.stringify(tokens) }] }),
-      });
-    } catch { /* non-critical */ }
-    toast.success("Đã tạo webhook URL ngẫu nhiên");
-  };
-
   const handleTest = async () => {
-    const url = webhookUrl || result?.webhookUrl;
+    const url = result?.webhookUrl || webhookStatus?.[0]?.messageWebhookUrl;
     if (!url) { toast.error("Chưa có webhook URL để test"); return; }
     setTesting(true);
     setTestResult(null);
@@ -381,7 +349,7 @@ function WebhookCard({ account }: { account?: AccountData }) {
           <Webhook className="h-4 w-4 text-violet-600" />
           Webhook
         </CardTitle>
-        <CardDescription className="text-xs">Cài đặt webhook nhận tin nhắn Zalo từ bot server</CardDescription>
+        <CardDescription className="text-xs">Cài webhook cho tài khoản Zalo của bạn (dùng IP LAN từ app_local_url)</CardDescription>
       </CardHeader>
       <CardContent className="px-4 pb-4 space-y-3">
         {/* Trạng thái webhook trên bot server */}
@@ -436,25 +404,6 @@ function WebhookCard({ account }: { account?: AccountData }) {
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <Label className="text-xs text-gray-500">Zalo Account ID (ownId)</Label>
-          <Input value={ownId} onChange={e => setOwnId(e.target.value)}
-            placeholder="Để trống dùng mặc định" className="h-8 text-xs font-mono" />
-        </div>
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-gray-500">Webhook URL</Label>
-            <button
-              type="button"
-              onClick={handleGenerateRandom}
-              className="text-[10px] text-blue-600 hover:text-blue-800 underline"
-            >
-              Tạo ngẫu nhiên
-            </button>
-          </div>
-          <Input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)}
-            placeholder="Để trống tự dùng URL hệ thống" className="h-8 text-xs font-mono" />
-        </div>
         {result && (
           <div className={`text-xs px-2 py-1.5 rounded ${result.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
             {result.ok ? `✓ ${result.webhookUrl}` : `✗ ${result.error}`}
