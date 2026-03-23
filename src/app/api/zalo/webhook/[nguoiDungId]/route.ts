@@ -119,7 +119,9 @@ async function saveMessage(update: any): Promise<void> {
     });
     emitNewMessage({ ...saved, eventName: saved.eventName ?? 'message' });
     sseEmit('zalo-message', { chatId: saved.chatId });
-  } catch { /* bỏ qua */ }
+  } catch (err) {
+    console.error('[saveMessage] Error:', err);
+  }
 }
 
 // ─── Ghi nhớ threadId theo bot account ────────────────────────────────────────
@@ -175,6 +177,7 @@ export async function POST(
     // Xác thực qua token trong URL (nguoiDungId chính là zaloWebhookToken)
     // Không cần check zalo_webhook_secret vì bot server không hỗ trợ gửi header secret
     const nd = await getNguoiDungInfo(params.nguoiDungId);
+    console.log(`[webhook/${params.nguoiDungId}] User found:`, nd ? { id: nd.id, zaloAccountId: nd.zaloAccountId } : 'NOT FOUND');
     if (!nd) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -197,6 +200,7 @@ export async function POST(
     }
 
     const { chatId, content } = normalizeWebhookPayload(update);
+    console.log(`[webhook/${params.nguoiDungId}] accountId=${accountId}, chatId=${chatId}, content=${content?.substring(0, 50)}`);
     if (!chatId) {
       return NextResponse.json({ message: 'No chatId' });
     }
