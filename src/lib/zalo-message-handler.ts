@@ -469,15 +469,23 @@ async function handleStranger(token: string, chatId: string, displayName: string
     const map: Record<string, string> = {};
     for (const r of rows) map[r.khoa] = r.giaTri?.trim() ?? '';
 
-    // Gửi lời chào — bỏ qua nếu đã là bạn bè hoặc đã cùng nhóm
+    // Gửi lời chào — bỏ qua nếu đã là bạn bè, đã cùng nhóm, hoặc đã có lịch sử trò chuyện
     const greeting = map['bot_greeting_stranger'];
-    const alreadyFriend = await isFriend(chatId);
-    const alreadyInGroup = isGroupMember(chatId);
-    if (greeting && !alreadyFriend && !alreadyInGroup) {
-      await sendReply(token, chatId, greeting, accountSelection);
-      await prisma.zaloMessage.create({
-        data: { chatId, content: greeting, role: 'bot', eventName: 'bot_greeting', rawPayload: {} },
-      }).catch(() => {});
+    if (greeting) {
+      const alreadyFriend = await isFriend(chatId);
+      const alreadyInGroup = isGroupMember(chatId);
+      // Kiểm tra lịch sử: nếu đã có tin nhắn trước đó trong DB → không phải người lạ
+      const existingMsg = await prisma.zaloMessage.findFirst({
+        where: { chatId },
+        select: { id: true },
+      }).catch(() => null);
+      const isNewUser = !alreadyFriend && !alreadyInGroup && !existingMsg;
+      if (isNewUser) {
+        await sendReply(token, chatId, greeting, accountSelection);
+        await prisma.zaloMessage.create({
+          data: { chatId, content: greeting, role: 'bot', eventName: 'bot_greeting', rawPayload: {} },
+        }).catch(() => {});
+      }
     }
 
     // Forward đến nhóm quản lý
