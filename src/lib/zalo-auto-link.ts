@@ -35,7 +35,7 @@ function formatDiaChi(diaChi: any): string {
   return [soNha, duong, phuong, quan, thanhPho].filter(Boolean).join(', ');
 }
 
-/** Nội dung tin nhắn chào mừng và yêu cầu xác nhận */
+/** Nội dung tin nhắn chào mừng đầy đủ (gửi khi đã là bạn bè) */
 export function buildWelcomeMessage(
   ten: string,
   entityType: 'nguoiDung' | 'khachThue',
@@ -58,16 +58,44 @@ export function buildWelcomeMessage(
   );
 }
 
+/**
+ * Nội dung lời mời kết bạn (tối đa 150 ký tự).
+ * Zalo giới hạn tin nhắn trong lời mời kết bạn là 150 ký tự.
+ */
+export function buildFriendRequestMessage(
+  ten: string,
+  entityType: 'nguoiDung' | 'khachThue',
+  toaNha: { tenToaNha: string; diaChi: any } | null,
+): string {
+  const MAX = 150;
+  const loai = entityType === 'khachThue' ? 'ở' : 'làm việc';
+  const tenToaNha = toaNha?.tenToaNha ?? '';
+
+  // Thử bản đầy đủ trước
+  if (tenToaNha) {
+    const full = `Chào ${ten}, mình từ ${tenToaNha}. Bạn vừa được thêm vào hệ thống quản lý. Nhắn "Đúng" để nhận thông báo qua Zalo.`;
+    if (full.length <= MAX) return full;
+  }
+
+  // Bản rút gọn không có tên tòa nhà
+  const short = `Chào ${ten}, bạn vừa được thêm vào hệ thống quản lý nhà trọ. Nhắn "Đúng" để nhận thông báo qua Zalo.`;
+  if (short.length <= MAX) return short;
+
+  // Bản tối giản
+  return `Chào ${ten}, bạn được thêm vào hệ thống nhà trọ. Nhắn "Đúng" để nhận thông báo Zalo.`.slice(0, MAX);
+}
+
 // ─── Gửi: ưu tiên kết bạn kèm nội dung nếu chưa là bạn ──────────────────────
 
 /**
  * Gửi tin nhắn hoặc lời kết bạn kèm nội dung tùy trạng thái bạn bè.
- * - Nếu chưa là bạn → sendFriendRequest với message = nội dung chào mừng
- * - Nếu đã là bạn   → sendMessage như bình thường
+ * - Nếu chưa là bạn → sendFriendRequest với friendRequestMsg (≤150 ký tự)
+ * - Nếu đã là bạn   → sendMessage với welcomeMsg (đầy đủ)
  */
 export async function sendWelcomeOrFriendRequest(
   chatId: string,
-  message: string,
+  welcomeMsg: string,
+  friendRequestMsg: string,
   accountSelection?: string,
 ): Promise<void> {
   try {
@@ -80,17 +108,17 @@ export async function sendWelcomeOrFriendRequest(
       );
 
     if (!isFriend) {
-      console.log(`[zalo-auto-link] chatId=${chatId} chưa là bạn → gửi lời kết bạn`);
-      const fr = await sendFriendRequestViaBotServer(chatId, message, accountSelection);
+      console.log(`[zalo-auto-link] chatId=${chatId} chưa là bạn → gửi lời kết bạn (${friendRequestMsg.length} ký tự)`);
+      const fr = await sendFriendRequestViaBotServer(chatId, friendRequestMsg, accountSelection);
       console.log(`[zalo-auto-link] Kết quả gửi kết bạn:`, fr.ok ? 'OK' : fr.error);
     } else {
       console.log(`[zalo-auto-link] chatId=${chatId} đã là bạn → gửi tin nhắn`);
-      await sendMessageViaBotServer(chatId, message, 0, accountSelection);
+      await sendMessageViaBotServer(chatId, welcomeMsg, 0, accountSelection);
     }
   } catch (e) {
     console.error(`[zalo-auto-link] sendWelcomeOrFriendRequest error:`, e);
     // fallback: thử gửi tin nhắn thẳng
-    await sendMessageViaBotServer(chatId, message, 0, accountSelection).catch(() => {});
+    await sendMessageViaBotServer(chatId, welcomeMsg, 0, accountSelection).catch(() => {});
   }
 }
 
@@ -335,8 +363,9 @@ export async function autoLinkZaloChatIds(
 
       // Gửi lời kết bạn hoặc tin nhắn chào mừng
       const ten = await getEntityName(entityType, entityId);
-      const msg = buildWelcomeMessage(ten, entityType, sel.toaNha);
-      await sendWelcomeOrFriendRequest(uid, msg, sel.accountId).catch((e) => {
+      const welcomeMsg = buildWelcomeMessage(ten, entityType, sel.toaNha);
+      const frMsg = buildFriendRequestMessage(ten, entityType, sel.toaNha);
+      await sendWelcomeOrFriendRequest(uid, welcomeMsg, frMsg, sel.accountId).catch((e) => {
         console.error(`[zalo-auto-link] sendWelcomeOrFriendRequest lỗi:`, e);
       });
     } else {
