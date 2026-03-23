@@ -35,9 +35,14 @@ export function refreshFriendsCacheInBackground(): void {
   getAllFriendsFromBotServer()
     .then(result => {
       if (result.ok && result.friends) {
-        _friendsCache = new Set(
-          result.friends.map((f: any) => String(f.uid ?? f.id ?? f.userId ?? f.zaloId ?? '')).filter(Boolean)
-        );
+        const ids = new Set<string>();
+        for (const f of result.friends) {
+          for (const key of ['uid', 'id', 'userId', 'userKey', 'zaloId', 'globalId']) {
+            const v = f[key];
+            if (v) ids.add(String(v));
+          }
+        }
+        _friendsCache = ids;
       }
     })
     .catch(() => {})
@@ -79,9 +84,15 @@ async function isFriend(chatId: string): Promise<boolean> {
   if (!_friendsCache) {
     await getAllFriendsFromBotServer().then(result => {
       if (result.ok && result.friends) {
-        _friendsCache = new Set(
-          result.friends.map((f: any) => String(f.uid ?? f.id ?? f.userId ?? f.zaloId ?? '')).filter(Boolean)
-        );
+        const ids = new Set<string>();
+        for (const f of result.friends) {
+          // Cache tất cả các dạng ID vì webhook chatId có thể khác userId
+          for (const key of ['uid', 'id', 'userId', 'userKey', 'zaloId', 'globalId']) {
+            const v = f[key];
+            if (v) ids.add(String(v));
+          }
+        }
+        _friendsCache = ids;
       }
     }).catch(() => {});
   }
@@ -486,7 +497,6 @@ async function handleStranger(token: string, chatId: string, displayName: string
       ]);
       const hasHistory = msgCount > 1; // > 1 vì tin nhắn hiện tại đã được lưu
       const isNewUser = !alreadyFriend && !alreadyInGroup && !hasHistory && !alreadyGreeted;
-      console.log(`[handleStranger] chatId=${chatId} greeting=${!!greeting} alreadyFriend=${alreadyFriend} alreadyInGroup=${alreadyInGroup} msgCount=${msgCount} hasHistory=${hasHistory} alreadyGreeted=${!!alreadyGreeted} isNewUser=${isNewUser}`);
       if (isNewUser) {
         await sendReply(token, chatId, greeting, accountSelection);
         await prisma.zaloMessage.create({
@@ -739,29 +749,18 @@ export async function handleZaloAutoReply(update: any, token = '', accountSelect
 
   // Kiểm tra bot_auto_reply_enabled
   const autoReplyRow = await prisma.caiDat.findFirst({ where: { khoa: 'bot_auto_reply_enabled' } });
-  const autoReplyEnabled = autoReplyRow?.giaTri?.trim();
-  if (autoReplyEnabled === 'false') {
-    console.log(`[handleZaloAutoReply] chatId=${chatId} → auto_reply DISABLED`);
-    return;
-  }
+  if (autoReplyRow?.giaTri?.trim() === 'false') return;
 
   // Số điện thoại → đăng ký
   if (text) {
     const handled = await handlePhoneRegistration(token, chatId, text, accountSelection);
-    if (handled) {
-      console.log(`[handleZaloAutoReply] chatId=${chatId} → phone registration handled`);
-      return;
-    }
+    if (handled) return;
   }
 
   // Khách thuê đã đăng ký → AI reply
   const isRegistered = await handleRegisteredTenant(token, chatId, text, accountSelection);
-  if (isRegistered) {
-    console.log(`[handleZaloAutoReply] chatId=${chatId} → registered tenant handled`);
-    return;
-  }
+  if (isRegistered) return;
 
-  console.log(`[handleZaloAutoReply] chatId=${chatId} → forwarding to handleStranger`);
   // Người lạ → lời chào + forward
   await handleStranger(token, chatId, displayName, text, accountSelection);
 }
