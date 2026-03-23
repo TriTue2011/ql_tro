@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     select: {
       id: true, zaloAccountId: true, zaloChatId: true, soDienThoai: true,
       zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true,
-      zaloWebhookToken: true, zaloWebhookBaseUrl: true,
+      zaloWebhookToken: true,
     },
   });
   if (!targetUser) {
@@ -68,13 +68,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Chưa cấu hình Bot Server (cả riêng lẫn hệ thống)' });
   }
 
-  // Base URL: ưu tiên zaloWebhookBaseUrl riêng của user, fallback sang app_local_url
-  const userBaseUrl = targetUser.zaloWebhookBaseUrl?.replace(/\/$/, '') || null;
-  const localBase = userBaseUrl || await getLocalBaseUrl();
+  // Base URL: dùng zaloBotServerUrl (URL bot server) làm base cho webhook, fallback sang app_local_url
+  const localBase = botConfig.serverUrl || await getLocalBaseUrl();
   if (!localBase) {
     return NextResponse.json({
       ok: false,
-      error: 'Chưa cấu hình URL App (webhook callback) trong Bot Server hoặc app_local_url trong Cài đặt.',
+      error: 'Chưa cấu hình URL Bot Server hoặc app_local_url trong Cài đặt.',
     });
   }
 
