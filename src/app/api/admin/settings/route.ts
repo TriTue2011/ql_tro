@@ -23,12 +23,7 @@ const DEFAULT_SETTINGS = [
   { khoa: 'minio_secret_key', giaTri: '', moTa: 'MinIO Password', nhom: 'luuTru', laBiMat: true },
   { khoa: 'minio_bucket', giaTri: 'ql-tro', moTa: 'MinIO Bucket Name', nhom: 'luuTru', laBiMat: false },
   { khoa: 'upload_max_size_mb', giaTri: '10', moTa: 'Kích thước tối đa file upload (MB)', nhom: 'luuTru', laBiMat: false },
-  // Thông báo — chế độ Zalo
-  { khoa: 'zalo_mode', giaTri: 'oa', moTa: 'Chế độ Zalo: "oa" (Official Account API) hoặc "bot_server" (Docker bot cá nhân)', nhom: 'thongBao', laBiMat: false },
-  // Zalo OA API (dùng khi zalo_mode=oa)
-  { khoa: 'zalo_access_token', giaTri: '', moTa: 'Zalo Bot Access Token (chỉ dùng khi zalo_mode=oa)', nhom: 'thongBao', laBiMat: true },
-  { khoa: 'zalo_webhook_secret', giaTri: '', moTa: 'Zalo Webhook Secret Token (chỉ dùng khi zalo_mode=oa)', nhom: 'thongBao', laBiMat: true },
-  // Zalo Bot Server (dùng khi zalo_mode=bot_server)
+  // Thông báo — Zalo Bot Server
   { khoa: 'zalo_bot_server_url', giaTri: '', moTa: 'URL Zalo Bot Server (vd: http://192.168.1.100:3000)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'zalo_bot_username', giaTri: 'admin', moTa: 'Username đăng nhập bot server (mặc định: admin)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'zalo_bot_password', giaTri: '', moTa: 'Password đăng nhập bot server', nhom: 'thongBao', laBiMat: true },

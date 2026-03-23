@@ -54,21 +54,5 @@ export async function register() {
       }
     }
     console.log('[migration] Schema migrations checked ✓');
-
-    // Auto-start Zalo polling khi server khởi động
-    // Mặc định: dùng Webhook (polling KHÔNG tự start)
-    // Chỉ start polling khi user đã bật tường minh (zalo_polling_autostart = 'true')
-    try {
-      const autostartRow = await prisma.caiDat.findFirst({ where: { khoa: 'zalo_polling_autostart' } });
-      if (autostartRow?.giaTri === 'true') {
-        const { startPolling } = await import('@/lib/zalo-polling-worker');
-        const result = await startPolling();
-        console.log(`[zalo-polling] Auto-start: ${result.message}`);
-      } else {
-        console.log('[zalo-polling] Chế độ Webhook — polling không chạy');
-      }
-    } catch (e: any) {
-      console.warn(`[zalo-polling] Auto-start failed: ${e.message}`);
-    }
   }
 }

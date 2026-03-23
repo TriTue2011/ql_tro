@@ -45,13 +45,9 @@ export async function getBotConfig(): Promise<BotConfig | null> {
   }
 }
 
+/** Bot server is the only mode now. Always returns true. */
 export async function isBotServerMode(): Promise<boolean> {
-  try {
-    const row = await prisma.caiDat.findFirst({ where: { khoa: "zalo_mode" } });
-    return row?.giaTri?.trim() === "bot_server";
-  } catch {
-    return false;
-  }
+  return true;
 }
 
 // ─── Auth + cache ─────────────────────────────────────────────────────────────

@@ -9,7 +9,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { emitNewMessage, zaloMessageEmitter } from '@/lib/zalo-message-events';
-import { getPollingStatus } from '@/lib/zalo-polling-worker';
 
 function requireAdmin(session: any) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -25,17 +24,13 @@ export async function GET() {
   const deny = requireAdmin(session);
   if (deny) return deny;
 
-  // 1. Trạng thái polling worker
-  const polling = getPollingStatus();
-
-  // 2. Token + webhook secret có cấu hình chưa
-  const [tokenRow, secretRow, webhookRow] = await Promise.all([
-    prisma.caiDat.findFirst({ where: { khoa: 'zalo_access_token' } }),
-    prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_secret' } }),
+  // Config
+  const [webhookRow, botServerRow] = await Promise.all([
     prisma.caiDat.findFirst({ where: { khoa: 'zalo_webhook_url' } }),
+    prisma.caiDat.findFirst({ where: { khoa: 'zalo_bot_server_url' } }),
   ]);
 
-  // 3. Số tin nhắn trong DB
+  // Số tin nhắn trong DB
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const [totalMessages, messages24h, recentMessages] = await Promise.all([
     prisma.zaloMessage.count(),
@@ -47,17 +42,15 @@ export async function GET() {
     }),
   ]);
 
-  // 4. Số SSE listener đang kết nối
+  // Số SSE listener đang kết nối
   const sseListeners = zaloMessageEmitter.listenerCount('message');
 
   return NextResponse.json({
     ok: true,
     config: {
-      hasToken: !!tokenRow?.giaTri?.trim(),
-      hasWebhookSecret: !!secretRow?.giaTri?.trim(),
       webhookUrl: webhookRow?.giaTri?.trim() || null,
+      botServerUrl: botServerRow?.giaTri?.trim() || null,
     },
-    polling,
     database: {
       totalMessages,
       last24hMessages: messages24h,
