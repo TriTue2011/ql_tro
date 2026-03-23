@@ -9,6 +9,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { randomBytes } from 'crypto';
+import { getBotConfig } from '@/lib/zalo-bot-client';
 
 async function getLocalBaseUrl(): Promise<string | null> {
   try {
@@ -32,18 +33,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
   }
 
-  // Lấy user để check zaloWebhookBaseUrl riêng
+  // Lấy user để check zaloBotServerUrl riêng
   const user = await prisma.nguoiDung.findUnique({
     where: { id: targetUserId },
-    select: { zaloWebhookBaseUrl: true },
+    select: { zaloBotServerUrl: true },
   });
 
-  const userBaseUrl = user?.zaloWebhookBaseUrl?.replace(/\/$/, '') || null;
-  const localBase = userBaseUrl || await getLocalBaseUrl();
+  // Base URL: dùng zaloBotServerUrl (URL bot server) làm base cho webhook, fallback sang app_local_url
+  const userBotUrl = user?.zaloBotServerUrl?.replace(/\/$/, '') || null;
+  const globalConfig = await getBotConfig();
+  const localBase = userBotUrl || globalConfig?.serverUrl || await getLocalBaseUrl();
   if (!localBase) {
     return NextResponse.json({
       ok: false,
-      error: 'Chưa cấu hình URL App (webhook callback) trong Bot Server hoặc app_local_url trong Cài đặt.',
+      error: 'Chưa cấu hình URL Bot Server hoặc app_local_url trong Cài đặt.',
     });
   }
 
