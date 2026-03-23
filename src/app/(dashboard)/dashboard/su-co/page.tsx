@@ -54,9 +54,11 @@ import { SuCo, Phong, KhachThue, HopDong } from '@/types';
 import { SuCoImageUpload } from '@/components/ui/su-co-image-upload';
 import { buildUploadFolder } from '@/lib/upload-path';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
+import { useCanEdit } from '@/hooks/use-can-edit';
 import { SuCoDataTable } from './table';
 
 export default function SuCoPage() {
+  const canEdit = useCanEdit();
   const cache = useCache<{
     suCoList: SuCo[];
     phongList: Phong[];
@@ -317,39 +319,41 @@ export default function SuCoPage() {
             <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
           </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={() => setEditingSuCo(null)} className="flex-1 sm:flex-none">
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Báo cáo sự cố</span>
-                <span className="sm:hidden">Báo cáo</span>
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="w-[95vw] md:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingSuCo ? 'Chỉnh sửa sự cố' : 'Báo cáo sự cố mới'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingSuCo ? 'Cập nhật thông tin sự cố' : 'Nhập thông tin sự cố mới'}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <SuCoForm 
-              suCo={editingSuCo}
-              phongList={phongList}
-              khachThueList={khachThueList}
-              hopDongList={hopDongList}
-              getKhachThueName={getKhachThueName}
-              onClose={() => setIsDialogOpen(false)}
-              onSuccess={() => {
-                cache.clearCache();
-                setIsDialogOpen(false);
-                fetchData(true);
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+          {canEdit && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" onClick={() => setEditingSuCo(null)} className="flex-1 sm:flex-none">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Báo cáo sự cố</span>
+                  <span className="sm:hidden">Báo cáo</span>
+                </Button>
+              </DialogTrigger>
+            <DialogContent className="w-[95vw] md:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingSuCo ? 'Chỉnh sửa sự cố' : 'Báo cáo sự cố mới'}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingSuCo ? 'Cập nhật thông tin sự cố' : 'Nhập thông tin sự cố mới'}
+                </DialogDescription>
+              </DialogHeader>
+
+              <SuCoForm
+                suCo={editingSuCo}
+                phongList={phongList}
+                khachThueList={khachThueList}
+                hopDongList={hopDongList}
+                getKhachThueName={getKhachThueName}
+                onClose={() => setIsDialogOpen(false)}
+                onSuccess={() => {
+                  cache.clearCache();
+                  setIsDialogOpen(false);
+                  fetchData(true);
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+          )}
         </div>
       </div>
 
@@ -418,6 +422,7 @@ export default function SuCoPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             onStatusChange={handleStatusChange}
+            canEdit={canEdit}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             statusFilter={statusFilter}
@@ -539,25 +544,27 @@ export default function SuCoPage() {
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex justify-between items-center pt-2 border-t">
-                    <div className="flex gap-2">
+                  {canEdit && (
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(suCo)}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEdit(suCo)}
+                        onClick={() => handleDelete(suCo.id!)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
-                        <Edit className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(suCo.id!)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  )}
                 </div>
               </Card>
             );

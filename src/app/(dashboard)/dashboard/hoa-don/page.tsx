@@ -49,6 +49,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { HoaDon, HopDong, Phong, KhachThue } from '@/types';
+import { useCanEdit } from '@/hooks/use-can-edit';
 import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -132,6 +133,7 @@ const formatCurrency = (amount: number) => {
 
 export default function HoaDonPage() {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const cache = useCache<{
     hoaDonList: HoaDon[];
     hopDongList: HopDong[];
@@ -761,11 +763,13 @@ Vui lòng thanh toán đúng hạn.`;
             <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
           </Button>
-          <Button size="sm" onClick={() => router.push('/dashboard/hoa-don/them-moi')} className="flex-1 sm:flex-none">
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Tạo hóa đơn</span>
-            <span className="sm:hidden">Tạo</span>
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={() => router.push('/dashboard/hoa-don/them-moi')} className="flex-1 sm:flex-none">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Tạo hóa đơn</span>
+              <span className="sm:hidden">Tạo</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -841,6 +845,7 @@ Vui lòng thanh toán đúng hạn.`;
             onDelete={handleDelete}
             onDeleteMultiple={handleDeleteMultiple}
             onPayment={handlePayment}
+            canEdit={canEdit}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             statusFilter={statusFilter}

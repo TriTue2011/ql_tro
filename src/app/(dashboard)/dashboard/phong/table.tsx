@@ -158,6 +158,7 @@ type PhongTableProps = {
   onDelete: (id: string) => void
   onViewImages?: (phong: Phong) => void
   onViewTenants?: (phong: Phong) => void
+  canEdit?: boolean
 }
 
 const getToaNhaName = (toaNha: string | { tenToaNha: string }, toaNhaList: ToaNha[]) => {
@@ -337,9 +338,9 @@ const createColumns = (props: PhongTableProps): ColumnDef<Phong>[] => [
       )
     },
   },
-  {
+  ...(props.canEdit !== false ? [{
     id: "actions",
-    cell: ({ row }) => (
+    cell: ({ row }: { row: Row<Phong> }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -369,7 +370,7 @@ const createColumns = (props: PhongTableProps): ColumnDef<Phong>[] => [
             Chỉnh sửa
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem 
+          <DropdownMenuItem
             className="text-destructive"
             onClick={() => props.onDelete(row.original.id!)}
           >
@@ -380,7 +381,7 @@ const createColumns = (props: PhongTableProps): ColumnDef<Phong>[] => [
       </DropdownMenu>
     ),
     enableHiding: false,
-  },
+  }] : []),
 ]
 
 function DraggableRow({ row }: { row: Row<Phong> }) {

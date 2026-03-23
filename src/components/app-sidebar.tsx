@@ -18,6 +18,8 @@ import {
   Globe,
   MessageCircle,
   Smartphone,
+  Palette,
+  User,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -105,6 +107,52 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ]
     }
 
+    // ── Đồng chủ trọ: chỉ xem — không Zalo/Monitor/Cài đặt/Quản lý TK ──
+    if (role === 'dongChuTro') {
+      return [
+        {
+          title: "Quản lý cơ bản",
+          url: "#",
+          icon: Building,
+          isActive: true,
+          items: [
+            { title: "Tòa nhà", url: "/dashboard/toa-nha" },
+            { title: "Phòng", url: "/dashboard/phong" },
+            { title: "Khách thuê", url: "/dashboard/khach-thue" },
+          ],
+        },
+        {
+          title: "Tài chính",
+          url: "#",
+          icon: Receipt,
+          items: [
+            { title: "Hợp đồng", url: "/dashboard/hop-dong" },
+            { title: "Hóa đơn", url: "/dashboard/hoa-don" },
+            { title: "Thanh toán", url: "/dashboard/thanh-toan" },
+          ],
+        },
+        {
+          title: "Vận hành",
+          url: "#",
+          icon: AlertTriangle,
+          items: [
+            { title: "Sự cố", url: "/dashboard/su-co" },
+            { title: "Yêu cầu duyệt", url: "/dashboard/yeu-cau-duyet" },
+            { title: "Thông báo", url: "/dashboard/thong-bao" },
+          ],
+        },
+        {
+          title: "Tài khoản",
+          url: "#",
+          icon: User,
+          items: [
+            { title: "Hồ sơ", url: "/dashboard/ho-so" },
+            { title: "Giao diện", url: "/dashboard/giao-dien" },
+          ],
+        },
+      ]
+    }
+
     // ── Chủ trọ, Quản lý: đầy đủ tab quản lý bất động sản ───────────────
     const items = [
       {
@@ -142,7 +190,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
     ]
 
-    if (role === 'chuNha' || role === 'dongChuTro') {
+    if (role === 'chuNha') {
       items.push({
         title: "Quản lý tài khoản",
         url: "#",

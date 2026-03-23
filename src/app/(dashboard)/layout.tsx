@@ -40,6 +40,7 @@ const breadcrumbMap: Record<string, string> = {
   'quan-ly-tai-khoan': 'Quản lý tài khoản',
   'ho-so': 'Hồ sơ',
   'cai-dat': 'Cài đặt',
+  'giao-dien': 'Giao diện',
   'them-moi': 'Thêm mới',
 };
 

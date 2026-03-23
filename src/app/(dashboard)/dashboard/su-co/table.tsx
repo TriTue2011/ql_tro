@@ -188,6 +188,7 @@ type SuCoTableProps = {
   onEdit: (suCo: SuCo) => void
   onDelete: (id: string) => void
   onStatusChange: (id: string, newStatus: string) => void
+  canEdit?: boolean
 }
 
 const getPhongName = (phong: string | { maPhong: string }, phongList: Phong[]) => {
@@ -345,9 +346,9 @@ const createColumns = (props: SuCoTableProps): ColumnDef<SuCo>[] => [
       </div>
     ),
   },
-  {
+  ...(props.canEdit !== false ? [{
     id: "actions",
-    cell: ({ row }) => (
+    cell: ({ row }: { row: Row<SuCo> }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -371,7 +372,7 @@ const createColumns = (props: SuCoTableProps): ColumnDef<SuCo>[] => [
             Chỉnh sửa
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem 
+          <DropdownMenuItem
             className="text-destructive"
             onClick={() => props.onDelete(row.original.id!)}
           >
@@ -382,7 +383,7 @@ const createColumns = (props: SuCoTableProps): ColumnDef<SuCo>[] => [
       </DropdownMenu>
     ),
     enableHiding: false,
-  },
+  }] : []),
 ]
 
 function DraggableRow({ row }: { row: Row<SuCo> }) {

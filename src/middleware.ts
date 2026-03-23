@@ -179,6 +179,19 @@ export default async function middleware(req: NextRequest) {
       redirectUrl.pathname = '/dashboard';
       return NextResponse.redirect(redirectUrl);
     }
+
+    // Đồng chủ trọ không được vào: Quản lý TK, Zalo, Zalo Monitor, Cài đặt
+    const DONGCHUTRO_BLOCKED_PATHS = [
+      '/dashboard/quan-ly-tai-khoan',
+      '/dashboard/zalo',
+      '/dashboard/zalo-monitor',
+      '/dashboard/cai-dat',
+    ];
+    if (role === 'dongChuTro' && DONGCHUTRO_BLOCKED_PATHS.some(p => pathname.startsWith(p))) {
+      const redirectUrl = req.nextUrl.clone();
+      redirectUrl.pathname = '/dashboard';
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   // ── Rate limit ────────────────────────────────────────────────────────────
@@ -201,6 +214,20 @@ export default async function middleware(req: NextRequest) {
   }
 
   // ── API access control ────────────────────────────────────────────────────
+
+  // Đồng chủ trọ chỉ được đọc (GET) — chặn tất cả write methods trên API quản lý
+  if (role === 'dongChuTro' && req.method !== 'GET') {
+    const isWriteApi = pathname.startsWith('/api/') &&
+      !pathname.startsWith('/api/auth/') &&
+      !pathname.startsWith('/api/webhook/') &&
+      !pathname.startsWith('/api/zalo/webhook/');
+    if (isWriteApi) {
+      return new NextResponse(
+        JSON.stringify({ message: 'Đồng chủ trọ chỉ có quyền xem, không thể thay đổi dữ liệu' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
 
   // Chặn /api/admin/* nếu không phải admin
   // Ngoại lệ: chuNha/dongChuTro được phép truy cập một số endpoint nhất định

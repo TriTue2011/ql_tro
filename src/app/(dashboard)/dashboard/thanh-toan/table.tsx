@@ -156,6 +156,7 @@ type ThanhToanTableProps = {
   onDelete: (id: string) => void
   onDownload?: (thanhToan: ThanhToanPopulated) => void
   canDelete?: boolean
+  canEdit?: boolean
 }
 
 const getHoaDonInfo = (hoaDon: string | HoaDon, hoaDonList: HoaDon[]) => {
@@ -306,9 +307,9 @@ const createColumns = (props: ThanhToanTableProps): ColumnDef<ThanhToanPopulated
       </div>
     ),
   },
-  {
+  ...(props.canEdit !== false ? [{
     id: "actions",
-    cell: ({ row }) => (
+    cell: ({ row }: { row: Row<ThanhToanPopulated> }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -353,7 +354,7 @@ const createColumns = (props: ThanhToanTableProps): ColumnDef<ThanhToanPopulated
       </DropdownMenu>
     ),
     enableHiding: false,
-  },
+  } as ColumnDef<ThanhToanPopulated>] : []),
 ]
 
 function DraggableRow({ row }: { row: Row<ThanhToanPopulated> }) {

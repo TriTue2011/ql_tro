@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { useSession } from 'next-auth/react';
+import { useCanEdit } from '@/hooks/use-can-edit';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
@@ -53,6 +54,7 @@ import { toast } from 'sonner';
 export default function KhachThuePage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const canEdit = useCanEdit();
   const canViewZalo = ['admin', 'chuNha'].includes(session?.user?.role ?? '');
   const cache = useCache<{ khachThueList: KhachThue[] }>({ key: 'khach-thue-data', duration: 300000 });
   const [khachThueList, setKhachThueList] = useState<KhachThue[]>([]);
@@ -329,6 +331,7 @@ export default function KhachThuePage() {
             <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
           </Button>
+          {canEdit && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" onClick={() => setEditingKhachThue(null)} className="flex-1 sm:flex-none">
@@ -346,7 +349,7 @@ export default function KhachThuePage() {
                 {editingKhachThue ? 'Cập nhật thông tin khách thuê' : 'Nhập thông tin khách thuê mới'}
               </DialogDescription>
             </DialogHeader>
-            
+
             <KhachThueForm
               khachThue={editingKhachThue}
               canViewZalo={canViewZalo}
@@ -375,6 +378,7 @@ export default function KhachThuePage() {
             />
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </div>
 
@@ -504,6 +508,7 @@ export default function KhachThuePage() {
                                     onDelete={handleDelete}
                                     onKichHoatTaiKhoan={handleKichHoatTaiKhoan}
                                     actionLoading={actionLoading}
+                                    canEdit={canEdit}
                                     searchTerm=""
                                     onSearchChange={() => {}}
                                     selectedTrangThai=""
@@ -525,6 +530,7 @@ export default function KhachThuePage() {
                                         <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" />{kt.soDienThoai}</div>
                                         <div className="flex items-center gap-1.5"><CreditCard className="h-3 w-3 font-mono" />{kt.cccd}</div>
                                       </div>
+                                      {canEdit && (
                                       <div className="flex justify-between items-center mt-2 pt-2 border-t">
                                         <Button variant="outline" size="sm" onClick={() => handleEdit(kt)} disabled={actionLoading === `edit-${kt.id}`}>
                                           <Edit className="h-3.5 w-3.5" />
@@ -535,6 +541,7 @@ export default function KhachThuePage() {
                                           <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
                                       </div>
+                                      )}
                                     </Card>
                                   ))}
                                 </div>
@@ -570,7 +577,7 @@ export default function KhachThuePage() {
                     <div className="hidden md:block">
                       <KhachThueDataTable data={buildingGroups.noRoom} onEdit={handleEdit} onDelete={handleDelete}
                         onKichHoatTaiKhoan={handleKichHoatTaiKhoan}
-                        actionLoading={actionLoading} searchTerm="" onSearchChange={() => {}} selectedTrangThai="" onTrangThaiChange={() => {}} />
+                        actionLoading={actionLoading} canEdit={canEdit} searchTerm="" onSearchChange={() => {}} selectedTrangThai="" onTrangThaiChange={() => {}} />
                     </div>
                     <div className="md:hidden space-y-2">
                       {buildingGroups.noRoom.map(kt => (
@@ -582,10 +589,12 @@ export default function KhachThuePage() {
                             </div>
                             <TrangThaiBadge trangThai={kt.trangThai} />
                           </div>
+                          {canEdit && (
                           <div className="flex justify-end gap-2 mt-2 pt-2 border-t">
                             <Button variant="outline" size="sm" onClick={() => handleEdit(kt)}><Edit className="h-3.5 w-3.5" /></Button>
                             <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)} className="text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></Button>
                           </div>
+                          )}
                         </Card>
                       ))}
                     </div>
