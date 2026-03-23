@@ -212,7 +212,7 @@ export default async function middleware(req: NextRequest) {
     '/api/admin/storage',
   ];
   if (pathname.startsWith('/api/admin') && token?.role !== 'admin') {
-    const isChuNhaRole = role === 'chuNha' || role === 'dongChuTro';
+    const isChuNhaRole = role === 'chuNha' || role === 'dongChuTro' || role === 'quanLy';
     const isAllowedPath = CHUANHA_ALLOWED_ADMIN_PATHS.some(p => pathname.startsWith(p));
     if (!isChuNhaRole || !isAllowedPath) {
       return new NextResponse(
