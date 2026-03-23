@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
 
   // 1. Tạo webhook token nếu chưa có
   let webhookToken = user.zaloWebhookToken;
+  const isFirstSetup = !webhookToken;
   if (!webhookToken) {
     webhookToken = randomBytes(12).toString('hex');
     await prisma.nguoiDung.update({
@@ -135,17 +136,21 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // 3. Cài webhook
+  // 3. Cài webhook — chỉ lần đầu (chưa có token trước đó)
   const webhookUrl = `${localBase}/api/zalo/webhook/${webhookToken}`;
-  const whResult = await setWebhookOnBotServer(ownId, webhookUrl, webhookUrl, webhookUrl, botConfig);
-  if (!whResult.ok) {
-    return NextResponse.json({
-      ok: false,
-      error: `Cài webhook thất bại: ${whResult.error}`,
-      steps,
-    });
+  if (isFirstSetup) {
+    const whResult = await setWebhookOnBotServer(ownId, webhookUrl, webhookUrl, webhookUrl, botConfig);
+    if (!whResult.ok) {
+      return NextResponse.json({
+        ok: false,
+        error: `Cài webhook thất bại: ${whResult.error}`,
+        steps,
+      });
+    }
+    steps.push('Đã cài webhook');
+  } else {
+    steps.push('Webhook đã được cài trước đó');
   }
-  steps.push('Đã cài webhook');
 
   // 4. Cập nhật zaloAccountId + zaloChatId
   await prisma.nguoiDung.update({
@@ -157,8 +162,8 @@ export async function POST(request: NextRequest) {
   }).catch(() => {});
   steps.push('Đã cập nhật zaloAccountId');
 
-  // 5. Nếu là quản lý/đồng chủ trọ → tự động cấp quyền cho tất cả tòa nhà được gán
-  if (user.vaiTro === 'quanLy' || user.vaiTro === 'dongChuTro') {
+  // 5. Nếu là chủ trọ/quản lý/đồng chủ trọ → tự động cấp quyền cho tất cả tòa nhà được gán
+  if (user.vaiTro === 'chuNha' || user.vaiTro === 'quanLy' || user.vaiTro === 'dongChuTro') {
     const assignments = await prisma.toaNhaNguoiQuanLy.findMany({
       where: { nguoiDungId: user.id },
       select: { toaNhaId: true, quyenKichHoatTaiKhoan: true },
