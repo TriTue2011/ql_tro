@@ -35,9 +35,14 @@ export function refreshFriendsCacheInBackground(): void {
   getAllFriendsFromBotServer()
     .then(result => {
       if (result.ok && result.friends) {
-        _friendsCache = new Set(
-          result.friends.map((f: any) => String(f.uid ?? f.id ?? f.userId ?? f.zaloId ?? '')).filter(Boolean)
-        );
+        const ids = new Set<string>();
+        for (const f of result.friends) {
+          for (const key of ['uid', 'id', 'userId', 'userKey', 'zaloId', 'globalId']) {
+            const v = f[key];
+            if (v) ids.add(String(v));
+          }
+        }
+        _friendsCache = ids;
       }
     })
     .catch(() => {})
@@ -79,9 +84,15 @@ async function isFriend(chatId: string): Promise<boolean> {
   if (!_friendsCache) {
     await getAllFriendsFromBotServer().then(result => {
       if (result.ok && result.friends) {
-        _friendsCache = new Set(
-          result.friends.map((f: any) => String(f.uid ?? f.id ?? f.userId ?? f.zaloId ?? '')).filter(Boolean)
-        );
+        const ids = new Set<string>();
+        for (const f of result.friends) {
+          // Cache tất cả các dạng ID vì webhook chatId có thể khác userId
+          for (const key of ['uid', 'id', 'userId', 'userKey', 'zaloId', 'globalId']) {
+            const v = f[key];
+            if (v) ids.add(String(v));
+          }
+        }
+        _friendsCache = ids;
       }
     }).catch(() => {});
   }
