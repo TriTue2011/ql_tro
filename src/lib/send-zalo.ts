@@ -7,7 +7,7 @@
  *   "bot_server"  — Docker Zalo Bot server (zca-js / web login cá nhân)
  */
 import prisma from '@/lib/prisma';
-import { isBotServerMode, sendMessageViaBotServer } from '@/lib/zalo-bot-client';
+import { isBotServerMode, sendMessageViaBotServer, getBotConfig, BotConfig } from '@/lib/zalo-bot-client';
 
 const ZALO_API = 'https://bot-api.zaloplatforms.com';
 
@@ -29,10 +29,35 @@ async function sendTextOA(token: string, chatId: string, text: string) {
   }).catch(() => null);
 }
 
+/** Lấy bot config riêng từ chủ sở hữu tòa nhà, fallback sang global */
+async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null> {
+  try {
+    const toaNha = await prisma.toaNha.findUnique({
+      where: { id: toaNhaId },
+      include: {
+        chuSoHuu: {
+          select: { zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloAccountId: true },
+        },
+      },
+    });
+    const owner = toaNha?.chuSoHuu;
+    if (owner?.zaloBotServerUrl) {
+      return {
+        serverUrl: owner.zaloBotServerUrl.replace(/\/$/, ''),
+        username: owner.zaloBotUsername || 'admin',
+        password: owner.zaloBotPassword || 'admin',
+        accountId: owner.zaloAccountId || '',
+        ttl: owner.zaloBotTtl ?? 0,
+      };
+    }
+  } catch { /* ignore */ }
+  return getBotConfig();
+}
+
 /** Gửi text — tự chọn OA hoặc bot server theo cài đặt zalo_mode */
-async function sendText(chatId: string, text: string): Promise<boolean> {
+async function sendText(chatId: string, text: string, configOverride?: BotConfig | null): Promise<boolean> {
   if (await isBotServerMode()) {
-    return sendMessageViaBotServer(chatId, text).then(r => r.ok);
+    return sendMessageViaBotServer(chatId, text, 0, undefined, configOverride).then(r => r.ok);
   }
   const token = await getZaloToken();
   if (!token) return false;
@@ -48,7 +73,10 @@ export async function notifyKhachThue(khachThueId: string, message: string): Pro
       select: { zaloChatId: true, nhanThongBaoZalo: true },
     });
     if (!kt?.nhanThongBaoZalo || !kt.zaloChatId) return;
-    await sendText(kt.zaloChatId, message);
+    // Lấy bot config từ tòa nhà khách thuê đang ở
+    const toaNhaId = await getToaNhaIdOfKhachThue(khachThueId);
+    const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
+    await sendText(kt.zaloChatId, message, botConfig);
   } catch (e) {
     console.error('[zalo] notifyKhachThue error:', e);
   }
@@ -57,6 +85,7 @@ export async function notifyKhachThue(khachThueId: string, message: string): Pro
 /** Gửi Zalo cho chủ trọ và quản lý của 1 tòa nhà */
 export async function notifyAdminsOfToaNha(toaNhaId: string, message: string): Promise<void> {
   try {
+    const botConfig = await getBotConfigForToaNha(toaNhaId);
     const toaNha = await prisma.toaNha.findUnique({
       where: { id: toaNhaId },
       include: {
@@ -75,7 +104,7 @@ export async function notifyAdminsOfToaNha(toaNhaId: string, message: string): P
         .map(q => q.nguoiDung.zaloChatId),
     ].filter((c): c is string => !!c);
 
-    await Promise.allSettled(targets.map(chatId => sendText(chatId, message)));
+    await Promise.allSettled(targets.map(chatId => sendText(chatId, message, botConfig)));
   } catch (e) {
     console.error('[zalo] notifyAdminsOfToaNha error:', e);
   }
@@ -88,10 +117,14 @@ export async function notifyDaiDienHopDong(hopDongId: string, message: string): 
       where: { id: hopDongId },
       include: {
         nguoiDaiDien: { select: { id: true, zaloChatId: true, nhanThongBaoZalo: true } },
+        phong: { select: { toaNhaId: true } },
       },
     });
     if (!hopDong?.nguoiDaiDien.nhanThongBaoZalo || !hopDong.nguoiDaiDien.zaloChatId) return;
-    await sendText(hopDong.nguoiDaiDien.zaloChatId, message);
+    const botConfig = hopDong.phong?.toaNhaId
+      ? await getBotConfigForToaNha(hopDong.phong.toaNhaId)
+      : await getBotConfig();
+    await sendText(hopDong.nguoiDaiDien.zaloChatId, message, botConfig);
   } catch (e) {
     console.error('[zalo] notifyDaiDienHopDong error:', e);
   }

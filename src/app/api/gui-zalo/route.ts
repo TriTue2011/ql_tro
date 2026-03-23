@@ -10,6 +10,8 @@ import {
   sendImageViaBotServer,
   sendFileViaBotServer,
   sendVideoViaBotServer,
+  getBotConfig,
+  BotConfig,
 } from "@/lib/zalo-bot-client";
 
 const schema = z
@@ -28,6 +30,7 @@ const schema = z
     thumbnailUrl: z.string().url().optional(), // thumbnail cho video (tùy chọn)
     durationMs: z.number().int().positive().optional(), // thời lượng video (ms)
     threadType: z.union([z.literal(0), z.literal(1)]).optional(), // 0 = user (mặc định), 1 = group
+    targetUserId: z.string().optional(), // ID của NguoiDung sở hữu tài khoản Zalo (để lấy bot config riêng)
   })
   .refine((d) => d.phone || d.chatId || d.nguoiDungId, {
     message: "Cần cung cấp phone, chatId hoặc nguoiDungId",
@@ -210,6 +213,7 @@ export async function POST(request: NextRequest) {
       thumbnailUrl,
       durationMs,
       threadType,
+      targetUserId,
     } = parsed.data;
 
     // Resolve chat_id theo thứ tự ưu tiên: trực tiếp → khách thuê theo SĐT → người dùng theo ID
@@ -266,12 +270,27 @@ export async function POST(request: NextRequest) {
 
     // ── Bot server mode ───────────────────────────────────────────────────────
     if (await isBotServerMode()) {
-      // Lấy accountSelection từ zaloAccountId của user đang đăng nhập
+      // Lấy bot config riêng của target user (nếu có), fallback sang global
+      const botUserId = targetUserId || session.user.id;
       const senderNd = await prisma.nguoiDung.findUnique({
-        where: { id: session.user.id },
-        select: { zaloAccountId: true },
+        where: { id: botUserId },
+        select: { zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true },
       });
       const accountSelection = senderNd?.zaloAccountId || undefined;
+
+      let botConfig: BotConfig | null = null;
+      if (senderNd?.zaloBotServerUrl) {
+        botConfig = {
+          serverUrl: senderNd.zaloBotServerUrl.replace(/\/$/, ''),
+          username: senderNd.zaloBotUsername || 'admin',
+          password: senderNd.zaloBotPassword || 'admin',
+          accountId: senderNd.zaloAccountId || '',
+          ttl: senderNd.zaloBotTtl ?? 0,
+        };
+      }
+      if (!botConfig) {
+        botConfig = await getBotConfig();
+      }
 
       // Thay localhost trong URL bằng IP LAN để bot server (external) truy cập được
       const fixUrl = await resolveLocalUrl(
@@ -287,6 +306,7 @@ export async function POST(request: NextRequest) {
           durationMs,
           threadType: tType,
           accountSelection,
+          configOverride: botConfig,
         });
         if (!result.ok)
           return NextResponse.json(
@@ -309,6 +329,7 @@ export async function POST(request: NextRequest) {
           message,
           tType,
           accountSelection,
+          botConfig,
         );
         if (!result.ok)
           return NextResponse.json(
@@ -331,6 +352,7 @@ export async function POST(request: NextRequest) {
           message,
           tType,
           accountSelection,
+          botConfig,
         );
         if (!result.ok)
           return NextResponse.json(
@@ -346,7 +368,7 @@ export async function POST(request: NextRequest) {
           message: "Đã gửi hình ảnh Zalo thành công (bot server)",
         });
       }
-      const result = await sendMessageViaBotServer(chatId, message!, tType, accountSelection);
+      const result = await sendMessageViaBotServer(chatId, message!, tType, accountSelection, botConfig);
       if (!result.ok)
         return NextResponse.json(
           {

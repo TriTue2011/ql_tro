@@ -19,7 +19,7 @@
  */
 
 import prisma from '@/lib/prisma';
-import { sendMessageViaBotServer, isBotServerMode } from '@/lib/zalo-bot-client';
+import { sendMessageViaBotServer, isBotServerMode, getBotConfig, BotConfig } from '@/lib/zalo-bot-client';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -30,10 +30,36 @@ async function getSetting(khoa: string): Promise<string> {
   return row?.giaTri?.trim() ?? '';
 }
 
-async function sendZalo(chatId: string, text: string): Promise<void> {
+/** Lấy bot config riêng từ chủ sở hữu tòa nhà, fallback sang global */
+async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null> {
+  try {
+    const toaNha = await prisma.toaNha.findUnique({
+      where: { id: toaNhaId },
+      include: {
+        chuSoHuu: {
+          select: { zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloAccountId: true },
+        },
+      },
+    });
+    const owner = toaNha?.chuSoHuu;
+    if (owner?.zaloBotServerUrl) {
+      return {
+        serverUrl: owner.zaloBotServerUrl.replace(/\/$/, ''),
+        username: owner.zaloBotUsername || 'admin',
+        password: owner.zaloBotPassword || 'admin',
+        accountId: owner.zaloAccountId || '',
+        ttl: owner.zaloBotTtl ?? 0,
+      };
+    }
+  } catch { /* ignore */ }
+  return getBotConfig();
+}
+
+async function sendZalo(chatId: string, text: string, toaNhaId?: string): Promise<void> {
   try {
     if (await isBotServerMode()) {
-      await sendMessageViaBotServer(chatId, text);
+      const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
+      await sendMessageViaBotServer(chatId, text, 0, undefined, botConfig);
       return;
     }
     const token = await getSetting('zalo_bot_token');
@@ -73,7 +99,7 @@ async function sendToGroup(toaNhaId: string, text: string, tang?: number): Promi
     if (!threadId) threadId = groups[0]?.threadId ?? null;
   }
   if (!threadId) threadId = await getSetting('bot_forward_thread_id') || null;
-  if (threadId) await sendZalo(threadId, text);
+  if (threadId) await sendZalo(threadId, text, toaNhaId);
 }
 
 // ─── Notification Router ──────────────────────────────────────────────────────
@@ -170,7 +196,7 @@ export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
       qrUrl ? `📲 Quét QR thanh toán:\n${qrUrl}` : '',
     ].filter(Boolean).join('\n');
 
-    await sendZalo(nguoiNhan.zaloChatId, msg);
+    await sendZalo(nguoiNhan.zaloChatId, msg, hd.phong.toaNhaId);
   } catch (e) {
     console.error('[zalo-notify] notifyNewInvoice error:', e);
   }
@@ -203,7 +229,7 @@ export async function notifyInvoiceOverdue(hoaDonId: string): Promise<void> {
     ].join('\n');
 
     const targets = await getTargets(hd.phong.toaNhaId, 'HoaDon');
-    await Promise.all(targets.map(t => sendZalo(t.chatId, msg)));
+    await Promise.all(targets.map(t => sendZalo(t.chatId, msg, hd.phong.toaNhaId)));
   } catch (e) {
     console.error('[zalo-notify] notifyInvoiceOverdue error:', e);
   }
@@ -236,7 +262,7 @@ export async function notifyPaymentConfirmed(hoaDonId: string): Promise<void> {
       `🔖 Mã hóa đơn: ${hd.maHoaDon} T${hd.thang}/${hd.nam}`,
     ].join('\n');
 
-    await sendZalo(chu.zaloChatId, msg);
+    await sendZalo(chu.zaloChatId, msg, hd.phong.toaNhaId);
   } catch (e) {
     console.error('[zalo-notify] notifyPaymentConfirmed error:', e);
   }
@@ -275,7 +301,7 @@ export async function notifyNewIncident(suCoId: string): Promise<void> {
     ].join('\n');
 
     const targets = await getTargets(sc.phong.toaNhaId, 'SuCo');
-    await Promise.all(targets.map(t => sendZalo(t.chatId, msg)));
+    await Promise.all(targets.map(t => sendZalo(t.chatId, msg, sc.phong.toaNhaId)));
   } catch (e) {
     console.error('[zalo-notify] notifyNewIncident error:', e);
   }
@@ -309,7 +335,7 @@ export async function notifyIncidentEscalate(suCoId: string, reason: 'chua_nhan'
     ].join('\n');
 
     const targets = await getTargets(sc.phong.toaNhaId, 'SuCo');
-    await Promise.all(targets.map(t => sendZalo(t.chatId, msg)));
+    await Promise.all(targets.map(t => sendZalo(t.chatId, msg, sc.phong.toaNhaId)));
   } catch (e) {
     console.error('[zalo-notify] notifyIncidentEscalate error:', e);
   }
@@ -348,7 +374,7 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string): P
 
     // Gửi khách thuê
     if (sc.khachThue.nhanThongBaoZalo && sc.khachThue.zaloChatId) {
-      await sendZalo(sc.khachThue.zaloChatId, msg);
+      await sendZalo(sc.khachThue.zaloChatId, msg, sc.phong.toaNhaId);
     }
 
     // Khi hoàn thành: luôn báo lại chủ trọ dù đang ủy quyền
@@ -356,7 +382,7 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string): P
       const chu = sc.phong.toaNha.chuSoHuu;
       if (chu?.nhanThongBaoZalo && chu.zaloChatId) {
         const doneMsg = msg + '\n\n(Sự cố đã được xử lý xong)';
-        await sendZalo(chu.zaloChatId, doneMsg);
+        await sendZalo(chu.zaloChatId, doneMsg, sc.phong.toaNhaId);
       }
     }
   } catch (e) {
@@ -384,7 +410,7 @@ export async function notifyMeterReminder(toaNhaId: string, tenToaNha: string): 
 
     // Gửi cá nhân theo routing
     const targets = await getTargets(toaNhaId, 'NhacNho');
-    await Promise.all(targets.map(t => sendZalo(t.chatId, msg)));
+    await Promise.all(targets.map(t => sendZalo(t.chatId, msg, toaNhaId)));
   } catch (e) {
     console.error('[zalo-notify] notifyMeterReminder error:', e);
   }
