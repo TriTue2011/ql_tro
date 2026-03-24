@@ -1,16 +1,14 @@
 /**
  * POST /api/zalo-bot/friend-request
- * Công cụ kết bạn: tìm user bằng SĐT → gửi lời kết bạn → gửi tin nhắn sau kết bạn.
  *
- * Body: {
- *   phone: string           — SĐT người nhận
- *   friendMsg: string       — Nội dung lời mời kết bạn (max 150 ký tự)
- *   followUpMsg?: string    — Tin nhắn gửi sau khi kết bạn (max 2000 ký tự)
- *   accountSelection?: string — Bot account ID / SĐT bot
- * }
+ * action: 'friendRequest' | 'sendMessage'
  *
- * GET /api/zalo-bot/friend-request/template
- * → xem route template bên dưới
+ * friendRequest: Tìm SĐT → gửi lời kết bạn (max 150 ký tự)
+ * sendMessage:   Tìm SĐT → gửi tin nhắn (max 2000 ký tự)
+ *
+ * Body chung: { phone, accountSelection? }
+ * friendRequest thêm: { friendMsg }
+ * sendMessage thêm:   { message }
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -23,7 +21,43 @@ import {
 } from '@/lib/zalo-bot-client';
 
 const MAX_FRIEND_MSG = 150;
-const MAX_FOLLOW_UP = 2000;
+const MAX_MSG = 2000;
+
+/** Trích xuất userId từ response findUser — bot server có thể trả nhiều cấu trúc */
+function extractUserId(d: any): string {
+  if (!d || typeof d !== 'object') return '';
+  const tryGet = (o: any) => o?.userId ?? o?.uid ?? o?.id ?? o?.user_id ?? '';
+  return String(tryGet(d) || tryGet(d?.data) || tryGet(d?.user) || tryGet(d?.result) || '');
+}
+
+function extractUserName(d: any): string {
+  if (!d || typeof d !== 'object') return '';
+  const pick = (o: any) => o?.displayName ?? o?.display_name ?? o?.zaloName ?? o?.name ?? '';
+  return String(pick(d) || pick(d?.data) || pick(d?.user) || pick(d?.result) || '');
+}
+
+/** Bước chung: tìm user bằng SĐT, trả về userId + userName */
+async function resolveUser(phone: string, accountSelection?: string) {
+  const steps: { step: string; ok: boolean; detail?: string }[] = [];
+  const findResult = await findUserViaBotServer(phone, accountSelection);
+
+  if (!findResult.ok || !findResult.data) {
+    steps.push({ step: 'findUser', ok: false, detail: findResult.error ?? 'Không tìm thấy' });
+    return { userId: '', userName: '', steps, rawData: null, error: `Không tìm thấy Zalo user cho SĐT ${phone}` };
+  }
+
+  const d = findResult.data as any;
+  const userId = extractUserId(d);
+  const userName = extractUserName(d);
+
+  if (!userId) {
+    steps.push({ step: 'findUser', ok: false, detail: `Không có userId: ${JSON.stringify(d).slice(0, 300)}` });
+    return { userId: '', userName: '', steps, rawData: d, error: 'Tìm thấy nhưng không có userId' };
+  }
+
+  steps.push({ step: 'findUser', ok: true, detail: `userId=${userId}, name=${userName}` });
+  return { userId, userName, steps, rawData: d, error: null };
+}
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -36,100 +70,84 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Cần nhập số điện thoại' }, { status: 400 });
   }
 
-  const { phone, friendMsg, followUpMsg, accountSelection } = body as {
-    phone: string;
-    friendMsg: string;
-    followUpMsg?: string;
-    accountSelection?: string;
-  };
+  const action = body.action ?? 'friendRequest';
+  const { phone, accountSelection } = body as { phone: string; accountSelection?: string };
 
-  if (!friendMsg?.trim()) {
-    return NextResponse.json({ ok: false, error: 'Cần nhập nội dung lời mời kết bạn' }, { status: 400 });
-  }
-
-  if (friendMsg.length > MAX_FRIEND_MSG) {
-    return NextResponse.json({
-      ok: false,
-      error: `Lời mời kết bạn tối đa ${MAX_FRIEND_MSG} ký tự (hiện ${friendMsg.length})`,
-    }, { status: 400 });
-  }
-
-  if (followUpMsg && followUpMsg.length > MAX_FOLLOW_UP) {
-    return NextResponse.json({
-      ok: false,
-      error: `Tin nhắn sau kết bạn tối đa ${MAX_FOLLOW_UP} ký tự`,
-    }, { status: 400 });
-  }
-
-  const steps: { step: string; ok: boolean; detail?: string }[] = [];
-
-  try {
-    // 1. Tìm user bằng SĐT
-    const findResult = await findUserViaBotServer(phone, accountSelection);
-    if (!findResult.ok || !findResult.data) {
-      steps.push({ step: 'findUser', ok: false, detail: findResult.error ?? 'Không tìm thấy' });
-      return NextResponse.json({ ok: false, error: `Không tìm thấy Zalo user cho SĐT ${phone}`, steps });
+  // ── Action: Gửi lời kết bạn ──
+  if (action === 'friendRequest') {
+    const friendMsg = (body.friendMsg ?? '') as string;
+    if (!friendMsg.trim()) {
+      return NextResponse.json({ ok: false, error: 'Cần nhập nội dung lời mời kết bạn' }, { status: 400 });
     }
-
-    const d = findResult.data as any;
-    const userId = String(d.userId ?? d.uid ?? d.id ?? '');
-    const userName = String(d.displayName ?? d.display_name ?? d.zaloName ?? '');
-    if (!userId) {
-      steps.push({ step: 'findUser', ok: false, detail: 'Không có userId trong response' });
-      return NextResponse.json({ ok: false, error: 'Tìm thấy nhưng không có userId', steps });
-    }
-    steps.push({ step: 'findUser', ok: true, detail: `userId=${userId}, name=${userName}` });
-
-    // 2. Kiểm tra đã là bạn chưa
-    const friendsResult = await getAllFriendsFromBotServer(accountSelection);
-    const isFriend = friendsResult.ok && Array.isArray(friendsResult.friends) &&
-      friendsResult.friends.some((f: any) => String(f.uid ?? f.id ?? f.userId ?? '') === userId);
-
-    if (isFriend) {
-      steps.push({ step: 'checkFriend', ok: true, detail: 'Đã là bạn bè' });
-      // Đã là bạn → chỉ gửi tin nhắn nếu có
-      if (followUpMsg?.trim()) {
-        const msgResult = await sendMessageViaBotServer(userId, followUpMsg.trim(), 0, accountSelection);
-        steps.push({ step: 'sendMessage', ok: msgResult.ok, detail: msgResult.ok ? 'Đã gửi' : msgResult.error });
-      }
+    if (friendMsg.length > MAX_FRIEND_MSG) {
       return NextResponse.json({
-        ok: true,
-        alreadyFriend: true,
-        userId,
-        userName,
-        steps,
-        message: 'Đã là bạn bè' + (followUpMsg?.trim() ? ', đã gửi tin nhắn' : ''),
-      });
+        ok: false,
+        error: `Lời mời kết bạn tối đa ${MAX_FRIEND_MSG} ký tự (hiện ${friendMsg.length})`,
+      }, { status: 400 });
     }
 
-    steps.push({ step: 'checkFriend', ok: true, detail: 'Chưa là bạn → gửi kết bạn' });
-
-    // 3. Gửi lời kết bạn
-    const frResult = await sendFriendRequestViaBotServer(userId, friendMsg.trim(), accountSelection);
-    steps.push({ step: 'sendFriendRequest', ok: frResult.ok, detail: frResult.ok ? 'Đã gửi lời kết bạn' : frResult.error });
-
-    // 4. Gửi tin nhắn sau kết bạn (có thể fail nếu chưa accept)
-    if (followUpMsg?.trim()) {
-      try {
-        const msgResult = await sendMessageViaBotServer(userId, followUpMsg.trim(), 0, accountSelection);
-        steps.push({ step: 'sendFollowUp', ok: msgResult.ok, detail: msgResult.ok ? 'Đã gửi' : (msgResult.error ?? 'Có thể chưa accept') });
-      } catch {
-        steps.push({ step: 'sendFollowUp', ok: false, detail: 'Chưa accept kết bạn nên không gửi được (bình thường)' });
+    try {
+      const resolved = await resolveUser(phone, accountSelection);
+      if (resolved.error) {
+        return NextResponse.json({ ok: false, error: resolved.error, steps: resolved.steps, rawData: resolved.rawData });
       }
+
+      const { userId, userName, steps } = resolved;
+
+      // Kiểm tra đã là bạn
+      const friendsResult = await getAllFriendsFromBotServer(accountSelection);
+      const isFriend = friendsResult.ok && Array.isArray(friendsResult.friends) &&
+        friendsResult.friends.some((f: any) => String(f.uid ?? f.id ?? f.userId ?? '') === userId);
+
+      if (isFriend) {
+        steps.push({ step: 'checkFriend', ok: true, detail: 'Đã là bạn bè rồi' });
+        return NextResponse.json({ ok: true, alreadyFriend: true, userId, userName, steps, message: 'Đã là bạn bè rồi, không cần kết bạn' });
+      }
+      steps.push({ step: 'checkFriend', ok: true, detail: 'Chưa là bạn → gửi kết bạn' });
+
+      const frResult = await sendFriendRequestViaBotServer(userId, friendMsg.trim(), accountSelection);
+      steps.push({ step: 'sendFriendRequest', ok: frResult.ok, detail: frResult.ok ? 'Đã gửi lời kết bạn' : frResult.error });
+
+      return NextResponse.json({
+        ok: frResult.ok,
+        userId, userName, steps,
+        message: frResult.ok ? 'Đã gửi lời kết bạn thành công' : frResult.error,
+      });
+    } catch (error: any) {
+      return NextResponse.json({ ok: false, error: error?.message ?? 'Lỗi không xác định' }, { status: 500 });
+    }
+  }
+
+  // ── Action: Gửi tin nhắn sau kết bạn ──
+  if (action === 'sendMessage') {
+    const message = (body.message ?? '') as string;
+    if (!message.trim()) {
+      return NextResponse.json({ ok: false, error: 'Cần nhập nội dung tin nhắn' }, { status: 400 });
+    }
+    if (message.length > MAX_MSG) {
+      return NextResponse.json({ ok: false, error: `Tin nhắn tối đa ${MAX_MSG} ký tự` }, { status: 400 });
     }
 
-    return NextResponse.json({
-      ok: frResult.ok,
-      userId,
-      userName,
-      steps,
-      message: frResult.ok ? 'Đã gửi lời kết bạn thành công' : frResult.error,
-    });
-  } catch (error: any) {
-    return NextResponse.json({
-      ok: false,
-      error: error?.message ?? 'Lỗi không xác định',
-      steps,
-    }, { status: 500 });
+    try {
+      const resolved = await resolveUser(phone, accountSelection);
+      if (resolved.error) {
+        return NextResponse.json({ ok: false, error: resolved.error, steps: resolved.steps, rawData: resolved.rawData });
+      }
+
+      const { userId, userName, steps } = resolved;
+
+      const msgResult = await sendMessageViaBotServer(userId, message.trim(), 0, accountSelection);
+      steps.push({ step: 'sendMessage', ok: msgResult.ok, detail: msgResult.ok ? 'Đã gửi tin nhắn' : (msgResult.error ?? 'Có thể chưa accept kết bạn') });
+
+      return NextResponse.json({
+        ok: msgResult.ok,
+        userId, userName, steps,
+        message: msgResult.ok ? 'Đã gửi tin nhắn thành công' : (msgResult.error ?? 'Gửi tin nhắn thất bại'),
+      });
+    } catch (error: any) {
+      return NextResponse.json({ ok: false, error: error?.message ?? 'Lỗi không xác định' }, { status: 500 });
+    }
   }
+
+  return NextResponse.json({ ok: false, error: `action không hợp lệ: ${action}` }, { status: 400 });
 }
