@@ -80,6 +80,10 @@ interface User {
   toaNhaTen?: string | null;
   toaNhaIds?: string[];
   quyenKichHoatTaiKhoan?: boolean;
+  quyenHopDong?: boolean;
+  quyenHoaDon?: boolean;
+  quyenThanhToan?: boolean;
+  quyenSuCo?: boolean;
   nguoiTaoTen?: string | null;
 }
 
@@ -92,6 +96,10 @@ interface CreateUserData {
   toaNhaId: string;
   toaNhaIds: string[];
   quyenKichHoatTaiKhoan: boolean;
+  quyenHopDong: boolean;
+  quyenHoaDon: boolean;
+  quyenThanhToan: boolean;
+  quyenSuCo: boolean;
 }
 
 export default function AccountManagementPage() {
@@ -114,6 +122,10 @@ export default function AccountManagementPage() {
     toaNhaId: '',
     toaNhaIds: [],
     quyenKichHoatTaiKhoan: false,
+    quyenHopDong: false,
+    quyenHoaDon: false,
+    quyenThanhToan: false,
+    quyenSuCo: false,
   });
   const [editUserData, setEditUserData] = useState({
     name: '',
@@ -124,6 +136,10 @@ export default function AccountManagementPage() {
     toaNhaId: '',
     toaNhaIds: [] as string[],
     quyenKichHoatTaiKhoan: false,
+    quyenHopDong: false,
+    quyenHoaDon: false,
+    quyenThanhToan: false,
+    quyenSuCo: false,
   });
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [globalLimits, setGlobalLimits] = useState<Record<string, number>>(DEFAULT_ROLE_LIMITS);
@@ -285,7 +301,12 @@ export default function AccountManagementPage() {
         delete payload.toaNhaId; // luôn dùng toaNhaIds cho mọi vai trò không phải admin
         if (!createUserData.toaNhaIds.length) delete payload.toaNhaIds;
       }
-      delete payload.quyenKichHoatTaiKhoan; // cập nhật quyền sau khi tạo user xong
+      // Quyền cập nhật riêng sau khi tạo user
+      delete payload.quyenKichHoatTaiKhoan;
+      delete payload.quyenHopDong;
+      delete payload.quyenHoaDon;
+      delete payload.quyenThanhToan;
+      delete payload.quyenSuCo;
       const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -294,21 +315,31 @@ export default function AccountManagementPage() {
       const responseData = await response.json().catch(() => null);
       if (response.ok) {
         // Nếu là quanLy + có bật quyền → gọi API quyen cho từng tòa nhà
-        if (createUserData.role === 'quanLy' && createUserData.quyenKichHoatTaiKhoan && createUserData.toaNhaIds.length > 0) {
+        if (createUserData.role === 'quanLy' && createUserData.toaNhaIds.length > 0) {
           const newId = responseData?.id;
           if (newId) {
-            await Promise.all(createUserData.toaNhaIds.map(tid =>
-              fetch(`/api/admin/users/${newId}/quyen`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ toaNhaId: tid, quyenKichHoatTaiKhoan: true }),
-              })
-            ));
+            const quyenPayload = {
+              quyenKichHoatTaiKhoan: createUserData.quyenKichHoatTaiKhoan,
+              quyenHopDong: createUserData.quyenHopDong,
+              quyenHoaDon: createUserData.quyenHoaDon,
+              quyenThanhToan: createUserData.quyenThanhToan,
+              quyenSuCo: createUserData.quyenSuCo,
+            };
+            // Chỉ gọi nếu có ít nhất 1 quyền được bật
+            if (Object.values(quyenPayload).some(v => v)) {
+              await Promise.all(createUserData.toaNhaIds.map(tid =>
+                fetch(`/api/admin/users/${newId}/quyen`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ toaNhaId: tid, ...quyenPayload }),
+                })
+              ));
+            }
           }
         }
         toast.success('Tạo tài khoản thành công');
         setIsCreateDialogOpen(false);
-        setCreateUserData({ name: '', email: '', password: '', phone: '', role: 'nhanVien', toaNhaId: '', toaNhaIds: [], quyenKichHoatTaiKhoan: false });
+        setCreateUserData({ name: '', email: '', password: '', phone: '', role: 'nhanVien', toaNhaId: '', toaNhaIds: [], quyenKichHoatTaiKhoan: false, quyenHopDong: false, quyenHoaDon: false, quyenThanhToan: false, quyenSuCo: false });
         cache.clearCache();
         fetchUsers(true);
       } else {
@@ -334,7 +365,12 @@ export default function AccountManagementPage() {
       const payload: Record<string, unknown> = { ...editUserData };
       if (editUserData.role === 'admin') { delete payload.toaNhaId; delete payload.toaNhaIds; }
       else { delete payload.toaNhaId; } // luôn dùng toaNhaIds cho mọi vai trò không phải admin
-      delete payload.quyenKichHoatTaiKhoan; // quyền cập nhật riêng bên dưới
+      // Quyền cập nhật riêng bên dưới
+      delete payload.quyenKichHoatTaiKhoan;
+      delete payload.quyenHopDong;
+      delete payload.quyenHoaDon;
+      delete payload.quyenThanhToan;
+      delete payload.quyenSuCo;
       const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -346,13 +382,20 @@ export default function AccountManagementPage() {
         return;
       }
 
-      // Cập nhật quyền kích hoạt tài khoản cho từng tòa nhà (chỉ khi là quanLy)
+      // Cập nhật quyền cho từng tòa nhà (chỉ khi là quanLy)
       if (editUserData.role === 'quanLy' && editUserData.toaNhaIds.length > 0) {
+        const quyenPayload = {
+          quyenKichHoatTaiKhoan: editUserData.quyenKichHoatTaiKhoan,
+          quyenHopDong: editUserData.quyenHopDong,
+          quyenHoaDon: editUserData.quyenHoaDon,
+          quyenThanhToan: editUserData.quyenThanhToan,
+          quyenSuCo: editUserData.quyenSuCo,
+        };
         const results = await Promise.all(editUserData.toaNhaIds.map(tid =>
           fetch(`/api/admin/users/${selectedUser.id}/quyen`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ toaNhaId: tid, quyenKichHoatTaiKhoan: editUserData.quyenKichHoatTaiKhoan }),
+            body: JSON.stringify({ toaNhaId: tid, ...quyenPayload }),
           })
         ));
         const failed = results.find(r => !r.ok);
@@ -403,6 +446,10 @@ export default function AccountManagementPage() {
       toaNhaId: user.toaNhaId || '',
       toaNhaIds: user.toaNhaIds?.length ? user.toaNhaIds : (user.toaNhaId ? [user.toaNhaId] : []),
       quyenKichHoatTaiKhoan: user.quyenKichHoatTaiKhoan ?? false,
+      quyenHopDong: user.quyenHopDong ?? false,
+      quyenHoaDon: user.quyenHoaDon ?? false,
+      quyenThanhToan: user.quyenThanhToan ?? false,
+      quyenSuCo: user.quyenSuCo ?? false,
     });
     setIsEditDialogOpen(true);
   };
@@ -640,16 +687,24 @@ export default function AccountManagementPage() {
             {createUserData.role === 'quanLy' && createUserData.toaNhaIds.length > 0 && (
               <div className="rounded-md border p-3 space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quyền hạn</p>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs md:text-sm font-medium">Kích hoạt tài khoản khách thuê</p>
-                    <p className="text-[10px] text-muted-foreground">Cho phép tạo/thu hồi mật khẩu đăng nhập của khách thuê</p>
+                {[
+                  { key: 'quyenHopDong' as const, label: 'Hợp đồng', desc: 'Thêm, sửa, xóa hợp đồng' },
+                  { key: 'quyenHoaDon' as const, label: 'Hóa đơn', desc: 'Thêm, sửa, xóa hóa đơn' },
+                  { key: 'quyenThanhToan' as const, label: 'Thanh toán', desc: 'Thêm, sửa, xóa thanh toán' },
+                  { key: 'quyenSuCo' as const, label: 'Sự cố', desc: 'Thêm, sửa, xóa sự cố' },
+                  { key: 'quyenKichHoatTaiKhoan' as const, label: 'Kích hoạt tài khoản', desc: 'Tạo/thu hồi mật khẩu đăng nhập khách thuê' },
+                ].map(({ key, label, desc }) => (
+                  <div key={key} className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs md:text-sm font-medium">{label}</p>
+                      <p className="text-[10px] text-muted-foreground">{desc}</p>
+                    </div>
+                    <Switch
+                      checked={createUserData[key]}
+                      onCheckedChange={(v) => setCreateUserData({ ...createUserData, [key]: v })}
+                    />
                   </div>
-                  <Switch
-                    checked={createUserData.quyenKichHoatTaiKhoan}
-                    onCheckedChange={(v) => setCreateUserData({ ...createUserData, quyenKichHoatTaiKhoan: v })}
-                  />
-                </div>
+                ))}
               </div>
             )}
           </div>
@@ -892,16 +947,24 @@ export default function AccountManagementPage() {
             {editUserData.role === 'quanLy' && editUserData.toaNhaIds.length > 0 && (
               <div className="rounded-md border p-3 space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quyền hạn trao cho quản lý</p>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs md:text-sm font-medium">Kích hoạt tài khoản khách thuê</p>
-                    <p className="text-[10px] text-muted-foreground">Cho phép quản lý tạo/thu hồi mật khẩu đăng nhập của khách thuê</p>
+                {[
+                  { key: 'quyenHopDong' as const, label: 'Hợp đồng', desc: 'Thêm, sửa, xóa hợp đồng' },
+                  { key: 'quyenHoaDon' as const, label: 'Hóa đơn', desc: 'Thêm, sửa, xóa hóa đơn' },
+                  { key: 'quyenThanhToan' as const, label: 'Thanh toán', desc: 'Thêm, sửa, xóa thanh toán' },
+                  { key: 'quyenSuCo' as const, label: 'Sự cố', desc: 'Thêm, sửa, xóa sự cố' },
+                  { key: 'quyenKichHoatTaiKhoan' as const, label: 'Kích hoạt tài khoản', desc: 'Tạo/thu hồi mật khẩu đăng nhập khách thuê' },
+                ].map(({ key, label, desc }) => (
+                  <div key={key} className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs md:text-sm font-medium">{label}</p>
+                      <p className="text-[10px] text-muted-foreground">{desc}</p>
+                    </div>
+                    <Switch
+                      checked={editUserData[key]}
+                      onCheckedChange={(v) => setEditUserData({ ...editUserData, [key]: v })}
+                    />
                   </div>
-                  <Switch
-                    checked={editUserData.quyenKichHoatTaiKhoan}
-                    onCheckedChange={(v) => setEditUserData({ ...editUserData, quyenKichHoatTaiKhoan: v })}
-                  />
-                </div>
+                ))}
               </div>
             )}
           </div>

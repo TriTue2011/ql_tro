@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN "quyenHopDong" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN "quyenHoaDon" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN "quyenThanhToan" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN "quyenSuCo" BOOLEAN NOT NULL DEFAULT false;

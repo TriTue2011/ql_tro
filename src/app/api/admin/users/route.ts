@@ -45,6 +45,10 @@ export async function GET() {
         select: {
           toaNha: { select: { id: true, tenToaNha: true } },
           quyenKichHoatTaiKhoan: true,
+          quyenHopDong: true,
+          quyenHoaDon: true,
+          quyenThanhToan: true,
+          quyenSuCo: true,
         },
       },
     } as const;
@@ -126,6 +130,10 @@ export async function GET() {
         toaNhaTen: assignedBuilding?.tenToaNha ?? null,
         toaNhaIds,
         quyenKichHoatTaiKhoan: managedEntry?.quyenKichHoatTaiKhoan ?? false,
+        quyenHopDong: managedEntry?.quyenHopDong ?? false,
+        quyenHoaDon: managedEntry?.quyenHoaDon ?? false,
+        quyenThanhToan: managedEntry?.quyenThanhToan ?? false,
+        quyenSuCo: managedEntry?.quyenSuCo ?? false,
       };
     });
 

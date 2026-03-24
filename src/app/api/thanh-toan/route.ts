@@ -6,6 +6,7 @@ import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { sseEmit } from '@/lib/sse-emitter';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import prisma from '@/lib/prisma';
+import { checkQuyen, getToaNhaIdFromHoaDon } from '@/lib/server/check-quyen';
 
 // GET - Lấy danh sách thanh toán
 export async function GET(request: NextRequest) {
@@ -121,6 +122,18 @@ export async function POST(request: NextRequest) {
         { message: 'Hóa đơn không tồn tại' },
         { status: 404 }
       );
+    }
+
+    // Kiểm tra quyền thêm thanh toán
+    const role = session.user.role;
+    if (role === 'quanLy' || role === 'nhanVien') {
+      const toaNhaId = await getToaNhaIdFromHoaDon(hoaDonId);
+      if (toaNhaId) {
+        const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenThanhToan');
+        if (!perm.allowed) {
+          return NextResponse.json({ message: perm.message }, { status: 403 });
+        }
+      }
     }
 
     // Kiểm tra số tiền thanh toán không vượt quá số tiền còn lại

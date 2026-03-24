@@ -77,6 +77,10 @@ model ToaNhaNguoiQuanLy {
 
   // Quyền hạn được chủ trọ trao — mặc định false (không có)
   quyenKichHoatTaiKhoan Boolean @default(false) // Kích hoạt/thu hồi đăng nhập khách thuê
+  quyenHopDong          Boolean @default(false) // Thêm/sửa/xóa hợp đồng
+  quyenHoaDon           Boolean @default(false) // Thêm/sửa/xóa hóa đơn
+  quyenThanhToan        Boolean @default(false) // Thêm/sửa/xóa thanh toán
+  quyenSuCo             Boolean @default(false) // Thêm/sửa/xóa sự cố
 
   @@id([toaNhaId, nguoiDungId])
 }
@@ -446,6 +450,23 @@ model CaiDatChuNha {
 
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
+}
+
+// Danh sách bạn bè Zalo theo từng tài khoản bot
+// Được sync khi bot server đăng nhập + khi cần kiểm tra bạn bè real-time
+model ZaloBanBe {
+  id              String   @id @default(cuid())
+  zaloAccountId   String   // ID tài khoản bot (ownId)
+  friendUserId    String   // ID bạn bè trên Zalo
+  displayName     String?  // Tên hiển thị
+  zaloName        String?  // Tên Zalo
+  phone           String?  // SĐT (nếu có)
+  ngayTao         DateTime @default(now())
+  ngayCapNhat     DateTime @updatedAt
+
+  @@unique([zaloAccountId, friendUserId])
+  @@index([friendUserId])
+  @@index([zaloAccountId])
 }
 
 // Danh sách endpoint của Zalo Bot Server — seed từ code, proxy dùng làm whitelist
