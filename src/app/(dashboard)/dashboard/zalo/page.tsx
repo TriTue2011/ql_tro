@@ -9,7 +9,7 @@ import {
   Loader2, Eye, Terminal, Play,
   Image, FileText, Upload, MessageSquare,
   Bot, Copy, ExternalLink, ChevronLeft,
-  HardDrive, Folder,
+  HardDrive, Folder, UserPlus, AlertCircle,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1116,6 +1116,233 @@ function ChatHistoryDialog({ chatId, name, open, onClose }: {
   );
 }
 
+// ─── Công cụ kết bạn + gửi tin nhắn ─────────────────────────────────────────
+
+const ENTITY_OPTIONS = [
+  { value: 'khachThue', label: 'Khách thuê' },
+  { value: 'nguoiDung', label: 'Quản lý / Nhân viên' },
+] as const;
+
+function FriendRequestCard({ account, buildingId }: { account?: AccountData; buildingId: string }) {
+  const [phone, setPhone] = useState('');
+  const [tenNguoiNhan, setTenNguoiNhan] = useState('');
+  const [entityType, setEntityType] = useState<'khachThue' | 'nguoiDung'>('khachThue');
+  const [phong, setPhong] = useState('');
+  const [friendMsg, setFriendMsg] = useState('');
+  const [followUpMsg, setFollowUpMsg] = useState('');
+  const [sending, setSending] = useState(false);
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message?: string; steps?: any[] } | null>(null);
+
+  const MAX_FRIEND = 150;
+  const MAX_FOLLOWUP = 2000;
+
+  // Lấy văn mẫu khi thay đổi thông tin
+  const loadTemplate = useCallback(async () => {
+    if (!tenNguoiNhan.trim()) return;
+    setLoadingTemplate(true);
+    try {
+      const params = new URLSearchParams({
+        ten: tenNguoiNhan.trim(),
+        entityType,
+        ...(buildingId && { toaNhaId: buildingId }),
+        ...(phong && { phong }),
+      });
+      const res = await fetch(`/api/zalo-bot/friend-request/template?${params}`);
+      const data = await res.json();
+      if (data.ok) {
+        setFriendMsg(data.friendMsg);
+        setFollowUpMsg(data.followUpMsg);
+      }
+    } catch {
+      toast.error('Không thể tải văn mẫu');
+    } finally {
+      setLoadingTemplate(false);
+    }
+  }, [tenNguoiNhan, entityType, buildingId, phong]);
+
+  const handleSend = async () => {
+    if (!phone.trim()) { toast.error('Cần nhập SĐT người nhận'); return; }
+    if (!friendMsg.trim()) { toast.error('Cần nhập lời mời kết bạn'); return; }
+    if (friendMsg.length > MAX_FRIEND) { toast.error(`Lời mời tối đa ${MAX_FRIEND} ký tự`); return; }
+
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch('/api/zalo-bot/friend-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phone.trim(),
+          friendMsg: friendMsg.trim(),
+          followUpMsg: followUpMsg.trim() || undefined,
+          accountSelection: account?.zaloAccountId || undefined,
+        }),
+      });
+      const data = await res.json();
+      setResult({ ok: data.ok, message: data.message ?? data.error, steps: data.steps });
+      if (data.ok) toast.success(data.message || 'Thành công');
+      else toast.error(data.error || 'Thất bại');
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const friendMsgOverLimit = friendMsg.length > MAX_FRIEND;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <UserPlus className="h-4 w-4 text-pink-600" />
+          Kết bạn &amp; gửi tin nhắn
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Tìm SĐT → Gửi lời kết bạn → Gửi tin nhắn xác nhận. Văn mẫu tự điền theo tòa nhà.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Row 1: SĐT + Tên */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">SĐT người nhận *</Label>
+            <Input
+              placeholder="0345324515"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">Tên người nhận</Label>
+            <Input
+              placeholder="Nguyễn Văn A"
+              value={tenNguoiNhan}
+              onChange={e => setTenNguoiNhan(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+        </div>
+
+        {/* Row 2: Loại + Phòng + Nút tải văn mẫu */}
+        <div className="grid grid-cols-[1fr_80px_auto] gap-2 items-end">
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">Loại</Label>
+            <select
+              value={entityType}
+              onChange={e => setEntityType(e.target.value as 'khachThue' | 'nguoiDung')}
+              className="w-full h-8 text-xs border rounded-md px-2 bg-background"
+            >
+              {ENTITY_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">Phòng</Label>
+            <Input
+              placeholder="101"
+              value={phong}
+              onChange={e => setPhong(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadTemplate}
+            disabled={loadingTemplate || !tenNguoiNhan.trim()}
+            className="h-8 text-xs gap-1"
+          >
+            {loadingTemplate ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+            Văn mẫu
+          </Button>
+        </div>
+
+        {/* Lời mời kết bạn */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">Lời mời kết bạn *</Label>
+            <span className={`text-[10px] ${friendMsgOverLimit ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
+              {friendMsg.length}/{MAX_FRIEND}
+            </span>
+          </div>
+          <Textarea
+            placeholder="Chào bạn, kết bạn với tôi để nhận thông báo..."
+            value={friendMsg}
+            onChange={e => setFriendMsg(e.target.value)}
+            rows={2}
+            className={`text-xs resize-none ${friendMsgOverLimit ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+          />
+          {friendMsgOverLimit && (
+            <p className="text-[10px] text-red-500 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Zalo giới hạn lời mời kết bạn tối đa {MAX_FRIEND} ký tự
+            </p>
+          )}
+        </div>
+
+        {/* Tin nhắn sau kết bạn */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">Tin nhắn sau khi kết bạn</Label>
+            <span className="text-[10px] text-muted-foreground">{followUpMsg.length}/{MAX_FOLLOWUP}</span>
+          </div>
+          <Textarea
+            placeholder="Chào bạn, bạn đang ở nhà trọ... Xác nhận 'đúng' hay 'không phải'..."
+            value={followUpMsg}
+            onChange={e => setFollowUpMsg(e.target.value)}
+            rows={3}
+            className="text-xs resize-none"
+          />
+        </div>
+
+        {/* Kết quả */}
+        {result && (
+          <div className={`rounded-md p-2.5 text-xs space-y-1.5 ${result.ok ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+            <div className="flex items-center gap-1.5">
+              {result.ok
+                ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                : <XCircle className="h-3.5 w-3.5 text-red-600" />}
+              <span className={`font-medium ${result.ok ? 'text-green-700' : 'text-red-700'}`}>
+                {result.message}
+              </span>
+            </div>
+            {result.steps && result.steps.length > 0 && (
+              <div className="space-y-0.5 pl-5">
+                {result.steps.map((s: any, i: number) => (
+                  <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                    {s.ok
+                      ? <CheckCircle2 className="h-2.5 w-2.5 text-green-500" />
+                      : <XCircle className="h-2.5 w-2.5 text-red-500" />}
+                    <span className="text-gray-600">{s.step}:</span>
+                    <span className={s.ok ? 'text-green-600' : 'text-red-600'}>{s.detail}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Nút gửi */}
+        <Button
+          size="sm"
+          onClick={handleSend}
+          disabled={sending || !phone.trim() || !friendMsg.trim() || friendMsgOverLimit}
+          className="w-full gap-1.5 text-xs"
+        >
+          {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+          {sending ? 'Đang gửi...' : 'Tìm & Kết bạn'}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Monitor Card ────────────────────────────────────────────────────────────
+
 function MonitorCard({ account }: { account?: AccountData }) {
   const [convs, setConvs] = useState<ZaloMsgItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1797,8 +2024,8 @@ function AccountSettings({
         )}
       </Section>
 
-      {/* 4 tool cards — mỗi cái ẩn/hiện độc lập */}
-      <PerAccountCards account={account} isAdmin={isAdmin} canEdit={canEdit} />
+      {/* tool cards — mỗi cái ẩn/hiện độc lập */}
+      <PerAccountCards account={account} isAdmin={isAdmin} canEdit={canEdit} buildingId={buildingId} />
     </div>
   );
 }
@@ -1806,13 +2033,14 @@ function AccountSettings({
 // ─── 4 cards ẩn/hiện per-account ─────────────────────────────────────────────
 
 const ACCOUNT_CARDS = [
-  { key: "botserver", label: "Bot Server", Icon: Server, color: "text-blue-600", adminOnly: false },
-  { key: "webhook",   label: "Webhook",    Icon: Webhook, color: "text-violet-600", adminOnly: true },
-  { key: "testsend",  label: "Test gửi",   Icon: Send, color: "text-green-600", adminOnly: false },
-  { key: "monitor",   label: "Theo dõi tin", Icon: Eye, color: "text-orange-500", adminOnly: false },
+  { key: "botserver",  label: "Bot Server",  Icon: Server,   color: "text-blue-600",   adminOnly: false },
+  { key: "webhook",    label: "Webhook",     Icon: Webhook,  color: "text-violet-600", adminOnly: true },
+  { key: "testsend",   label: "Test gửi",    Icon: Send,     color: "text-green-600",  adminOnly: false },
+  { key: "friendreq",  label: "Kết bạn",     Icon: UserPlus, color: "text-pink-600",   adminOnly: false },
+  { key: "monitor",    label: "Theo dõi tin", Icon: Eye,     color: "text-orange-500", adminOnly: false },
 ] as const;
 
-function PerAccountCards({ account, isAdmin, canEdit }: { account: AccountData; isAdmin: boolean; canEdit: boolean }) {
+function PerAccountCards({ account, isAdmin, canEdit, buildingId }: { account: AccountData; isAdmin: boolean; canEdit: boolean; buildingId: string }) {
   const [openCard, setOpenCard] = useState<string | null>(null);
 
   return (
@@ -1854,6 +2082,11 @@ function PerAccountCards({ account, isAdmin, canEdit }: { account: AccountData; 
       {openCard === "testsend" && (
         <div className="border rounded-lg overflow-hidden">
           <TestSendCard account={account} />
+        </div>
+      )}
+      {openCard === "friendreq" && (
+        <div className="border rounded-lg overflow-hidden">
+          <FriendRequestCard account={account} buildingId={buildingId} />
         </div>
       )}
       {openCard === "monitor" && (
