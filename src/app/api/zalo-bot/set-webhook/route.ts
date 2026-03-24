@@ -18,6 +18,7 @@ import {
   BotConfig,
 } from '@/lib/zalo-bot-client';
 import prisma from '@/lib/prisma';
+import { syncFriendsToDb } from '@/lib/zalo-friends';
 
 async function getLocalBaseUrl(): Promise<string | null> {
   try {
@@ -121,6 +122,9 @@ export async function POST(request: NextRequest) {
   const result = await setWebhookOnBotServer(ownId, webhookUrl, webhookUrl, webhookUrl, botConfig);
 
   if (result.ok) {
+    // Sync danh sách bạn bè vào DB (background, không block response)
+    syncFriendsToDb(ownId).catch(() => {});
+
     // Cập nhật zaloAccountId cho target user
     await prisma.nguoiDung.update({
       where: { id: targetUser.id },

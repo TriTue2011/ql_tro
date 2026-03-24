@@ -19,6 +19,7 @@ import prisma from '@/lib/prisma';
 import { getKhachThueRepo } from '@/lib/repositories';
 import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 import { sendMessageViaBotServer, getAllFriendsFromBotServer, getAllGroupsFromBotServer, getGroupMembersFromBotServer, findUserViaBotServer, getUserInfoViaBotServer } from '@/lib/zalo-bot-client';
+import { isFriendInDb, refreshAndCheckFriend } from '@/lib/zalo-friends';
 import { emitNewMessage } from '@/lib/zalo-message-events';
 import { askAI, classifyIntent } from '@/lib/ai-chat';
 
@@ -90,24 +91,44 @@ export function refreshGroupMembersCacheInBackground(): void {
     .finally(() => { _groupMembersRefreshing = false; });
 }
 
-async function isFriend(chatId: string, displayName?: string): Promise<boolean> {
+/**
+ * Kiểm tra chatId có phải bạn bè của tài khoản bot (accountId) không.
+ *
+ * Luồng:
+ *  1. Check DB (ZaloBanBe) — nhanh, dùng dữ liệu đã sync lúc đăng nhập
+ *  2. Nếu không có → fetch lại friend list từ bot server 1 lần
+ *     → nếu có → lưu DB + return true (bạn bè mới thêm chưa sync)
+ *     → nếu không → return false (người lạ thật)
+ *  3. Fallback in-memory cache (legacy) khi không có accountId
+ */
+async function isFriend(chatId: string, displayName?: string, accountId?: string): Promise<boolean> {
+  // ── Có accountId → dùng DB (flow mới) ──
+  if (accountId) {
+    // Bước 1: check DB
+    const inDb = await isFriendInDb(accountId, chatId);
+    if (inDb) return true;
+
+    // Bước 2: fetch lại friend list 1 lần để chắc chắn
+    const afterRefresh = await refreshAndCheckFriend(accountId, chatId);
+    if (afterRefresh) return true;
+
+    return false;
+  }
+
+  // ── Không có accountId → fallback in-memory cache (legacy) ──
   if (!_friendsCache) {
     await getAllFriendsFromBotServer().then(result => {
       if (result.ok && result.friends) buildFriendsCache(result.friends);
     }).catch(() => {});
   }
-  // Check bằng ID trước
   if (_friendsCache?.has(chatId)) return true;
-  // Zalo webhook dùng chatId khác format userId trong friend list,
-  // nên fallback match theo displayName
   if (displayName && _friendsNamesCache?.has(displayName.trim().toLowerCase())) return true;
 
-  // Fallback: gọi API real-time kiểm tra user info (chatId webhook có thể khác userId friend list)
+  // Fallback API real-time
   try {
     const info = await getUserInfoViaBotServer(chatId);
     if (info.ok && info.data) {
-      // Có thông tin user → đã là bạn bè (chỉ lấy được info của bạn bè)
-      _friendsCache?.add(chatId); // cache lại để lần sau không cần gọi API
+      _friendsCache?.add(chatId);
       return true;
     }
   } catch { /* ignore */ }
@@ -488,10 +509,12 @@ async function tryAutoLinkByPhone(token: string, chatId: string, accountSelectio
 }
 
 /** Gửi lời chào cho người lạ + forward đến nhóm quản lý nếu được cấu hình.
- *  @param isFromBotServer — true nếu tin nhắn đến từ bot server (zca-js / personal Zalo).
- *    Trên Zalo cá nhân, chỉ bạn bè mới nhắn được → luôn skip greeting.
+ *  Chỉ gửi greeting khi:
+ *   - Chủ nhà đã có zalo server (accountSelection != null)
+ *   - chatId KHÔNG phải bạn bè (check DB → refresh 1 lần)
+ *   - Chưa có lịch sử, chưa từng gửi greeting
  */
-async function handleStranger(token: string, chatId: string, displayName: string, text: string, accountSelection?: string, isFromBotServer = false): Promise<void> {
+async function handleStranger(token: string, chatId: string, displayName: string, text: string, accountSelection?: string): Promise<void> {
   try {
     const rows = await prisma.caiDat.findMany({
       where: { khoa: { in: ['bot_greeting_stranger', 'bot_forward_unknown', 'bot_forward_thread_id'] } },
@@ -499,16 +522,12 @@ async function handleStranger(token: string, chatId: string, displayName: string
     const map: Record<string, string> = {};
     for (const r of rows) map[r.khoa] = r.giaTri?.trim() ?? '';
 
-    // Gửi lời chào — bỏ qua nếu:
-    //   - Tin nhắn từ bot server (personal Zalo) → sender đều là bạn bè
-    //   - Đã là bạn bè, đã cùng nhóm, hoặc đã có lịch sử trò chuyện
+    // Gửi lời chào — bỏ qua nếu đã là bạn bè, đã cùng nhóm, hoặc đã có lịch sử trò chuyện
     const greeting = map['bot_greeting_stranger'];
-    if (greeting && !isFromBotServer) {
-      const alreadyFriend = await isFriend(chatId, displayName);
+    if (greeting) {
+      // Check bạn bè qua DB (accountId) hoặc fallback in-memory cache
+      const alreadyFriend = await isFriend(chatId, displayName, accountSelection);
       const alreadyInGroup = isGroupMember(chatId);
-      // Kiểm tra lịch sử: webhook đã lưu tin nhắn hiện tại trước khi gọi hàm này,
-      // nên nếu có > 1 tin nhắn → đã có hội thoại trước đó → không phải người mới.
-      // Cũng kiểm tra đã từng gửi greeting chưa để tránh gửi lặp.
       const [msgCount, alreadyGreeted] = await Promise.all([
         prisma.zaloMessage.count({ where: { chatId } }).catch(() => 0),
         prisma.zaloMessage.findFirst({
@@ -516,7 +535,7 @@ async function handleStranger(token: string, chatId: string, displayName: string
           select: { id: true },
         }).catch(() => null),
       ]);
-      const hasHistory = msgCount > 1; // > 1 vì tin nhắn hiện tại đã được lưu
+      const hasHistory = msgCount > 1;
       const isNewUser = !alreadyFriend && !alreadyInGroup && !hasHistory && !alreadyGreeted;
       if (isNewUser) {
         await sendReply(token, chatId, greeting, accountSelection);
@@ -732,9 +751,8 @@ export async function handleZaloUpdate(update: any, token: string): Promise<void
   if (autoLinked) return;
 
   // 6. Không nhận diện được → lời chào + forward + detect pending
-  const isFromBotServer = !!(update?.data?.uidFrom);
   await Promise.all([
-    handleStranger(token, chatId, displayName, text, undefined, isFromBotServer),
+    handleStranger(token, chatId, displayName, text),
     detectAndStorePending(update),
   ]);
 }
@@ -760,7 +778,13 @@ export async function handleZaloAutoReply(update: any, token = '', accountSelect
   const eventName: string = update?.event_name ?? update?.event ?? '';
   const isFriendEvent = /user_follow|user_unfollow|friend_request|add_friend/i.test(eventName);
   const isGroupEvent  = /join_group|leave_group|remove_member|add_member|group_member/i.test(eventName);
-  if (isFriendEvent) refreshFriendsCacheInBackground();
+  if (isFriendEvent) {
+    refreshFriendsCacheInBackground();
+    // Sync bạn bè vào DB khi có event kết bạn/hủy bạn
+    if (accountSelection) {
+      import('@/lib/zalo-friends').then(m => m.syncFriendsToDb(accountSelection)).catch(() => {});
+    }
+  }
   if (isGroupEvent)  refreshGroupMembersCacheInBackground();
 
   const displayName: string =
@@ -784,7 +808,5 @@ export async function handleZaloAutoReply(update: any, token = '', accountSelect
   if (isRegistered) return;
 
   // Người lạ → lời chào + forward
-  // Bot server (zca-js / personal Zalo): tất cả người gửi đều là bạn bè → skip greeting
-  const isFromBotServer = !!(data?.uidFrom || (!msg?.from?.id && update?.uidFrom));
-  await handleStranger(token, chatId, displayName, text, accountSelection, isFromBotServer);
+  await handleStranger(token, chatId, displayName, text, accountSelection);
 }

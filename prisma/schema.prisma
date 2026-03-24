@@ -448,6 +448,23 @@ model CaiDatChuNha {
   ngayCapNhat DateTime @updatedAt
 }
 
+// Danh sách bạn bè Zalo theo từng tài khoản bot
+// Được sync khi bot server đăng nhập + khi cần kiểm tra bạn bè real-time
+model ZaloBanBe {
+  id              String   @id @default(cuid())
+  zaloAccountId   String   // ID tài khoản bot (ownId)
+  friendUserId    String   // ID bạn bè trên Zalo
+  displayName     String?  // Tên hiển thị
+  zaloName        String?  // Tên Zalo
+  phone           String?  // SĐT (nếu có)
+  ngayTao         DateTime @default(now())
+  ngayCapNhat     DateTime @updatedAt
+
+  @@unique([zaloAccountId, friendUserId])
+  @@index([friendUserId])
+  @@index([zaloAccountId])
+}
+
 // Danh sách endpoint của Zalo Bot Server — seed từ code, proxy dùng làm whitelist
 model ZaloBotApi {
   id             String   @id @default(cuid())
