@@ -1203,9 +1203,11 @@ function FriendRequestCard({ account, buildingId }: { account?: AccountData; bui
         setFriendMsg(data.friendMsg);
         setFollowUpMsg(data.followUpMsg);
         toast.success('Đã tải văn mẫu');
+      } else {
+        toast.error(data.error || 'Không thể tải văn mẫu');
       }
-    } catch {
-      toast.error('Không thể tải văn mẫu');
+    } catch (err: any) {
+      toast.error(`Không thể tải văn mẫu: ${err?.message || 'Lỗi kết nối'}`);
     } finally {
       setLoadingTemplate(false);
     }
@@ -1224,9 +1226,11 @@ function FriendRequestCard({ account, buildingId }: { account?: AccountData; bui
         setTplFollowKT(data.rawTemplates.followUpMsgKT || '');
         setTplFollowQL(data.rawTemplates.followUpMsgQL || '');
         setTplLoaded(true);
+      } else {
+        toast.error(data.error || 'Không thể tải văn mẫu');
       }
-    } catch {
-      toast.error('Không thể tải văn mẫu');
+    } catch (err: any) {
+      toast.error(`Không thể tải văn mẫu: ${err?.message || 'Lỗi kết nối'}`);
     } finally {
       setTplLoading(false);
     }
