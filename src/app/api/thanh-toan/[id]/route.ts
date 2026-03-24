@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getThanhToanRepo, getHoaDonRepo } from '@/lib/repositories';
 import prisma from '@/lib/prisma';
 import { sseEmit } from '@/lib/sse-emitter';
+import { checkQuyen, getToaNhaIdFromThanhToan } from '@/lib/server/check-quyen';
 
 // PUT - Cập nhật thanh toán
 export async function PUT(
@@ -46,6 +47,18 @@ export async function PUT(
         { message: 'Thanh toán không tồn tại' },
         { status: 404 }
       );
+    }
+
+    // Kiểm tra quyền sửa thanh toán
+    const role = session.user.role;
+    if (role === 'quanLy' || role === 'nhanVien') {
+      const toaNhaId = await getToaNhaIdFromThanhToan(id);
+      if (toaNhaId) {
+        const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenThanhToan');
+        if (!perm.allowed) {
+          return NextResponse.json({ message: perm.message }, { status: 403 });
+        }
+      }
     }
 
     // Kiểm tra hóa đơn tồn tại
@@ -144,15 +157,7 @@ export async function DELETE(
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Chỉ admin, chuNha, dongChuTro mới được xóa thanh toán đã xác nhận
     const role = session.user.role;
-    if (!['admin', 'chuNha', 'dongChuTro'].includes(role)) {
-      return NextResponse.json(
-        { message: 'Chỉ chủ trọ mới có quyền xóa thanh toán' },
-        { status: 403 }
-      );
-    }
-
     const { id } = await params;
     const thanhToanRepo = await getThanhToanRepo();
     const hoaDonRepo = await getHoaDonRepo();
@@ -164,6 +169,19 @@ export async function DELETE(
         { message: 'Thanh toán không tồn tại' },
         { status: 404 }
       );
+    }
+
+    // Kiểm tra quyền xóa thanh toán
+    if (role === 'quanLy') {
+      const toaNhaId = await getToaNhaIdFromThanhToan(id);
+      if (toaNhaId) {
+        const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenThanhToan');
+        if (!perm.allowed) {
+          return NextResponse.json({ message: perm.message }, { status: 403 });
+        }
+      }
+    } else if (role === 'nhanVien') {
+      return NextResponse.json({ message: 'Nhân viên chỉ có quyền xem' }, { status: 403 });
     }
 
     // Cập nhật lại hóa đơn (hoàn lại số tiền)

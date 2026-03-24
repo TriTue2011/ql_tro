@@ -77,6 +77,10 @@ model ToaNhaNguoiQuanLy {
 
   // Quyền hạn được chủ trọ trao — mặc định false (không có)
   quyenKichHoatTaiKhoan Boolean @default(false) // Kích hoạt/thu hồi đăng nhập khách thuê
+  quyenHopDong          Boolean @default(false) // Thêm/sửa/xóa hợp đồng
+  quyenHoaDon           Boolean @default(false) // Thêm/sửa/xóa hóa đơn
+  quyenThanhToan        Boolean @default(false) // Thêm/sửa/xóa thanh toán
+  quyenSuCo             Boolean @default(false) // Thêm/sửa/xóa sự cố
 
   @@id([toaNhaId, nguoiDungId])
 }

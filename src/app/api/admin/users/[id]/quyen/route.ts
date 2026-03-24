@@ -2,7 +2,14 @@
  * PUT /api/admin/users/[id]/quyen
  * Cập nhật quyền hạn của một quản lý trong một tòa nhà cụ thể.
  *
- * Body: { toaNhaId: string, quyenKichHoatTaiKhoan: boolean }
+ * Body: {
+ *   toaNhaId: string,
+ *   quyenKichHoatTaiKhoan?: boolean,
+ *   quyenHopDong?: boolean,
+ *   quyenHoaDon?: boolean,
+ *   quyenThanhToan?: boolean,
+ *   quyenSuCo?: boolean,
+ * }
  *
  * Quyền truy cập:
  *   - admin: luôn được
@@ -16,7 +23,11 @@ import { z } from 'zod';
 
 const bodySchema = z.object({
   toaNhaId: z.string().min(1),
-  quyenKichHoatTaiKhoan: z.boolean(),
+  quyenKichHoatTaiKhoan: z.boolean().optional(),
+  quyenHopDong: z.boolean().optional(),
+  quyenHoaDon: z.boolean().optional(),
+  quyenThanhToan: z.boolean().optional(),
+  quyenSuCo: z.boolean().optional(),
 });
 
 export async function PUT(
@@ -38,7 +49,7 @@ export async function PUT(
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
-  const { toaNhaId, quyenKichHoatTaiKhoan } = parsed.data;
+  const { toaNhaId, ...quyenData } = parsed.data;
 
   // Kiểm tra tòa nhà tồn tại
   const toaNha = await prisma.toaNha.findUnique({ where: { id: toaNhaId }, select: { id: true, chuSoHuuId: true } });
@@ -56,11 +67,17 @@ export async function PUT(
     }
   }
 
+  // Chỉ cập nhật những quyền được gửi lên (partial update)
+  const updateData: Record<string, boolean> = {};
+  for (const [key, val] of Object.entries(quyenData)) {
+    if (val !== undefined) updateData[key] = val;
+  }
+
   // Upsert bản ghi quyền (tạo nếu chưa có, cập nhật nếu đã có)
   await prisma.toaNhaNguoiQuanLy.upsert({
     where: { toaNhaId_nguoiDungId: { toaNhaId, nguoiDungId } },
-    create: { toaNhaId, nguoiDungId, quyenKichHoatTaiKhoan },
-    update: { quyenKichHoatTaiKhoan },
+    create: { toaNhaId, nguoiDungId, ...updateData },
+    update: updateData,
   });
 
   return NextResponse.json({ ok: true });

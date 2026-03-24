@@ -7,6 +7,7 @@ import { parsePage, parseLimit } from '@/lib/parse-query';
 import { notifyKhachThue } from '@/lib/send-zalo';
 import { PhiDichVu } from '@/types';
 import { sseEmit } from '@/lib/sse-emitter';
+import { checkQuyen, getToaNhaIdFromHopDong, getToaNhaIdFromHoaDon } from '@/lib/server/check-quyen';
 
 // GET - Lấy danh sách hóa đơn
 export async function GET(request: NextRequest) {
@@ -152,6 +153,18 @@ export async function POST(request: NextRequest) {
         { message: 'Hợp đồng không tồn tại' },
         { status: 404 }
       );
+    }
+
+    // Kiểm tra quyền thêm hóa đơn
+    const role = session.user.role;
+    if (role === 'quanLy' || role === 'nhanVien') {
+      const toaNhaId = await getToaNhaIdFromHopDong(hopDong);
+      if (toaNhaId) {
+        const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenHoaDon');
+        if (!perm.allowed) {
+          return NextResponse.json({ message: perm.message }, { status: 403 });
+        }
+      }
     }
 
     // Tạo mã hóa đơn (sử dụng mã từ frontend hoặc tự sinh)
@@ -322,6 +335,20 @@ export async function PUT(request: NextRequest) {
       anhChiSoNuoc,
     } = body;
 
+    // Kiểm tra quyền sửa hóa đơn
+    if (id) {
+      const role = session.user.role;
+      if (role === 'quanLy' || role === 'nhanVien') {
+        const toaNhaId = await getToaNhaIdFromHoaDon(id);
+        if (toaNhaId) {
+          const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenHoaDon');
+          if (!perm.allowed) {
+            return NextResponse.json({ message: perm.message }, { status: 403 });
+          }
+        }
+      }
+    }
+
     // Validate required fields
     if (!id) {
       console.log('Missing ID');
@@ -465,6 +492,18 @@ export async function DELETE(request: NextRequest) {
         { message: 'Hóa đơn không tồn tại' },
         { status: 404 }
       );
+    }
+
+    // Kiểm tra quyền xóa hóa đơn
+    const role = session.user.role;
+    if (role === 'quanLy' || role === 'nhanVien') {
+      const toaNhaId = await getToaNhaIdFromHoaDon(id);
+      if (toaNhaId) {
+        const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenHoaDon');
+        if (!perm.allowed) {
+          return NextResponse.json({ message: perm.message }, { status: 403 });
+        }
+      }
     }
 
     await repo.delete(id);

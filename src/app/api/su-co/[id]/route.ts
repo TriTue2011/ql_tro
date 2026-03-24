@@ -5,6 +5,7 @@ import { getSuCoRepo } from '@/lib/repositories';
 import { sseEmit } from '@/lib/sse-emitter';
 import { notifyKhachThue } from '@/lib/send-zalo';
 import { z } from 'zod';
+import { checkQuyen, getToaNhaIdFromSuCo } from '@/lib/server/check-quyen';
 
 const updateSuCoSchema = z.object({
   tieuDe: z.string().min(1, 'Tiêu đề là bắt buộc').optional(),
@@ -79,6 +80,18 @@ export async function PUT(
     // Lấy trạng thái cũ để so sánh
     const suCoCu = await repo.findById(id);
 
+    // Kiểm tra quyền sửa sự cố
+    const role = session.user.role;
+    if (role === 'quanLy' || role === 'nhanVien') {
+      const toaNhaId = await getToaNhaIdFromSuCo(id);
+      if (toaNhaId) {
+        const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenSuCo');
+        if (!perm.allowed) {
+          return NextResponse.json({ message: perm.message }, { status: 403 });
+        }
+      }
+    }
+
     const suCo = await repo.update(id, {
       trangThai: validatedData.trangThai,
       nguoiXuLyId: validatedData.nguoiXuLy,
@@ -152,6 +165,18 @@ export async function DELETE(
         { message: 'Sự cố không tồn tại' },
         { status: 404 }
       );
+    }
+
+    // Kiểm tra quyền xóa sự cố
+    const role = session.user.role;
+    if (role === 'quanLy' || role === 'nhanVien') {
+      const toaNhaId = await getToaNhaIdFromSuCo(id);
+      if (toaNhaId) {
+        const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenSuCo');
+        if (!perm.allowed) {
+          return NextResponse.json({ message: perm.message }, { status: 403 });
+        }
+      }
     }
 
     await repo.delete(id);

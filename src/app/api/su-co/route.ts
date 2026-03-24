@@ -6,6 +6,7 @@ import { sseEmit } from '@/lib/sse-emitter';
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
+import { checkQuyen } from '@/lib/server/check-quyen';
 
 const suCoSchema = z.object({
   phong: z.string().min(1, 'Phòng là bắt buộc'),
@@ -95,6 +96,15 @@ export async function POST(request: NextRequest) {
         { message: 'Phòng không tồn tại' },
         { status: 400 }
       );
+    }
+
+    // Kiểm tra quyền thêm sự cố
+    const role = session.user.role;
+    if (role === 'quanLy' || role === 'nhanVien') {
+      const perm = await checkQuyen(session.user.id, role, phong.toaNhaId, 'quyenSuCo');
+      if (!perm.allowed) {
+        return NextResponse.json({ message: perm.message }, { status: 403 });
+      }
     }
 
     // Check if khach thue exists

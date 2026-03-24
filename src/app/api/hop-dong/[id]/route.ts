@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getHopDongRepo, getPhongRepo, getKhachThueRepo } from '@/lib/repositories';
 import { z } from 'zod';
 import { sseEmit } from '@/lib/sse-emitter';
+import { checkQuyen, getToaNhaIdFromHopDong } from '@/lib/server/check-quyen';
 
 const phiDichVuSchema = z.object({
   ten: z.string().min(1, 'Tên dịch vụ là bắt buộc'),
@@ -102,6 +103,18 @@ export async function PUT(
         { message: 'Hợp đồng không tồn tại' },
         { status: 404 }
       );
+    }
+
+    // Kiểm tra quyền sửa hợp đồng
+    const role = session.user.role;
+    if (role === 'quanLy' || role === 'nhanVien') {
+      const toaNhaId = await getToaNhaIdFromHopDong(id);
+      if (toaNhaId) {
+        const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenHopDong');
+        if (!perm.allowed) {
+          return NextResponse.json({ message: perm.message }, { status: 403 });
+        }
+      }
     }
 
     // Nếu có cập nhật phòng, kiểm tra phòng tồn tại
@@ -218,6 +231,18 @@ export async function DELETE(
         { message: 'Hợp đồng không tồn tại' },
         { status: 404 }
       );
+    }
+
+    // Kiểm tra quyền xóa hợp đồng
+    const role = session.user.role;
+    if (role === 'quanLy' || role === 'nhanVien') {
+      const toaNhaId = await getToaNhaIdFromHopDong(id);
+      if (toaNhaId) {
+        const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenHopDong');
+        if (!perm.allowed) {
+          return NextResponse.json({ message: perm.message }, { status: 403 });
+        }
+      }
     }
 
     // Lưu thông tin phòng trước khi xóa

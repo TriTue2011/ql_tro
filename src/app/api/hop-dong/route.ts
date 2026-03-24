@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { sseEmit } from '@/lib/sse-emitter';
 import { autoLinkZaloChatIds } from '@/lib/zalo-auto-link';
 import prisma from '@/lib/prisma';
+import { checkQuyen, getToaNhaIdFromPhong } from '@/lib/server/check-quyen';
 
 const phiDichVuSchema = z.object({
   ten: z.string().min(1, 'Tên dịch vụ là bắt buộc'),
@@ -107,6 +108,15 @@ export async function POST(request: NextRequest) {
         { message: 'Phòng không tồn tại' },
         { status: 400 }
       );
+    }
+
+    // Kiểm tra quyền thêm hợp đồng
+    const role = session.user.role;
+    if (role === 'quanLy' || role === 'nhanVien') {
+      const perm = await checkQuyen(session.user.id, role, phong.toaNhaId, 'quyenHopDong');
+      if (!perm.allowed) {
+        return NextResponse.json({ message: perm.message }, { status: 403 });
+      }
     }
 
     // Check if all khach thue exist
