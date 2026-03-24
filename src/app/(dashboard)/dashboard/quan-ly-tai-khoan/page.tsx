@@ -216,6 +216,7 @@ export default function AccountManagementPage() {
   };
 
   const handleSaveLimits = async () => {
+    if (!isAdmin) return; // Chỉ admin mới được lưu
     setLimitsSaving(true);
     try {
       // Lưu global
@@ -985,65 +986,77 @@ export default function AccountManagementPage() {
           <DialogHeader>
             <DialogTitle className="text-base md:text-lg">Giới hạn vai trò</DialogTitle>
             <DialogDescription className="text-xs md:text-sm">
-              Cài đặt số lượng tối đa mỗi vai trò. Tòa nhà không có giới hạn riêng sẽ dùng giới hạn chung.
+              {isAdmin
+                ? 'Cài đặt số lượng tối đa mỗi vai trò trên mỗi tòa nhà.'
+                : 'Giới hạn số lượng mỗi vai trò do quản trị viên cài đặt.'}
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 space-y-4 py-2 pr-1">
-            {/* Global limits */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Giới hạn chung (mặc định)</p>
-              <div className="grid gap-2">
-                {Object.entries(ROLE_LABELS).map(([key, label]) => (
-                  <div key={key} className="flex items-center justify-between gap-3">
-                    <Label className="text-sm">{label}</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={editGlobalLimits[key] ?? 0}
-                      onChange={(e) => setEditGlobalLimits({ ...editGlobalLimits, [key]: parseInt(e.target.value) || 0 })}
-                      className="w-20 text-sm text-center"
-                    />
-                  </div>
-                ))}
+            {/* Global limits — chỉ admin mới thấy và sửa được */}
+            {isAdmin && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Giới hạn chung (mặc định)</p>
+                <div className="grid gap-2">
+                  {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                    <div key={key} className="flex items-center justify-between gap-3">
+                      <Label className="text-sm">{label}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={editGlobalLimits[key] ?? 0}
+                        onChange={(e) => setEditGlobalLimits({ ...editGlobalLimits, [key]: parseInt(e.target.value) || 0 })}
+                        className="w-20 text-sm text-center"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Per-building limits */}
             {buildings.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Giới hạn theo tòa nhà</p>
-                <p className="text-[10px] text-muted-foreground">Để trống (0) = dùng giới hạn chung</p>
+                {isAdmin && <p className="text-[10px] text-muted-foreground">Để trống (0) = dùng giới hạn chung</p>}
                 <div className="space-y-3">
                   {buildings.map(b => {
                     const bLimits = editBuildingLimits[b.id] || {};
-                    const hasCustom = Object.values(bLimits).some(v => v > 0);
+                    // Chủ trọ: hiển thị giới hạn đã set (hoặc global fallback), read-only
+                    const displayLimits = isChuNha
+                      ? Object.fromEntries(Object.keys(ROLE_LABELS).map(k => [k, bLimits[k] || globalLimits[k] || 0]))
+                      : bLimits;
                     return (
                       <div key={b.id} className="border rounded-md p-2.5 space-y-1.5">
                         <div className="flex items-center gap-1.5">
                           <Building2 className="h-3.5 w-3.5 text-blue-500" />
                           <span className="text-sm font-medium">{b.tenToaNha}</span>
-                          {hasCustom && <Badge variant="outline" className="text-[9px] px-1 py-0">Riêng</Badge>}
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                           {Object.entries(ROLE_LABELS).map(([key, label]) => (
                             <div key={key} className="space-y-0.5">
                               <Label className="text-[10px] text-muted-foreground">{label}</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={100}
-                                placeholder={String(editGlobalLimits[key] ?? 0)}
-                                value={bLimits[key] || ''}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value) || 0;
-                                  setEditBuildingLimits({
-                                    ...editBuildingLimits,
-                                    [b.id]: { ...bLimits, [key]: val },
-                                  });
-                                }}
-                                className="h-8 text-xs text-center"
-                              />
+                              {isAdmin ? (
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  placeholder={String(editGlobalLimits[key] ?? 0)}
+                                  value={bLimits[key] || ''}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    setEditBuildingLimits({
+                                      ...editBuildingLimits,
+                                      [b.id]: { ...bLimits, [key]: val },
+                                    });
+                                  }}
+                                  className="h-8 text-xs text-center"
+                                />
+                              ) : (
+                                <div className="h-8 flex items-center justify-center text-sm font-medium bg-muted rounded-md">
+                                  {displayLimits[key] ?? 0}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -1056,11 +1069,13 @@ export default function AccountManagementPage() {
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setIsLimitsDialogOpen(false)} className="w-full sm:w-auto">
-              Hủy
+              {isAdmin ? 'Hủy' : 'Đóng'}
             </Button>
-            <Button size="sm" onClick={handleSaveLimits} disabled={limitsSaving} className="w-full sm:w-auto">
-              {limitsSaving ? 'Đang lưu...' : 'Lưu giới hạn'}
-            </Button>
+            {isAdmin && (
+              <Button size="sm" onClick={handleSaveLimits} disabled={limitsSaving} className="w-full sm:w-auto">
+                {limitsSaving ? 'Đang lưu...' : 'Lưu giới hạn'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
