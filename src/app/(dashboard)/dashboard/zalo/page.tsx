@@ -1123,7 +1123,7 @@ const ENTITY_OPTIONS = [
   { value: 'nguoiDung', label: 'Quản lý / Nhân viên' },
 ] as const;
 
-type FRTab = 'ketBan' | 'guiTin';
+type FRTab = 'ketBan' | 'guiTin' | 'vanMau';
 
 /** Hiển thị kết quả từng bước */
 function StepResult({ result }: { result: { ok: boolean; message?: string; steps?: any[] } }) {
@@ -1174,6 +1174,15 @@ function FriendRequestCard({ account, buildingId }: { account?: AccountData; bui
   const [sendingMsg, setSendingMsg] = useState(false);
   const [resultMsg, setResultMsg] = useState<{ ok: boolean; message?: string; steps?: any[] } | null>(null);
 
+  // Tab 3: Văn mẫu tùy chỉnh
+  const [tplFriendKT, setTplFriendKT] = useState('');
+  const [tplFriendQL, setTplFriendQL] = useState('');
+  const [tplFollowKT, setTplFollowKT] = useState('');
+  const [tplFollowQL, setTplFollowQL] = useState('');
+  const [tplLoaded, setTplLoaded] = useState(false);
+  const [tplLoading, setTplLoading] = useState(false);
+  const [tplSaving, setTplSaving] = useState(false);
+
   const MAX_FRIEND = 150;
   const MAX_MSG = 2000;
 
@@ -1201,6 +1210,53 @@ function FriendRequestCard({ account, buildingId }: { account?: AccountData; bui
       setLoadingTemplate(false);
     }
   }, [tenNguoiNhan, entityType, buildingId, phong]);
+
+  // Tải văn mẫu gốc (raw templates) cho tab Văn mẫu
+  const loadRawTemplates = useCallback(async () => {
+    if (!buildingId) return;
+    setTplLoading(true);
+    try {
+      const res = await fetch(`/api/zalo-bot/friend-request/template?toaNhaId=${buildingId}&ten=bạn&entityType=khachThue`);
+      const data = await res.json();
+      if (data.ok && data.rawTemplates) {
+        setTplFriendKT(data.rawTemplates.friendMsgKT || '');
+        setTplFriendQL(data.rawTemplates.friendMsgQL || '');
+        setTplFollowKT(data.rawTemplates.followUpMsgKT || '');
+        setTplFollowQL(data.rawTemplates.followUpMsgQL || '');
+        setTplLoaded(true);
+      }
+    } catch {
+      toast.error('Không thể tải văn mẫu');
+    } finally {
+      setTplLoading(false);
+    }
+  }, [buildingId]);
+
+  // Lưu văn mẫu tùy chỉnh
+  const saveTemplates = async () => {
+    if (!buildingId) { toast.error('Không có tòa nhà'); return; }
+    setTplSaving(true);
+    try {
+      const res = await fetch('/api/zalo-bot/friend-request/template', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toaNhaId: buildingId,
+          friendMsgKT: tplFriendKT.trim() || undefined,
+          friendMsgQL: tplFriendQL.trim() || undefined,
+          followUpMsgKT: tplFollowKT.trim() || undefined,
+          followUpMsgQL: tplFollowQL.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) toast.success('Đã lưu văn mẫu');
+      else toast.error(data.error || 'Lưu thất bại');
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setTplSaving(false);
+    }
+  };
 
   // Gửi kết bạn
   const handleSendFR = async () => {
@@ -1355,6 +1411,18 @@ function FriendRequestCard({ account, buildingId }: { account?: AccountData; bui
             <Send className="h-3 w-3" />
             Gửi tin nhắn
           </button>
+          <button
+            type="button"
+            onClick={() => { setTab('vanMau'); if (!tplLoaded) loadRawTemplates(); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+              tab === 'vanMau'
+                ? 'border-amber-500 text-amber-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <FileText className="h-3 w-3" />
+            Văn mẫu
+          </button>
         </div>
 
         {/* ── Tab 1: Kết bạn ── */}
@@ -1420,6 +1488,92 @@ function FriendRequestCard({ account, buildingId }: { account?: AccountData; bui
               {sendingMsg ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               {sendingMsg ? 'Đang gửi tin nhắn...' : 'Tìm & Gửi tin nhắn'}
             </Button>
+          </div>
+        )}
+
+        {/* ── Tab 3: Văn mẫu tùy chỉnh ── */}
+        {tab === 'vanMau' && (
+          <div className="space-y-3">
+            {tplLoading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-4 justify-center">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải văn mẫu...
+              </div>
+            ) : (
+              <>
+                <p className="text-[10px] text-muted-foreground bg-amber-50 border border-amber-200 rounded p-2">
+                  Chỉnh sửa văn mẫu cho tòa nhà này. Dùng biến: <code className="bg-amber-100 px-0.5 rounded">{'{ten}'}</code> <code className="bg-amber-100 px-0.5 rounded">{'{tenToaNha}'}</code> <code className="bg-amber-100 px-0.5 rounded">{'{diaChiNgan}'}</code> <code className="bg-amber-100 px-0.5 rounded">{'{phong}'}</code> <code className="bg-amber-100 px-0.5 rounded">{'{soNha}'}</code> <code className="bg-amber-100 px-0.5 rounded">{'{duong}'}</code>.
+                  Để trống = dùng mặc định.
+                </p>
+
+                {/* Lời kết bạn — Khách thuê */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-medium">Lời kết bạn — Khách thuê</Label>
+                    <span className={`text-[10px] ${tplFriendKT.length > MAX_FRIEND ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
+                      {tplFriendKT.length}/{MAX_FRIEND}
+                    </span>
+                  </div>
+                  <Textarea
+                    value={tplFriendKT}
+                    onChange={e => setTplFriendKT(e.target.value)}
+                    rows={2}
+                    placeholder="Chào {ten}, kết bạn với tôi để nhận thông báo từ nhà trọ {soNha}, {duong}."
+                    className={`text-xs resize-none ${tplFriendKT.length > MAX_FRIEND ? 'border-red-400' : ''}`}
+                  />
+                </div>
+
+                {/* Lời kết bạn — Quản lý */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-medium">Lời kết bạn — Quản lý</Label>
+                    <span className={`text-[10px] ${tplFriendQL.length > MAX_FRIEND ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
+                      {tplFriendQL.length}/{MAX_FRIEND}
+                    </span>
+                  </div>
+                  <Textarea
+                    value={tplFriendQL}
+                    onChange={e => setTplFriendQL(e.target.value)}
+                    rows={2}
+                    placeholder="Chào {ten}, Bạn đồng ý kết bạn để xác nhận bây giờ làm việc nhà trọ {soNha}, {duong}."
+                    className={`text-xs resize-none ${tplFriendQL.length > MAX_FRIEND ? 'border-red-400' : ''}`}
+                  />
+                </div>
+
+                {/* Tin nhắn sau kết bạn — Khách thuê */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium">Tin nhắn sau kết bạn — Khách thuê</Label>
+                  <Textarea
+                    value={tplFollowKT}
+                    onChange={e => setTplFollowKT(e.target.value)}
+                    rows={3}
+                    placeholder={'Chào {ten}, bạn đang ở nhà trọ {diaChiNgan} (phòng {phong}). Bạn cần xác nhận "đúng" hay "không phải"...'}
+                    className="text-xs resize-none"
+                  />
+                </div>
+
+                {/* Tin nhắn sau kết bạn — Quản lý */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium">Tin nhắn sau kết bạn — Quản lý</Label>
+                  <Textarea
+                    value={tplFollowQL}
+                    onChange={e => setTplFollowQL(e.target.value)}
+                    rows={3}
+                    placeholder={'Chào {ten}, bạn đang làm việc tại nhà trọ {diaChiNgan}. Bạn cần xác nhận "đúng" hay "không phải".'}
+                    className="text-xs resize-none"
+                  />
+                </div>
+
+                <Button
+                  size="sm"
+                  onClick={saveTemplates}
+                  disabled={tplSaving}
+                  className="w-full gap-1.5 text-xs bg-amber-600 hover:bg-amber-700"
+                >
+                  {tplSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  {tplSaving ? 'Đang lưu...' : 'Lưu văn mẫu'}
+                </Button>
+              </>
+            )}
           </div>
         )}
       </CardContent>

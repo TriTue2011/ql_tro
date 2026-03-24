@@ -412,6 +412,11 @@ model CaiDatToaNha {
   // null = dùng giới hạn chung (global)
   roleLimits       String?
 
+  // Văn mẫu Zalo tùy chỉnh — JSON: { friendMsgKT?, friendMsgQL?, followUpMsgKT?, followUpMsgQL? }
+  // Hỗ trợ biến: {ten}, {tenToaNha}, {diaChiNgan}, {diaChiDay}, {phong}, {soNha}, {duong}
+  // null = dùng văn mẫu mặc định
+  zaloVanMau       String?
+
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
 }
