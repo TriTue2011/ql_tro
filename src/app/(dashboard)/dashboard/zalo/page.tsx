@@ -335,6 +335,134 @@ interface DirectState {
   proxies: any[];
 }
 
+// ─── Zalo Connection Overview (hiển thị trên danh sách tòa nhà) ──────────────
+
+function ZaloConnectionOverview() {
+  const [state, setState] = useState<DirectState | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/zalo-direct");
+      if (res.ok) setState(await res.json());
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  // Dedup all accounts
+  const allAccounts = [
+    ...(state?.directAccounts?.map((a) => ({ ...a, _source: "direct" as const })) || []),
+    ...(state?.botAccounts?.map((a: any) => ({
+      ownId: a.ownId || "", name: a.name || a.displayName || "", phone: a.phone || a.phoneNumber || "",
+      proxy: a.proxy, loggedIn: a.isOnline ?? a.isConnected ?? true, loginTime: 0, _source: "bot-server" as const,
+    })) || []),
+  ];
+  const uniqueAccounts = allAccounts.filter((a, i, arr) => arr.findIndex((b) => b.ownId === a.ownId) === i);
+
+  if (loading && !state) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-gray-400 py-3">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra kết nối Zalo...
+      </div>
+    );
+  }
+
+  if (!state) return null;
+
+  const isActive = state.mode === "direct";
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        {/* Status grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className={`rounded-lg p-2.5 border ${isActive ? "bg-emerald-50 border-emerald-200" : "bg-gray-50 border-gray-200"}`}>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Zap className={`h-3.5 w-3.5 ${isActive ? "text-emerald-600" : "text-gray-400"}`} />
+              <span className="text-xs font-medium">Direct (zca-js)</span>
+            </div>
+            <div className="text-xs text-gray-600 space-y-0.5">
+              <div>Trạng thái: {state.directStatus.available
+                ? <span className="text-emerald-700 font-medium">Hoạt động</span>
+                : <span className="text-gray-400">Không hoạt động</span>}
+              </div>
+              <div>Online: <span className="font-medium">{state.directStatus.loggedInCount}</span>/{state.directStatus.accountCount}</div>
+            </div>
+          </div>
+          <div className={`rounded-lg p-2.5 border ${state.mode === "bot-server" ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-200"}`}>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Server className={`h-3.5 w-3.5 ${state.mode === "bot-server" ? "text-blue-600" : "text-gray-400"}`} />
+              <span className="text-xs font-medium">Bot Server</span>
+            </div>
+            <div className="text-xs text-gray-600 space-y-0.5">
+              <div className="truncate">URL: {state.botServerUrl
+                ? <span className="font-mono text-[10px]">{state.botServerUrl}</span>
+                : <span className="text-gray-400 italic">Chưa cấu hình</span>}
+              </div>
+              <div>TK: <span className="font-medium">{state.botAccounts?.length || 0}</span>
+                {state.botError && <span className="text-red-500 ml-1">({state.botError})</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Current mode */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500">Đang dùng:</span>
+          {isActive ? (
+            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+              <Zap className="h-2.5 w-2.5 mr-1" /> Trực tiếp
+            </Badge>
+          ) : state.mode === "bot-server" ? (
+            <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px]">
+              <Server className="h-2.5 w-2.5 mr-1" /> Bot Server
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-gray-500 text-[10px]">
+              <WifiOff className="h-2.5 w-2.5 mr-1" /> Chưa kết nối
+            </Badge>
+          )}
+          <span className="text-[10px] text-gray-400">(Direct ưu tiên nếu có)</span>
+        </div>
+
+        {/* Account list */}
+        {uniqueAccounts.length > 0 && (
+          <div className="border-t pt-3 space-y-2">
+            <p className="text-xs font-medium text-gray-600">Tài khoản ({uniqueAccounts.length})</p>
+            {uniqueAccounts.map((a) => (
+              <div key={a.ownId} className="flex items-center justify-between p-2 rounded-lg border text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-medium truncate">{a.phone || a.name || a.ownId}</span>
+                      {a.name && a.phone && <span className="text-gray-400">({a.name})</span>}
+                      <Badge variant="outline" className="text-[9px] px-1 py-0">
+                        {a._source === "direct" ? "Direct" : "Bot Server"}
+                      </Badge>
+                    </div>
+                    <div className="text-gray-400 flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-[10px]">{a.ownId}</span>
+                      {a.proxy
+                        ? <span className="text-[10px]"><Globe className="h-2.5 w-2.5 inline mr-0.5" />{a.proxy}</span>
+                        : <span className="text-[10px] text-gray-300"><Globe className="h-2.5 w-2.5 inline mr-0.5" />Không có proxy</span>
+                      }
+                    </div>
+                  </div>
+                </div>
+                <CheckCircle2 className={`h-4 w-4 flex-shrink-0 ${a.loggedIn ? "text-green-500" : "text-red-400"}`} />
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function DirectCard({ account, canEdit = false, isAdmin = false }: {
   account?: AccountData; canEdit?: boolean; isAdmin?: boolean;
 }) {
@@ -3020,6 +3148,9 @@ export default function ZaloSettingsPage() {
           Làm mới
         </Button>
       </div>
+
+      {/* Zalo Connection Overview (admin only) */}
+      {isAdmin && <ZaloConnectionOverview />}
 
       {/* Building list */}
       <div className="space-y-2">
