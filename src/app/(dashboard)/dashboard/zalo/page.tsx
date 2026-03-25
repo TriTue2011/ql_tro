@@ -471,6 +471,9 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
   const [qrLoading, setQrLoading] = useState(false);
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [qrProxy, setQrProxy] = useState("");
+  const [qrWaiting, setQrWaiting] = useState(false); // đang chờ user scan
+  const qrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevAccountCountRef = useRef(0);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -519,13 +522,46 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
     } catch { toast.error("Lỗi đăng xuất"); }
   };
 
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => { if (qrPollRef.current) clearInterval(qrPollRef.current); };
+  }, []);
+
   const handleLoginQR = async () => {
-    setQrLoading(true); setQrImage(null);
+    setQrLoading(true); setQrImage(null); setQrWaiting(false);
+    if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
+    // Lưu số account hiện tại để so sánh khi poll
+    prevAccountCountRef.current = state?.directAccounts?.length || 0;
     try {
       const r = await postAction("loginQR", { proxyUrl: qrProxy || undefined });
       if (r.ok) {
-        if (r.qrCode) { setQrImage(r.qrCode); toast.info("Quét mã QR bằng Zalo để đăng nhập"); }
-        else { toast.success(`Đã đăng nhập: ${r.ownId}`); reload(); }
+        if (r.qrCode) {
+          setQrImage(r.qrCode);
+          setQrWaiting(true);
+          toast.info("Quét mã QR bằng Zalo để đăng nhập");
+          // Poll 3s/lần để detect login thành công ở background
+          qrPollRef.current = setInterval(async () => {
+            try {
+              const res = await fetch("/api/admin/zalo-direct");
+              if (!res.ok) return;
+              const data = await res.json();
+              const newCount = data.directAccounts?.length || 0;
+              if (newCount > prevAccountCountRef.current) {
+                // Có tài khoản mới → login thành công
+                if (qrPollRef.current) clearInterval(qrPollRef.current);
+                qrPollRef.current = null;
+                setState(data);
+                setQrImage(null);
+                setQrWaiting(false);
+                const newAcc = data.directAccounts[data.directAccounts.length - 1];
+                toast.success(`Đăng nhập direct thành công: ${newAcc?.name || newAcc?.ownId || "tài khoản mới"}`);
+              }
+            } catch { /* ignore */ }
+          }, 3000);
+        } else {
+          toast.success(`Đã đăng nhập: ${r.ownId}`);
+          reload();
+        }
       } else toast.error(r.error || "Lỗi tạo QR");
     } catch { toast.error("Lỗi tạo QR"); }
     finally { setQrLoading(false); }
@@ -685,10 +721,23 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
                 {qrImage && (
                   <div className="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-lg border">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={qrImage} alt="QR Code Zalo" className="w-48 h-48 rounded-lg border" />
+                    <img
+                      src={qrImage.startsWith("data:") ? qrImage : `data:image/png;base64,${qrImage}`}
+                      alt="QR Code Zalo" className="w-48 h-48 rounded-lg border"
+                    />
                     <p className="text-[11px] text-gray-500 text-center">Mở Zalo → Quét mã QR này</p>
-                    <Button variant="outline" size="sm" className="text-xs" onClick={() => { setQrImage(null); reload(); }}>
-                      Đã quét xong
+                    {qrWaiting && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-blue-600">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Đang chờ quét... (tự động nhận khi đăng nhập xong)
+                      </div>
+                    )}
+                    <Button variant="outline" size="sm" className="text-xs" onClick={() => {
+                      setQrImage(null); setQrWaiting(false);
+                      if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
+                      reload();
+                    }}>
+                      Đóng
                     </Button>
                   </div>
                 )}
