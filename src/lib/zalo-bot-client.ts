@@ -1,10 +1,12 @@
 /**
  * zalo-bot-client.ts
  * HTTP client kết nối Zalo Bot server (TriTue2011/hass-addon/zalo_bot).
+ * Hỗ trợ dual-mode: HTTP bot server HOẶC direct zca-js integration.
  * API chuẩn theo ZaloBotClient JS reference.
  */
 
 import prisma from "@/lib/prisma";
+import * as zaloDirect from "@/lib/zalo-direct";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,9 +47,24 @@ export async function getBotConfig(): Promise<BotConfig | null> {
   }
 }
 
-/** Bot server is the only mode now. Always returns true. */
+/** Kiểm tra xem có đang dùng direct mode (zca-js tích hợp) không */
+export function isDirectMode(): boolean {
+  return zaloDirect.isDirectModeAvailable();
+}
+
+/** Bot server mode = có cấu hình bot server URL VÀ không ở direct mode */
 export async function isBotServerMode(): Promise<boolean> {
-  return true;
+  if (isDirectMode()) return false;
+  const config = await getBotConfig();
+  return !!config?.serverUrl;
+}
+
+/** Kiểm tra chế độ nào đang hoạt động */
+export async function getActiveMode(): Promise<"direct" | "bot-server" | "none"> {
+  if (isDirectMode()) return "direct";
+  const config = await getBotConfig();
+  if (config?.serverUrl) return "bot-server";
+  return "none";
 }
 
 // ─── Auth + cache ─────────────────────────────────────────────────────────────
@@ -145,6 +162,11 @@ async function ac(accountSelection?: string, configOverride?: BotConfig | null):
 // ─── Account / Server ─────────────────────────────────────────────────────────
 
 export async function getAccountsFromBotServer(configOverride?: BotConfig | null): Promise<{ serverUrl: string; accounts: any[]; error?: string }> {
+  // Direct mode
+  if (!configOverride && isDirectMode()) {
+    return { serverUrl: "direct", accounts: zaloDirect.getAccounts() };
+  }
+
   const config = configOverride ?? await getBotConfig();
   if (!config) return { serverUrl: "", accounts: [], error: "Chưa cấu hình zalo_bot_server_url" };
   const r = await botRequest("GET", "/api/accounts", undefined, 15_000, config);
@@ -187,20 +209,30 @@ export async function deleteAccountWebhookFromBotServer(ownId: string, configOve
 }
 
 export async function getProxiesFromBotServer(): Promise<DataResult> {
+  if (isDirectMode()) return { ok: true, data: zaloDirect.getProxies() };
   return botRequest("GET", "/api/proxies");
 }
 
 export async function addProxyToBotServer(proxyUrl: string): Promise<OkResult> {
+  if (isDirectMode()) { zaloDirect.addProxy(proxyUrl); return { ok: true }; }
   const r = await botRequest("POST", "/api/proxies", { proxyUrl });
   return { ok: r.ok, error: r.error };
 }
 
 export async function removeProxyFromBotServer(proxyUrl: string): Promise<OkResult> {
+  if (isDirectMode()) return { ok: zaloDirect.removeProxy(proxyUrl) };
   const r = await botRequest("DELETE", "/api/proxies", { proxyUrl });
   return { ok: r.ok, error: r.error };
 }
 
 export async function getQRCodeFromBotServer(accountSelection?: string): Promise<{ qrCode?: string; error?: string }> {
+  // Direct mode: login trực tiếp qua zca-js
+  if (isDirectMode() || !(await getBotConfig())?.serverUrl) {
+    const result = await zaloDirect.loginWithQR();
+    if (!result.ok) return { error: result.error };
+    return { qrCode: result.qrCode };
+  }
+
   const body: Record<string, any> = {};
   if (accountSelection) body.accountSelection = accountSelection;
   const r = await botRequest("POST", "/zalo-login", body, 20_000);
@@ -220,6 +252,13 @@ export async function sendMessageViaBotServer(
   configOverride?: BotConfig | null,
 ): Promise<OkResult> {
   const truncated = text.length > 2000 ? text.slice(0, 1997) + "..." : text;
+
+  // Direct mode
+  if (!configOverride && isDirectMode()) {
+    const config = await getBotConfig();
+    return zaloDirect.sendMessage(chatId, truncated, threadType, config?.ttl ?? 0, null, accountSelection);
+  }
+
   const config = configOverride ?? await getBotConfig();
   const ttl = config?.ttl ?? 0;
   const r = await botRequest("POST", "/api/sendMessageByAccount", {
@@ -239,6 +278,12 @@ export async function sendImageViaBotServer(
   accountSelection?: string,
   configOverride?: BotConfig | null,
 ): Promise<OkResult> {
+  // Direct mode
+  if (!configOverride && isDirectMode()) {
+    const config = await getBotConfig();
+    return zaloDirect.sendImage(chatId, imageUrl, caption?.slice(0, 1024) || "", threadType, config?.ttl ?? 0, accountSelection);
+  }
+
   const config = configOverride ?? await getBotConfig();
   const ttl = config?.ttl ?? 0;
   const r = await botRequest("POST", "/api/sendImageByAccount", {
@@ -260,6 +305,12 @@ export async function sendFileViaBotServer(
   accountSelection?: string,
   configOverride?: BotConfig | null,
 ): Promise<OkResult> {
+  // Direct mode
+  if (!configOverride && isDirectMode()) {
+    const config = await getBotConfig();
+    return zaloDirect.sendFile(chatId, fileUrl, caption?.slice(0, 1024) || "", threadType, config?.ttl ?? 0, accountSelection);
+  }
+
   const config = configOverride ?? await getBotConfig();
   const ttl = config?.ttl ?? 0;
   const r = await botRequest("POST", "/api/sendFileByAccount", {
@@ -278,6 +329,19 @@ export async function sendVideoViaBotServer(
   videoUrl: string,
   opts?: { thumbnailUrl?: string; durationMs?: number; width?: number; height?: number; threadType?: 0 | 1; accountSelection?: string; configOverride?: BotConfig | null },
 ): Promise<OkResult> {
+  // Direct mode
+  if (!opts?.configOverride && isDirectMode()) {
+    const config = await getBotConfig();
+    return zaloDirect.sendVideo(chatId, {
+      videoUrl,
+      thumbnailUrl: opts?.thumbnailUrl,
+      duration: opts?.durationMs,
+      width: opts?.width,
+      height: opts?.height,
+      ttl: config?.ttl ?? 0,
+    }, opts?.threadType ?? 0, opts?.accountSelection);
+  }
+
   const config = opts?.configOverride ?? await getBotConfig();
   const ttl = config?.ttl ?? 0;
   const r = await botRequest("POST", "/api/sendVideoByAccount", {
@@ -369,16 +433,19 @@ export async function sendCardViaBotServer(chatId: string, userId: string, accou
 }
 
 export async function forwardMessageViaBotServer(message: any, threadIds: string[], type = "user", accountSelection?: string): Promise<OkResult> {
+  if (isDirectMode()) return zaloDirect.forwardMessage(message, threadIds, type, accountSelection);
   const r = await botRequest("POST", "/api/forwardMessageByAccount", { params: message, threadIds, type, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
 export async function undoMessageViaBotServer(msgId: string, threadId: string, type = 0, accountSelection?: string): Promise<OkResult> {
+  if (isDirectMode()) return zaloDirect.undoMessage({ msgId }, threadId, type, accountSelection);
   const r = await botRequest("POST", "/api/undoByAccount", { payload: { msgId }, threadId, accountSelection: await ac(accountSelection), type });
   return { ok: r.ok, error: r.error };
 }
 
 export async function addReactionViaBotServer(icon: string, threadId: string, msgId: string, cliMsgId: string, type = "user", accountSelection?: string): Promise<OkResult> {
+  if (isDirectMode()) return zaloDirect.addReaction(icon, { threadId, msgId, cliMsgId, type }, accountSelection);
   const r = await botRequest("POST", "/api/addReactionByAccount", { icon, dest: { threadId, msgId, cliMsgId, type }, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
@@ -387,6 +454,13 @@ export async function deleteMessageViaBotServer(
   opts: { threadId: string; msgId: string; cliMsgId: string; uidFrom: string; type?: string; onlyMe?: boolean },
   accountSelection?: string,
 ): Promise<OkResult> {
+  if (isDirectMode()) {
+    return zaloDirect.deleteMessage(
+      { threadId: opts.threadId, msgId: opts.msgId, cliMsgId: opts.cliMsgId, uidFrom: opts.uidFrom, type: opts.type },
+      opts.onlyMe ?? true,
+      accountSelection,
+    );
+  }
   const r = await botRequest("POST", "/api/deleteMessageByAccount", {
     dest: { threadId: opts.threadId, msgId: opts.msgId, cliMsgId: opts.cliMsgId, uidFrom: opts.uidFrom, type: opts.type ?? "user" },
     onlyMe: opts.onlyMe ?? true, accountSelection: await ac(accountSelection),
@@ -401,16 +475,25 @@ export async function parseLinkViaBotServer(link: string, accountSelection?: str
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 export async function findUserViaBotServer(phone: string, accountSelection?: string): Promise<DataResult> {
+  if (isDirectMode()) return zaloDirect.findUser(phone, accountSelection);
   return botRequest("POST", "/api/findUserByAccount", { phone, accountSelection: await ac(accountSelection) });
 }
 
 export async function getUserInfoViaBotServer(userId: string, accountSelection?: string): Promise<DataResult> {
+  if (isDirectMode()) return zaloDirect.getUserInfo(userId, accountSelection);
   return botRequest("POST", "/api/getUserInfoByAccount", { userId, accountSelection: await ac(accountSelection) });
 }
 
 export async function getAllFriendsFromBotServer(
   accountSelection?: string,
 ): Promise<{ ok: boolean; friends?: any[]; error?: string }> {
+  if (isDirectMode()) {
+    const r = await zaloDirect.getAllFriends(accountSelection);
+    if (!r.ok) return { ok: false, error: r.error };
+    const friends = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.friends ?? []);
+    return { ok: true, friends };
+  }
+
   const r = await botRequest("POST", "/api/getAllFriendsByAccount", { accountSelection: await ac(accountSelection) }, 15_000);
   if (!r.ok) return { ok: false, error: r.error };
   const friends = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.friends ?? []);
@@ -426,6 +509,7 @@ export async function getSentFriendRequestsFromBotServer(accountSelection?: stri
 }
 
 export async function sendFriendRequestViaBotServer(userId: string, message: string, accountSelection?: string): Promise<OkResult> {
+  if (isDirectMode()) return zaloDirect.sendFriendRequest(userId, message, accountSelection);
   const r = await botRequest("POST", "/api/sendFriendRequestByAccount", { userId, message, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
@@ -506,6 +590,13 @@ export async function updateSettingsViaBotServer(type: string, status: number, a
 // ─── Group ────────────────────────────────────────────────────────────────────
 
 export async function getAllGroupsFromBotServer(accountSelection?: string): Promise<{ ok: boolean; groups?: any[]; error?: string }> {
+  if (isDirectMode()) {
+    const r = await zaloDirect.getAllGroups(accountSelection);
+    if (!r.ok) return { ok: false, error: r.error };
+    const groups = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.groups ?? []);
+    return { ok: true, groups };
+  }
+
   const r = await botRequest("POST", "/api/getAllGroupsByAccount", { accountSelection: await ac(accountSelection) }, 15_000);
   if (!r.ok) return { ok: false, error: r.error };
   const groups = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.groups ?? []);
@@ -513,6 +604,7 @@ export async function getAllGroupsFromBotServer(accountSelection?: string): Prom
 }
 
 export async function getGroupInfoFromBotServer(groupId: string | string[], accountSelection?: string): Promise<DataResult> {
+  if (isDirectMode()) return zaloDirect.getGroupInfo(groupId, accountSelection);
   return botRequest("POST", "/api/getGroupInfoByAccount", {
     groupId: Array.isArray(groupId) ? groupId : [groupId],
     accountSelection: await ac(accountSelection),
@@ -528,6 +620,7 @@ export async function getGroupMembersFromBotServer(groupId: string, accountSelec
 }
 
 export async function createGroupViaBotServer(name: string, members: string[], avatarPath?: string, accountSelection?: string): Promise<DataResult> {
+  if (isDirectMode()) return zaloDirect.createGroup(name, members, avatarPath, accountSelection);
   return botRequest("POST", "/api/createGroupByAccount", {
     members, name,
     ...(avatarPath ? { avatarPath } : {}),
@@ -536,6 +629,7 @@ export async function createGroupViaBotServer(name: string, members: string[], a
 }
 
 export async function addUserToGroupViaBotServer(groupId: string, memberId: string | string[], accountSelection?: string): Promise<OkResult> {
+  if (isDirectMode()) return zaloDirect.addUserToGroup(groupId, memberId, accountSelection);
   const r = await botRequest("POST", "/api/addUserToGroupByAccount", {
     groupId,
     memberId: Array.isArray(memberId) ? memberId : [memberId],
@@ -545,6 +639,7 @@ export async function addUserToGroupViaBotServer(groupId: string, memberId: stri
 }
 
 export async function removeUserFromGroupViaBotServer(groupId: string, memberId: string | string[], accountSelection?: string): Promise<OkResult> {
+  if (isDirectMode()) return zaloDirect.removeUserFromGroup(groupId, memberId, accountSelection);
   const r = await botRequest("POST", "/api/removeUserFromGroupByAccount", {
     groupId,
     memberId: Array.isArray(memberId) ? memberId : [memberId],
