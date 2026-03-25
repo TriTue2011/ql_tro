@@ -180,6 +180,13 @@ export default async function middleware(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
+    // Quản lý Zalo chỉ admin
+    if (pathname.startsWith('/dashboard/quan-ly-zalo') && role !== 'admin') {
+      const redirectUrl = req.nextUrl.clone();
+      redirectUrl.pathname = '/dashboard';
+      return NextResponse.redirect(redirectUrl);
+    }
+
     // Đồng chủ trọ không được vào: Quản lý TK, Zalo, Zalo Monitor, Cài đặt
     const DONGCHUTRO_BLOCKED_PATHS = [
       '/dashboard/quan-ly-tai-khoan',

@@ -38,6 +38,7 @@ const breadcrumbMap: Record<string, string> = {
   'xem-web': 'Xem Web',
   'zalo': 'Zalo',
   'quan-ly-tai-khoan': 'Quản lý tài khoản',
+  'quan-ly-zalo': 'Quản lý Zalo',
   'ho-so': 'Hồ sơ',
   'cai-dat': 'Cài đặt',
   'giao-dien': 'Giao diện',
