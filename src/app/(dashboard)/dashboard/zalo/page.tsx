@@ -702,8 +702,8 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
               ))}
             </div>
 
-            {/* QR Login (admin only) */}
-            {isAdmin && canEdit && (
+            {/* QR Login */}
+            {canEdit && (
               <div className="border-t pt-3 space-y-2">
                 <p className="text-xs font-medium text-gray-600">Đăng nhập QR</p>
                 <div className="space-y-2">

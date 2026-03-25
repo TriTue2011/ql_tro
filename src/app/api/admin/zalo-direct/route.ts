@@ -2,7 +2,10 @@
  * GET  /api/admin/zalo-direct — Lấy trạng thái direct mode + danh sách tài khoản
  * POST /api/admin/zalo-direct — Login QR / login cookies / logout / add proxy / remove proxy
  *
- * Chỉ admin mới được truy cập.
+ * Phân quyền:
+ *   GET:  admin, chuNha, dongChuTro, quanLy (xem trạng thái)
+ *   POST: admin (tất cả actions), chuNha/quanLy (loginQR, loginCookies, logout)
+ *         Proxy + autoLoginAll: chỉ admin
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,12 +19,15 @@ import {
 } from "@/lib/zalo-bot-client";
 import * as zaloDirect from "@/lib/zalo-direct";
 
+const ALLOWED_ROLES = ["admin", "chuNha", "dongChuTro", "quanLy"];
+const ADMIN_ONLY_ACTIONS = ["addProxy", "removeProxy", "autoLoginAll"];
+
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "admin") {
-    return NextResponse.json({ error: "Chỉ admin mới được truy cập" }, { status: 403 });
+  if (!session || !ALLOWED_ROLES.includes(session.user.role ?? "")) {
+    return NextResponse.json({ error: "Không có quyền truy cập" }, { status: 403 });
   }
 
   try {
@@ -67,13 +73,20 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "admin") {
-    return NextResponse.json({ error: "Chỉ admin mới được truy cập" }, { status: 403 });
+  if (!session || !ALLOWED_ROLES.includes(session.user.role ?? "")) {
+    return NextResponse.json({ error: "Không có quyền truy cập" }, { status: 403 });
   }
+
+  const role = session.user.role;
 
   try {
     const body = await req.json();
     const { action } = body;
+
+    // Proxy management + autoLoginAll chỉ admin
+    if (ADMIN_ONLY_ACTIONS.includes(action) && role !== "admin") {
+      return NextResponse.json({ error: "Chỉ admin mới thực hiện được thao tác này" }, { status: 403 });
+    }
 
     switch (action) {
       case "loginQR": {
