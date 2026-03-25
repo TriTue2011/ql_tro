@@ -98,8 +98,13 @@ function loadCookies(ownId: string): any | null {
 // ─── Login ───────────────────────────────────────────────────────────────────
 
 /**
- * Login bằng QR code. Trả về base64 QR image qua callback.
- * Hàm này sẽ block cho đến khi user scan QR xong hoặc timeout.
+ * Login bằng QR code.
+ *
+ * zca-js `loginQR()` BLOCK cho đến khi user scan xong hoặc timeout.
+ * Nếu await trực tiếp thì API response không bao giờ trả về QR image.
+ *
+ * Giải pháp: Trả về QR image ngay khi callback type 0 (QRCodeGenerated) fire,
+ * login tiếp tục chạy nền. Khi user scan xong → tự đăng ký account.
  */
 export async function loginWithQR(proxyUrl?: string): Promise<LoginResult> {
   try {
@@ -107,48 +112,69 @@ export async function loginWithQR(proxyUrl?: string): Promise<LoginResult> {
       ...(proxyUrl ? { agent: new HttpsProxyAgent(proxyUrl) } : {}),
     });
 
-    let qrCodeImage: string | undefined;
+    return new Promise<LoginResult>((resolve) => {
+      let resolved = false;
 
-    const api = await zalo.loginQR({}, (event: LoginQRCallbackEvent) => {
-      if (event.type === 0 /* QRCodeGenerated */) {
-        qrCodeImage = event.data.image;
-      }
+      // loginQR returns Promise<API> - blocks until scan complete
+      const loginPromise = zalo.loginQR({}, (event: LoginQRCallbackEvent) => {
+        // Type 0 = QR image generated → trả về ngay cho frontend
+        if (event.type === 0 /* QRCodeGenerated */ && !resolved) {
+          resolved = true;
+          resolve({ ok: true, qrCode: event.data.image });
+        }
+      });
+
+      // Login hoàn tất ở background → đăng ký account
+      loginPromise
+        .then((api) => {
+          if (!api) {
+            if (!resolved) { resolved = true; resolve({ ok: false, error: "Không thể khởi tạo API từ QR login" }); }
+            return;
+          }
+
+          const ownId = api.getOwnId();
+          const ctx = api.getContext();
+
+          const account: ZaloAccount = {
+            ownId,
+            name: (ctx as any)?.name || "",
+            phone: (ctx as any)?.phone || "",
+            proxy: proxyUrl,
+            api,
+            zaloInstance: zalo,
+            loggedIn: true,
+            loginTime: Date.now(),
+          };
+
+          saveCookies(ownId, ctx);
+
+          const store = getStore();
+          const existingIdx = store.accounts.findIndex((a) => a.ownId === ownId);
+          if (existingIdx >= 0) {
+            store.accounts[existingIdx] = account;
+          } else {
+            store.accounts.push(account);
+          }
+
+          setupListeners(api, ownId, () => handleRelogin(ownId));
+          console.log(`[ZaloDirect] QR login thành công: ${ownId} (${account.name})`);
+        })
+        .catch((err) => {
+          console.error("[ZaloDirect] QR login background error:", err);
+          if (!resolved) {
+            resolved = true;
+            resolve({ ok: false, error: err.message || "Lỗi đăng nhập QR" });
+          }
+        });
+
+      // Timeout 2 phút nếu không nhận được QR
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve({ ok: false, error: "Timeout: Không tạo được mã QR sau 2 phút" });
+        }
+      }, 120_000);
     });
-
-    if (!api) {
-      return { ok: false, error: "Không thể khởi tạo API từ QR login" };
-    }
-
-    const ownId = api.getOwnId();
-    const ctx = api.getContext();
-
-    const account: ZaloAccount = {
-      ownId,
-      name: (ctx as any)?.name || "",
-      phone: (ctx as any)?.phone || "",
-      proxy: proxyUrl,
-      api,
-      zaloInstance: zalo,
-      loggedIn: true,
-      loginTime: Date.now(),
-    };
-
-    // Lưu credentials cho auto-relogin
-    saveCookies(ownId, ctx);
-
-    // Thêm vào store
-    const store = getStore();
-    const existingIdx = store.accounts.findIndex((a) => a.ownId === ownId);
-    if (existingIdx >= 0) {
-      store.accounts[existingIdx] = account;
-    } else {
-      store.accounts.push(account);
-    }
-
-    // Setup event listeners
-    setupListeners(api, ownId, () => handleRelogin(ownId));
-
-    return { ok: true, ownId, qrCode: qrCodeImage };
   } catch (err: any) {
     console.error("[ZaloDirect] loginWithQR error:", err);
     return { ok: false, error: err.message || "Lỗi đăng nhập QR" };
