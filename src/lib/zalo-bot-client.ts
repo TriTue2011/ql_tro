@@ -359,27 +359,27 @@ export async function sendImagesToGroupViaBotServer(chatId: string, imagePaths: 
 }
 
 export async function sendLinkViaBotServer(chatId: string, link: string, message = "", thumbnail = "", accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/sendLinkByAccount", { threadId: chatId, link, message, thumbnail, accountSelection: await ac(accountSelection) });
+  const r = await botRequest("POST", "/api/sendLinkByAccount", { threadId: chatId, options: { link, message, thumbnail }, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
 export async function sendCardViaBotServer(chatId: string, userId: string, accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/sendCardByAccount", { threadId: chatId, userId, accountSelection: await ac(accountSelection) });
+  const r = await botRequest("POST", "/api/sendCardByAccount", { threadId: chatId, options: { userId }, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
 export async function forwardMessageViaBotServer(message: any, threadIds: string[], type = "user", accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/forwardMessageByAccount", { message, threadIds, type, accountSelection: await ac(accountSelection) });
+  const r = await botRequest("POST", "/api/forwardMessageByAccount", { params: message, threadIds, type, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
 export async function undoMessageViaBotServer(msgId: string, threadId: string, type = 0, accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/undoMessageByAccount", { msgId, threadId, accountSelection: await ac(accountSelection), type });
+  const r = await botRequest("POST", "/api/undoByAccount", { payload: { msgId }, threadId, accountSelection: await ac(accountSelection), type });
   return { ok: r.ok, error: r.error };
 }
 
 export async function addReactionViaBotServer(icon: string, threadId: string, msgId: string, cliMsgId: string, type = "user", accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/addReactionByAccount", { icon, threadId, msgId, cliMsgId, type, accountSelection: await ac(accountSelection) });
+  const r = await botRequest("POST", "/api/addReactionByAccount", { icon, dest: { threadId, msgId, cliMsgId, type }, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
@@ -388,7 +388,8 @@ export async function deleteMessageViaBotServer(
   accountSelection?: string,
 ): Promise<OkResult> {
   const r = await botRequest("POST", "/api/deleteMessageByAccount", {
-    ...opts, type: opts.type ?? "user", onlyMe: opts.onlyMe ?? true, accountSelection: await ac(accountSelection),
+    dest: { threadId: opts.threadId, msgId: opts.msgId, cliMsgId: opts.cliMsgId, uidFrom: opts.uidFrom, type: opts.type ?? "user" },
+    onlyMe: opts.onlyMe ?? true, accountSelection: await ac(accountSelection),
   });
   return { ok: r.ok, error: r.error };
 }
@@ -484,7 +485,7 @@ export async function getAvatarListFromBotServer(count?: number, page?: number, 
 }
 
 export async function lastOnlineViaBotServer(userId: string, accountSelection?: string): Promise<DataResult> {
-  return botRequest("POST", "/api/lastOnlineByAccount", { userId, accountSelection: await ac(accountSelection) });
+  return botRequest("POST", "/api/lastOnlineByAccount", { uid: userId, accountSelection: await ac(accountSelection) });
 }
 
 export async function changeAccountAvatarViaBotServer(avatarSource: string, accountSelection?: string): Promise<OkResult> {
@@ -519,7 +520,7 @@ export async function getGroupInfoFromBotServer(groupId: string | string[], acco
 }
 
 export async function getGroupMembersFromBotServer(groupId: string, accountSelection?: string): Promise<{ ok: boolean; memberIds?: string[]; error?: string }> {
-  const r = await botRequest("POST", "/api/getGroupMembersInfoByAccount", { groupId, accountSelection: await ac(accountSelection) }, 10_000);
+  const r = await botRequest("POST", "/api/getGroupMembersInfoByAccount", { memberId: groupId, accountSelection: await ac(accountSelection) }, 10_000);
   if (!r.ok) return { ok: false, error: r.error };
   const members: any[] = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.members ?? r.data?.memberInfos ?? []);
   const memberIds = members.map((m: any) => String(m.uid ?? m.id ?? m.userId ?? m.memberId ?? "")).filter(Boolean);
@@ -558,7 +559,7 @@ export async function changeGroupNameViaBotServer(groupId: string, name: string,
 }
 
 export async function changeGroupAvatarViaBotServer(groupId: string, imagePath: string, accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/changeGroupAvatarByAccount", { groupId, imagePath, accountSelection: await ac(accountSelection) });
+  const r = await botRequest("POST", "/api/changeGroupAvatarByAccount", { groupId, avatarSource: imagePath, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
@@ -602,11 +603,11 @@ export async function leaveGroupViaBotServer(groupId: string, silent = false, ac
 }
 
 export async function createNoteGroupViaBotServer(groupId: string, title: string, pinAct = true, accountSelection?: string): Promise<DataResult> {
-  return botRequest("POST", "/api/createNoteGroupByAccount", { groupId, accountSelection: await ac(accountSelection), options: { title, pinAct } });
+  return botRequest("POST", "/api/createNoteByAccount", { groupId, accountSelection: await ac(accountSelection), options: { title, pinAct } });
 }
 
 export async function editNoteGroupViaBotServer(groupId: string, topicId: string, title: string, accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/editNoteGroupByAccount", { groupId, accountSelection: await ac(accountSelection), options: { topicId, title } });
+  const r = await botRequest("POST", "/api/editNoteByAccount", { groupId, accountSelection: await ac(accountSelection), options: { topicId, title } });
   return { ok: r.ok, error: r.error };
 }
 
@@ -680,7 +681,7 @@ export async function getReminderResponsesFromBotServer(reminderId: string, acco
 export async function setMuteViaBotServer(threadId: string, duration: number, type = 0, accountSelection?: string): Promise<OkResult> {
   const r = await botRequest("POST", "/api/setMuteByAccount", {
     params: { action: duration > 0 ? "mute" : "unmute", duration },
-    threadId, type, accountSelection: await ac(accountSelection),
+    threadID: threadId, type, accountSelection: await ac(accountSelection),
   });
   return { ok: r.ok, error: r.error };
 }
@@ -712,8 +713,8 @@ export async function removeUnreadMarkViaBotServer(threadId: string, accountSele
   return { ok: r.ok, error: r.error };
 }
 
-export async function deleteChatViaBotServer(threadId: string, accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/deleteChatByAccount", { threadId, accountSelection: await ac(accountSelection) });
+export async function deleteChatViaBotServer(threadId: string, lastMessage?: any, type?: number, accountSelection?: string): Promise<OkResult> {
+  const r = await botRequest("POST", "/api/deleteChatByAccount", { threadId, lastMessage: lastMessage || {}, type, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
@@ -735,12 +736,12 @@ export async function getHiddenConversationsFromBotServer(accountSelection?: str
 }
 
 export async function setHiddenConversationsViaBotServer(threadId: string, isHide: boolean, accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/setHiddenConversationsByAccount", { threadId, isHide, accountSelection: await ac(accountSelection) });
+  const r = await botRequest("POST", "/api/setHiddenConversationsByAccount", { threadId, hidden: isHide, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
 export async function updateHiddenConversPinViaBotServer(oldPin: string, newPin: string, accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/updateHiddenConversPinByAccount", { oldPin, newPin, accountSelection: await ac(accountSelection) });
+  const r = await botRequest("POST", "/api/updateHiddenConversPinByAccount", { pin: newPin, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
@@ -763,7 +764,7 @@ export async function addQuickMessageViaBotServer(keyword: string, title: string
 }
 
 export async function getQuickMessageFromBotServer(accountSelection?: string): Promise<DataResult> {
-  return botRequest("POST", "/api/getQuickMessageByAccount", { accountSelection: await ac(accountSelection) });
+  return botRequest("POST", "/api/getQuickMessageListByAccount", { accountSelection: await ac(accountSelection) });
 }
 
 export async function removeQuickMessageViaBotServer(itemIds: string[], accountSelection?: string): Promise<OkResult> {
@@ -786,13 +787,13 @@ export async function getStickersFromBotServer(query: string, accountSelection?:
 }
 
 export async function getStickerDetailFromBotServer(stickerId: string, accountSelection?: string): Promise<DataResult> {
-  return botRequest("POST", "/api/getStickersDetailByAccount", { stickerId, accountSelection: await ac(accountSelection) });
+  return botRequest("POST", "/api/getStickersDetailByAccount", { stickerAlbum: stickerId, accountSelection: await ac(accountSelection) });
 }
 
 // ─── Message events ───────────────────────────────────────────────────────────
 
 export async function sendSeenEventViaBotServer(msgId: string, threadId: string, accountSelection?: string): Promise<OkResult> {
-  const r = await botRequest("POST", "/api/sendSeenEventByAccount", { msgId, threadId, accountSelection: await ac(accountSelection) });
+  const r = await botRequest("POST", "/api/sendSeenEventByAccount", { messages: { msgId, threadId }, accountSelection: await ac(accountSelection) });
   return { ok: r.ok, error: r.error };
 }
 
