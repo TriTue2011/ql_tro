@@ -575,6 +575,17 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
     } catch { toast.error("Lỗi auto-login"); }
   };
 
+  // Auto-login chỉ account của user này (chuNha/quanLy)
+  const handleAutoLoginSelf = async () => {
+    const ownId = account?.zaloAccountId || account?.soDienThoai;
+    if (!ownId) { toast.error("Chưa có Zalo Account ID"); return; }
+    try {
+      const r = await postAction("loginCookies", { ownId });
+      if (r.ok) { toast.success(`Đã login lại: ${r.ownId || ownId}`); reload(); }
+      else toast.error(r.error || "Không login được (chưa có cookies?)");
+    } catch { toast.error("Lỗi auto-login"); }
+  };
+
   return (
     <Card className="rounded-none border-0 shadow-none">
       <CardHeader className="pb-2 pt-3 px-4">
@@ -584,10 +595,16 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
             Trực tiếp (Direct)
           </CardTitle>
           <div className="flex items-center gap-1">
-            {isAdmin && canEdit && (
-              <Button size="sm" variant="ghost" onClick={handleAutoLoginAll} className="h-7 px-2 text-xs gap-1">
-                <RefreshCw className="h-3 w-3" /> Auto-login
-              </Button>
+            {canEdit && (
+              isAdmin ? (
+                <Button size="sm" variant="ghost" onClick={handleAutoLoginAll} className="h-7 px-2 text-xs gap-1">
+                  <RefreshCw className="h-3 w-3" /> Auto-login tất cả
+                </Button>
+              ) : (
+                <Button size="sm" variant="ghost" onClick={handleAutoLoginSelf} className="h-7 px-2 text-xs gap-1">
+                  <RefreshCw className="h-3 w-3" /> Auto-login
+                </Button>
+              )
             )}
             <Button size="sm" variant="ghost" onClick={reload} disabled={loading} className="h-7 px-2">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
