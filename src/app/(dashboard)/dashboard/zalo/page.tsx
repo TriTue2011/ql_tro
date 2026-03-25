@@ -1696,6 +1696,285 @@ function StepResult({ result }: { result: { ok: boolean; message?: string; steps
   );
 }
 
+// ─── Auto Message Card (Tin nhắn tự động) ────────────────────────────────────
+
+interface AutoMsgRecipient {
+  id: string;
+  ten: string;
+  soDienThoai?: string | null;
+  phong?: string;
+  zaloChatId?: string | null;
+  nhanThongBaoZalo?: boolean;
+  type: 'khachThue' | 'nguoiDung';
+}
+
+function AutoMessageCard({ account, buildingId }: { account?: AccountData; buildingId: string }) {
+  const [recipients, setRecipients] = useState<AutoMsgRecipient[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [results, setResults] = useState<{ id: string; ten: string; ok: boolean; error?: string }[]>([]);
+  const [tab, setTab] = useState<'all' | 'hasZalo'>('hasZalo');
+
+  const MAX_MSG = 2000;
+
+  // Tải danh sách khách thuê + quản lý của tòa nhà
+  const loadRecipients = useCallback(async () => {
+    if (!buildingId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/zalo?toaNhaId=${encodeURIComponent(buildingId)}`);
+      if (!res.ok) return;
+      const text = await res.text();
+      if (!text) return;
+      const data = JSON.parse(text);
+      if (!data.ok) return;
+
+      const building = data.buildings?.[0];
+      if (!building) return;
+
+      const list: AutoMsgRecipient[] = [];
+
+      // Chủ trọ
+      if (building.chuTro) {
+        list.push({
+          id: building.chuTro.id,
+          ten: building.chuTro.ten,
+          soDienThoai: building.chuTro.soDienThoai,
+          zaloChatId: building.chuTro.zaloChatId,
+          nhanThongBaoZalo: building.chuTro.nhanThongBaoZalo,
+          type: 'nguoiDung',
+        });
+      }
+
+      // Quản lý
+      for (const ql of building.quanLys || []) {
+        list.push({
+          id: ql.id,
+          ten: ql.ten,
+          soDienThoai: ql.soDienThoai,
+          zaloChatId: ql.zaloChatId,
+          nhanThongBaoZalo: ql.nhanThongBaoZalo,
+          type: 'nguoiDung',
+        });
+      }
+
+      // Khách thuê (qua API riêng)
+      try {
+        const ktRes = await fetch(`/api/admin/zalo/khach-thue?toaNhaId=${encodeURIComponent(buildingId)}`);
+        if (ktRes.ok) {
+          const ktText = await ktRes.text();
+          if (ktText) {
+            const ktData = JSON.parse(ktText);
+            for (const kt of ktData.khachThues || []) {
+              list.push({
+                id: kt.id,
+                ten: kt.hoTen || kt.ten || 'Không tên',
+                soDienThoai: kt.soDienThoai,
+                phong: kt.phong?.maPhong || kt.phong?.soPhong,
+                zaloChatId: kt.zaloChatId,
+                nhanThongBaoZalo: kt.nhanThongBaoZalo,
+                type: 'khachThue',
+              });
+            }
+          }
+        }
+      } catch { /* ignore - API might not exist yet */ }
+
+      setRecipients(list);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, [buildingId]);
+
+  useEffect(() => { loadRecipients(); }, [loadRecipients]);
+
+  const filtered = tab === 'hasZalo'
+    ? recipients.filter(r => r.zaloChatId && r.nhanThongBaoZalo)
+    : recipients;
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selected.size === filtered.length) setSelected(new Set());
+    else setSelected(new Set(filtered.map(r => r.id)));
+  };
+
+  const handleSend = async () => {
+    if (!message.trim()) { toast.error('Cần nhập nội dung'); return; }
+    if (selected.size === 0) { toast.error('Chưa chọn người nhận'); return; }
+
+    setSending(true);
+    setResults([]);
+    const newResults: typeof results = [];
+
+    for (const id of selected) {
+      const r = recipients.find(x => x.id === id);
+      if (!r) continue;
+
+      try {
+        const body: Record<string, any> = {
+          message: message.trim(),
+          threadType: 0,
+        };
+
+        if (r.zaloChatId) {
+          body.chatId = r.zaloChatId;
+        } else if (r.soDienThoai) {
+          body.phone = r.soDienThoai;
+        } else {
+          newResults.push({ id, ten: r.ten, ok: false, error: 'Không có SĐT hoặc ChatID' });
+          continue;
+        }
+
+        if (account?.zaloAccountId) body.targetUserId = account.id;
+
+        const res = await fetch('/api/gui-zalo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        newResults.push({ id, ten: r.ten, ok: data.ok || data.success, error: data.error || data.message });
+      } catch (err: any) {
+        newResults.push({ id, ten: r.ten, ok: false, error: err.message });
+      }
+    }
+
+    setResults(newResults);
+    setSending(false);
+    const ok = newResults.filter(r => r.ok).length;
+    const fail = newResults.filter(r => !r.ok).length;
+    if (ok > 0) toast.success(`Đã gửi ${ok} tin nhắn thành công`);
+    if (fail > 0) toast.error(`${fail} tin nhắn thất bại`);
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-indigo-600" />
+          Tin nhắn tự động
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Gửi tin nhắn hàng loạt cho khách thuê và quản lý trong tòa nhà
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Nội dung tin nhắn */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">Nội dung tin nhắn *</Label>
+            <span className={`text-[10px] ${message.length > MAX_MSG ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
+              {message.length}/{MAX_MSG}
+            </span>
+          </div>
+          <Textarea
+            placeholder="Nhập nội dung tin nhắn gửi cho tất cả người đã chọn..."
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            rows={3}
+            className={`text-xs resize-none ${message.length > MAX_MSG ? 'border-red-400' : ''}`}
+          />
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 border rounded-md overflow-hidden">
+            <button type="button" onClick={() => setTab('hasZalo')}
+              className={`px-2.5 py-1 text-[11px] ${tab === 'hasZalo' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              Có Zalo ({recipients.filter(r => r.zaloChatId && r.nhanThongBaoZalo).length})
+            </button>
+            <button type="button" onClick={() => setTab('all')}
+              className={`px-2.5 py-1 text-[11px] ${tab === 'all' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              Tất cả ({recipients.length})
+            </button>
+          </div>
+          <button type="button" onClick={selectAll} className="text-[10px] text-indigo-600 hover:underline">
+            {selected.size === filtered.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+          </button>
+          <Button size="sm" variant="ghost" onClick={loadRecipients} disabled={loading} className="h-6 px-1.5 ml-auto">
+            <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {/* Danh sách người nhận */}
+        <div className="max-h-48 overflow-y-auto space-y-1 border rounded-lg p-1.5">
+          {loading ? (
+            <div className="flex items-center gap-2 text-xs text-gray-400 py-3 justify-center">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải...
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-4 text-gray-400 text-xs">
+              {tab === 'hasZalo' ? 'Không có ai đã kết nối Zalo' : 'Không có người nhận'}
+            </div>
+          ) : filtered.map(r => (
+            <label key={r.id} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer hover:bg-gray-50 text-xs ${
+              selected.has(r.id) ? 'bg-indigo-50 border border-indigo-200' : ''
+            }`}>
+              <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelect(r.id)}
+                className="rounded border-gray-300 text-indigo-600 h-3.5 w-3.5" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-medium truncate">{r.ten}</span>
+                  {r.phong && <Badge variant="outline" className="text-[9px] px-1 py-0">P.{r.phong}</Badge>}
+                  <Badge variant="outline" className={`text-[9px] px-1 py-0 ${
+                    r.type === 'khachThue' ? 'text-blue-600 border-blue-200' : 'text-amber-600 border-amber-200'
+                  }`}>
+                    {r.type === 'khachThue' ? 'KT' : 'QL'}
+                  </Badge>
+                </div>
+                <div className="text-gray-400 flex items-center gap-2">
+                  {r.soDienThoai && <span>{r.soDienThoai}</span>}
+                  {r.zaloChatId ? (
+                    <span className="text-green-600 text-[10px]">Zalo OK</span>
+                  ) : (
+                    <span className="text-gray-300 text-[10px]">Chưa kết nối</span>
+                  )}
+                </div>
+              </div>
+            </label>
+          ))}
+        </div>
+
+        {/* Gửi */}
+        <Button
+          size="sm"
+          onClick={handleSend}
+          disabled={sending || selected.size === 0 || !message.trim() || message.length > MAX_MSG}
+          className="w-full gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700"
+        >
+          {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+          {sending ? 'Đang gửi...' : `Gửi cho ${selected.size} người`}
+        </Button>
+
+        {/* Kết quả */}
+        {results.length > 0 && (
+          <div className="border rounded-lg p-2 space-y-1 max-h-32 overflow-y-auto">
+            <p className="text-[10px] font-medium text-gray-500">Kết quả:</p>
+            {results.map(r => (
+              <div key={r.id} className="flex items-center gap-1.5 text-[11px]">
+                {r.ok
+                  ? <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" />
+                  : <XCircle className="h-3 w-3 text-red-500 flex-shrink-0" />}
+                <span className="truncate">{r.ten}</span>
+                {!r.ok && r.error && <span className="text-red-500 truncate">— {r.error}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function FriendRequestCard({ account, buildingId }: { account?: AccountData; buildingId: string }) {
   const [tab, setTab] = useState<FRTab>('ketBan');
 
@@ -1740,7 +2019,10 @@ function FriendRequestCard({ account, buildingId }: { account?: AccountData; bui
         ...(phong && { phong }),
       });
       const res = await fetch(`/api/zalo-bot/friend-request/template?${params}`);
-      const data = await res.json();
+      if (!res.ok) { toast.error(`Lỗi tải văn mẫu (${res.status})`); return; }
+      const text = await res.text();
+      if (!text) { toast.error('Server trả về rỗng'); return; }
+      const data = JSON.parse(text);
       if (data.ok) {
         setFriendMsg(data.friendMsg);
         setFollowUpMsg(data.followUpMsg);
@@ -1757,11 +2039,14 @@ function FriendRequestCard({ account, buildingId }: { account?: AccountData; bui
 
   // Tải văn mẫu gốc (raw templates) cho tab Văn mẫu
   const loadRawTemplates = useCallback(async () => {
-    if (!buildingId) return;
+    if (!buildingId) { toast.error('Không có tòa nhà'); return; }
     setTplLoading(true);
     try {
-      const res = await fetch(`/api/zalo-bot/friend-request/template?toaNhaId=${buildingId}&ten=bạn&entityType=khachThue`);
-      const data = await res.json();
+      const res = await fetch(`/api/zalo-bot/friend-request/template?toaNhaId=${encodeURIComponent(buildingId)}&ten=bạn&entityType=khachThue`);
+      if (!res.ok) { toast.error(`Lỗi tải văn mẫu (${res.status})`); return; }
+      const text = await res.text();
+      if (!text) { toast.error('Server trả về rỗng'); return; }
+      const data = JSON.parse(text);
       if (data.ok && data.rawTemplates) {
         setTplFriendKT(data.rawTemplates.friendMsgKT || '');
         setTplFriendQL(data.rawTemplates.friendMsgQL || '');
@@ -2819,13 +3104,14 @@ function AccountSettings({
 // ─── 4 cards ẩn/hiện per-account ─────────────────────────────────────────────
 
 const ACCOUNT_CARDS = [
-  { key: "botserver",  label: "Bot Server",  Icon: Server,   color: "text-blue-600",   adminOnly: false },
-  { key: "direct",     label: "Trực tiếp",   Icon: Zap,      color: "text-emerald-600", adminOnly: false },
-  { key: "proxy",      label: "Proxy",       Icon: Globe,    color: "text-cyan-600",   adminOnly: true },
-  { key: "webhook",    label: "Webhook",     Icon: Webhook,  color: "text-violet-600", adminOnly: true },
-  { key: "testsend",   label: "Test gửi",    Icon: Send,     color: "text-green-600",  adminOnly: false },
-  { key: "friendreq",  label: "Kết bạn",     Icon: UserPlus, color: "text-pink-600",   adminOnly: false },
-  { key: "monitor",    label: "Theo dõi tin", Icon: Eye,     color: "text-orange-500", adminOnly: false },
+  { key: "botserver",  label: "Bot Server",     Icon: Server,        color: "text-blue-600",    adminOnly: false },
+  { key: "direct",     label: "Trực tiếp",      Icon: Zap,           color: "text-emerald-600", adminOnly: false },
+  { key: "proxy",      label: "Proxy",          Icon: Globe,         color: "text-cyan-600",    adminOnly: true },
+  { key: "webhook",    label: "Webhook",        Icon: Webhook,       color: "text-violet-600",  adminOnly: true },
+  { key: "automsg",    label: "Tin tự động",    Icon: MessageSquare, color: "text-indigo-600",  adminOnly: false },
+  { key: "testsend",   label: "Test gửi",       Icon: Send,          color: "text-green-600",   adminOnly: false },
+  { key: "friendreq",  label: "Kết bạn",        Icon: UserPlus,      color: "text-pink-600",    adminOnly: false },
+  { key: "monitor",    label: "Theo dõi tin",   Icon: Eye,           color: "text-orange-500",  adminOnly: false },
 ] as const;
 
 function PerAccountCards({ account, isAdmin, canEdit, buildingId }: { account: AccountData; isAdmin: boolean; canEdit: boolean; buildingId: string }) {
@@ -2875,6 +3161,11 @@ function PerAccountCards({ account, isAdmin, canEdit, buildingId }: { account: A
       {openCard === "webhook" && (
         <div className="border rounded-lg overflow-hidden">
           <WebhookCard account={account} />
+        </div>
+      )}
+      {openCard === "automsg" && (
+        <div className="border rounded-lg overflow-hidden">
+          <AutoMessageCard account={account} buildingId={buildingId} />
         </div>
       )}
       {openCard === "testsend" && (

@@ -57,6 +57,7 @@ const DEFAULTS: VanMauDefaults = {
 // ── GET: lấy văn mẫu (tùy chỉnh hoặc mặc định) ──
 
 export async function GET(req: NextRequest) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
@@ -148,6 +149,10 @@ export async function GET(req: NextRequest) {
     info: { ten, entityType, tenToaNha, diaChiNgan, diaChiDay, phong: phong || null },
     variables: vars,
   });
+  } catch (err: any) {
+    console.error('[template GET] error:', err);
+    return NextResponse.json({ ok: false, error: err.message || 'Lỗi server' }, { status: 500 });
+  }
 }
 
 // ── PUT: lưu văn mẫu tùy chỉnh cho tòa nhà ──
