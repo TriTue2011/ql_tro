@@ -9,7 +9,7 @@ import {
   Loader2, Eye, Terminal, Play,
   Image, FileText, Upload, MessageSquare,
   Bot, Copy, ExternalLink, ChevronLeft,
-  HardDrive, Folder, UserPlus, AlertCircle,
+  HardDrive, Folder, UserPlus, AlertCircle, Zap, LogOut,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -317,6 +317,165 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
             )}
           </div>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Direct Card (Trực tiếp – zca-js) ─────────────────────────────────────────
+
+function DirectCard({ account, canEdit = false }: { account?: AccountData; canEdit?: boolean }) {
+  const [state, setState] = useState<{
+    mode: string;
+    directAccounts: { ownId: string; name: string; phone?: string; proxy?: string; loggedIn: boolean; loginTime: number }[];
+    directStatus: { available: boolean; accountCount: number; loggedInCount: number };
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/zalo-direct");
+      if (res.ok) setState(await res.json());
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  // Tìm direct account khớp với zaloAccountId hoặc soDienThoai của user này
+  const matchedAccount = state?.directAccounts?.find(
+    (a) =>
+      (account?.zaloAccountId && a.ownId === account.zaloAccountId) ||
+      (account?.soDienThoai && (a.ownId === account.soDienThoai || a.phone === account.soDienThoai))
+  );
+
+  const isActive = state?.mode === "direct";
+
+  const handleLogout = async (ownId: string) => {
+    if (!confirm("Đăng xuất tài khoản direct này?")) return;
+    setLoggingOut(true);
+    try {
+      const res = await fetch("/api/admin/zalo-direct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "logout", ownId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success("Đã đăng xuất");
+        fetchStatus();
+      } else toast.error(data.error || "Đăng xuất thất bại");
+    } finally { setLoggingOut(false); }
+  };
+
+  return (
+    <Card className="rounded-none border-0 shadow-none">
+      <CardHeader className="pb-2 pt-3 px-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Zap className="h-4 w-4 text-emerald-600" />
+            Trực tiếp (Direct)
+          </CardTitle>
+          <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-7 px-2">
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 space-y-3">
+        {/* Loading */}
+        {loading && !state && (
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra...
+          </div>
+        )}
+
+        {state && (
+          <>
+            {/* Mode hiện tại */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-500">Chế độ đang dùng:</span>
+              {isActive ? (
+                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                  <Zap className="h-2.5 w-2.5 mr-1" /> Trực tiếp
+                </Badge>
+              ) : state.mode === "bot-server" ? (
+                <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px]">
+                  <Server className="h-2.5 w-2.5 mr-1" /> Bot Server
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-gray-500 text-[10px]">Chưa kết nối</Badge>
+              )}
+            </div>
+
+            {/* Thống kê direct */}
+            <div className="text-xs text-gray-500">
+              Direct: {state.directStatus.loggedInCount}/{state.directStatus.accountCount} tài khoản online
+            </div>
+
+            {/* Tài khoản direct khớp với user này */}
+            {matchedAccount ? (
+              <div className="border rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2.5 h-2.5 rounded-full ${matchedAccount.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
+                    <span className="text-sm font-medium">{matchedAccount.name || matchedAccount.ownId}</span>
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">Direct</Badge>
+                  </div>
+                  {matchedAccount.loggedIn && canEdit && (
+                    <Button
+                      size="sm" variant="ghost"
+                      className="h-7 px-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleLogout(matchedAccount.ownId)}
+                      disabled={loggingOut}
+                    >
+                      <LogOut className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 space-y-0.5">
+                  {matchedAccount.phone && <div>SĐT: {matchedAccount.phone}</div>}
+                  <div className="font-mono text-[10px]">ID: {matchedAccount.ownId}</div>
+                  {matchedAccount.proxy && <div className="text-[10px]">Proxy: {matchedAccount.proxy}</div>}
+                  {matchedAccount.loggedIn && matchedAccount.loginTime > 0 && (
+                    <div className="text-[10px]">Login: {new Date(matchedAccount.loginTime).toLocaleString("vi-VN")}</div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  {matchedAccount.loggedIn
+                    ? <><CheckCircle2 className="h-3.5 w-3.5 text-green-500" /><span className="text-green-700">Đang online</span></>
+                    : <><XCircle className="h-3.5 w-3.5 text-red-500" /><span className="text-red-700">Đã đăng xuất</span></>
+                  }
+                </div>
+              </div>
+            ) : (
+              <div className="border rounded-lg p-3 bg-gray-50 space-y-2">
+                <div className="text-xs text-gray-500 flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                  Chưa có tài khoản direct khớp với {account?.zaloAccountId || account?.soDienThoai || "user này"}
+                </div>
+                <p className="text-[10px] text-gray-400">
+                  Vào <a href="/dashboard/quan-ly-zalo" className="text-blue-600 underline">Quản lý Zalo</a> để đăng nhập QR tài khoản direct.
+                </p>
+              </div>
+            )}
+
+            {/* Danh sách tất cả direct accounts (nếu có nhiều và không match) */}
+            {!matchedAccount && state.directAccounts.length > 0 && (
+              <div className="border-t pt-2 space-y-1.5">
+                <p className="text-[10px] font-medium text-gray-500">Các tài khoản direct hiện có:</p>
+                {state.directAccounts.map((a) => (
+                  <div key={a.ownId} className="flex items-center gap-2 text-xs text-gray-600">
+                    <div className={`w-2 h-2 rounded-full ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
+                    <span>{a.name || a.ownId}</span>
+                    <span className="font-mono text-[10px] text-gray-400">{a.ownId}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -2278,6 +2437,7 @@ function AccountSettings({
 
 const ACCOUNT_CARDS = [
   { key: "botserver",  label: "Bot Server",  Icon: Server,   color: "text-blue-600",   adminOnly: false },
+  { key: "direct",     label: "Trực tiếp",   Icon: Zap,      color: "text-emerald-600", adminOnly: false },
   { key: "webhook",    label: "Webhook",     Icon: Webhook,  color: "text-violet-600", adminOnly: true },
   { key: "testsend",   label: "Test gửi",    Icon: Send,     color: "text-green-600",  adminOnly: false },
   { key: "friendreq",  label: "Kết bạn",     Icon: UserPlus, color: "text-pink-600",   adminOnly: false },
@@ -2316,6 +2476,11 @@ function PerAccountCards({ account, isAdmin, canEdit, buildingId }: { account: A
       {openCard === "botserver" && (
         <div className="border rounded-lg overflow-hidden">
           <BotServerCard account={account} canEdit={canEdit} isAdmin={isAdmin} />
+        </div>
+      )}
+      {openCard === "direct" && (
+        <div className="border rounded-lg overflow-hidden">
+          <DirectCard account={account} canEdit={canEdit} />
         </div>
       )}
       {openCard === "webhook" && (
