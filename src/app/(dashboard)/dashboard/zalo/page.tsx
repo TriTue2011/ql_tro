@@ -10,6 +10,7 @@ import {
   Image, FileText, Upload, MessageSquare,
   Bot, Copy, ExternalLink, ChevronLeft,
   HardDrive, Folder, UserPlus, AlertCircle, Zap, LogOut,
+  Globe, QrCode as QrCodeIcon, Plus, Trash2, WifiOff,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -324,16 +325,26 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
 
 // ─── Direct Card (Trực tiếp – zca-js) ─────────────────────────────────────────
 
-function DirectCard({ account, canEdit = false }: { account?: AccountData; canEdit?: boolean }) {
-  const [state, setState] = useState<{
-    mode: string;
-    directAccounts: { ownId: string; name: string; phone?: string; proxy?: string; loggedIn: boolean; loginTime: number }[];
-    directStatus: { available: boolean; accountCount: number; loggedInCount: number };
-  } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
+interface DirectState {
+  mode: string;
+  directAccounts: { ownId: string; name: string; phone?: string; proxy?: string; loggedIn: boolean; loginTime: number }[];
+  directStatus: { available: boolean; accountCount: number; loggedInCount: number };
+  botServerUrl: string | null;
+  botAccounts: any[];
+  botError?: string;
+  proxies: any[];
+}
 
-  const fetchStatus = useCallback(async () => {
+function DirectCard({ account, canEdit = false, isAdmin = false }: {
+  account?: AccountData; canEdit?: boolean; isAdmin?: boolean;
+}) {
+  const [state, setState] = useState<DirectState | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrImage, setQrImage] = useState<string | null>(null);
+  const [qrProxy, setQrProxy] = useState("");
+
+  const reload = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/zalo-direct");
@@ -342,9 +353,9 @@ function DirectCard({ account, canEdit = false }: { account?: AccountData; canEd
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+  useEffect(() => { reload(); }, [reload]);
 
-  // Tìm direct account khớp với zaloAccountId hoặc soDienThoai của user này
+  // Tìm direct account khớp với user này
   const matchedAccount = state?.directAccounts?.find(
     (a) =>
       (account?.zaloAccountId && a.ownId === account.zaloAccountId) ||
@@ -353,21 +364,51 @@ function DirectCard({ account, canEdit = false }: { account?: AccountData; canEd
 
   const isActive = state?.mode === "direct";
 
+  // Dedup tất cả accounts (direct ưu tiên)
+  const allAccounts = [
+    ...(state?.directAccounts?.map((a) => ({ ...a, _source: "direct" as const })) || []),
+    ...(state?.botAccounts?.map((a: any) => ({
+      ownId: a.ownId || "", name: a.name || a.displayName || "", phone: a.phone || a.phoneNumber || "",
+      proxy: a.proxy, loggedIn: a.isOnline ?? a.isConnected ?? true, loginTime: 0, _source: "bot-server" as const,
+    })) || []),
+  ];
+  const uniqueAccounts = allAccounts.filter((a, i, arr) => arr.findIndex((b) => b.ownId === a.ownId) === i);
+
+  const postAction = async (action: string, data?: Record<string, any>) => {
+    const res = await fetch("/api/admin/zalo-direct", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...data }),
+    });
+    return res.json();
+  };
+
   const handleLogout = async (ownId: string) => {
     if (!confirm("Đăng xuất tài khoản direct này?")) return;
-    setLoggingOut(true);
     try {
-      const res = await fetch("/api/admin/zalo-direct", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "logout", ownId }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        toast.success("Đã đăng xuất");
-        fetchStatus();
-      } else toast.error(data.error || "Đăng xuất thất bại");
-    } finally { setLoggingOut(false); }
+      const r = await postAction("logout", { ownId });
+      if (r.ok) { toast.success("Đã đăng xuất"); reload(); }
+      else toast.error(r.error || "Đăng xuất thất bại");
+    } catch { toast.error("Lỗi đăng xuất"); }
+  };
+
+  const handleLoginQR = async () => {
+    setQrLoading(true); setQrImage(null);
+    try {
+      const r = await postAction("loginQR", { proxyUrl: qrProxy || undefined });
+      if (r.ok) {
+        if (r.qrCode) { setQrImage(r.qrCode); toast.info("Quét mã QR bằng Zalo để đăng nhập"); }
+        else { toast.success(`Đã đăng nhập: ${r.ownId}`); reload(); }
+      } else toast.error(r.error || "Lỗi tạo QR");
+    } catch { toast.error("Lỗi tạo QR"); }
+    finally { setQrLoading(false); }
+  };
+
+  const handleAutoLoginAll = async () => {
+    try {
+      const r = await postAction("autoLoginAll");
+      if (r.ok) { toast.success(`Auto-login: ${r.accounts?.length || 0} tài khoản`); reload(); }
+      else toast.error(r.error || "Lỗi auto-login");
+    } catch { toast.error("Lỗi auto-login"); }
   };
 
   return (
@@ -378,13 +419,19 @@ function DirectCard({ account, canEdit = false }: { account?: AccountData; canEd
             <Zap className="h-4 w-4 text-emerald-600" />
             Trực tiếp (Direct)
           </CardTitle>
-          <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-7 px-2">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          </Button>
+          <div className="flex items-center gap-1">
+            {isAdmin && canEdit && (
+              <Button size="sm" variant="ghost" onClick={handleAutoLoginAll} className="h-7 px-2 text-xs gap-1">
+                <RefreshCw className="h-3 w-3" /> Auto-login
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={reload} disabled={loading} className="h-7 px-2">
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-4 space-y-3">
-        {/* Loading */}
         {loading && !state && (
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra...
@@ -393,9 +440,43 @@ function DirectCard({ account, canEdit = false }: { account?: AccountData; canEd
 
         {state && (
           <>
-            {/* Mode hiện tại */}
+            {/* Trạng thái tổng quan */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Direct status */}
+              <div className={`rounded-lg p-2.5 border ${isActive ? "bg-emerald-50 border-emerald-200" : "bg-gray-50 border-gray-200"}`}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Zap className={`h-3.5 w-3.5 ${isActive ? "text-emerald-600" : "text-gray-400"}`} />
+                  <span className="text-xs font-medium">Direct (zca-js)</span>
+                </div>
+                <div className="text-xs text-gray-600 space-y-0.5">
+                  <div>Trạng thái: {state.directStatus.available
+                    ? <span className="text-emerald-700 font-medium">Hoạt động</span>
+                    : <span className="text-gray-400">Không hoạt động</span>}
+                  </div>
+                  <div>Online: <span className="font-medium text-emerald-700">{state.directStatus.loggedInCount}</span>/{state.directStatus.accountCount}</div>
+                </div>
+              </div>
+              {/* Bot server status */}
+              <div className={`rounded-lg p-2.5 border ${state.mode === "bot-server" ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-200"}`}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Server className={`h-3.5 w-3.5 ${state.mode === "bot-server" ? "text-blue-600" : "text-gray-400"}`} />
+                  <span className="text-xs font-medium">Bot Server</span>
+                </div>
+                <div className="text-xs text-gray-600 space-y-0.5">
+                  <div className="truncate">URL: {state.botServerUrl
+                    ? <span className="font-mono text-[10px]">{state.botServerUrl}</span>
+                    : <span className="text-gray-400 italic">Chưa cấu hình</span>}
+                  </div>
+                  <div>TK: <span className="font-medium">{state.botAccounts?.length || 0}</span>
+                    {state.botError && <span className="text-red-500 ml-1">({state.botError})</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Chế độ đang dùng */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-500">Chế độ đang dùng:</span>
+              <span className="text-xs text-gray-500">Đang dùng:</span>
               {isActive ? (
                 <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
                   <Zap className="h-2.5 w-2.5 mr-1" /> Trực tiếp
@@ -405,76 +486,201 @@ function DirectCard({ account, canEdit = false }: { account?: AccountData; canEd
                   <Server className="h-2.5 w-2.5 mr-1" /> Bot Server
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-gray-500 text-[10px]">Chưa kết nối</Badge>
+                <Badge variant="outline" className="text-gray-500 text-[10px]">
+                  <WifiOff className="h-2.5 w-2.5 mr-1" /> Chưa kết nối
+                </Badge>
               )}
+              <span className="text-[10px] text-gray-400">(Direct ưu tiên nếu có)</span>
             </div>
 
-            {/* Thống kê direct */}
-            <div className="text-xs text-gray-500">
-              Direct: {state.directStatus.loggedInCount}/{state.directStatus.accountCount} tài khoản online
-            </div>
-
-            {/* Tài khoản direct khớp với user này */}
-            {matchedAccount ? (
-              <div className="border rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2.5 h-2.5 rounded-full ${matchedAccount.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
-                    <span className="text-sm font-medium">{matchedAccount.name || matchedAccount.ownId}</span>
-                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">Direct</Badge>
+            {/* Danh sách tất cả tài khoản */}
+            <div className="border-t pt-3 space-y-2">
+              <p className="text-xs font-medium text-gray-600">
+                Tài khoản ({uniqueAccounts.length})
+              </p>
+              {uniqueAccounts.length === 0 ? (
+                <div className="text-xs text-gray-400 text-center py-3">Chưa có tài khoản nào</div>
+              ) : uniqueAccounts.map((a) => (
+                <div key={a.ownId} className={`flex items-center justify-between p-2 rounded-lg border text-xs ${
+                  (account?.zaloAccountId && a.ownId === account.zaloAccountId) ? "border-emerald-300 bg-emerald-50" : ""
+                }`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium truncate">{a.name || a.ownId}</span>
+                        <Badge variant="outline" className="text-[9px] px-1 py-0">
+                          {a._source === "direct" ? "Direct" : "Bot Server"}
+                        </Badge>
+                        {account?.zaloAccountId && a.ownId === account.zaloAccountId && (
+                          <Badge className="bg-emerald-100 text-emerald-700 text-[9px] px-1 py-0">Tài khoản này</Badge>
+                        )}
+                      </div>
+                      <div className="text-gray-400 flex items-center gap-2 flex-wrap">
+                        {a.phone && <span>{a.phone}</span>}
+                        <span className="font-mono text-[10px]">{a.ownId}</span>
+                        {a.proxy && <span className="text-[10px]"><Globe className="h-2.5 w-2.5 inline mr-0.5" />{a.proxy}</span>}
+                      </div>
+                    </div>
                   </div>
-                  {matchedAccount.loggedIn && canEdit && (
-                    <Button
-                      size="sm" variant="ghost"
-                      className="h-7 px-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => handleLogout(matchedAccount.ownId)}
-                      disabled={loggingOut}
-                    >
-                      <LogOut className="h-3 w-3" />
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {a.loggedIn
+                      ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                      : <XCircle className="h-3.5 w-3.5 text-red-400" />}
+                    {a._source === "direct" && canEdit && (
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:bg-red-50"
+                        onClick={() => handleLogout(a.ownId)}>
+                        <LogOut className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* QR Login (admin only) */}
+            {isAdmin && canEdit && (
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-xs font-medium text-gray-600">Đăng nhập QR</p>
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-gray-500">Proxy (không bắt buộc)</Label>
+                    <Input value={qrProxy} onChange={(e) => setQrProxy(e.target.value)}
+                      placeholder="http://user:pass@host:port" className="h-7 text-xs font-mono" />
+                  </div>
+                  <Button size="sm" variant="outline" onClick={handleLoginQR} disabled={qrLoading} className="text-xs gap-1.5">
+                    {qrLoading
+                      ? <><Loader2 className="h-3 w-3 animate-spin" /> Đang tạo...</>
+                      : <><QrCodeIcon className="h-3.5 w-3.5" /> Tạo mã QR</>}
+                  </Button>
+                </div>
+                {qrImage && (
+                  <div className="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qrImage} alt="QR Code Zalo" className="w-48 h-48 rounded-lg border" />
+                    <p className="text-[11px] text-gray-500 text-center">Mở Zalo → Quét mã QR này</p>
+                    <Button variant="outline" size="sm" className="text-xs" onClick={() => { setQrImage(null); reload(); }}>
+                      Đã quét xong
                     </Button>
-                  )}
-                </div>
-                <div className="text-xs text-gray-500 space-y-0.5">
-                  {matchedAccount.phone && <div>SĐT: {matchedAccount.phone}</div>}
-                  <div className="font-mono text-[10px]">ID: {matchedAccount.ownId}</div>
-                  {matchedAccount.proxy && <div className="text-[10px]">Proxy: {matchedAccount.proxy}</div>}
-                  {matchedAccount.loggedIn && matchedAccount.loginTime > 0 && (
-                    <div className="text-[10px]">Login: {new Date(matchedAccount.loginTime).toLocaleString("vi-VN")}</div>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 text-xs">
-                  {matchedAccount.loggedIn
-                    ? <><CheckCircle2 className="h-3.5 w-3.5 text-green-500" /><span className="text-green-700">Đang online</span></>
-                    : <><XCircle className="h-3.5 w-3.5 text-red-500" /><span className="text-red-700">Đã đăng xuất</span></>
-                  }
-                </div>
-              </div>
-            ) : (
-              <div className="border rounded-lg p-3 bg-gray-50 space-y-2">
-                <div className="text-xs text-gray-500 flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
-                  Chưa có tài khoản direct khớp với {account?.zaloAccountId || account?.soDienThoai || "user này"}
-                </div>
-                <p className="text-[10px] text-gray-400">
-                  Vào <a href="/dashboard/quan-ly-zalo" className="text-blue-600 underline">Quản lý Zalo</a> để đăng nhập QR tài khoản direct.
-                </p>
-              </div>
-            )}
-
-            {/* Danh sách tất cả direct accounts (nếu có nhiều và không match) */}
-            {!matchedAccount && state.directAccounts.length > 0 && (
-              <div className="border-t pt-2 space-y-1.5">
-                <p className="text-[10px] font-medium text-gray-500">Các tài khoản direct hiện có:</p>
-                {state.directAccounts.map((a) => (
-                  <div key={a.ownId} className="flex items-center gap-2 text-xs text-gray-600">
-                    <div className={`w-2 h-2 rounded-full ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
-                    <span>{a.name || a.ownId}</span>
-                    <span className="font-mono text-[10px] text-gray-400">{a.ownId}</span>
                   </div>
-                ))}
+                )}
               </div>
             )}
           </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Proxy Card ───────────────────────────────────────────────────────────────
+
+function ProxyCard({ canEdit = false }: { canEdit?: boolean }) {
+  const [proxies, setProxies] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [newProxy, setNewProxy] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/zalo-direct");
+      if (res.ok) {
+        const data = await res.json();
+        setProxies(data.proxies || []);
+      }
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const postAction = async (action: string, data?: Record<string, any>) => {
+    const res = await fetch("/api/admin/zalo-direct", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...data }),
+    });
+    return res.json();
+  };
+
+  const handleAdd = async () => {
+    if (!newProxy.trim()) return;
+    setAdding(true);
+    try {
+      const r = await postAction("addProxy", { proxyUrl: newProxy.trim() });
+      if (r.ok) { toast.success("Đã thêm proxy"); setNewProxy(""); reload(); }
+      else toast.error(r.error || "Lỗi thêm proxy");
+    } finally { setAdding(false); }
+  };
+
+  const handleRemove = async (url: string) => {
+    if (!confirm(`Xóa proxy ${url}?`)) return;
+    try {
+      const r = await postAction("removeProxy", { proxyUrl: url });
+      if (r.ok) { toast.success("Đã xóa proxy"); reload(); }
+      else toast.error(r.error || "Lỗi xóa proxy");
+    } catch { toast.error("Lỗi xóa proxy"); }
+  };
+
+  return (
+    <Card className="rounded-none border-0 shadow-none">
+      <CardHeader className="pb-2 pt-3 px-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Globe className="h-4 w-4 text-cyan-600" />
+            Proxy ({proxies.length})
+          </CardTitle>
+          <Button size="sm" variant="ghost" onClick={reload} disabled={loading} className="h-7 px-2">
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 space-y-3">
+        <p className="text-[10px] text-gray-400">Mỗi tài khoản Zalo có thể dùng proxy riêng để tránh bị khóa IP</p>
+
+        {/* Add proxy */}
+        {canEdit && (
+          <div className="flex gap-2">
+            <Input value={newProxy} onChange={(e) => setNewProxy(e.target.value)}
+              placeholder="http://user:pass@host:port" className="h-7 text-xs font-mono"
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()} />
+            <Button size="sm" variant="outline" onClick={handleAdd} disabled={adding || !newProxy.trim()} className="h-7 px-2">
+              {adding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+            </Button>
+          </div>
+        )}
+
+        {/* Proxy list */}
+        {loading && proxies.length === 0 && (
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải...
+          </div>
+        )}
+        {!loading && proxies.length === 0 ? (
+          <div className="text-center py-4 text-gray-400">
+            <Globe className="h-6 w-6 mx-auto mb-1.5 opacity-40" />
+            <p className="text-xs">Không có proxy</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {proxies.map((proxy, i) => {
+              const url = typeof proxy === "string" ? proxy : proxy.url || proxy.proxyUrl || JSON.stringify(proxy);
+              return (
+                <div key={i} className="flex items-center justify-between p-2 rounded-lg border text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Globe className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                    <span className="font-mono truncate">{url}</span>
+                  </div>
+                  {canEdit && (
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:bg-red-50 flex-shrink-0"
+                      onClick={() => handleRemove(url)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -2438,6 +2644,7 @@ function AccountSettings({
 const ACCOUNT_CARDS = [
   { key: "botserver",  label: "Bot Server",  Icon: Server,   color: "text-blue-600",   adminOnly: false },
   { key: "direct",     label: "Trực tiếp",   Icon: Zap,      color: "text-emerald-600", adminOnly: false },
+  { key: "proxy",      label: "Proxy",       Icon: Globe,    color: "text-cyan-600",   adminOnly: true },
   { key: "webhook",    label: "Webhook",     Icon: Webhook,  color: "text-violet-600", adminOnly: true },
   { key: "testsend",   label: "Test gửi",    Icon: Send,     color: "text-green-600",  adminOnly: false },
   { key: "friendreq",  label: "Kết bạn",     Icon: UserPlus, color: "text-pink-600",   adminOnly: false },
@@ -2480,7 +2687,12 @@ function PerAccountCards({ account, isAdmin, canEdit, buildingId }: { account: A
       )}
       {openCard === "direct" && (
         <div className="border rounded-lg overflow-hidden">
-          <DirectCard account={account} canEdit={canEdit} />
+          <DirectCard account={account} canEdit={canEdit} isAdmin={isAdmin} />
+        </div>
+      )}
+      {openCard === "proxy" && (
+        <div className="border rounded-lg overflow-hidden">
+          <ProxyCard canEdit={canEdit} />
         </div>
       )}
       {openCard === "webhook" && (

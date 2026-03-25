@@ -80,7 +80,6 @@ function buildNavGroups(role: Role): NavGroup[] {
         icon: 'bi-shield-lock',
         items: [
           { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
-          { label: 'Quản lý Zalo', href: '/dashboard/quan-ly-zalo' },
           { label: 'Lưu trữ MinIO', href: '/dashboard/luu-tru' },
         ],
       },
