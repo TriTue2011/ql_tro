@@ -3041,12 +3041,17 @@ function PerAccountCards({ account, isAdmin, userRole, canEdit, buildingId }: {
 }) {
   const [openCard, setOpenCard] = useState<string | null>(null);
 
-  // Non-admin: chỉ hiện Bot Server, Trực tiếp, Theo dõi tin (của chính mình)
   // Admin: hiện tất cả
+  // chuNha/quanLy (tài khoản của mình): thêm tin tự động, test gửi, kết bạn
+  // dongChuTro/nhanVien: chỉ botserver, direct, monitor
   const visibleCards = ACCOUNT_CARDS.filter(c => {
     if (isAdmin) return true;
-    // Non-admin: chỉ botserver, direct, monitor
-    return c.key === "botserver" || c.key === "direct" || c.key === "monitor";
+    if (c.key === "botserver" || c.key === "direct" || c.key === "monitor") return true;
+    // chuNha/quanLy được dùng automsg, testsend, friendreq cho tài khoản mình (canEdit = true)
+    if ((userRole === "chuNha" || userRole === "quanLy") && canEdit) {
+      return c.key === "automsg" || c.key === "testsend" || c.key === "friendreq";
+    }
+    return false;
   });
 
   return (
