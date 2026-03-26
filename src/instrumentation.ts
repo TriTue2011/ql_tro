@@ -62,5 +62,17 @@ export async function register() {
       }
     }
     console.log('[migration] Schema migrations checked ✓');
+
+    // Auto-login tất cả tài khoản Zalo direct đã lưu cookies
+    try {
+      const { autoLoginAll } = await import('@/lib/zalo-direct/service');
+      autoLoginAll().then(() => {
+        console.log('[ZaloDirect] Auto-login on startup completed ✓');
+      }).catch((err: any) => {
+        console.warn('[ZaloDirect] Auto-login on startup error:', err.message);
+      });
+    } catch (err: any) {
+      console.warn('[ZaloDirect] Failed to init auto-login:', err.message);
+    }
   }
 }
