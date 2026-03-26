@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 import {
   getActiveMode,
   getAccountsFromBotServer,
@@ -126,6 +127,24 @@ export async function POST(req: NextRequest) {
         if (!proxyUrl) return NextResponse.json({ ok: false, error: "Thiếu proxyUrl" }, { status: 400 });
         zaloDirect.removeProxy(proxyUrl);
         return NextResponse.json({ ok: true });
+      }
+
+      case "linkDirectAccount": {
+        // Liên kết direct account ownId với nguoiDung.zaloAccountId
+        const { ownId, targetUserId } = body;
+        if (!ownId) return NextResponse.json({ ok: false, error: "Thiếu ownId" }, { status: 400 });
+
+        // Xác định user cần update: admin có thể chỉ định targetUserId, user khác chỉ update chính mình
+        const userId = (role === "admin" && targetUserId) ? targetUserId : session.user.id;
+
+        await prisma.nguoiDung.update({
+          where: { id: userId },
+          data: {
+            zaloAccountId: ownId,
+            ...(!body.keepChatId ? { zaloChatId: ownId } : {}),
+          },
+        });
+        return NextResponse.json({ ok: true, ownId, userId });
       }
 
       default:

@@ -555,6 +555,13 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
                 setQrWaiting(false);
                 const newAcc = data.directAccounts[data.directAccounts.length - 1];
                 toast.success(`Đăng nhập direct thành công: ${newAcc?.name || newAcc?.ownId || "tài khoản mới"}`);
+                // Liên kết ownId với nguoiDung.zaloAccountId để tin nhắn hiển thị đúng
+                if (newAcc?.ownId && account?.id) {
+                  postAction("linkDirectAccount", {
+                    ownId: newAcc.ownId,
+                    targetUserId: account.id,
+                  }).catch(() => {});
+                }
               }
             } catch { /* ignore */ }
           }, 3000);
