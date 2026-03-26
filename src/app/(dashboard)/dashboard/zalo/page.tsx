@@ -594,186 +594,69 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
             <Zap className="h-4 w-4 text-emerald-600" />
             Trực tiếp (Direct)
           </CardTitle>
-          <div className="flex items-center gap-1">
-            {canEdit && (
-              isAdmin ? (
-                <Button size="sm" variant="ghost" onClick={handleAutoLoginAll} className="h-7 px-2 text-xs gap-1">
-                  <RefreshCw className="h-3 w-3" /> Auto-login tất cả
-                </Button>
-              ) : (
-                <Button size="sm" variant="ghost" onClick={handleAutoLoginSelf} className="h-7 px-2 text-xs gap-1">
-                  <RefreshCw className="h-3 w-3" /> Auto-login
-                </Button>
-              )
-            )}
-            <Button size="sm" variant="ghost" onClick={reload} disabled={loading} className="h-7 px-2">
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
+          <Button size="sm" variant="ghost" onClick={reload} disabled={loading} className="h-7 px-2">
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          </Button>
         </div>
       </CardHeader>
-      <CardContent className="px-4 pb-4 space-y-3">
-        {loading && !state && (
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra...
-          </div>
-        )}
-
-        {state && (
-          <>
-            {/* Trạng thái kết nối — đơn giản cho tất cả */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                {matchedAccount?.loggedIn || (isActive && state.directStatus.loggedInCount > 0) ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span className="text-xs font-medium text-green-700">Đang kết nối</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-4 w-4 text-red-500" />
-                    <span className="text-xs font-medium text-red-700">Mất kết nối</span>
-                  </>
-                )}
-              </div>
+      <CardContent className="px-4 pb-4 space-y-4">
+        {/* Status */}
+        <div className="space-y-2">
+          {loading && !state && (
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra...
             </div>
+          )}
+          {state && (
+            <div className="flex items-center gap-2">
+              {matchedAccount?.loggedIn || (isActive && state.directStatus.loggedInCount > 0) ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span className="text-xs font-medium text-green-700">Đang kết nối</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 text-red-500" />
+                  <span className="text-xs font-medium text-red-700">Mất kết nối</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
-            {/* Chi tiết Direct/Bot Server — chỉ admin */}
-            {isAdmin && (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className={`rounded-lg p-2.5 border ${isActive ? "bg-emerald-50 border-emerald-200" : "bg-gray-50 border-gray-200"}`}>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Zap className={`h-3.5 w-3.5 ${isActive ? "text-emerald-600" : "text-gray-400"}`} />
-                      <span className="text-xs font-medium">Direct (zca-js)</span>
-                    </div>
-                    <div className="text-xs text-gray-600 space-y-0.5">
-                      <div>Trạng thái: {state.directStatus.available
-                        ? <span className="text-emerald-700 font-medium">Hoạt động</span>
-                        : <span className="text-gray-400">Không hoạt động</span>}
-                      </div>
-                      <div>Online: <span className="font-medium text-emerald-700">{state.directStatus.loggedInCount}</span>/{state.directStatus.accountCount}</div>
-                    </div>
-                  </div>
-                  <div className={`rounded-lg p-2.5 border ${state.mode === "bot-server" ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-200"}`}>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Server className={`h-3.5 w-3.5 ${state.mode === "bot-server" ? "text-blue-600" : "text-gray-400"}`} />
-                      <span className="text-xs font-medium">Bot Server</span>
-                    </div>
-                    <div className="text-xs text-gray-600 space-y-0.5">
-                      <div className="truncate">URL: {state.botServerUrl
-                        ? <span className="font-mono text-[10px]">{state.botServerUrl}</span>
-                        : <span className="text-gray-400 italic">Chưa cấu hình</span>}
-                      </div>
-                      <div>TK: <span className="font-medium">{state.botAccounts?.length || 0}</span>
-                        {state.botError && <span className="text-red-500 ml-1">({state.botError})</span>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-gray-500">Đang dùng:</span>
-                  {isActive ? (
-                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
-                      <Zap className="h-2.5 w-2.5 mr-1" /> Trực tiếp
-                    </Badge>
-                  ) : state.mode === "bot-server" ? (
-                    <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px]">
-                      <Server className="h-2.5 w-2.5 mr-1" /> Bot Server
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-gray-500 text-[10px]">
-                      <WifiOff className="h-2.5 w-2.5 mr-1" /> Chưa kết nối
-                    </Badge>
-                  )}
-                  <span className="text-[10px] text-gray-400">(Direct ưu tiên nếu có)</span>
-                </div>
-
-                {/* Danh sách tất cả tài khoản — admin only */}
-                <div className="border-t pt-3 space-y-2">
-                  <p className="text-xs font-medium text-gray-600">
-                    Tài khoản ({uniqueAccounts.length})
-                  </p>
-                  {uniqueAccounts.length === 0 ? (
-                    <div className="text-xs text-gray-400 text-center py-3">Chưa có tài khoản nào</div>
-                  ) : uniqueAccounts.map((a) => (
-                    <div key={a.ownId} className={`flex items-center justify-between p-2 rounded-lg border text-xs ${
-                      (account?.zaloAccountId && a.ownId === account.zaloAccountId) ? "border-emerald-300 bg-emerald-50" : ""
-                    }`}>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-medium truncate">{a.name || a.ownId}</span>
-                            <Badge variant="outline" className="text-[9px] px-1 py-0">
-                              {a._source === "direct" ? "Direct" : "Bot Server"}
-                            </Badge>
-                            {account?.zaloAccountId && a.ownId === account.zaloAccountId && (
-                              <Badge className="bg-emerald-100 text-emerald-700 text-[9px] px-1 py-0">Tài khoản này</Badge>
-                            )}
-                          </div>
-                          <div className="text-gray-400 flex items-center gap-2 flex-wrap">
-                            {a.phone && <span>{a.phone}</span>}
-                            <span className="font-mono text-[10px]">{a.ownId}</span>
-                            {a.proxy && <span className="text-[10px]"><Globe className="h-2.5 w-2.5 inline mr-0.5" />{a.proxy}</span>}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {a.loggedIn
-                          ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                          : <XCircle className="h-3.5 w-3.5 text-red-400" />}
-                        {a._source === "direct" && canEdit && (
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:bg-red-50"
-                            onClick={() => handleLogout(a.ownId)}>
-                            <LogOut className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* QR Login */}
-            {canEdit && (
-              <div className="border-t pt-3 space-y-2">
-                <p className="text-xs font-medium text-gray-600">Đăng nhập QR</p>
-                <div className="space-y-2">
-                  <Button size="sm" variant="outline" onClick={handleLoginQR} disabled={qrLoading} className="text-xs gap-1.5">
-                    {qrLoading
-                      ? <><Loader2 className="h-3 w-3 animate-spin" /> Đang tạo...</>
-                      : <><QrCodeIcon className="h-3.5 w-3.5" /> Tạo mã QR</>}
-                  </Button>
-                </div>
-                {qrImage && (
-                  <div className="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-lg border">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={qrImage.startsWith("data:") ? qrImage : `data:image/png;base64,${qrImage}`}
-                      alt="QR Code Zalo" className="w-48 h-48 rounded-lg border"
-                    />
-                    <p className="text-[11px] text-gray-500 text-center">Mở Zalo → Quét mã QR này</p>
-                    {qrWaiting && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-blue-600">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Đang chờ quét... (tự động nhận khi đăng nhập xong)
-                      </div>
-                    )}
-                    <Button variant="outline" size="sm" className="text-xs" onClick={() => {
-                      setQrImage(null); setQrWaiting(false);
-                      if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
-                      reload();
-                    }}>
-                      Đóng
-                    </Button>
+        {/* QR Login */}
+        {canEdit && (
+          <div className="border-t pt-3 space-y-2">
+            <p className="text-xs font-medium text-gray-600">Đăng nhập Zalo qua QR</p>
+            <Button size="sm" variant="outline" onClick={handleLoginQR} disabled={qrLoading} className="text-xs gap-1.5">
+              {qrLoading
+                ? <><Loader2 className="h-3 w-3 animate-spin" /> Đang tạo...</>
+                : <><QrCodeIcon className="h-3.5 w-3.5" /> Lấy QR đăng nhập</>}
+            </Button>
+            {qrImage && (
+              <div className="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrImage.startsWith("data:") ? qrImage : `data:image/png;base64,${qrImage}`}
+                  alt="QR Code Zalo" className="w-48 h-48 rounded-lg border"
+                />
+                <p className="text-[11px] text-gray-500 text-center">Mở Zalo → Quét mã QR này</p>
+                {qrWaiting && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-blue-600">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Đang chờ quét... (tự động nhận khi đăng nhập xong)
                   </div>
                 )}
+                <Button variant="outline" size="sm" className="text-xs" onClick={() => {
+                  setQrImage(null); setQrWaiting(false);
+                  if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
+                  reload();
+                }}>
+                  Đóng
+                </Button>
               </div>
             )}
-          </>
+          </div>
         )}
       </CardContent>
     </Card>
