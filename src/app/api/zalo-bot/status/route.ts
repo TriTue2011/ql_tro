@@ -10,7 +10,7 @@ import { getAccountsFromBotServer, getBotConfig } from '@/lib/zalo-bot-client';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || !['admin', 'chuNha'].includes(session.user.role)) {
+  if (!session || !['admin', 'chuNha', 'quanLy', 'dongChuTro', 'nhanVien'].includes(session.user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

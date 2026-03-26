@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
 import {
-  Copy, Trash2, Users, User, RefreshCw, Wifi,
+  Copy, Trash2, Users, User, RefreshCw, Wifi, WifiOff,
   MessageSquare, Building2, DoorOpen, ChevronLeft, Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -290,20 +291,37 @@ function MessageThread({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ZaloMonitorPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
   const [convs, setConvs] = useState<ZaloMsg[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [connected, setConnected] = useState<boolean | null>(null);
 
   const loadConvs = useCallback(async () => {
     setLoadingConvs(true);
     try {
+      // Tải tin nhắn (API tự filter theo user)
       const res = await fetch('/api/zalo/messages?conversations=1');
       const data = await res.json();
       if (data.data) setConvs(data.data);
     } catch { /* ignore */ } finally { setLoadingConvs(false); }
   }, []);
 
-  useEffect(() => { loadConvs(); }, [loadConvs]);
+  // Kiểm tra trạng thái kết nối
+  const checkConnection = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/zalo-direct');
+      if (res.ok) {
+        const data = await res.json();
+        const directOnline = data.directStatus?.loggedInCount > 0;
+        const botOnline = data.botAccounts?.some((a: any) => a.isOnline || a.isConnected);
+        setConnected(directOnline || botOnline);
+      }
+    } catch { setConnected(false); }
+  }, []);
+
+  useEffect(() => { loadConvs(); checkConnection(); }, [loadConvs, checkConnection]);
 
   useRealtimeEvents(['zalo-message'], () => { void loadConvs(); });
 
@@ -320,14 +338,24 @@ export default function ZaloMonitorPage() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-3 shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Theo dõi tin nhắn Zalo Bot</h1>
+          <h1 className="text-xl font-bold text-gray-900">Theo dõi tin nhắn Zalo</h1>
           <p className="text-xs text-gray-500 mt-0.5">
-            Lấy <strong>Thread ID</strong> để liên kết với khách thuê
+            {isAdmin ? 'Xem tin nhắn của tất cả tài khoản' : 'Xem tin nhắn Zalo của bạn'}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-green-50 border-green-200 text-green-700">
-          <Wifi className="h-3 w-3" /> Đang kết nối
-        </div>
+        {connected === null ? (
+          <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-gray-50 border-gray-200 text-gray-500">
+            <RefreshCw className="h-3 w-3 animate-spin" /> Đang kiểm tra...
+          </div>
+        ) : connected ? (
+          <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-green-50 border-green-200 text-green-700">
+            <Wifi className="h-3 w-3" /> Đang kết nối
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-red-50 border-red-200 text-red-600">
+            <WifiOff className="h-3 w-3" /> Mất kết nối
+          </div>
+        )}
       </div>
 
       {/* 2-column layout */}

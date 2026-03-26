@@ -38,6 +38,7 @@ export async function handleIncomingMessage(
   const isGroupMessage = data.idTo !== ownId; // group messages: idTo != ownId
 
   // Tạo update object tương thích với webhook normalizeWebhookPayload()
+  const threadId = isGroupMessage ? String(data.idTo || chatId) : chatId;
   const update = {
     data,
     uidFrom: data.uidFrom,
@@ -46,6 +47,7 @@ export async function handleIncomingMessage(
     ownId,
     idTo: data.idTo,
     type: isGroupMessage ? 1 : 0,
+    threadId,
   };
 
   try {

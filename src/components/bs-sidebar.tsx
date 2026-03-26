@@ -102,7 +102,7 @@ function buildNavGroups(role: Role): NavGroup[] {
     ];
   }
 
-  // ── Đồng chủ trọ: chỉ xem — không Zalo/Monitor/Cài đặt/Quản lý TK ──────
+  // ── Đồng chủ trọ: chỉ xem — có Zalo (giới hạn), không Cài đặt/Quản lý TK ──
   if (isDongChuTro) {
     return [
       {
@@ -130,6 +130,14 @@ function buildNavGroups(role: Role): NavGroup[] {
           { label: 'Sự cố', href: '/dashboard/su-co' },
           { label: 'Yêu cầu duyệt', href: '/dashboard/yeu-cau-duyet' },
           { label: 'Thông báo', href: '/dashboard/thong-bao' },
+        ],
+      },
+      {
+        label: 'Liên lạc',
+        icon: 'bi-chat-dots',
+        items: [
+          { label: 'Zalo', href: '/dashboard/zalo' },
+          { label: 'Zalo Monitor', href: '/dashboard/zalo-monitor' },
         ],
       },
       {

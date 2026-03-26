@@ -180,11 +180,9 @@ export default async function middleware(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Đồng chủ trọ không được vào: Quản lý TK, Zalo, Zalo Monitor, Cài đặt
+    // Đồng chủ trọ không được vào: Quản lý TK, Cài đặt (Zalo/Zalo Monitor đã được mở)
     const DONGCHUTRO_BLOCKED_PATHS = [
       '/dashboard/quan-ly-tai-khoan',
-      '/dashboard/zalo',
-      '/dashboard/zalo-monitor',
       '/dashboard/cai-dat',
     ];
     if (role === 'dongChuTro' && DONGCHUTRO_BLOCKED_PATHS.some(p => pathname.startsWith(p))) {
@@ -216,11 +214,16 @@ export default async function middleware(req: NextRequest) {
   // ── API access control ────────────────────────────────────────────────────
 
   // Đồng chủ trọ chỉ được đọc (GET) — chặn tất cả write methods trên API quản lý
+  // Ngoại lệ: cho phép POST đến API zalo-bot (QR login) và zalo-direct (login)
   if (role === 'dongChuTro' && req.method !== 'GET') {
     const isWriteApi = pathname.startsWith('/api/') &&
       !pathname.startsWith('/api/auth/') &&
       !pathname.startsWith('/api/webhook/') &&
-      !pathname.startsWith('/api/zalo/webhook/');
+      !pathname.startsWith('/api/zalo/webhook/') &&
+      !pathname.startsWith('/api/zalo-bot/qr') &&
+      !pathname.startsWith('/api/zalo-bot/auto-setup') &&
+      !pathname.startsWith('/api/zalo-bot/status') &&
+      !pathname.startsWith('/api/admin/zalo-direct');
     if (isWriteApi) {
       return new NextResponse(
         JSON.stringify({ message: 'Đồng chủ trọ chỉ có quyền xem, không thể thay đổi dữ liệu' }),
@@ -236,10 +239,11 @@ export default async function middleware(req: NextRequest) {
     '/api/admin/settings',
     '/api/admin/toa-nha-settings',
     '/api/admin/zalo',
+    '/api/admin/zalo-direct',
     '/api/admin/storage',
   ];
   if (pathname.startsWith('/api/admin') && token?.role !== 'admin') {
-    const isChuNhaRole = role === 'chuNha' || role === 'dongChuTro' || role === 'quanLy';
+    const isChuNhaRole = role === 'chuNha' || role === 'dongChuTro' || role === 'quanLy' || role === 'nhanVien';
     const isAllowedPath = CHUANHA_ALLOWED_ADMIN_PATHS.some(p => pathname.startsWith(p));
     if (!isChuNhaRole || !isAllowedPath) {
       return new NextResponse(
