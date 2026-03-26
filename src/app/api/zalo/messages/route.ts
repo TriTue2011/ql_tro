@@ -37,8 +37,9 @@ export async function GET(request: NextRequest) {
   // Danh sách cuộc hội thoại
   // Admin: xem tất cả; chuNha: chỉ tin nhắn gửi đến tài khoản Zalo của mình
   if (searchParams.get("conversations") === "1") {
-    // Admin có thể filter theo ownId cụ thể (khi xem tài khoản cụ thể)
-    const adminFilterOwnId = canViewAll ? searchParams.get("ownId") : null;
+    // Filter theo ownId cụ thể (admin: bất kỳ, non-admin: chỉ tài khoản của mình)
+    const requestedOwnId = searchParams.get("ownId");
+    const adminFilterOwnId = canViewAll ? requestedOwnId : null;
 
     if (canViewAll && !adminFilterOwnId) {
       const rows = await prisma.$queryRaw<any[]>`
@@ -68,8 +69,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: rowsWithRoomInfo });
     }
 
-    // Filter theo ownId: admin filter theo param, chuNha filter theo tài khoản Zalo hoặc userId
-    const filterOwnId = adminFilterOwnId || userOwnId;
+    // Filter theo ownId: admin filter theo param, non-admin filter theo tài khoản Zalo
+    // Non-admin cũng có thể dùng ownId param nếu trùng với zaloAccountId của mình
+    const filterOwnId = adminFilterOwnId
+      || (requestedOwnId && requestedOwnId === userZaloAccountId ? requestedOwnId : null)
+      || userOwnId;
 
     const rows = await prisma.$queryRaw<any[]>`
       WITH latest_user AS (
