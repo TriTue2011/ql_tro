@@ -39,7 +39,7 @@ export async function GET() {
         { nguoiQuanLy: { some: { nguoiDungId: userId } } },
       ],
     };
-  } else if (role === 'quanLy') {
+  } else if (role === 'quanLy' || role === 'nhanVien') {
     toaNhaFilter = { nguoiQuanLy: { some: { nguoiDungId: userId } } };
   } else if (role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

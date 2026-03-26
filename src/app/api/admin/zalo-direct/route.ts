@@ -19,7 +19,7 @@ import {
 } from "@/lib/zalo-bot-client";
 import * as zaloDirect from "@/lib/zalo-direct";
 
-const ALLOWED_ROLES = ["admin", "chuNha", "dongChuTro", "quanLy"];
+const ALLOWED_ROLES = ["admin", "chuNha", "dongChuTro", "quanLy", "nhanVien"];
 const ADMIN_ONLY_ACTIONS = ["addProxy", "removeProxy", "autoLoginAll"];
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
