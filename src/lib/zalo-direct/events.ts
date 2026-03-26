@@ -1,7 +1,10 @@
 /**
  * zalo-direct/events.ts
- * Event listeners cho zca-js SDK.
+ * Event listeners cho zca-js SDK v2.
  * Port từ bot server eventListeners.js - xử lý trực tiếp thay vì qua HTTP webhook.
+ *
+ * zca-js v2 emits wrapped objects (Message, GroupEvent, Reaction),
+ * không phải raw data. Cần unwrap .data trước khi xử lý.
  */
 
 import prisma from "@/lib/prisma";
@@ -14,38 +17,39 @@ import { handlePendingConfirmation } from "@/lib/zalo-pending-confirm";
 /**
  * Xử lý tin nhắn nhận được từ zca-js listener.
  * Tương đương triggerWebhook() trong bot server nhưng xử lý in-process.
+ *
+ * zca-js v2 Message format:
+ *   { type: ThreadType, data: TMessage, threadId: string, isSelf: boolean }
+ *   TMessage: { uidFrom, dName, content, idTo, msgId, cliMsgId, ... }
  */
 export async function handleIncomingMessage(
   ownId: string,
-  data: {
-    uidFrom: string;
-    dName?: string;
-    fromD?: string;
-    content?: string;
-    msg?: string;
-    idTo?: string;
-    type?: number;
-    msgId?: string;
-    cliMsgId?: string;
-    [key: string]: any;
-  }
+  msg: any
 ): Promise<void> {
-  const chatId = String(data.uidFrom || "");
+  // zca-js v2: msg = { type, data: TMessage, threadId, isSelf }
+  // Unwrap .data nếu có, fallback cho raw data (tương thích cũ)
+  const raw = msg?.data ?? msg;
+  const chatId = String(raw?.uidFrom || msg?.uidFrom || "");
   if (!chatId) return;
 
-  const displayName = data.dName || data.fromD || "";
-  const content = data.content || data.msg || "";
-  const isGroupMessage = data.idTo !== ownId; // group messages: idTo != ownId
+  // Bỏ qua tin nhắn do chính mình gửi
+  if (msg?.isSelf) return;
 
-  // Tạo update object tương thích với webhook normalizeWebhookPayload()
-  const threadId = isGroupMessage ? String(data.idTo || chatId) : chatId;
+  const displayName = raw.dName || raw.fromD || "";
+  const contentRaw = raw.content || raw.msg || "";
+  // content có thể là string hoặc object (attachment)
+  const content = typeof contentRaw === "string" ? contentRaw : JSON.stringify(contentRaw);
+  const isGroupMessage = msg?.type === 1 || (raw.idTo && raw.idTo !== ownId);
+
+  // threadId từ zca-js v2 hoặc tính toán
+  const threadId = msg?.threadId || (isGroupMessage ? String(raw.idTo || chatId) : chatId);
   const update = {
-    data,
-    uidFrom: data.uidFrom,
+    data: raw,
+    uidFrom: chatId,
     dName: displayName,
     content,
     ownId,
-    idTo: data.idTo,
+    idTo: raw.idTo,
     type: isGroupMessage ? 1 : 0,
     threadId,
   };
@@ -91,28 +95,35 @@ export async function handleIncomingMessage(
 
 /**
  * Xử lý sự kiện group (join, leave, kick, promote, etc.)
+ *
+ * zca-js v2 GroupEvent format:
+ *   { type: GroupEventType, data: TGroupEvent, act, threadId, isSelf }
+ *   TGroupEvent: { groupId, creatorId, groupName, sourceId, updateMembers, ... }
  */
 export async function handleGroupEvent(
   ownId: string,
-  data: Record<string, any>
+  event: any
 ): Promise<void> {
   try {
-    const chatId = String(data.groupId || data.uidFrom || "");
+    // Unwrap .data nếu có
+    const raw = event?.data ?? event;
+    const chatId = String(raw?.groupId || event?.threadId || raw?.uidFrom || "");
     if (!chatId) return;
 
     const update = {
-      data,
+      data: raw,
       ownId,
       type: 1,
       event_name: "group_event",
+      threadId: event?.threadId || chatId,
     };
 
     await prisma.zaloMessage.create({
       data: {
         chatId,
         ownId,
-        displayName: data.dName || data.fromD || null,
-        content: data.content || data.msg || "[sự kiện nhóm]",
+        displayName: raw.dName || raw.fromD || raw.groupName || null,
+        content: raw.content || raw.msg || `[sự kiện nhóm: ${event?.type || "unknown"}]`,
         attachmentUrl: null,
         role: "system",
         eventName: "group_event",
@@ -127,25 +138,33 @@ export async function handleGroupEvent(
 
 /**
  * Xử lý reaction (thả cảm xúc)
+ *
+ * zca-js v2 Reaction format:
+ *   { data: TReaction, threadId, isSelf, isGroup }
+ *   TReaction: { uidFrom, idTo, dName, content: { rIcon, rType, ... }, ... }
  */
 export async function handleReaction(
   ownId: string,
-  data: Record<string, any>
+  reaction: any
 ): Promise<void> {
   try {
-    const chatId = String(data.uidFrom || "");
+    // Unwrap .data nếu có
+    const raw = reaction?.data ?? reaction;
+    const chatId = String(raw?.uidFrom || "");
     if (!chatId) return;
+
+    const icon = raw?.content?.rIcon || raw?.icon || raw?.content || "";
 
     await prisma.zaloMessage.create({
       data: {
         chatId,
         ownId,
-        displayName: data.dName || null,
-        content: `[reaction: ${data.icon || data.content || ""}]`,
+        displayName: raw.dName || null,
+        content: `[reaction: ${icon}]`,
         attachmentUrl: null,
         role: "system",
         eventName: "reaction",
-        rawPayload: data as any,
+        rawPayload: reaction as any,
       },
     });
     sseEmit("zalo-message", { chatId });
@@ -174,26 +193,36 @@ export function setupListeners(
     );
   });
 
-  api.listener.on("group_event", (data: any) => {
-    handleGroupEvent(ownId, data).catch((err) =>
+  api.listener.on("group_event", (event: any) => {
+    handleGroupEvent(ownId, event).catch((err) =>
       console.error("[ZaloDirect] group_event listener error:", err)
     );
   });
 
-  api.listener.on("reaction", (data: any) => {
-    handleReaction(ownId, data).catch((err) =>
+  api.listener.on("reaction", (reaction: any) => {
+    handleReaction(ownId, reaction).catch((err) =>
       console.error("[ZaloDirect] reaction listener error:", err)
     );
   });
 
-  // Xử lý disconnect/close - auto relogin
+  // zca-js v2: event "closed" (not "close") với (code, reason)
+  api.listener.on("closed", (code: any, reason: any) => {
+    console.warn(`[ZaloDirect] Connection closed for account ${ownId}: code=${code}, reason=${reason}`);
+    onClose?.();
+  });
+
+  // Fallback: cũng lắng nghe "close" nếu version cũ
   api.listener.on("close", () => {
-    console.warn(`[ZaloDirect] Connection closed for account ${ownId}`);
+    console.warn(`[ZaloDirect] Connection close event for account ${ownId}`);
     onClose?.();
   });
 
   api.listener.on("error", (err: any) => {
     console.error(`[ZaloDirect] Listener error for account ${ownId}:`, err);
+  });
+
+  api.listener.on("connected", () => {
+    console.log(`[ZaloDirect] WebSocket connected for account ${ownId}`);
   });
 
   // Bắt đầu lắng nghe
