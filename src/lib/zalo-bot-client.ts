@@ -142,8 +142,15 @@ async function botRequest(
     try { data = JSON.parse(text); } catch { data = text; }
 
     if (data && typeof data === "object" &&
-        (data.success === false || data.ok === false || data.error)) {
+        (data.success === false || data.ok === false) &&
+        !data.qrCodeImage && !data.qrCode && !data.image) {
       return { ok: false, error: data.error || data.message || "Bot server báo lỗi" };
+    }
+    // Trường hợp chỉ có error mà không có data hữu ích
+    if (data && typeof data === "object" && data.error &&
+        typeof data.error === "string" && data.error.length > 0 &&
+        !data.qrCodeImage && !data.qrCode && !data.image && !data.data) {
+      return { ok: false, error: data.error };
     }
 
     return { ok: true, data };
@@ -239,25 +246,52 @@ export async function getQRCodeFromBotServer(accountSelection?: string): Promise
   if (accountSelection) body.accountSelection = accountSelection;
 
   // Thử nhiều endpoint paths (bot server có thể dùng /zalo-login hoặc /api/zalo-login)
-  let r = await botRequest("POST", "/zalo-login", body, 30_000);
+  let r = await botRequest("POST", "/zalo-login", body, 60_000);
   if (!r.ok && (r.error?.includes("404") || r.error?.includes("Not Found"))) {
-    r = await botRequest("POST", "/api/zalo-login", body, 30_000);
+    r = await botRequest("POST", "/api/zalo-login", body, 60_000);
   }
   if (!r.ok) return { error: r.error };
 
   // Trích xuất QR code từ nhiều format response khác nhau
   const d = r.data;
-  const candidate = d?.qrCodeImage || d?.qrCode || d?.image
-    || d?.data?.qrCodeImage || d?.data?.qrCode || d?.data?.image;
+
+  // Tìm candidate từ nhiều cấu trúc response: flat, nested .data, nested .data.data
+  // Cũng check d.data trực tiếp (bot server có thể trả { data: "base64..." })
+  const candidate = d?.qrCodeImage || d?.qrCode || d?.image || d?.qr || d?.qrBase64 || d?.qrImage
+    || (typeof d?.data === "string" ? d.data : null)
+    || d?.data?.qrCodeImage || d?.data?.qrCode || d?.data?.image || d?.data?.qr
+    || d?.data?.data?.image || d?.data?.data?.qrCode;
+
+  // Nếu không tìm thấy bằng key cụ thể, tìm string dài nhất trong response (có thể là base64)
+  let fallbackCandidate: string | null = null;
+  if (!candidate && d && typeof d === "object") {
+    const findLongString = (obj: any, depth = 0): string | null => {
+      if (depth > 3 || !obj) return null;
+      if (typeof obj === "string" && obj.length > 100) return obj;
+      if (typeof obj === "object") {
+        for (const val of Object.values(obj)) {
+          const found = findLongString(val, depth + 1);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    fallbackCandidate = findLongString(d);
+  }
+
+  const raw = candidate || fallbackCandidate;
 
   // Validate: phải là base64 string hoặc data URI, không phải HTML/error text
-  const qrCode = typeof candidate === "string" && candidate.length > 50
-    && (candidate.startsWith("data:image") || /^[A-Za-z0-9+/=\s]+$/.test(candidate.slice(0, 200)))
-    ? candidate
+  const qrCode = typeof raw === "string" && raw.length > 50
+    && (raw.startsWith("data:image") || /^[A-Za-z0-9+/=\s\-_]+$/.test(raw.slice(0, 200)))
+    ? raw
     : null;
 
   if (!qrCode) {
-    console.error("[zalo-bot-client] QR response không nhận dạng được:", JSON.stringify(d)?.slice(0, 500));
+    const preview = JSON.stringify(d)?.slice(0, 800);
+    console.error("[zalo-bot-client] QR response không nhận dạng được:", preview);
+    console.error("[zalo-bot-client] candidate:", typeof candidate, candidate ? `len=${String(candidate).length}` : "null");
+    console.error("[zalo-bot-client] fallback:", typeof fallbackCandidate, fallbackCandidate ? `len=${fallbackCandidate.length}` : "null");
     return { error: "Bot server không trả về QR code hợp lệ" };
   }
   return { qrCode };
