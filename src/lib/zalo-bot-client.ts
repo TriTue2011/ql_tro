@@ -226,8 +226,10 @@ export async function removeProxyFromBotServer(proxyUrl: string): Promise<OkResu
 }
 
 export async function getQRCodeFromBotServer(accountSelection?: string): Promise<{ qrCode?: string; error?: string }> {
-  // Direct mode: login trực tiếp qua zca-js
-  if (isDirectMode() || !(await getBotConfig())?.serverUrl) {
+  // Chỉ dùng direct mode khi KHÔNG có bot server config
+  // Không check isDirectMode() — bot server QR luôn dùng bot server nếu có config
+  const botConfig = await getBotConfig();
+  if (!botConfig?.serverUrl) {
     const result = await zaloDirect.loginWithQR();
     if (!result.ok) return { error: result.error };
     return { qrCode: result.qrCode };

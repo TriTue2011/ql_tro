@@ -177,6 +177,8 @@ export async function loginWithQR(proxyUrl?: string): Promise<LoginResult> {
 
     return new Promise<LoginResult>((resolve) => {
       let resolved = false;
+      // Lưu credentials từ GotLoginInfo callback (type 4) — đây là format đúng để re-login
+      let qrCredentials: { imei: string; cookie: any; userAgent: string } | null = null;
 
       // loginQR returns Promise<API> - blocks until scan complete
       const loginPromise = zalo.loginQR({}, (event: LoginQRCallbackEvent) => {
@@ -199,6 +201,11 @@ export async function loginWithQR(proxyUrl?: string): Promise<LoginResult> {
         if (event.type === 3 /* QRCodeDeclined */) {
           console.warn("[ZaloDirect] QR bị từ chối");
           sseEmit("zalo-qr-login", { ok: false, error: "QR bị từ chối" });
+        }
+        // Type 4 = GotLoginInfo → lưu credentials để dùng cho re-login
+        if (event.type === 4 /* GotLoginInfo */) {
+          qrCredentials = event.data as any;
+          console.log("[ZaloDirect] Nhận được login credentials từ QR");
         }
       });
 
@@ -225,7 +232,17 @@ export async function loginWithQR(proxyUrl?: string): Promise<LoginResult> {
             loginTime: Date.now(),
           };
 
-          saveCookies(ownId, ctx);
+          // Lưu credentials đúng format {imei, cookie, userAgent} từ GotLoginInfo
+          // Fallback: lưu context nếu không bắt được GotLoginInfo
+          if (qrCredentials) {
+            saveCookies(ownId, qrCredentials);
+          } else {
+            saveCookies(ownId, {
+              imei: (ctx as any)?.imei,
+              cookie: (ctx as any)?.cookie,
+              userAgent: (ctx as any)?.userAgent,
+            });
+          }
 
           const store = getStore();
           const existingIdx = store.accounts.findIndex((a) => a.ownId === ownId);
@@ -292,8 +309,12 @@ export async function loginWithCookies(ownId: string, proxyUrl?: string): Promis
       loginTime: Date.now(),
     };
 
-    // Update credentials
-    saveCookies(resolvedOwnId, ctx);
+    // Lưu credentials đúng format {imei, cookie, userAgent} cho re-login
+    saveCookies(resolvedOwnId, {
+      imei: (ctx as any)?.imei,
+      cookie: (ctx as any)?.cookie,
+      userAgent: (ctx as any)?.userAgent,
+    });
 
     const store = getStore();
     const existingIdx = store.accounts.findIndex((a) => a.ownId === resolvedOwnId);
