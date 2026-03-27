@@ -527,6 +527,33 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
     return () => { if (qrPollRef.current) clearInterval(qrPollRef.current); };
   }, []);
 
+  // Lắng nghe SSE zalo-qr-login events từ server
+  useEffect(() => {
+    if (!qrWaiting) return;
+    const es = new EventSource("/api/events");
+    const handler = (e: Event) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data ?? "{}");
+        if (data.ok && data.status === "scanned") {
+          toast.info("QR đã được quét, đang xác thực...");
+        } else if (data.ok && data.ownId) {
+          // Login thành công
+          if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
+          setQrImage(null); setQrWaiting(false);
+          toast.success(`Đăng nhập thành công: ${data.name || data.ownId}`);
+          reload();
+        } else if (!data.ok && data.error) {
+          // Login thất bại (QR hết hạn, bị từ chối, lỗi)
+          if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
+          setQrImage(null); setQrWaiting(false);
+          toast.error(data.error);
+        }
+      } catch { /* ignore */ }
+    };
+    es.addEventListener("zalo-qr-login", handler);
+    return () => { es.removeEventListener("zalo-qr-login", handler); es.close(); };
+  }, [qrWaiting, reload]);
+
   const handleLoginQR = async () => {
     setQrLoading(true); setQrImage(null); setQrWaiting(false);
     if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }

@@ -13,6 +13,7 @@ import { Zalo, type API as ZcaAPI, type Credentials as ZcaCredentials, type Logi
 import type { ImageMetadataGetterResponse } from "zca-js";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { setupListeners } from "./events";
+import { sseEmit } from "@/lib/sse-emitter";
 
 /**
  * Đọc metadata ảnh (width, height, size) từ file path — cần cho zca-js khi gửi ảnh.
@@ -184,12 +185,28 @@ export async function loginWithQR(proxyUrl?: string): Promise<LoginResult> {
           resolved = true;
           resolve({ ok: true, qrCode: event.data.image });
         }
+        // Type 1 = QR expired
+        if (event.type === 1 /* QRCodeExpired */) {
+          console.warn("[ZaloDirect] QR code hết hạn");
+          sseEmit("zalo-qr-login", { ok: false, error: "QR code hết hạn, vui lòng tạo lại" });
+        }
+        // Type 2 = QR scanned (user đã quét)
+        if (event.type === 2 /* QRCodeScanned */) {
+          console.log("[ZaloDirect] QR đã được quét, đang xác thực...");
+          sseEmit("zalo-qr-login", { ok: true, status: "scanned" });
+        }
+        // Type 3 = QR declined
+        if (event.type === 3 /* QRCodeDeclined */) {
+          console.warn("[ZaloDirect] QR bị từ chối");
+          sseEmit("zalo-qr-login", { ok: false, error: "QR bị từ chối" });
+        }
       });
 
       // Login hoàn tất ở background → đăng ký account
       loginPromise
         .then((api) => {
           if (!api) {
+            sseEmit("zalo-qr-login", { ok: false, error: "Không thể khởi tạo API từ QR login" });
             if (!resolved) { resolved = true; resolve({ ok: false, error: "Không thể khởi tạo API từ QR login" }); }
             return;
           }
@@ -220,9 +237,11 @@ export async function loginWithQR(proxyUrl?: string): Promise<LoginResult> {
 
           setupListeners(api, ownId, () => handleRelogin(ownId));
           console.log(`[ZaloDirect] QR login thành công: ${ownId} (${account.name})`);
+          sseEmit("zalo-qr-login", { ok: true, ownId, name: account.name });
         })
         .catch((err) => {
           console.error("[ZaloDirect] QR login background error:", err);
+          sseEmit("zalo-qr-login", { ok: false, error: err.message || "Lỗi đăng nhập QR" });
           if (!resolved) {
             resolved = true;
             resolve({ ok: false, error: err.message || "Lỗi đăng nhập QR" });
