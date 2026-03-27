@@ -235,10 +235,23 @@ export async function getQRCodeFromBotServer(accountSelection?: string): Promise
 
   const body: Record<string, any> = {};
   if (accountSelection) body.accountSelection = accountSelection;
-  const r = await botRequest("POST", "/zalo-login", body, 20_000);
+
+  // Thử nhiều endpoint paths (bot server có thể dùng /zalo-login hoặc /api/zalo-login)
+  let r = await botRequest("POST", "/zalo-login", body, 30_000);
+  if (!r.ok && (r.error?.includes("404") || r.error?.includes("Not Found"))) {
+    r = await botRequest("POST", "/api/zalo-login", body, 30_000);
+  }
   if (!r.ok) return { error: r.error };
-  const qrCode = r.data?.qrCodeImage || r.data?.qrCode || r.data?.data?.qrCodeImage || r.data?.image;
-  if (!qrCode) return { error: "Bot server không trả về QR code" };
+
+  // Trích xuất QR code từ nhiều format response khác nhau
+  const d = r.data;
+  const qrCode = d?.qrCodeImage || d?.qrCode || d?.image
+    || d?.data?.qrCodeImage || d?.data?.qrCode || d?.data?.image
+    || (typeof d === "string" && d.length > 100 ? d : null); // base64 string trực tiếp
+  if (!qrCode) {
+    console.error("[zalo-bot-client] QR response không nhận dạng được:", JSON.stringify(d)?.slice(0, 500));
+    return { error: "Bot server không trả về QR code" };
+  }
   return { qrCode };
 }
 
