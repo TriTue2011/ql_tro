@@ -10,6 +10,7 @@ export const REALTIME_EVENTS = [
   'toa-nha',
   'chi-so-dien-nuoc',
   'zalo-message',
+  'zalo-qr-login',
 ] as const;
 
 export type RealtimeEvent = (typeof REALTIME_EVENTS)[number];

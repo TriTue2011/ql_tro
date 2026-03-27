@@ -245,12 +245,18 @@ export async function getQRCodeFromBotServer(accountSelection?: string): Promise
 
   // Trích xuất QR code từ nhiều format response khác nhau
   const d = r.data;
-  const qrCode = d?.qrCodeImage || d?.qrCode || d?.image
-    || d?.data?.qrCodeImage || d?.data?.qrCode || d?.data?.image
-    || (typeof d === "string" && d.length > 100 ? d : null); // base64 string trực tiếp
+  const candidate = d?.qrCodeImage || d?.qrCode || d?.image
+    || d?.data?.qrCodeImage || d?.data?.qrCode || d?.data?.image;
+
+  // Validate: phải là base64 string hoặc data URI, không phải HTML/error text
+  const qrCode = typeof candidate === "string" && candidate.length > 50
+    && (candidate.startsWith("data:image") || /^[A-Za-z0-9+/=\s]+$/.test(candidate.slice(0, 200)))
+    ? candidate
+    : null;
+
   if (!qrCode) {
     console.error("[zalo-bot-client] QR response không nhận dạng được:", JSON.stringify(d)?.slice(0, 500));
-    return { error: "Bot server không trả về QR code" };
+    return { error: "Bot server không trả về QR code hợp lệ" };
   }
   return { qrCode };
 }
