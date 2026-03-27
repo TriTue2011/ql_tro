@@ -10,8 +10,39 @@
 import fs from "fs";
 import path from "path";
 import { Zalo, type API as ZcaAPI, type Credentials as ZcaCredentials, type LoginQRCallbackEvent } from "zca-js";
+import type { ImageMetadataGetterResponse } from "zca-js";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { setupListeners } from "./events";
+
+/** Đọc metadata ảnh (width, height, size) từ file path — cần cho zca-js khi gửi ảnh */
+async function imageMetadataGetter(filePath: string): Promise<ImageMetadataGetterResponse> {
+  try {
+    const stat = fs.statSync(filePath);
+    // Thử đọc kích thước ảnh từ header bytes
+    const buf = Buffer.alloc(24);
+    const fd = fs.openSync(filePath, "r");
+    fs.readSync(fd, buf, 0, 24, 0);
+    fs.closeSync(fd);
+
+    let width = 800, height = 600;
+
+    // PNG: width ở byte 16-19, height ở byte 20-23
+    if (buf[0] === 0x89 && buf[1] === 0x50) {
+      width = buf.readUInt32BE(16);
+      height = buf.readUInt32BE(20);
+    }
+    // JPEG: không dễ đọc từ header, dùng giá trị mặc định
+    // GIF: width ở byte 6-7, height ở byte 8-9 (little-endian)
+    else if (buf[0] === 0x47 && buf[1] === 0x49) {
+      width = buf.readUInt16LE(6);
+      height = buf.readUInt16LE(8);
+    }
+
+    return { width, height, size: stat.size };
+  } catch {
+    return { width: 800, height: 600, size: 0 };
+  }
+}
 import { proxyService } from "./proxy";
 import { getCookiesDir, saveImage, removeImage, saveFileFromUrl, removeFile } from "./helpers";
 
@@ -109,6 +140,7 @@ function loadCookies(ownId: string): any | null {
 export async function loginWithQR(proxyUrl?: string): Promise<LoginResult> {
   try {
     const zalo = new Zalo({
+      imageMetadataGetter,
       ...(proxyUrl ? { agent: new HttpsProxyAgent(proxyUrl) } : {}),
     });
 
@@ -190,6 +222,7 @@ export async function loginWithCookies(ownId: string, proxyUrl?: string): Promis
     if (!credentials) return { ok: false, error: `Không tìm thấy cookies cho ${ownId}` };
 
     const zalo = new Zalo({
+      imageMetadataGetter,
       ...(proxyUrl ? { agent: new HttpsProxyAgent(proxyUrl) } : {}),
     });
 

@@ -29,10 +29,10 @@ const schema = z
       .min(1, "Tin nhắn không được trống")
       .max(2000)
       .optional(),
-    imageUrl: z.string().url("URL hình ảnh không hợp lệ").optional(),
-    fileUrl: z.string().url("URL file không hợp lệ").optional(),
-    videoUrl: z.string().url("URL video không hợp lệ").optional(),
-    thumbnailUrl: z.string().url().optional(), // thumbnail cho video (tùy chọn)
+    imageUrl: z.string().min(1, "URL hình ảnh không hợp lệ").optional(),
+    fileUrl: z.string().min(1, "URL file không hợp lệ").optional(),
+    videoUrl: z.string().min(1, "URL video không hợp lệ").optional(),
+    thumbnailUrl: z.string().min(1).optional(), // thumbnail cho video (tùy chọn)
     durationMs: z.number().int().positive().optional(), // thời lượng video (ms)
     threadType: z.union([z.literal(0), z.literal(1)]).optional(), // 0 = user (mặc định), 1 = group
     targetUserId: z.string().optional(), // ID của NguoiDung sở hữu tài khoản Zalo (để lấy bot config riêng)
@@ -67,30 +67,43 @@ async function logSentMessage(
   }
 }
 
+/** Lấy base URL của app (từ DB hoặc env) */
+async function getAppBaseUrl(): Promise<string> {
+  try {
+    const row = await prisma.caiDat.findFirst({ where: { khoa: "app_local_url" } });
+    if (row?.giaTri?.trim()) return row.giaTri.trim().replace(/\/$/, "");
+  } catch { /* ignore */ }
+  return process.env.NEXTAUTH_URL?.replace(/\/$/, "") || "http://localhost:3000";
+}
+
 /**
- * Thay localhost/127.0.0.1 trong URL bằng IP LAN (từ app_local_url)
- * để bot server bên ngoài có thể truy cập được MinIO/file URL.
+ * Chuyển relative URL (/uploads/..., /api/files/...) thành absolute URL.
+ * Sau đó thay localhost bằng IP LAN để bot server bên ngoài truy cập được.
  */
 async function resolveLocalUrl(url: string): Promise<string> {
   if (!url) return url;
+
+  // Relative path → absolute
+  if (url.startsWith("/")) {
+    const base = await getAppBaseUrl();
+    url = `${base}${url}`;
+  }
+
   try {
     const parsed = new URL(url);
     if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
-      const row = await prisma.caiDat.findFirst({
-        where: { khoa: "app_local_url" },
-      });
-      const localUrl = row?.giaTri?.trim();
-      if (localUrl) {
-        const localParsed = new URL(localUrl);
-        parsed.hostname = localParsed.hostname;
-        // Giữ nguyên port của URL gốc (MinIO port khác app port)
-        return parsed.toString();
-      }
+      const base = await getAppBaseUrl();
+      try {
+        const baseParsed = new URL(base);
+        if (baseParsed.hostname !== "localhost" && baseParsed.hostname !== "127.0.0.1") {
+          parsed.hostname = baseParsed.hostname;
+        }
+      } catch { /* ignore */ }
     }
+    return parsed.toString();
   } catch {
-    /* giữ nguyên URL nếu parse lỗi */
+    return url;
   }
-  return url;
 }
 
 async function inferThreadType(
