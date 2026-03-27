@@ -605,18 +605,20 @@ export async function sendFile(
 
   try {
     if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+      console.log(`[ZaloDirect] sendFile: tải file từ ${fileUrl.slice(0, 120)}...`);
       localPath = await saveFileFromUrl(fileUrl);
-      if (!localPath) return { ok: false, error: "Không tải được file" };
+      if (!localPath) return { ok: false, error: `Không tải được file từ URL: ${fileUrl.slice(0, 100)}` };
     } else {
       localPath = fileUrl;
     }
 
     // Kiểm tra file tồn tại và có dữ liệu
-    if (!fs.existsSync(localPath)) return { ok: false, error: "File không tồn tại" };
+    if (!fs.existsSync(localPath)) return { ok: false, error: `File không tồn tại: ${localPath}` };
     const stat = fs.statSync(localPath);
     if (stat.size === 0) return { ok: false, error: "File rỗng (0 bytes)" };
 
-    console.log(`[ZaloDirect] sendFile: ${localPath} (${stat.size} bytes) → ${threadId}`);
+    const ext = path.extname(localPath).toLowerCase();
+    console.log(`[ZaloDirect] sendFile: ${localPath} (${stat.size} bytes, ext=${ext}) → ${threadId}`);
 
     const msgPayload = { msg: caption || "", attachments: [localPath], ttl };
 
@@ -631,9 +633,10 @@ export async function sendFile(
 
     try {
       await sendWithTimeout(api);
+      console.log(`[ZaloDirect] sendFile thành công: ${ext} → ${threadId}`);
       return { ok: true };
     } catch (err: any) {
-      console.error("[ZaloDirect] sendFile lần 1 lỗi:", err.message);
+      console.error(`[ZaloDirect] sendFile lần 1 lỗi (ext=${ext}):`, err.message, err.stack?.slice(0, 300));
       if (isSessionError(err)) {
         api = await trySessionRelogin(accountSelection);
         if (api) {
@@ -645,8 +648,8 @@ export async function sendFile(
       throw err;
     }
   } catch (err: any) {
-    console.error("[ZaloDirect] sendFile error:", err);
-    return { ok: false, error: err.message || "Lỗi gửi file" };
+    console.error("[ZaloDirect] sendFile error:", err.message, err.stack?.slice(0, 300));
+    return { ok: false, error: `Lỗi gửi file: ${err.message}` };
   } finally {
     if (localPath && fileUrl.startsWith("http")) removeFile(localPath);
   }
