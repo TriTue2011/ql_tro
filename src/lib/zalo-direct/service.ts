@@ -335,15 +335,17 @@ async function handleRelogin(ownId: string): Promise<void> {
   const account = store.accounts.find((a) => a.ownId === ownId);
   if (!account) return;
 
-  account.loggedIn = false;
+  // KHÔNG set loggedIn = false ngay — giữ trạng thái "đang kết nối" trong khi retry
+  // Chỉ đánh dấu offline nếu tất cả retry thất bại
 
   // Retry 3 lần với delay tăng dần
   for (let attempt = 1; attempt <= 3; attempt++) {
-    await new Promise((r) => setTimeout(r, attempt * 5000));
+    await new Promise((r) => setTimeout(r, attempt * 3000));
 
     // Nếu cookies đã bị xóa (session hết hạn), dừng retry
     if (!fs.existsSync(cookiePath(ownId))) {
       console.warn(`[ZaloDirect] Cookies đã bị xóa cho ${ownId}, cần đăng nhập lại bằng QR`);
+      account.loggedIn = false;
       return;
     }
 
@@ -355,9 +357,13 @@ async function handleRelogin(ownId: string): Promise<void> {
     console.warn(`[ZaloDirect] Relogin attempt ${attempt} thất bại cho ${ownId}: ${result.error}`);
 
     // Nếu lỗi session hết hạn, không cần retry nữa
-    if (result.error?.includes("QR") || result.error?.includes("hết hạn")) return;
+    if (result.error?.includes("QR") || result.error?.includes("hết hạn")) {
+      account.loggedIn = false;
+      return;
+    }
   }
   console.error(`[ZaloDirect] Relogin thất bại cho ${ownId} sau 3 lần thử`);
+  account.loggedIn = false;
 }
 
 /**
