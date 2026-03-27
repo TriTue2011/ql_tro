@@ -15,14 +15,32 @@ function ensureTempDir() {
   }
 }
 
-/** Tải ảnh từ URL, lưu tạm, trả về đường dẫn local */
+/** Tải ảnh từ URL, lưu tạm, trả về đường dẫn local (giữ nguyên extension gốc) */
 export async function saveImage(url: string): Promise<string | null> {
   try {
     ensureTempDir();
-    const imgPath = path.join(TEMP_DIR, `img_${Date.now()}.png`);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const buf = Buffer.from(await res.arrayBuffer());
+
+    // Xác định extension từ URL hoặc content-type
+    let ext = ".png";
+    try {
+      const pathname = new URL(url, "http://x").pathname;
+      const urlExt = path.extname(pathname).toLowerCase();
+      if ([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"].includes(urlExt)) {
+        ext = urlExt;
+      }
+    } catch { /* ignore */ }
+    // Fallback: detect từ magic bytes
+    if (ext === ".png") {
+      if (buf[0] === 0xFF && buf[1] === 0xD8) ext = ".jpg";
+      else if (buf[0] === 0x89 && buf[1] === 0x50) ext = ".png";
+      else if (buf[0] === 0x47 && buf[1] === 0x49) ext = ".gif";
+      else if (buf[0] === 0x52 && buf[1] === 0x49) ext = ".webp"; // RIFF
+    }
+
+    const imgPath = path.join(TEMP_DIR, `img_${Date.now()}${ext}`);
     fs.writeFileSync(imgPath, buf);
     return imgPath;
   } catch (error: any) {
