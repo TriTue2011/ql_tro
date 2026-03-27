@@ -6,9 +6,6 @@
 
 import fs from "fs";
 import path from "path";
-import { Readable } from "stream";
-import { pipeline } from "stream/promises";
-
 // Thư mục tạm cho file/ảnh
 const TEMP_DIR = path.join(process.cwd(), "tmp", "zalo");
 
@@ -58,17 +55,14 @@ export async function saveFileFromUrl(url: string): Promise<string | null> {
       if (m?.[1]) filename = m[1];
     } else {
       try {
-        filename = path.basename(new URL(url).pathname) || filename;
+        const base = path.basename(new URL(url).pathname);
+        if (base && base.includes('.')) filename = base;
       } catch { /* ignore */ }
     }
 
     const tempFilePath = path.join(TEMP_DIR, `${Date.now()}-${filename}`);
-
-    if (!res.body) throw new Error("Response body is empty");
-
-    // @ts-ignore - res.body is a ReadableStream
-    const nodeStream = Readable.fromWeb(res.body as any);
-    await pipeline(nodeStream, fs.createWriteStream(tempFilePath));
+    const buf = Buffer.from(await res.arrayBuffer());
+    fs.writeFileSync(tempFilePath, buf);
 
     return tempFilePath;
   } catch (error: any) {
