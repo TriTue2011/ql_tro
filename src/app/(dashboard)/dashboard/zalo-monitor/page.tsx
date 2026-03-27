@@ -6,7 +6,7 @@ import { useRealtimeEvents } from '@/hooks/use-realtime';
 import {
   Copy, Trash2, Users, User, RefreshCw, Wifi, WifiOff,
   MessageSquare, Building2, DoorOpen, ChevronLeft, Bot,
-  Send, Paperclip, Image as ImageIcon, X, FileText, Film, Loader2,
+  Send, Paperclip, Image as ImageIcon, X, FileText, Film, Loader2, HardDrive,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -265,6 +265,55 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
 
 // ─── ChatInput ──────────────────────────────────────────────────────────────
 
+interface MinioFile { name: string; size: number; url: string; }
+
+function MinioPickerModal({ onPick, onClose }: { onPick: (url: string, name: string) => void; onClose: () => void }) {
+  const [files, setFiles] = useState<MinioFile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [prefix, setPrefix] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/minio/files?prefix=${encodeURIComponent(prefix)}&limit=50`)
+      .then(r => r.json())
+      .then(d => setFiles(d.files ?? []))
+      .catch(() => toast.error('Lỗi tải danh sách MinIO'))
+      .finally(() => setLoading(false));
+  }, [prefix]);
+
+  const isImage = (n: string) => /\.(jpg|jpeg|png|gif|webp|bmp|avif)$/i.test(n);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-[480px] max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <h3 className="text-sm font-semibold">Chọn file từ MinIO</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="px-4 py-2 border-b">
+          <input
+            type="text" placeholder="Tìm theo prefix..." value={prefix}
+            onChange={e => setPrefix(e.target.value)}
+            className="w-full text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {loading && <div className="text-center py-8 text-gray-400 text-sm">Đang tải...</div>}
+          {!loading && files.length === 0 && <div className="text-center py-8 text-gray-400 text-sm">Không có file</div>}
+          {files.map(f => (
+            <button key={f.name} onClick={() => onPick(f.url, f.name.split('/').pop() || f.name)}
+              className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition text-left">
+              {isImage(f.name) ? <ImageIcon className="h-4 w-4 text-green-500 shrink-0" /> : <FileText className="h-4 w-4 text-blue-500 shrink-0" />}
+              <span className="text-xs truncate flex-1">{f.name}</span>
+              <span className="text-[10px] text-gray-400 shrink-0">{(f.size / 1024).toFixed(0)}KB</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ChatInput({ chatId, threadType, onSent }: {
   chatId: string;
   threadType: 0 | 1;
@@ -273,6 +322,8 @@ function ChatInput({ chatId, threadType, onSent }: {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [attachment, setAttachment] = useState<{ file: File; preview?: string; type: 'image' | 'file' } | null>(null);
+  const [minioUrl, setMinioUrl] = useState<{ url: string; name: string } | null>(null);
+  const [showMinioPicker, setShowMinioPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -292,18 +343,20 @@ function ChatInput({ chatId, threadType, onSent }: {
   const removeAttachment = () => {
     if (attachment?.preview) URL.revokeObjectURL(attachment.preview);
     setAttachment(null);
+    setMinioUrl(null);
   };
 
-  const uploadFile = async (file: File): Promise<string | null> => {
+  const uploadFile = async (file: File, fileType: 'image' | 'file'): Promise<string | null> => {
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('type', 'file');
+      formData.append('type', fileType);
+      formData.append('folder', 'zalo-monitor');
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
-      if (data.url) return data.url;
-      toast.error(data.error || 'Upload thất bại');
+      if (data.success && data.data?.secure_url) return data.data.secure_url;
+      toast.error(data.message || data.error || 'Upload thất bại');
       return null;
     } catch {
       toast.error('Lỗi upload file');
@@ -315,15 +368,20 @@ function ChatInput({ chatId, threadType, onSent }: {
 
   const handleSend = async () => {
     const trimmed = text.trim();
-    if (!trimmed && !attachment) return;
+    if (!trimmed && !attachment && !minioUrl) return;
 
     setSending(true);
     try {
       let imageUrl: string | undefined;
       let fileUrl: string | undefined;
 
-      if (attachment) {
-        const url = await uploadFile(attachment.file);
+      // MinIO file already has URL
+      if (minioUrl) {
+        const isImg = /\.(jpg|jpeg|png|gif|webp|bmp|avif)$/i.test(minioUrl.name);
+        if (isImg) imageUrl = minioUrl.url;
+        else fileUrl = minioUrl.url;
+      } else if (attachment) {
+        const url = await uploadFile(attachment.file, attachment.type);
         if (!url) { setSending(false); return; }
         if (attachment.type === 'image') imageUrl = url;
         else fileUrl = url;
@@ -376,21 +434,36 @@ function ChatInput({ chatId, threadType, onSent }: {
   return (
     <div className="border-t bg-white shrink-0">
       {/* Attachment preview */}
-      {attachment && (
+      {(attachment || minioUrl) && (
         <div className="px-3 pt-2 flex items-center gap-2">
           <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-2.5 py-1.5 text-xs text-gray-700 max-w-[300px]">
-            {attachment.type === 'image' && attachment.preview ? (
+            {attachment?.type === 'image' && attachment.preview ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={attachment.preview} alt="" className="h-10 w-10 object-cover rounded" />
+            ) : minioUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(minioUrl.name) ? (
+              <ImageIcon className="h-4 w-4 shrink-0 text-green-500" />
             ) : (
               <FileText className="h-4 w-4 shrink-0 text-blue-500" />
             )}
-            <span className="truncate">{attachment.file.name}</span>
+            <span className="truncate">{attachment?.file.name || minioUrl?.name}</span>
+            {minioUrl && <Badge variant="outline" className="text-[9px] px-1 shrink-0">MinIO</Badge>}
             <button onClick={removeAttachment} className="shrink-0 text-gray-400 hover:text-red-500">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
+      )}
+
+      {/* MinIO picker modal */}
+      {showMinioPicker && (
+        <MinioPickerModal
+          onPick={(url, name) => {
+            setAttachment(null);
+            setMinioUrl({ url, name });
+            setShowMinioPicker(false);
+          }}
+          onClose={() => setShowMinioPicker(false)}
+        />
       )}
 
       {/* Input row */}
@@ -406,6 +479,11 @@ function ChatInput({ chatId, threadType, onSent }: {
             className="p-1.5 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition"
             title="Đính kèm file" disabled={sending}>
             <Paperclip className="h-4.5 w-4.5" />
+          </button>
+          <button onClick={() => setShowMinioPicker(true)}
+            className="p-1.5 rounded-full text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition"
+            title="Chọn từ MinIO" disabled={sending}>
+            <HardDrive className="h-4.5 w-4.5" />
           </button>
         </div>
 
@@ -423,7 +501,7 @@ function ChatInput({ chatId, threadType, onSent }: {
 
         {/* Send button */}
         <Button size="icon" onClick={handleSend}
-          disabled={sending || uploading || (!text.trim() && !attachment)}
+          disabled={sending || uploading || (!text.trim() && !attachment && !minioUrl)}
           className="h-9 w-9 rounded-full bg-blue-500 hover:bg-blue-600 shrink-0 mb-0.5">
           {sending || uploading
             ? <Loader2 className="h-4 w-4 animate-spin text-white" />

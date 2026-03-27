@@ -39,7 +39,7 @@ function validateMagicBytes(buf: Buffer): boolean {
   return false;
 }
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
 export async function POST(request: NextRequest) {
   try {
