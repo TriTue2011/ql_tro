@@ -785,9 +785,8 @@ export async function forwardMessage(
   if (!api) return { ok: false, error: "Không có tài khoản Zalo" };
 
   try {
-    for (const threadId of threadIds) {
-      await (api as any).forwardMessage?.(params, threadId, type === "group" ? 1 : 0);
-    }
+    // zca-js: forwardMessage(payload, threadIds[], type) — nhận array threadIds
+    await (api as any).forwardMessage?.(params, threadIds, type === "group" ? 1 : 0);
     return { ok: true };
   } catch (err: any) {
     return { ok: false, error: err.message };
@@ -795,7 +794,7 @@ export async function forwardMessage(
 }
 
 export async function undoMessage(
-  payload: { msgId: string },
+  payload: { msgId: string; cliMsgId?: string },
   threadId: string,
   type = 0,
   accountSelection?: string,
@@ -836,7 +835,12 @@ export async function deleteMessage(
   if (!api) return { ok: false, error: "Không có tài khoản Zalo" };
 
   try {
-    await (api as any).deleteMessage?.(dest, onlyMe);
+    // zca-js: deleteMessage({ threadId, type, data: { cliMsgId, msgId, uidFrom } }, onlyMe)
+    await (api as any).deleteMessage?.({
+      threadId: dest.threadId,
+      type: dest.type === "group" ? 1 : 0,
+      data: { cliMsgId: dest.cliMsgId, msgId: dest.msgId, uidFrom: dest.uidFrom },
+    }, onlyMe);
     return { ok: true };
   } catch (err: any) {
     return { ok: false, error: err.message };
@@ -902,7 +906,8 @@ export async function sendFriendRequest(
   if (!api) return { ok: false, error: "Không có tài khoản Zalo" };
 
   try {
-    await api.sendFriendRequest(userId, message);
+    // zca-js: sendFriendRequest(msg, userId) — msg trước, userId sau
+    await api.sendFriendRequest(message, userId);
     return { ok: true };
   } catch (err: any) {
     return { ok: false, error: err.message };
@@ -966,7 +971,8 @@ export async function changeFriendAlias(
   if (!api) return { ok: false, error: "Không có tài khoản Zalo" };
 
   try {
-    await (api as any).changeFriendAlias?.(friendId, alias);
+    // zca-js: changeFriendAlias(alias, friendId) — alias trước, friendId sau
+    await (api as any).changeFriendAlias?.(alias, friendId);
     return { ok: true };
   } catch (err: any) {
     return { ok: false, error: err.message };
@@ -1019,8 +1025,8 @@ export async function getGroupInfo(groupId: string | string[], accountSelection?
   if (!api) return { ok: false, error: "Không có tài khoản Zalo" };
 
   try {
-    const ids = Array.isArray(groupId) ? groupId : [groupId];
-    const data = await api.getGroupInfo(ids[0]); // zca-js takes single id
+    // zca-js: getGroupInfo(groupId: string | string[]) — nhận cả string lẫn array
+    const data = await api.getGroupInfo(groupId);
     return { ok: true, data };
   } catch (err: any) {
     return { ok: false, error: err.message };
