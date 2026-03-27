@@ -78,33 +78,60 @@ function getMediaUrl(msg: ZaloMsg): string | null {
   return null;
 }
 
-/** Trích xuất tên file từ rawPayload */
+/** Trích xuất tên file từ rawPayload hoặc URL */
 function getFileName(msg: ZaloMsg): string | null {
   const raw = (msg.rawPayload as any)?.data;
-  if (!raw) return null;
-  const c = raw.content;
-  if (typeof c === 'object' && c) {
-    return c.title || c.fileName || null;
+  if (raw) {
+    const c = raw.content;
+    if (typeof c === 'object' && c) {
+      return c.title || c.fileName || null;
+    }
+  }
+  // Fallback: extract filename from attachmentUrl
+  const url = msg.attachmentUrl;
+  if (url) {
+    try {
+      const pathname = new URL(url, 'http://x').pathname;
+      const name = pathname.split('/').pop();
+      if (name && name.includes('.')) {
+        // Remove timestamp prefix (e.g., "1711234567890-abc123.txt" → "abc123.txt")
+        return name.replace(/^\d{13,}-[a-f0-9]+-/, '').replace(/^\d{13,}-/, '') || name;
+      }
+    } catch { /* ignore */ }
   }
   return null;
 }
+
+const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|bmp|avif)(\?|$)/i;
+const VIDEO_EXT_RE = /\.(mp4|avi|mov|webm|mkv)(\?|$)/i;
+const FILE_EXT_RE = /\.(pdf|docx?|xlsx?|csv|txt|zip|rar|pptx?|odt|ods|7z|gz|tar)(\?|$)/i;
 
 function isImageMsg(msg: ZaloMsg): boolean {
   const mt = getMsgType(msg);
   if (mt === 'chat.photo' || mt === 'chat.sticker') return true;
   const url = getMediaUrl(msg);
-  if (url && /\.(jpe?g|png|gif|webp|bmp|avif)(\?|$)/i.test(url)) return true;
+  if (url && IMAGE_EXT_RE.test(url)) return true;
   return false;
 }
 
 function isVideoMsg(msg: ZaloMsg): boolean {
   const mt = getMsgType(msg);
-  return mt === 'chat.video.msg' || mt === 'chat.gif';
+  if (mt === 'chat.video.msg' || mt === 'chat.gif') return true;
+  const url = getMediaUrl(msg);
+  if (url && VIDEO_EXT_RE.test(url)) return true;
+  return false;
 }
 
 function isFileMsg(msg: ZaloMsg): boolean {
   const mt = getMsgType(msg);
-  return mt === 'share.file';
+  if (mt === 'share.file') return true;
+  const url = getMediaUrl(msg);
+  if (!url) return false;
+  // Explicit file extension match
+  if (FILE_EXT_RE.test(url)) return true;
+  // Has attachmentUrl but not an image or video → treat as file
+  if (msg.attachmentUrl && !IMAGE_EXT_RE.test(url) && !VIDEO_EXT_RE.test(url)) return true;
+  return false;
 }
 
 // ─── ConversationList ─────────────────────────────────────────────────────────
@@ -233,12 +260,14 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
           </a>
         )}
 
-        {/* Ảnh không phải image/video/file nhưng có attachmentUrl */}
+        {/* Đính kèm không xác định loại */}
         {!image && !video && !file && mediaUrl && (
-          <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="block mb-1">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={mediaUrl} alt="" className="rounded-lg max-h-48 max-w-full mb-1 object-contain"
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <a href={mediaUrl} target="_blank" rel="noopener noreferrer"
+            className={`flex items-center gap-2 mb-1 p-2 rounded-lg transition ${
+              isBot ? 'bg-white/60 hover:bg-white/80' : 'bg-white/20 hover:bg-white/30'
+            }`}>
+            <Paperclip className="h-4 w-4 shrink-0" />
+            <span className="text-xs truncate">{fileName || 'Đính kèm'}</span>
           </a>
         )}
 
