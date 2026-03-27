@@ -56,17 +56,40 @@ function parseEndpoint(raw: string, fallbackPort: number, fallbackSSL: boolean):
   return { endpoint: s, port: fallbackPort, useSSL: fallbackSSL };
 }
 
-/** Đọc cấu hình MinIO từ DB (CaiDat), fallback env vars. Cache 30s. */
+/** Đọc cấu hình MinIO từ DB (CaiDat), fallback CaiDatToaNha, fallback env vars. Cache 30s. */
 export async function getMinioConfig(): Promise<MinioConfig> {
   if (_dbConfig && Date.now() < _cacheExpiry) return _dbConfig;
 
   const env = getEnvConfig();
   try {
     const { default: prisma } = await import('./prisma');
-    const settings = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
-    const get = (key: string) => settings.find((s) => s.khoa === key)?.giaTri ?? '';
 
-    const endpointRaw = get('minio_endpoint');
+    // 1. Đọc từ global CaiDat
+    const settings = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
+    let get = (key: string) => settings.find((s) => s.khoa === key)?.giaTri ?? '';
+
+    let endpointRaw = get('minio_endpoint');
+
+    // 2. Nếu global không có config MinIO → thử đọc từ CaiDatToaNha (tòa nhà đầu tiên có cấu hình)
+    if (!endpointRaw) {
+      try {
+        const toaNhaConfig = await prisma.caiDatToaNha.findFirst({
+          where: { storageProvider: { in: ['minio', 'both'] }, minioEndpoint: { not: '' } },
+        });
+        if (toaNhaConfig?.minioEndpoint) {
+          // Override get function với dữ liệu từ CaiDatToaNha
+          const toaNhaMap: Record<string, string> = {
+            minio_endpoint: toaNhaConfig.minioEndpoint || '',
+            minio_access_key: toaNhaConfig.minioAccessKey || '',
+            minio_secret_key: toaNhaConfig.minioSecretKey || '',
+            minio_bucket: toaNhaConfig.minioBucket || '',
+          };
+          get = (key: string) => toaNhaMap[key] ?? '';
+          endpointRaw = toaNhaMap['minio_endpoint'];
+        }
+      } catch { /* ignore */ }
+    }
+
     const { endpoint, port, useSSL } = endpointRaw
       ? parseEndpoint(endpointRaw, env.port, env.useSSL)
       : { endpoint: env.endpoint, port: env.port, useSSL: env.useSSL };
