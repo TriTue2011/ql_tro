@@ -3100,17 +3100,17 @@ function PerAccountCards({ account, isAdmin, userRole, canEdit, buildingId }: {
           <WebhookCard account={account} />
         </div>
       )}
-      {isAdmin && openCard === "automsg" && (
+      {(isAdmin || ((userRole === "chuNha" || userRole === "quanLy") && canEdit)) && openCard === "automsg" && (
         <div className="border rounded-lg overflow-hidden">
           <AutoMessageCard account={account} buildingId={buildingId} />
         </div>
       )}
-      {isAdmin && openCard === "testsend" && (
+      {(isAdmin || ((userRole === "chuNha" || userRole === "quanLy") && canEdit)) && openCard === "testsend" && (
         <div className="border rounded-lg overflow-hidden">
           <TestSendCard account={account} />
         </div>
       )}
-      {isAdmin && openCard === "friendreq" && (
+      {(isAdmin || ((userRole === "chuNha" || userRole === "quanLy") && canEdit)) && openCard === "friendreq" && (
         <div className="border rounded-lg overflow-hidden">
           <FriendRequestCard account={account} buildingId={buildingId} />
         </div>
