@@ -210,9 +210,14 @@ export function setupListeners(
     );
   });
 
-  // zca-js v2: event "closed" (not "close") với (code, reason)
+  // "disconnected" = WS đóng nhưng zca-js có thể tự reconnect (retryOnClose)
+  api.listener.on("disconnected", (code: any, reason: any) => {
+    console.warn(`[ZaloDirect] WebSocket disconnected for ${ownId}: code=${code}, reason=${reason} (sẽ tự retry)`);
+  });
+
+  // "closed" = tất cả retry đã hết, WS thật sự đóng → cần relogin
   api.listener.on("closed", (code: any, reason: any) => {
-    console.warn(`[ZaloDirect] Connection closed for account ${ownId}: code=${code}, reason=${reason}`);
+    console.warn(`[ZaloDirect] Connection closed (all retries exhausted) for ${ownId}: code=${code}, reason=${reason}`);
     onClose?.();
   });
 
@@ -230,8 +235,8 @@ export function setupListeners(
     console.log(`[ZaloDirect] WebSocket connected for account ${ownId}`);
   });
 
-  // Bắt đầu lắng nghe
-  api.listener.start();
+  // Bắt đầu lắng nghe — retryOnClose để zca-js tự reconnect WS
+  api.listener.start({ retryOnClose: true });
   console.log(`[ZaloDirect] Listeners started for account ${ownId}`);
 }
 
