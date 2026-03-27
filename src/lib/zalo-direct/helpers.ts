@@ -15,13 +15,72 @@ function ensureTempDir() {
   }
 }
 
+/**
+ * Resolve URL thành local file path nếu file nằm trên chính server này.
+ * Tránh lỗi "fetch failed" khi server tự fetch chính nó.
+ *
+ * - /uploads/xxx → public/uploads/xxx (local storage)
+ * - http://host/uploads/xxx → public/uploads/xxx
+ * - /api/files/bucket/obj → tải trực tiếp từ MinIO
+ * - http://host/api/files/bucket/obj → tải trực tiếp từ MinIO
+ */
+function resolveLocalUploadPath(url: string): string | null {
+  try {
+    const parsed = new URL(url, "http://x");
+    if (parsed.pathname.startsWith("/uploads/")) {
+      const localPath = path.join(process.cwd(), "public", parsed.pathname);
+      if (fs.existsSync(localPath)) return localPath;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+async function resolveMinioToBuffer(url: string): Promise<Buffer | null> {
+  try {
+    const parsed = new URL(url, "http://x");
+    if (!parsed.pathname.startsWith("/api/files/")) return null;
+    const parts = parsed.pathname.replace("/api/files/", "").split("/");
+    if (parts.length < 2) return null;
+    const bucket = parts[0];
+    const objectName = decodeURIComponent(parts.slice(1).join("/"));
+    const { getMinioConfig, createMinioClient } = await import("@/lib/minio");
+    const config = await getMinioConfig();
+    const client = createMinioClient(config);
+    const chunks: Buffer[] = [];
+    const stream = await client.getObject(bucket, objectName);
+    for await (const chunk of stream) {
+      chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  } catch (err: any) {
+    console.error("[ZaloDirect] Lỗi tải từ MinIO:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Đọc dữ liệu file từ URL — ưu tiên đọc local, fallback fetch HTTP.
+ */
+async function fetchBuffer(url: string): Promise<Buffer> {
+  // 1. Local uploads → đọc trực tiếp từ disk
+  const localPath = resolveLocalUploadPath(url);
+  if (localPath) return fs.readFileSync(localPath);
+
+  // 2. MinIO → tải trực tiếp từ MinIO server (không qua HTTP API)
+  const minioBuf = await resolveMinioToBuffer(url);
+  if (minioBuf) return minioBuf;
+
+  // 3. HTTP fetch bình thường (external URLs, Cloudinary, etc.)
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 /** Tải ảnh từ URL, lưu tạm, trả về đường dẫn local (giữ nguyên extension gốc) */
 export async function saveImage(url: string): Promise<string | null> {
   try {
     ensureTempDir();
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = Buffer.from(await res.arrayBuffer());
+    const buf = await fetchBuffer(url);
 
     // Xác định extension từ URL hoặc content-type
     let ext = ".png";
@@ -62,6 +121,29 @@ export function removeImage(imgPath: string) {
 export async function saveFileFromUrl(url: string): Promise<string | null> {
   try {
     ensureTempDir();
+
+    // Thử đọc local trước, fallback fetch HTTP
+    const localPath = resolveLocalUploadPath(url);
+    if (localPath) {
+      const filename = path.basename(localPath);
+      const tempFilePath = path.join(TEMP_DIR, `${Date.now()}-${filename}`);
+      fs.copyFileSync(localPath, tempFilePath);
+      return tempFilePath;
+    }
+
+    const minioBuf = await resolveMinioToBuffer(url);
+    if (minioBuf) {
+      let filename = `file_${Date.now()}`;
+      try {
+        const base = path.basename(new URL(url, "http://x").pathname);
+        if (base && base.includes(".")) filename = base;
+      } catch { /* ignore */ }
+      const tempFilePath = path.join(TEMP_DIR, `${Date.now()}-${filename}`);
+      fs.writeFileSync(tempFilePath, minioBuf);
+      return tempFilePath;
+    }
+
+    // HTTP fetch cho external URLs
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
