@@ -38,8 +38,13 @@ export async function handleIncomingMessage(
   const displayName = raw.dName || raw.fromD || "";
   const contentRaw = raw.content || raw.msg || "";
   // content có thể là string hoặc object (attachment)
-  const content = typeof contentRaw === "string" ? contentRaw : JSON.stringify(contentRaw);
+  const content = typeof contentRaw === "string" ? contentRaw : (contentRaw?.title || contentRaw?.description || JSON.stringify(contentRaw));
   const isGroupMessage = msg?.type === 1 || (raw.idTo && raw.idTo !== ownId);
+
+  // Trích xuất attachment URL từ content object (ảnh, file, video)
+  const attachmentUrl = typeof contentRaw !== "string"
+    ? (contentRaw?.href || contentRaw?.thumb || contentRaw?.normalUrl || contentRaw?.hdUrl || contentRaw?.url || null)
+    : null;
 
   // threadId từ zca-js v2 hoặc tính toán
   const threadId = msg?.threadId || (isGroupMessage ? String(raw.idTo || chatId) : chatId);
@@ -62,7 +67,7 @@ export async function handleIncomingMessage(
         ownId,
         displayName: displayName || null,
         content,
-        attachmentUrl: null,
+        attachmentUrl: attachmentUrl || null,
         role: "user",
         eventName: "message",
         rawPayload: update as any,
