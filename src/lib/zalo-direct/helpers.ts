@@ -70,7 +70,18 @@ async function fetchBuffer(url: string): Promise<Buffer> {
   const minioBuf = await resolveMinioToBuffer(url);
   if (minioBuf) return minioBuf;
 
-  // 3. HTTP fetch bình thường (external URLs, Cloudinary, etc.)
+  // 3. Kiểm tra self-fetch trước khi HTTP fetch
+  try {
+    const parsed = new URL(url);
+    if ((parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") &&
+        (parsed.pathname.startsWith("/api/") || parsed.pathname.startsWith("/uploads/"))) {
+      throw new Error(`Không thể tải file từ chính server (${parsed.pathname}). Kiểm tra cấu hình storage.`);
+    }
+  } catch (e: any) {
+    if (e.message?.includes("Không thể tải")) throw e;
+  }
+
+  // 4. HTTP fetch bình thường (external URLs, Cloudinary, etc.)
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
@@ -142,6 +153,16 @@ export async function saveFileFromUrl(url: string): Promise<string | null> {
       fs.writeFileSync(tempFilePath, minioBuf);
       return tempFilePath;
     }
+
+    // Kiểm tra nếu URL trỏ về chính server này (self-fetch) → không thể fetch
+    try {
+      const parsed = new URL(url);
+      if ((parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") &&
+          (parsed.pathname.startsWith("/api/") || parsed.pathname.startsWith("/uploads/"))) {
+        console.error(`[ZaloDirect] saveFileFromUrl: URL trỏ về chính server (${url}) nhưng local resolve thất bại`);
+        return null;
+      }
+    } catch { /* ignore - not a valid URL, proceed with fetch */ }
 
     // HTTP fetch cho external URLs
     const res = await fetch(url);

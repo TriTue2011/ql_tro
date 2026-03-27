@@ -589,16 +589,28 @@ export async function sendFile(
     const stat = fs.statSync(localPath);
     if (stat.size === 0) return { ok: false, error: "File rỗng (0 bytes)" };
 
+    console.log(`[ZaloDirect] sendFile: ${localPath} (${stat.size} bytes) → ${threadId}`);
+
     const msgPayload = { msg: caption || "", attachments: [localPath], ttl };
 
+    // Wrap trong timeout vì zca-js file upload chờ WebSocket callback có thể treo
+    const sendWithTimeout = (apiInstance: any) =>
+      Promise.race([
+        apiInstance.sendMessage(msgPayload, threadId, type as any),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout gửi file sau 60 giây")), 60_000)
+        ),
+      ]);
+
     try {
-      await api.sendMessage(msgPayload, threadId, type as any);
+      await sendWithTimeout(api);
       return { ok: true };
     } catch (err: any) {
+      console.error("[ZaloDirect] sendFile lần 1 lỗi:", err.message);
       if (isSessionError(err)) {
         api = await trySessionRelogin(accountSelection);
         if (api) {
-          await api.sendMessage(msgPayload, threadId, type as any);
+          await sendWithTimeout(api);
           return { ok: true };
         }
         return { ok: false, error: "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại bằng QR." };
