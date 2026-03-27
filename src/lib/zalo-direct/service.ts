@@ -455,9 +455,13 @@ export async function sendFile(
       localPath = fileUrl;
     }
 
-    await api.sendMessage(
+    // Kiểm tra file tồn tại và có dữ liệu
+    const stat = fs.statSync(localPath);
+    if (stat.size === 0) return { ok: false, error: "File rỗng (0 bytes)" };
+
+    const result = await api.sendMessage(
       {
-        msg: caption,
+        msg: caption || " ",
         attachments: [localPath],
         ttl,
       },
@@ -465,8 +469,14 @@ export async function sendFile(
       type as any,
     );
 
+    // Kiểm tra attachment result
+    if (result?.attachment && result.attachment.length === 0) {
+      console.warn("[ZaloDirect] sendFile: attachment result empty, file may not have been sent");
+    }
+
     return { ok: true };
   } catch (err: any) {
+    console.error("[ZaloDirect] sendFile error:", err);
     return { ok: false, error: err.message || "Lỗi gửi file" };
   } finally {
     if (localPath && fileUrl.startsWith("http")) removeFile(localPath);

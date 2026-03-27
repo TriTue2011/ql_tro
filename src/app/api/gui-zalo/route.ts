@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { getKhachThueRepo } from "@/lib/repositories";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { sseEmit } from "@/lib/sse-emitter";
+import { emitNewMessage } from "@/lib/zalo-message-events";
 import {
   sendMessageViaBotServer,
   sendImageViaBotServer,
@@ -52,7 +54,7 @@ async function logSentMessage(
   ownId?: string,
 ) {
   try {
-    await prisma.zaloMessage.create({
+    const saved = await prisma.zaloMessage.create({
       data: {
         chatId,
         ownId: ownId || null,
@@ -62,6 +64,9 @@ async function logSentMessage(
         eventName: "send",
       },
     });
+    // Emit real-time events để Monitor/Theo dõi tin cập nhật ngay
+    emitNewMessage({ ...saved, eventName: saved.eventName ?? "send" });
+    sseEmit("zalo-message", { chatId });
   } catch (e) {
     console.error("[gui-zalo] Lỗi lưu tin nhắn gửi đi:", e);
   }
