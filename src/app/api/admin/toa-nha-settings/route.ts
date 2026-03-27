@@ -9,86 +9,125 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-  }
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
 
-  const { searchParams } = new URL(req.url);
-  const toaNhaId = searchParams.get('toaNhaId');
+    const { searchParams } = new URL(req.url);
+    const toaNhaId = searchParams.get('toaNhaId');
 
-  if (!toaNhaId) {
-    // Trả về danh sách tòa nhà cho dropdown (chỉ cần id + tên)
-    const buildings = await prisma.toaNha.findMany({
-      select: { id: true, tenToaNha: true },
-      orderBy: { tenToaNha: 'asc' },
+    if (!toaNhaId) {
+      // Trả về danh sách tòa nhà cho dropdown (chỉ cần id + tên)
+      const buildings = await prisma.toaNha.findMany({
+        select: { id: true, tenToaNha: true },
+        orderBy: { tenToaNha: 'asc' },
+      });
+      return NextResponse.json({ success: true, data: buildings });
+    }
+
+    const settings = await prisma.caiDatToaNha.findUnique({
+      where: { toaNhaId },
     });
-    return NextResponse.json({ success: true, data: buildings });
+
+    // Fallback về global CaiDat khi: (1) chưa có record, hoặc (2) storageProvider rỗng
+    if (!settings || !settings.storageProvider) {
+      const globals = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
+      const g = (k: string) => globals.find(s => s.khoa === k)?.giaTri ?? null;
+      const merged = {
+        ...(settings ?? {}),
+        storageProvider: g('storage_provider') ?? 'local',
+        minioEndpoint: settings?.minioEndpoint ?? g('minio_endpoint'),
+        minioAccessKey: settings?.minioAccessKey ?? g('minio_access_key'),
+        minioSecretKey: settings?.minioSecretKey ?? g('minio_secret_key'),
+        minioBucket: settings?.minioBucket ?? g('minio_bucket'),
+        cloudinaryCloudName: settings?.cloudinaryCloudName ?? g('cloudinary_cloud_name'),
+        cloudinaryApiKey: settings?.cloudinaryApiKey ?? g('cloudinary_api_key'),
+        cloudinaryApiSecret: settings?.cloudinaryApiSecret ?? g('cloudinary_api_secret'),
+        cloudinaryPreset: settings?.cloudinaryPreset ?? g('cloudinary_upload_preset'),
+        uploadMaxSizeMb: settings?.uploadMaxSizeMb ?? Number(g('upload_max_size_mb') ?? 10),
+      };
+      return NextResponse.json({ success: true, data: merged });
+    }
+
+    return NextResponse.json({ success: true, data: settings });
+  } catch (error) {
+    console.error('[toa-nha-settings GET]', error);
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
-
-  const settings = await prisma.caiDatToaNha.findUnique({
-    where: { toaNhaId },
-  });
-
-  // Fallback về global CaiDat khi: (1) chưa có record, hoặc (2) storageProvider rỗng
-  if (!settings || !settings.storageProvider) {
-    const globals = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
-    const g = (k: string) => globals.find(s => s.khoa === k)?.giaTri ?? null;
-    const merged = {
-      ...(settings ?? {}),
-      storageProvider: g('storage_provider') ?? 'local',
-      minioEndpoint: settings?.minioEndpoint ?? g('minio_endpoint'),
-      minioAccessKey: settings?.minioAccessKey ?? g('minio_access_key'),
-      minioSecretKey: settings?.minioSecretKey ?? g('minio_secret_key'),
-      minioBucket: settings?.minioBucket ?? g('minio_bucket'),
-      cloudinaryCloudName: settings?.cloudinaryCloudName ?? g('cloudinary_cloud_name'),
-      cloudinaryApiKey: settings?.cloudinaryApiKey ?? g('cloudinary_api_key'),
-      cloudinaryApiSecret: settings?.cloudinaryApiSecret ?? g('cloudinary_api_secret'),
-      cloudinaryPreset: settings?.cloudinaryPreset ?? g('cloudinary_upload_preset'),
-      uploadMaxSizeMb: settings?.uploadMaxSizeMb ?? Number(g('upload_max_size_mb') ?? 10),
-    };
-    return NextResponse.json({ success: true, data: merged });
-  }
-
-  return NextResponse.json({ success: true, data: settings });
 }
 
 export async function PUT(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { toaNhaId, ...rest } = body;
+
+    if (!toaNhaId) {
+      return NextResponse.json({ error: 'toaNhaId required' }, { status: 400 });
+    }
+
+    // Kiểm tra tòa nhà tồn tại
+    const toaNha = await prisma.toaNha.findUnique({ where: { id: toaNhaId } });
+    if (!toaNha) {
+      return NextResponse.json({ error: 'Tòa nhà không tồn tại' }, { status: 404 });
+    }
+
+    const allowed = [
+      'haUrl', 'haToken', 'haWebhookUrl', 'haAllowedThreads',
+      'storageProvider', 'minioEndpoint', 'minioAccessKey', 'minioSecretKey', 'minioBucket',
+      'cloudinaryCloudName', 'cloudinaryApiKey', 'cloudinaryApiSecret', 'cloudinaryPreset',
+      'uploadMaxSizeMb',
+    ];
+
+    const data: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (key in rest) data[key] = rest[key];
+    }
+
+    // Đảm bảo uploadMaxSizeMb là số hợp lệ
+    if ('uploadMaxSizeMb' in data) {
+      const n = Number(data.uploadMaxSizeMb);
+      data.uploadMaxSizeMb = isNaN(n) ? 10 : n;
+    }
+
+    const settings = await prisma.caiDatToaNha.upsert({
+      where: { toaNhaId },
+      update: data,
+      create: { toaNhaId, ...data },
+    });
+
+    // Đồng bộ cài đặt lưu trữ lên global CaiDat để getMinioConfig() hoạt động
+    const storageKeys: Record<string, string> = {
+      storageProvider: 'storage_provider',
+      minioEndpoint: 'minio_endpoint',
+      minioAccessKey: 'minio_access_key',
+      minioSecretKey: 'minio_secret_key',
+      minioBucket: 'minio_bucket',
+      cloudinaryCloudName: 'cloudinary_cloud_name',
+      cloudinaryApiKey: 'cloudinary_api_key',
+      cloudinaryApiSecret: 'cloudinary_api_secret',
+      cloudinaryPreset: 'cloudinary_upload_preset',
+      uploadMaxSizeMb: 'upload_max_size_mb',
+    };
+    for (const [camelKey, snakeKey] of Object.entries(storageKeys)) {
+      if (camelKey in data && data[camelKey] !== undefined) {
+        await prisma.caiDat.upsert({
+          where: { khoa: snakeKey },
+          update: { giaTri: String(data[camelKey] ?? '') },
+          create: { khoa: snakeKey, giaTri: String(data[camelKey] ?? ''), nhom: 'luuTru', moTa: snakeKey, laBiMat: snakeKey.includes('secret') || snakeKey.includes('password') },
+        });
+      }
+    }
+
+    return NextResponse.json({ success: true, data: settings });
+  } catch (error) {
+    console.error('[toa-nha-settings PUT]', error);
+    return NextResponse.json({ error: 'Lỗi server khi lưu cài đặt' }, { status: 500 });
   }
-
-  const body = await req.json();
-  const { toaNhaId, ...rest } = body;
-
-  if (!toaNhaId) {
-    return NextResponse.json({ error: 'toaNhaId required' }, { status: 400 });
-  }
-
-  // Kiểm tra tòa nhà tồn tại
-  const toaNha = await prisma.toaNha.findUnique({ where: { id: toaNhaId } });
-  if (!toaNha) {
-    return NextResponse.json({ error: 'Tòa nhà không tồn tại' }, { status: 404 });
-  }
-
-  const allowed = [
-    'haUrl', 'haToken', 'haWebhookUrl', 'haAllowedThreads',
-    'storageProvider', 'minioEndpoint', 'minioAccessKey', 'minioSecretKey', 'minioBucket',
-    'cloudinaryCloudName', 'cloudinaryApiKey', 'cloudinaryApiSecret', 'cloudinaryPreset',
-    'uploadMaxSizeMb',
-  ];
-
-  const data: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (key in rest) data[key] = rest[key];
-  }
-
-  const settings = await prisma.caiDatToaNha.upsert({
-    where: { toaNhaId },
-    update: data,
-    create: { toaNhaId, ...data },
-  });
-
-  return NextResponse.json({ success: true, data: settings });
 }
