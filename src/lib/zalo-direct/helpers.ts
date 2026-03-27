@@ -37,21 +37,44 @@ function resolveLocalUploadPath(url: string): string | null {
 
 async function resolveMinioToBuffer(url: string): Promise<Buffer | null> {
   try {
-    const parsed = new URL(url, "http://x");
-    if (!parsed.pathname.startsWith("/api/files/")) return null;
-    const parts = parsed.pathname.replace("/api/files/", "").split("/");
-    if (parts.length < 2) return null;
-    const bucket = parts[0];
-    const objectName = decodeURIComponent(parts.slice(1).join("/"));
     const { getMinioConfig, createMinioClient } = await import("@/lib/minio");
     const config = await getMinioConfig();
     const client = createMinioClient(config);
-    const chunks: Buffer[] = [];
-    const stream = await client.getObject(bucket, objectName);
-    for await (const chunk of stream) {
-      chunks.push(Buffer.from(chunk));
+
+    const parsed = new URL(url, "http://x");
+
+    // Case 1: Internal API path /api/files/bucket/objectName
+    if (parsed.pathname.startsWith("/api/files/")) {
+      const parts = parsed.pathname.replace("/api/files/", "").split("/");
+      if (parts.length < 2) return null;
+      const bucket = parts[0];
+      const objectName = decodeURIComponent(parts.slice(1).join("/"));
+      const chunks: Buffer[] = [];
+      const stream = await client.getObject(bucket, objectName);
+      for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+      return Buffer.concat(chunks);
     }
-    return Buffer.concat(chunks);
+
+    // Case 2: Presigned MinIO URL (http://minio-host:port/bucket/obj?X-Amz-...)
+    // Nhận dạng bằng cách so sánh hostname/port với MinIO config
+    const minioHost = config.endpoint.replace(/^https?:\/\//, "");
+    if (
+      (parsed.hostname === minioHost || parsed.host === `${minioHost}:${config.port}`) &&
+      parsed.searchParams.has("X-Amz-Credential")
+    ) {
+      // Trích xuất bucket/objectName từ pathname: /bucket/folder/file.pdf
+      const pathParts = parsed.pathname.replace(/^\//, "").split("/");
+      if (pathParts.length < 2) return null;
+      const bucket = pathParts[0];
+      const objectName = decodeURIComponent(pathParts.slice(1).join("/"));
+      console.log(`[ZaloDirect] Tải presigned MinIO: bucket=${bucket}, obj=${objectName}`);
+      const chunks: Buffer[] = [];
+      const stream = await client.getObject(bucket, objectName);
+      for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+      return Buffer.concat(chunks);
+    }
+
+    return null;
   } catch (err: any) {
     console.error("[ZaloDirect] Lỗi tải từ MinIO:", err.message);
     return null;
