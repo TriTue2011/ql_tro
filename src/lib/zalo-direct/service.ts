@@ -14,33 +14,63 @@ import type { ImageMetadataGetterResponse } from "zca-js";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { setupListeners } from "./events";
 
-/** Đọc metadata ảnh (width, height, size) từ file path — cần cho zca-js khi gửi ảnh */
+/**
+ * Đọc metadata ảnh (width, height, size) từ file path — cần cho zca-js khi gửi ảnh.
+ * Port từ bot server loginZaloAccount → getImageMetadata.
+ */
 async function imageMetadataGetter(filePath: string): Promise<ImageMetadataGetterResponse> {
   try {
-    const stat = fs.statSync(filePath);
-    // Thử đọc kích thước ảnh từ header bytes
-    const buf = Buffer.alloc(24);
+    // Nếu là URL, trả về mặc định
+    if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+      return { width: 1280, height: 720, size: 300000 };
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return { width: 1280, height: 720, size: 300000 };
+    }
+
+    const stats = fs.statSync(filePath);
+
+    // Thử dùng image-size nếu có
+    try {
+      const { imageSize } = await import("image-size");
+      const dimensions = imageSize(fs.readFileSync(filePath));
+      if (dimensions.width && dimensions.height) {
+        return { width: dimensions.width, height: dimensions.height, size: stats.size };
+      }
+    } catch { /* fallback */ }
+
+    // Fallback: đọc header file
+    const buffer = Buffer.alloc(24);
     const fd = fs.openSync(filePath, "r");
-    fs.readSync(fd, buf, 0, 24, 0);
+    fs.readSync(fd, buffer, 0, 24, 0);
     fs.closeSync(fd);
 
-    let width = 800, height = 600;
-
-    // PNG: width ở byte 16-19, height ở byte 20-23
-    if (buf[0] === 0x89 && buf[1] === 0x50) {
-      width = buf.readUInt32BE(16);
-      height = buf.readUInt32BE(20);
+    // JPEG: tìm SOF marker
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
+      const fileData = fs.readFileSync(filePath);
+      let pos = 2;
+      while (pos < fileData.length) {
+        if (fileData[pos] !== 0xFF) { pos++; continue; }
+        if (fileData[pos + 1] >= 0xC0 && fileData[pos + 1] <= 0xCF && fileData[pos + 1] !== 0xC4 && fileData[pos + 1] !== 0xC8) {
+          const h = (fileData[pos + 5] << 8) + fileData[pos + 6];
+          const w = (fileData[pos + 7] << 8) + fileData[pos + 8];
+          return { width: w, height: h, size: stats.size };
+        }
+        pos += 2 + (fileData[pos + 2] << 8) + fileData[pos + 3];
+      }
     }
-    // JPEG: không dễ đọc từ header, dùng giá trị mặc định
-    // GIF: width ở byte 6-7, height ở byte 8-9 (little-endian)
-    else if (buf[0] === 0x47 && buf[1] === 0x49) {
-      width = buf.readUInt16LE(6);
-      height = buf.readUInt16LE(8);
+
+    // PNG
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+      const width = (buffer[16] << 24) + (buffer[17] << 16) + (buffer[18] << 8) + buffer[19];
+      const height = (buffer[20] << 24) + (buffer[21] << 16) + (buffer[22] << 8) + buffer[23];
+      return { width, height, size: stats.size };
     }
 
-    return { width, height, size: stat.size };
+    return { width: 1280, height: 720, size: stats.size };
   } catch {
-    return { width: 800, height: 600, size: 0 };
+    return { width: 1280, height: 720, size: 300000 };
   }
 }
 import { proxyService } from "./proxy";
@@ -456,23 +486,19 @@ export async function sendFile(
     }
 
     // Kiểm tra file tồn tại và có dữ liệu
+    if (!fs.existsSync(localPath)) return { ok: false, error: "File không tồn tại" };
     const stat = fs.statSync(localPath);
     if (stat.size === 0) return { ok: false, error: "File rỗng (0 bytes)" };
 
     const result = await api.sendMessage(
       {
-        msg: caption || " ",
+        msg: caption || "",
         attachments: [localPath],
         ttl,
       },
       threadId,
       type as any,
     );
-
-    // Kiểm tra attachment result
-    if (result?.attachment && result.attachment.length === 0) {
-      console.warn("[ZaloDirect] sendFile: attachment result empty, file may not have been sent");
-    }
 
     return { ok: true };
   } catch (err: any) {
