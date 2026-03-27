@@ -289,6 +289,20 @@ export async function loginWithCookies(ownId: string, proxyUrl?: string): Promis
     return { ok: true, ownId: resolvedOwnId };
   } catch (err: any) {
     console.error(`[ZaloDirect] loginWithCookies error for ${ownId}:`, err);
+
+    // Nếu lỗi zpw_sek / phiên hết hạn → xóa cookies hỏng
+    const errMsg = (err.message || "").toLowerCase();
+    if (errMsg.includes("zpw_sek") || errMsg.includes("zpw_enk") || errMsg.includes("missing required")) {
+      try {
+        const p = cookiePath(ownId);
+        if (fs.existsSync(p)) {
+          fs.unlinkSync(p);
+          console.warn(`[ZaloDirect] Đã xóa cookies hết hạn cho ${ownId}`);
+        }
+      } catch { /* ignore */ }
+      return { ok: false, error: `Phiên đăng nhập hết hạn cho ${ownId}. Cần đăng nhập lại bằng QR.` };
+    }
+
     return { ok: false, error: err.message || "Lỗi đăng nhập cookies" };
   }
 }
@@ -307,12 +321,22 @@ async function handleRelogin(ownId: string): Promise<void> {
   // Retry 3 lần với delay tăng dần
   for (let attempt = 1; attempt <= 3; attempt++) {
     await new Promise((r) => setTimeout(r, attempt * 5000));
+
+    // Nếu cookies đã bị xóa (session hết hạn), dừng retry
+    if (!fs.existsSync(cookiePath(ownId))) {
+      console.warn(`[ZaloDirect] Cookies đã bị xóa cho ${ownId}, cần đăng nhập lại bằng QR`);
+      return;
+    }
+
     const result = await loginWithCookies(ownId, account.proxy);
     if (result.ok) {
       console.log(`[ZaloDirect] Relogin thành công cho ${ownId} (attempt ${attempt})`);
       return;
     }
     console.warn(`[ZaloDirect] Relogin attempt ${attempt} thất bại cho ${ownId}: ${result.error}`);
+
+    // Nếu lỗi session hết hạn, không cần retry nữa
+    if (result.error?.includes("QR") || result.error?.includes("hết hạn")) return;
   }
   console.error(`[ZaloDirect] Relogin thất bại cho ${ownId} sau 3 lần thử`);
 }
@@ -400,6 +424,42 @@ export async function logoutAccount(ownId: string): Promise<OkResult> {
   return { ok: true };
 }
 
+// ─── Session error detection + auto-relogin ─────────────────────────────────
+
+/** Kiểm tra lỗi liên quan đến phiên đăng nhập hết hạn */
+function isSessionError(err: any): boolean {
+  const msg = (err?.message || String(err)).toLowerCase();
+  return msg.includes("zpw_sek") || msg.includes("zpw_enk")
+    || msg.includes("not logged in") || msg.includes("session")
+    || msg.includes("phiên") || msg.includes("đăng nhập thất bại");
+}
+
+/**
+ * Thử relogin tài khoản khi phát hiện session hết hạn.
+ * Trả về api mới nếu relogin thành công, null nếu thất bại.
+ */
+async function trySessionRelogin(accountSelection?: string): Promise<ZcaAPI | null> {
+  const acc = findAccount(accountSelection);
+  if (!acc) return null;
+
+  console.warn(`[ZaloDirect] Session hết hạn cho ${acc.ownId}, thử đăng nhập lại...`);
+  const result = await loginWithCookies(acc.ownId, acc.proxy);
+  if (result.ok) {
+    console.log(`[ZaloDirect] Relogin thành công cho ${acc.ownId}`);
+    return getApi(accountSelection);
+  }
+
+  // Cookies hỏng → xóa file cookies và đánh dấu logout
+  console.error(`[ZaloDirect] Relogin thất bại cho ${acc.ownId}: ${result.error}`);
+  acc.loggedIn = false;
+  try {
+    const p = cookiePath(acc.ownId);
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+    console.warn(`[ZaloDirect] Đã xóa cookies hết hạn cho ${acc.ownId}`);
+  } catch { /* ignore */ }
+  return null;
+}
+
 // ─── Messaging ───────────────────────────────────────────────────────────────
 
 export async function sendMessage(
@@ -410,7 +470,7 @@ export async function sendMessage(
   quote: any = null,
   accountSelection?: string,
 ): Promise<OkResult> {
-  const api = getApi(accountSelection);
+  let api = getApi(accountSelection);
   if (!api) return { ok: false, error: "Không có tài khoản Zalo nào đang đăng nhập" };
 
   try {
@@ -419,6 +479,21 @@ export async function sendMessage(
     await api.sendMessage(message, threadId, type as any);
     return { ok: true };
   } catch (err: any) {
+    // Session hết hạn → thử relogin 1 lần
+    if (isSessionError(err)) {
+      api = await trySessionRelogin(accountSelection);
+      if (api) {
+        try {
+          const message: any = { msg, ttl };
+          if (quote) message.quote = quote;
+          await api.sendMessage(message, threadId, type as any);
+          return { ok: true };
+        } catch (retryErr: any) {
+          return { ok: false, error: retryErr.message || "Lỗi gửi tin nhắn sau relogin" };
+        }
+      }
+      return { ok: false, error: "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại bằng QR." };
+    }
     return { ok: false, error: err.message || "Lỗi gửi tin nhắn" };
   }
 }
@@ -431,7 +506,7 @@ export async function sendImage(
   ttl = 0,
   accountSelection?: string,
 ): Promise<OkResult> {
-  const api = getApi(accountSelection);
+  let api = getApi(accountSelection);
   if (!api) return { ok: false, error: "Không có tài khoản Zalo" };
 
   let localPath: string | null = null;
@@ -446,17 +521,22 @@ export async function sendImage(
       localPath = imagePathOrUrl;
     }
 
-    await api.sendMessage(
-      {
-        msg: caption,
-        attachments: [localPath],
-        ttl,
-      },
-      threadId,
-      type as any,
-    );
+    const msgPayload = { msg: caption, attachments: [localPath], ttl };
 
-    return { ok: true };
+    try {
+      await api.sendMessage(msgPayload, threadId, type as any);
+      return { ok: true };
+    } catch (err: any) {
+      if (isSessionError(err)) {
+        api = await trySessionRelogin(accountSelection);
+        if (api) {
+          await api.sendMessage(msgPayload, threadId, type as any);
+          return { ok: true };
+        }
+        return { ok: false, error: "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại bằng QR." };
+      }
+      throw err;
+    }
   } catch (err: any) {
     return { ok: false, error: err.message || "Lỗi gửi ảnh" };
   } finally {
@@ -472,7 +552,7 @@ export async function sendFile(
   ttl = 0,
   accountSelection?: string,
 ): Promise<OkResult> {
-  const api = getApi(accountSelection);
+  let api = getApi(accountSelection);
   if (!api) return { ok: false, error: "Không có tài khoản Zalo" };
 
   let localPath: string | null = null;
@@ -490,17 +570,22 @@ export async function sendFile(
     const stat = fs.statSync(localPath);
     if (stat.size === 0) return { ok: false, error: "File rỗng (0 bytes)" };
 
-    const result = await api.sendMessage(
-      {
-        msg: caption || "",
-        attachments: [localPath],
-        ttl,
-      },
-      threadId,
-      type as any,
-    );
+    const msgPayload = { msg: caption || "", attachments: [localPath], ttl };
 
-    return { ok: true };
+    try {
+      await api.sendMessage(msgPayload, threadId, type as any);
+      return { ok: true };
+    } catch (err: any) {
+      if (isSessionError(err)) {
+        api = await trySessionRelogin(accountSelection);
+        if (api) {
+          await api.sendMessage(msgPayload, threadId, type as any);
+          return { ok: true };
+        }
+        return { ok: false, error: "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại bằng QR." };
+      }
+      throw err;
+    }
   } catch (err: any) {
     console.error("[ZaloDirect] sendFile error:", err);
     return { ok: false, error: err.message || "Lỗi gửi file" };
