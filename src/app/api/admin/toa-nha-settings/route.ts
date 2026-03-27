@@ -31,24 +31,25 @@ export async function GET(req: NextRequest) {
       where: { toaNhaId },
     });
 
-    // Fallback về global CaiDat khi: (1) chưa có record, hoặc (2) storageProvider rỗng
-    if (!settings || !settings.storageProvider) {
+    // Fallback về global CaiDat khi chưa có record cho tòa nhà này
+    if (!settings) {
       const globals = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
-      const g = (k: string) => globals.find(s => s.khoa === k)?.giaTri ?? null;
-      const merged = {
-        ...(settings ?? {}),
-        storageProvider: g('storage_provider') ?? 'local',
-        minioEndpoint: settings?.minioEndpoint ?? g('minio_endpoint'),
-        minioAccessKey: settings?.minioAccessKey ?? g('minio_access_key'),
-        minioSecretKey: settings?.minioSecretKey ?? g('minio_secret_key'),
-        minioBucket: settings?.minioBucket ?? g('minio_bucket'),
-        cloudinaryCloudName: settings?.cloudinaryCloudName ?? g('cloudinary_cloud_name'),
-        cloudinaryApiKey: settings?.cloudinaryApiKey ?? g('cloudinary_api_key'),
-        cloudinaryApiSecret: settings?.cloudinaryApiSecret ?? g('cloudinary_api_secret'),
-        cloudinaryPreset: settings?.cloudinaryPreset ?? g('cloudinary_upload_preset'),
-        uploadMaxSizeMb: settings?.uploadMaxSizeMb ?? Number(g('upload_max_size_mb') ?? 10),
-      };
-      return NextResponse.json({ success: true, data: merged });
+      const g = (k: string) => globals.find(s => s.khoa === k)?.giaTri ?? '';
+      return NextResponse.json({
+        success: true,
+        data: {
+          storageProvider: g('storage_provider') || 'local',
+          minioEndpoint: g('minio_endpoint'),
+          minioAccessKey: g('minio_access_key'),
+          minioSecretKey: g('minio_secret_key'),
+          minioBucket: g('minio_bucket'),
+          cloudinaryCloudName: g('cloudinary_cloud_name'),
+          cloudinaryApiKey: g('cloudinary_api_key'),
+          cloudinaryApiSecret: g('cloudinary_api_secret'),
+          cloudinaryPreset: g('cloudinary_upload_preset'),
+          uploadMaxSizeMb: Number(g('upload_max_size_mb')) || 10,
+        },
+      });
     }
 
     return NextResponse.json({ success: true, data: settings });
@@ -78,28 +79,25 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Tòa nhà không tồn tại' }, { status: 404 });
     }
 
-    const allowed = [
+    // Xây dựng data object rõ ràng kiểu cho Prisma (tránh Record<string, unknown>)
+    const updateData: any = {};
+    const strFields = [
       'haUrl', 'haToken', 'haWebhookUrl', 'haAllowedThreads',
       'storageProvider', 'minioEndpoint', 'minioAccessKey', 'minioSecretKey', 'minioBucket',
       'cloudinaryCloudName', 'cloudinaryApiKey', 'cloudinaryApiSecret', 'cloudinaryPreset',
-      'uploadMaxSizeMb',
     ];
-
-    const data: Record<string, unknown> = {};
-    for (const key of allowed) {
-      if (key in rest) data[key] = rest[key];
+    for (const key of strFields) {
+      if (key in rest) updateData[key] = String(rest[key] ?? '');
     }
-
-    // Đảm bảo uploadMaxSizeMb là số hợp lệ
-    if ('uploadMaxSizeMb' in data) {
-      const n = Number(data.uploadMaxSizeMb);
-      data.uploadMaxSizeMb = isNaN(n) ? 10 : n;
+    if ('uploadMaxSizeMb' in rest) {
+      const n = Number(rest.uploadMaxSizeMb);
+      updateData.uploadMaxSizeMb = isNaN(n) ? 10 : Math.floor(n);
     }
 
     const settings = await prisma.caiDatToaNha.upsert({
       where: { toaNhaId },
-      update: data,
-      create: { toaNhaId, ...data },
+      update: updateData,
+      create: { toaNhaId, ...updateData },
     });
 
     // Đồng bộ cài đặt lưu trữ lên global CaiDat để getMinioConfig() hoạt động
@@ -116,18 +114,32 @@ export async function PUT(req: NextRequest) {
       uploadMaxSizeMb: 'upload_max_size_mb',
     };
     for (const [camelKey, snakeKey] of Object.entries(storageKeys)) {
-      if (camelKey in data && data[camelKey] !== undefined) {
-        await prisma.caiDat.upsert({
-          where: { khoa: snakeKey },
-          update: { giaTri: String(data[camelKey] ?? '') },
-          create: { khoa: snakeKey, giaTri: String(data[camelKey] ?? ''), nhom: 'luuTru', moTa: snakeKey, laBiMat: snakeKey.includes('secret') || snakeKey.includes('password') },
-        });
+      if (camelKey in updateData) {
+        try {
+          await prisma.caiDat.upsert({
+            where: { khoa: snakeKey },
+            update: { giaTri: String(updateData[camelKey] ?? '') },
+            create: {
+              khoa: snakeKey,
+              giaTri: String(updateData[camelKey] ?? ''),
+              nhom: 'luuTru',
+              moTa: snakeKey,
+              laBiMat: snakeKey.includes('secret') || snakeKey.includes('password'),
+            },
+          });
+        } catch (syncErr) {
+          console.warn(`[toa-nha-settings] Lỗi đồng bộ ${snakeKey}:`, syncErr);
+        }
       }
     }
 
     return NextResponse.json({ success: true, data: settings });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[toa-nha-settings PUT]', error);
-    return NextResponse.json({ error: 'Lỗi server khi lưu cài đặt' }, { status: 500 });
+    const detail = error?.message || error?.code || 'Unknown';
+    return NextResponse.json(
+      { error: `Lỗi server khi lưu cài đặt: ${detail}` },
+      { status: 500 },
+    );
   }
 }

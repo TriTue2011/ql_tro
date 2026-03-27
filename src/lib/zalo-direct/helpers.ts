@@ -37,14 +37,13 @@ function resolveLocalUploadPath(url: string): string | null {
 
 async function resolveMinioToBuffer(url: string): Promise<Buffer | null> {
   try {
-    const { getMinioConfig, createMinioClient } = await import("@/lib/minio");
-    const config = await getMinioConfig();
-    const client = createMinioClient(config);
-
     const parsed = new URL(url, "http://x");
 
     // Case 1: Internal API path /api/files/bucket/objectName
     if (parsed.pathname.startsWith("/api/files/")) {
+      const { getMinioConfig, createMinioClient } = await import("@/lib/minio");
+      const config = await getMinioConfig();
+      const client = createMinioClient(config);
       const parts = parsed.pathname.replace("/api/files/", "").split("/");
       if (parts.length < 2) return null;
       const bucket = parts[0];
@@ -55,24 +54,62 @@ async function resolveMinioToBuffer(url: string): Promise<Buffer | null> {
       return Buffer.concat(chunks);
     }
 
-    // Case 2: Presigned MinIO URL (http://minio-host:port/bucket/obj?X-Amz-...)
-    // Nhận dạng bằng cách so sánh hostname/port với MinIO config
-    const minioHost = config.endpoint.replace(/^https?:\/\//, "");
-    if (
-      (parsed.hostname === minioHost || parsed.host === `${minioHost}:${config.port}`) &&
-      parsed.searchParams.has("X-Amz-Credential")
-    ) {
-      // Trích xuất bucket/objectName từ pathname: /bucket/folder/file.pdf
-      const pathParts = parsed.pathname.replace(/^\//, "").split("/");
-      if (pathParts.length < 2) return null;
-      const bucket = pathParts[0];
-      const objectName = decodeURIComponent(pathParts.slice(1).join("/"));
-      console.log(`[ZaloDirect] Tải presigned MinIO: bucket=${bucket}, obj=${objectName}`);
-      const chunks: Buffer[] = [];
-      const stream = await client.getObject(bucket, objectName);
-      for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-      return Buffer.concat(chunks);
+    // Case 2: Presigned MinIO URL (http://host:port/bucket/obj?X-Amz-Credential=...)
+    // Presigned URLs tự xác thực — tải trực tiếp qua HTTP, không cần MinIO client
+    if (parsed.searchParams.has("X-Amz-Credential")) {
+      console.log(`[ZaloDirect] Tải presigned URL trực tiếp: ${parsed.pathname}`);
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+        if (res.ok) {
+          return Buffer.from(await res.arrayBuffer());
+        }
+        console.error(`[ZaloDirect] Presigned URL HTTP ${res.status}, thử MinIO client...`);
+      } catch (fetchErr: any) {
+        console.error(`[ZaloDirect] Presigned URL fetch lỗi: ${fetchErr.message}, thử MinIO client...`);
+      }
+
+      // Fallback: dùng MinIO client nếu HTTP fetch thất bại
+      try {
+        const { getMinioConfig, createMinioClient } = await import("@/lib/minio");
+        const config = await getMinioConfig();
+        const client = createMinioClient(config);
+        const pathParts = parsed.pathname.replace(/^\//, "").split("/");
+        if (pathParts.length >= 2) {
+          const bucket = pathParts[0];
+          const objectName = decodeURIComponent(pathParts.slice(1).join("/"));
+          console.log(`[ZaloDirect] MinIO client fallback: bucket=${bucket}, obj=${objectName}`);
+          const chunks: Buffer[] = [];
+          const stream = await client.getObject(bucket, objectName);
+          for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+          return Buffer.concat(chunks);
+        }
+      } catch (clientErr: any) {
+        console.error(`[ZaloDirect] MinIO client fallback lỗi: ${clientErr.message}`);
+      }
+      return null;
     }
+
+    // Case 3: MinIO URL không presigned — dùng MinIO client trực tiếp
+    try {
+      const { getMinioConfig, createMinioClient } = await import("@/lib/minio");
+      const config = await getMinioConfig();
+      const minioHost = config.endpoint.replace(/^https?:\/\//, "");
+      if (
+        parsed.hostname === minioHost ||
+        parsed.host === `${minioHost}:${config.port}`
+      ) {
+        const client = createMinioClient(config);
+        const pathParts = parsed.pathname.replace(/^\//, "").split("/");
+        if (pathParts.length >= 2) {
+          const bucket = pathParts[0];
+          const objectName = decodeURIComponent(pathParts.slice(1).join("/"));
+          const chunks: Buffer[] = [];
+          const stream = await client.getObject(bucket, objectName);
+          for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+          return Buffer.concat(chunks);
+        }
+      }
+    } catch { /* not a MinIO URL */ }
 
     return null;
   } catch (err: any) {
@@ -105,7 +142,7 @@ async function fetchBuffer(url: string): Promise<Buffer> {
   }
 
   // 4. HTTP fetch bình thường (external URLs, Cloudinary, etc.)
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
 }
@@ -188,7 +225,8 @@ export async function saveFileFromUrl(url: string): Promise<string | null> {
     } catch { /* ignore - not a valid URL, proceed with fetch */ }
 
     // HTTP fetch cho external URLs
-    const res = await fetch(url);
+    console.log(`[ZaloDirect] saveFileFromUrl: HTTP fetch ${url.slice(0, 100)}`);
+    const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     // Lấy filename từ header hoặc URL
