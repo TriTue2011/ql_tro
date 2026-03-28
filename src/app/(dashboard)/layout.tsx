@@ -476,12 +476,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if (!session) router.push('/dang-nhap');
   }, [session, status, router]);
 
-  // Heartbeat: cập nhật hoạt động cuối mỗi 30 giây
+  // Heartbeat: cập nhật hoạt động cuối mỗi 15 giây
   useEffect(() => {
     if (!session) return;
     const ping = () => fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
     ping(); // Gửi ngay khi mount
-    const interval = setInterval(ping, 30 * 1000);
+    const interval = setInterval(ping, 15 * 1000);
     return () => clearInterval(interval);
   }, [session]);
 

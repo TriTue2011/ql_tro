@@ -1,12 +1,14 @@
 /**
  * POST /api/heartbeat — Cập nhật thời gian hoạt động cuối của user
- * Client gọi định kỳ (mỗi 30 giây) để xác định user đang online trên web.
+ * Client gọi định kỳ (mỗi 15 giây) để xác định user đang online trên web.
+ * Emit SSE event để các client khác nhận biết tức thời.
  */
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { sseEmit } from "@/lib/sse-emitter";
 
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -22,6 +24,13 @@ export async function POST() {
       where: { id: session.user.id },
       data: { hoatDongCuoi: new Date() },
     }).catch(() => {});
+
+    // Emit SSE để trang Zalo cập nhật tức thì
+    sseEmit("user-status", {
+      action: "online",
+      userId: session.user.id,
+      userName: session.user.name,
+    });
   }
 
   return NextResponse.json({ ok: true });

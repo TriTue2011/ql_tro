@@ -3360,7 +3360,7 @@ function PersonRow({
   const isWebOnline = (() => {
     if (!account.hoatDongCuoi) return false;
     const lastActive = new Date(account.hoatDongCuoi).getTime();
-    return Date.now() - lastActive < 90 * 1000;
+    return Date.now() - lastActive < 45 * 1000; // 45s (3 heartbeats @ 15s)
   })();
 
   // Non-admin xem tài khoản người khác: chỉ hiển thị trạng thái kết nối (không mở rộng)
@@ -3710,7 +3710,12 @@ export default function ZaloSettingsPage() {
 
   useEffect(() => { loadBuildings(); loadOnlineIds(); }, [loadBuildings, loadOnlineIds]);
 
-  // Auto-refresh trạng thái mỗi 30 giây (real-time online/offline + Zalo status)
+  // SSE: cập nhật tức thì khi user online/offline
+  useRealtimeEvents(["user-status"], () => {
+    loadBuildings();
+  });
+
+  // Auto-refresh trạng thái mỗi 30 giây (backup cho Zalo status)
   useEffect(() => {
     const interval = setInterval(() => {
       loadBuildings();
