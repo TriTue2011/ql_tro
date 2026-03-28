@@ -1,8 +1,8 @@
 /**
  * SSE Emitter singleton — broadcast real-time events tới tất cả client đang kết nối.
  *
- * Hoạt động trong cùng 1 Node.js process (phù hợp với self-hosted Next.js).
- * Khi dùng serverless/edge, cần thay bằng Pusher/Ably.
+ * Dùng globalThis để đảm bảo chỉ có 1 instance duy nhất,
+ * tránh lỗi Next.js module bundling tạo nhiều instance.
  */
 
 const encoder = new TextEncoder();
@@ -12,13 +12,28 @@ type SSEClient = {
   keepAliveTimer: ReturnType<typeof setInterval>;
 };
 
-// Map clientId → SSEClient
-const clients = new Map<string, SSEClient>();
+// ─── Singleton via globalThis (giống cách Prisma xử lý) ──────────────────────
+
+const GLOBAL_KEY = '__sseEmitterClients__' as const;
+
+const globalForSSE = globalThis as unknown as {
+  [GLOBAL_KEY]?: Map<string, SSEClient>;
+};
+
+function getClients(): Map<string, SSEClient> {
+  if (!globalForSSE[GLOBAL_KEY]) {
+    globalForSSE[GLOBAL_KEY] = new Map();
+  }
+  return globalForSSE[GLOBAL_KEY];
+}
+
+// ─── Public API ──────────────────────────────────────────────────────────────
 
 export function sseAddClient(
   id: string,
   ctrl: ReadableStreamDefaultController<Uint8Array>
 ) {
+  const clients = getClients();
   const keepAliveTimer = setInterval(() => {
     try {
       ctrl.enqueue(encoder.encode(': keepalive\n\n'));
@@ -30,6 +45,7 @@ export function sseAddClient(
 }
 
 export function sseRemoveClient(id: string) {
+  const clients = getClients();
   const client = clients.get(id);
   if (client) {
     clearInterval(client.keepAliveTimer);
@@ -46,6 +62,7 @@ export function sseEmit(
   eventType: string,
   data: Record<string, unknown> = {}
 ) {
+  const clients = getClients();
   console.log(`[SSE] emit "${eventType}" → ${clients.size} client(s)`, JSON.stringify(data));
   if (clients.size === 0) return;
   const payload = encoder.encode(
@@ -61,5 +78,5 @@ export function sseEmit(
 }
 
 export function sseClientCount() {
-  return clients.size;
+  return getClients().size;
 }
