@@ -607,13 +607,13 @@ export async function sendFile(
   if (!api) return { ok: false, error: "Không có tài khoản Zalo" };
 
   let localPath: string | null = null;
+  const needsDownload =
+    fileUrl.startsWith("http://") ||
+    fileUrl.startsWith("https://") ||
+    fileUrl.startsWith("/api/files/") ||
+    fileUrl.startsWith("/uploads/");
 
   try {
-    const needsDownload =
-      fileUrl.startsWith("http://") ||
-      fileUrl.startsWith("https://") ||
-      fileUrl.startsWith("/api/files/") ||
-      fileUrl.startsWith("/uploads/");
     if (needsDownload) {
       console.log(`[ZaloDirect] sendFile: tải file từ ${fileUrl.slice(0, 120)}...`);
       localPath = await saveFileFromUrl(fileUrl);
