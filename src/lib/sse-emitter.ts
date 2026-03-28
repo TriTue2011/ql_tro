@@ -46,6 +46,7 @@ export function sseEmit(
   eventType: string,
   data: Record<string, unknown> = {}
 ) {
+  console.log(`[SSE] emit "${eventType}" → ${clients.size} client(s)`, JSON.stringify(data));
   if (clients.size === 0) return;
   const payload = encoder.encode(
     `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`

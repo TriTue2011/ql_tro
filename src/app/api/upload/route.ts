@@ -39,6 +39,18 @@ function validateMagicBytes(buf: Buffer): boolean {
   return false;
 }
 
+/** Làm sạch tên file: bỏ ký tự đặc biệt, giữ tên gốc đọc được */
+function sanitizeFilename(name: string): string {
+  // Lấy tên file (bỏ path)
+  const base = name.split(/[/\\]/).pop() || name;
+  // Thay ký tự không an toàn bằng dấu gạch ngang, giữ tiếng Việt + unicode
+  return base
+    .replace(/[<>:"|?*\x00-\x1f]/g, '-')  // ký tự không hợp lệ trong filename
+    .replace(/\s+/g, '_')                   // space → underscore
+    .replace(/-{2,}/g, '-')                 // nhiều dấu - liên tiếp
+    .slice(0, 200);                          // giới hạn độ dài
+}
+
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
 export async function POST(request: NextRequest) {
@@ -166,7 +178,7 @@ async function getProvider(): Promise<string> {
 
 async function uploadBufferToLocal(buffer: Buffer, originalName: string, folder?: string) {
   const { writeFile, mkdir } = await import('fs/promises');
-  const { join, extname } = await import('path');
+  const { join, extname, basename } = await import('path');
   const { randomBytes } = await import('crypto');
 
   const uploadDir = folder
@@ -175,8 +187,9 @@ async function uploadBufferToLocal(buffer: Buffer, originalName: string, folder?
 
   await mkdir(uploadDir, { recursive: true });
 
-  const ext = extname(originalName) || '.jpg';
-  const filename = `${Date.now()}-${randomBytes(8).toString('hex')}${ext}`;
+  // Giữ tên gốc, thêm prefix timestamp để tránh trùng
+  const safeName = sanitizeFilename(originalName);
+  const filename = `${Date.now()}-${safeName}`;
   const filePath = join(uploadDir, filename);
 
   await writeFile(filePath, buffer);
@@ -187,15 +200,14 @@ async function uploadBufferToLocal(buffer: Buffer, originalName: string, folder?
 
 async function uploadBufferToMinio(buffer: Buffer, originalName: string, mimeType: string, folder?: string) {
   const { getMinioConfig, createMinioClient, ensureBucketExists } = await import('@/lib/minio');
-  const { randomBytes } = await import('crypto');
-  const { extname } = await import('path');
 
   const config = await getMinioConfig();
   const client = createMinioClient(config);
   await ensureBucketExists(client, config.bucket);
 
-  const ext = extname(originalName) || '.jpg';
-  const filename = `${Date.now()}-${randomBytes(8).toString('hex')}${ext}`;
+  // Giữ tên gốc, thêm prefix timestamp để tránh trùng
+  const safeName = sanitizeFilename(originalName);
+  const filename = `${Date.now()}-${safeName}`;
   const objectName = folder ? `${folder}/${filename}` : filename;
 
   await client.putObject(config.bucket, objectName, buffer, buffer.length, { 'Content-Type': mimeType });
