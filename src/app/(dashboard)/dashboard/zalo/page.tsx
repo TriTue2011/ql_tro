@@ -707,15 +707,20 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           )}
           {state && (
             <div className="flex items-center gap-2 flex-wrap">
-              {matchedAccount?.loggedIn || (!matchedAccount && isActive && state.directStatus.loggedInCount > 0) ? (
+              {matchedAccount?.loggedIn ? (
                 <>
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                   <span className="text-xs font-medium text-green-700">Đang kết nối</span>
                 </>
-              ) : (
+              ) : matchedAccount && !matchedAccount.loggedIn ? (
                 <>
                   <XCircle className="h-4 w-4 text-red-500" />
                   <span className="text-xs font-medium text-red-700">Mất kết nối</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-4 w-4 text-amber-500" />
+                  <span className="text-xs font-medium text-amber-700">Chưa liên kết tài khoản Zalo</span>
                 </>
               )}
               <Button size="sm" variant="outline" onClick={() => runHealthCheck()} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
@@ -739,32 +744,26 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           )}
         </div>
 
-        {/* Thông tin tài khoản kết nối */}
-        {(() => {
-          // Ưu tiên matchedAccount, fallback TK đầu tiên đang online
-          const displayAccount = matchedAccount
-            || uniqueAccounts.find((a) => a.loggedIn);
-          if (!displayAccount) return null;
-          return (
-            <div className="border-t pt-3 space-y-2">
-              <div className="flex items-center justify-between p-2 rounded-lg border text-xs bg-gray-50">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${displayAccount.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
-                  <div className="min-w-0">
-                    <span className="font-medium">{displayAccount.name || displayAccount.phone || displayAccount.ownId}</span>
-                    <div className="text-gray-400 font-mono text-[10px]">{displayAccount.ownId}</div>
-                  </div>
+        {/* Thông tin tài khoản — chỉ hiện khi khớp với user đang xem */}
+        {matchedAccount && (
+          <div className="border-t pt-3 space-y-2">
+            <div className="flex items-center justify-between p-2 rounded-lg border text-xs bg-gray-50">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${matchedAccount.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
+                <div className="min-w-0">
+                  <span className="font-medium">{matchedAccount.name || matchedAccount.phone || matchedAccount.ownId}</span>
+                  <div className="text-gray-400 font-mono text-[10px]">{matchedAccount.ownId}</div>
                 </div>
-                {canEdit && displayAccount._source === "direct" && (
-                  <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => handleLogout(displayAccount.ownId)}>
-                    <LogOut className="h-3 w-3 mr-1" /> Đăng xuất
-                  </Button>
-                )}
               </div>
+              {canEdit && matchedAccount._source === "direct" && (
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => handleLogout(matchedAccount.ownId)}>
+                  <LogOut className="h-3 w-3 mr-1" /> Đăng xuất
+                </Button>
+              )}
             </div>
-          );
-        })()}
+          </div>
+        )}
 
         {/* Saved cookies (auto-login khi restart) */}
         {isAdmin && state?.savedCookies && state.savedCookies.length > 0 && (
