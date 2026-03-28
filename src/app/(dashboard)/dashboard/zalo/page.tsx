@@ -85,6 +85,7 @@ interface AccountData {
   nhanThongBaoZalo: boolean;
   settings: ZaloSettings | null;
   botOnline?: boolean | null; // true=online, false=bị out, null=chưa check
+  hoatDongCuoi?: string | null; // Thời gian hoạt động cuối trên web
 }
 
 interface BuildingData {
@@ -3352,6 +3353,13 @@ function PersonRow({
   const isZaloOnline = isDirectOnline || isBotOnline;
   const zaloMode = isDirectOnline ? "Direct" : isBotOnline ? "Bot Server" : null;
 
+  // Kiểm tra web online: hoạt động trong 5 phút gần đây
+  const isWebOnline = (() => {
+    if (!account.hoatDongCuoi) return false;
+    const lastActive = new Date(account.hoatDongCuoi).getTime();
+    return Date.now() - lastActive < 5 * 60 * 1000; // 5 phút
+  })();
+
   // Non-admin xem tài khoản người khác: chỉ hiển thị trạng thái kết nối (không mở rộng)
   const isOtherAccountView = !isAdmin && !isSelf;
 
@@ -3372,13 +3380,17 @@ function PersonRow({
             <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Admin</Badge>
           )}
           <span className={`text-[9px] ml-1 ${
-            isZaloOnline ? "text-green-500" :
-            (account.zaloAccountId && !isZaloOnline) ? "text-red-500" :
-            account.pendingZaloChatId ? "text-amber-400" : "text-gray-300"
+            isSelf
+              ? (isZaloOnline ? "text-green-500" :
+                 (account.zaloAccountId && !isZaloOnline) ? "text-red-500" :
+                 account.pendingZaloChatId ? "text-amber-400" : "text-gray-300")
+              : (isWebOnline ? "text-green-500" : "text-gray-300")
           }`}>
-            {isZaloOnline ? "●" :
-             (account.zaloAccountId && !isZaloOnline) ? "●" :
-             account.pendingZaloChatId ? "◐" : "○"}
+            {isSelf
+              ? (isZaloOnline ? "●" :
+                 (account.zaloAccountId && !isZaloOnline) ? "●" :
+                 account.pendingZaloChatId ? "◐" : "○")
+              : (isWebOnline ? "●" : "○")}
           </span>
           {isSelf ? (
             /* Tài khoản đang đăng nhập: hiện trạng thái Zalo */
@@ -3396,20 +3408,24 @@ function PersonRow({
               <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
             )
           ) : (
-            /* Tài khoản khác: trạng thái kết nối Zalo */
-            isZaloOnline ? (
-              <span className="text-[10px] text-green-600 font-medium">
-                Zalo {zaloMode}
+            /* Tài khoản khác: web online/offline + Zalo connection type */
+            <>
+              <span className={`text-[10px] font-medium ${isWebOnline ? "text-green-600" : "text-gray-400"}`}>
+                {isWebOnline ? "Đang online" : "Offline"}
               </span>
-            ) : account.zaloAccountId ? (
-              <span className="text-[10px] text-red-500 font-medium">
-                Mất kết nối Zalo
-              </span>
-            ) : account.pendingZaloChatId ? (
-              <span className="text-[10px] text-amber-500">Chờ xác nhận Zalo</span>
-            ) : (
-              <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
-            )
+              <span className="text-[10px] text-gray-300">·</span>
+              {isZaloOnline ? (
+                <span className="text-[10px] text-blue-500">
+                  Zalo {zaloMode}
+                </span>
+              ) : account.zaloAccountId ? (
+                <span className="text-[10px] text-red-400">
+                  Mất kết nối Zalo
+                </span>
+              ) : (
+                <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
+              )}
+            </>
           )}
         </div>
         {!isOtherAccountView && (
