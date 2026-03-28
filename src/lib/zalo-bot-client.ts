@@ -168,12 +168,11 @@ async function ac(accountSelection?: string, configOverride?: BotConfig | null):
 
 // ─── Account / Server ─────────────────────────────────────────────────────────
 
+/**
+ * Lấy danh sách tài khoản từ bot server HTTP.
+ * Luôn gọi thật tới bot server — KHÔNG trả về direct accounts.
+ */
 export async function getAccountsFromBotServer(configOverride?: BotConfig | null): Promise<{ serverUrl: string; accounts: any[]; error?: string }> {
-  // Direct mode
-  if (!configOverride && isDirectMode()) {
-    return { serverUrl: "direct", accounts: zaloDirect.getAccounts() };
-  }
-
   const config = configOverride ?? await getBotConfig();
   if (!config) return { serverUrl: "", accounts: [], error: "Chưa cấu hình zalo_bot_server_url" };
   const r = await botRequest("GET", "/api/accounts", undefined, 15_000, config);
