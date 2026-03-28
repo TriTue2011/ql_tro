@@ -39,16 +39,21 @@ function validateMagicBytes(buf: Buffer): boolean {
   return false;
 }
 
+/** Tạo prefix ngày giờ: 20260328_1530 */
+function datePrefix(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
 /** Làm sạch tên file: bỏ ký tự đặc biệt, giữ tên gốc đọc được */
 function sanitizeFilename(name: string): string {
-  // Lấy tên file (bỏ path)
   const base = name.split(/[/\\]/).pop() || name;
-  // Thay ký tự không an toàn bằng dấu gạch ngang, giữ tiếng Việt + unicode
   return base
-    .replace(/[<>:"|?*\x00-\x1f]/g, '-')  // ký tự không hợp lệ trong filename
-    .replace(/\s+/g, '_')                   // space → underscore
-    .replace(/-{2,}/g, '-')                 // nhiều dấu - liên tiếp
-    .slice(0, 200);                          // giới hạn độ dài
+    .replace(/[<>:"|?*\x00-\x1f]/g, '-')
+    .replace(/\s+/g, '_')
+    .replace(/-{2,}/g, '-')
+    .slice(0, 200);
 }
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
@@ -189,7 +194,7 @@ async function uploadBufferToLocal(buffer: Buffer, originalName: string, folder?
 
   // Giữ tên gốc, thêm prefix timestamp để tránh trùng
   const safeName = sanitizeFilename(originalName);
-  const filename = `${Date.now()}-${safeName}`;
+  const filename = `${datePrefix()}_${safeName}`;
   const filePath = join(uploadDir, filename);
 
   await writeFile(filePath, buffer);
@@ -207,7 +212,7 @@ async function uploadBufferToMinio(buffer: Buffer, originalName: string, mimeTyp
 
   // Giữ tên gốc, thêm prefix timestamp để tránh trùng
   const safeName = sanitizeFilename(originalName);
-  const filename = `${Date.now()}-${safeName}`;
+  const filename = `${datePrefix()}_${safeName}`;
   const objectName = folder ? `${folder}/${filename}` : filename;
 
   await client.putObject(config.bucket, objectName, buffer, buffer.length, { 'Content-Type': mimeType });
