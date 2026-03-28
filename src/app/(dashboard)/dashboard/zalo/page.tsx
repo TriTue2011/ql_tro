@@ -3777,7 +3777,7 @@ export default function ZaloSettingsPage() {
                 isAdmin={isAdmin}
                 userRole={userRole}
                 sessionUserId={sessionUserId}
-                defaultOpen={i === 0}
+                defaultOpen={false}
                 onRefresh={loadBuildings}
                 onlineOwnIds={onlineOwnIds}
                 zaloStatus={zaloStatus}
