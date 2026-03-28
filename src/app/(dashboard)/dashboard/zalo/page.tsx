@@ -707,16 +707,32 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           )}
           {state && (
             <div className="flex items-center gap-2 flex-wrap">
-              {matchedAccount?.loggedIn ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <span className="text-xs font-medium text-green-700">Đang kết nối</span>
-                </>
+              {matchedAccount ? (
+                /* Có tài khoản khớp → check theo tài khoản đó */
+                matchedAccount.loggedIn ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span className="text-xs font-medium text-green-700">Đang kết nối</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-4 w-4 text-red-500" />
+                    <span className="text-xs font-medium text-red-700">Mất kết nối</span>
+                  </>
+                )
               ) : (
-                <>
-                  <XCircle className="h-4 w-4 text-red-500" />
-                  <span className="text-xs font-medium text-red-700">Mất kết nối</span>
-                </>
+                /* Chưa match được → fallback check tổng direct */
+                isActive && state.directStatus.loggedInCount > 0 ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span className="text-xs font-medium text-green-700">Đang kết nối</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-4 w-4 text-red-500" />
+                    <span className="text-xs font-medium text-red-700">Mất kết nối</span>
+                  </>
+                )
               )}
               <Button size="sm" variant="outline" onClick={() => runHealthCheck()} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
                 {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Kiểm tra thật"}
@@ -761,7 +777,7 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
         )}
 
         {/* Saved cookies (auto-login khi restart) */}
-        {canEdit && state?.savedCookies && state.savedCookies.length > 0 && (
+        {isAdmin && state?.savedCookies && state.savedCookies.length > 0 && (
           <div className="text-[11px] bg-amber-50 border border-amber-200 rounded p-2 space-y-1">
             <p className="font-medium text-amber-800">Cookies đã lưu (sẽ auto-login khi restart):</p>
             {state.savedCookies.map((id) => {
