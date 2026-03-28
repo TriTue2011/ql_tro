@@ -367,8 +367,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const mediaUrl = fixedVideoUrl || fixedFileUrl || fixedImageUrl;
-    await logSentMessage(chatId!, message || "", mediaUrl, accountSelection);
+    const logMediaUrl = fixedVideoUrl || fixedFileUrl || fixedImageUrl;
+    await logSentMessage(chatId!, message || "", logMediaUrl, accountSelection);
 
     const mediaLabel = fixedVideoUrl ? "video" : fixedFileUrl ? "file" : fixedImageUrl ? "hình ảnh" : "tin nhắn";
     return NextResponse.json({ success: true, message: `Đã gửi ${mediaLabel} Zalo thành công` });
