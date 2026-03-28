@@ -628,7 +628,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-xs md:text-sm font-medium">Lần đăng nhập cuối</p>
                     <p className="text-xs md:text-sm text-gray-600">
-                      {profile?.ngayCapNhat ? new Date(profile.ngayCapNhat).toLocaleDateString('vi-VN') : 'N/A'}
+                      {profile?.hoatDongCuoi ? new Date(profile.hoatDongCuoi).toLocaleString('vi-VN') : profile?.ngayCapNhat ? new Date(profile.ngayCapNhat).toLocaleDateString('vi-VN') : 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -795,7 +795,7 @@ export default function ProfilePage() {
                   <Key className="h-4 w-4 text-gray-500 shrink-0" />
                   <div>
                     <p className="text-xs font-medium text-gray-700">Đăng nhập cuối</p>
-                    <p className="text-xs text-gray-500">{profile?.ngayCapNhat ? new Date(profile.ngayCapNhat).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
+                    <p className="text-xs text-gray-500">{profile?.hoatDongCuoi ? new Date(profile.hoatDongCuoi).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : profile?.ngayCapNhat ? new Date(profile.ngayCapNhat).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
                   </div>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
 import { getNguoiDungRepo } from '@/lib/repositories';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/sanitize';
@@ -27,12 +28,14 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const repo = await getNguoiDungRepo();
-    const user = await repo.findByEmail(session.user.email);
+    // Tìm bằng ID (đáng tin cậy hơn email vì nhiều TK chỉ có SĐT)
+    const user = await prisma.nguoiDung.findUnique({
+      where: { id: session.user.id },
+    });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -47,10 +50,11 @@ export async function GET() {
       anhDaiDien: user.anhDaiDien,
       trangThai: user.trangThai,
       zaloChatId: user.zaloChatId ?? null,
-      zaloChatIds: (user as any).zaloChatIds ?? null,
+      zaloChatIds: user.zaloChatIds ?? null,
       pendingZaloChatId: user.pendingZaloChatId ?? null,
       ngayTao: user.ngayTao?.toISOString(),
       ngayCapNhat: user.ngayCapNhat?.toISOString(),
+      hoatDongCuoi: user.hoatDongCuoi?.toISOString() ?? null,
     });
   } catch (error) {
     console.error('Error fetching user profile:', error);
