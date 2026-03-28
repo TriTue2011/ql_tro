@@ -559,7 +559,12 @@ export async function sendImage(
   let shouldCleanup = false;
 
   try {
-    if (imagePathOrUrl.startsWith("http://") || imagePathOrUrl.startsWith("https://")) {
+    const needsDownload =
+      imagePathOrUrl.startsWith("http://") ||
+      imagePathOrUrl.startsWith("https://") ||
+      imagePathOrUrl.startsWith("/api/files/") ||
+      imagePathOrUrl.startsWith("/uploads/");
+    if (needsDownload) {
       localPath = await saveImage(imagePathOrUrl);
       if (!localPath) return { ok: false, error: "Không tải được ảnh" };
       shouldCleanup = true;
@@ -604,7 +609,12 @@ export async function sendFile(
   let localPath: string | null = null;
 
   try {
-    if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+    const needsDownload =
+      fileUrl.startsWith("http://") ||
+      fileUrl.startsWith("https://") ||
+      fileUrl.startsWith("/api/files/") ||
+      fileUrl.startsWith("/uploads/");
+    if (needsDownload) {
       console.log(`[ZaloDirect] sendFile: tải file từ ${fileUrl.slice(0, 120)}...`);
       localPath = await saveFileFromUrl(fileUrl);
       if (!localPath) return { ok: false, error: `Không tải được file từ URL: ${fileUrl.slice(0, 100)}` };
@@ -651,7 +661,7 @@ export async function sendFile(
     console.error("[ZaloDirect] sendFile error:", err.message, err.stack?.slice(0, 300));
     return { ok: false, error: `Lỗi gửi file: ${err.message}` };
   } finally {
-    if (localPath && fileUrl.startsWith("http")) removeFile(localPath);
+    if (localPath && needsDownload) removeFile(localPath);
   }
 }
 

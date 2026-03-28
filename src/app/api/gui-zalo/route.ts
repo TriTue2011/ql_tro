@@ -304,9 +304,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Thay localhost trong URL bằng IP LAN để bot server (external) truy cập được
-    const fixUrl = await resolveLocalUrl(
-      imageUrl || fileUrl || videoUrl || "",
-    );
+    // Bot server cần absolute URL, nhưng direct mode xử lý /api/files/ trực tiếp qua MinIO
+    const mediaUrl = imageUrl || fileUrl || videoUrl || "";
+    const fixUrl = await resolveLocalUrl(mediaUrl);
     const fixedImageUrl = imageUrl ? fixUrl : undefined;
     const fixedFileUrl = fileUrl ? fixUrl : undefined;
     const fixedVideoUrl = videoUrl ? fixUrl : undefined;
@@ -341,15 +341,19 @@ export async function POST(request: NextRequest) {
         // Fallback to direct mode below
       }
 
-      // Direct mode (zca-js)
-      if (fixedVideoUrl) {
+      // Direct mode (zca-js) — dùng URL gốc, helpers tự xử lý /api/files/ qua MinIO client
+      const directImgUrl = imageUrl || undefined;
+      const directFileUrl = fileUrl || undefined;
+      const directVideoUrl = videoUrl || undefined;
+
+      if (directVideoUrl) {
         return directSendVideo(chatId!, {
-          videoUrl: fixedVideoUrl, thumbnailUrl, msg: message, duration: durationMs,
+          videoUrl: directVideoUrl, thumbnailUrl, msg: message, duration: durationMs,
         }, tType, accountSelection);
-      } else if (fixedFileUrl) {
-        return directSendFile(chatId!, fixedFileUrl, message, tType, 0, accountSelection);
-      } else if (fixedImageUrl) {
-        return directSendImage(chatId!, fixedImageUrl, message, tType, 0, accountSelection);
+      } else if (directFileUrl) {
+        return directSendFile(chatId!, directFileUrl, message, tType, 0, accountSelection);
+      } else if (directImgUrl) {
+        return directSendImage(chatId!, directImgUrl, message, tType, 0, accountSelection);
       } else {
         return directSendMessage(chatId!, message!, tType, 0, null, accountSelection);
       }
