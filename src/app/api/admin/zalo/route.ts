@@ -81,6 +81,7 @@ export async function GET() {
   const directOwnIdToUserId: Map<string, string> = new Map();
   try {
     const directAccounts = zaloDirect.getAccounts();
+    console.log(`[ZALO-DEBUG] directAccounts: ${directAccounts.length}, logged in: ${directAccounts.filter(a=>a.loggedIn).length}`, directAccounts.map(a => ({ ownId: a.ownId, phone: a.phone, loggedIn: a.loggedIn })));
     for (const acc of directAccounts) {
       if (acc.loggedIn && acc.ownId) {
         directAccountIds.add(acc.ownId);
@@ -116,7 +117,10 @@ export async function GET() {
         if (u.zaloAccountId) directOwnIdToUserId.set(u.zaloAccountId, u.id);
       }
     }
-  } catch { /* ignore */ }
+  } catch (err) { console.log('[ZALO-DEBUG] direct error:', err); }
+
+  console.log(`[ZALO-DEBUG] directAccountIds: [${[...directAccountIds].join(', ')}]`);
+  console.log(`[ZALO-DEBUG] directOwnIdToUserId:`, Object.fromEntries(directOwnIdToUserId));
 
   // Kiểm tra tài khoản nào đang online trên bot server + auto-fix data
   let botAccountIds: Set<string> = new Set();
@@ -190,6 +194,7 @@ export async function GET() {
   });
 
   function checkDirectOnline(account: { zaloAccountId?: string | null; soDienThoai?: string | null; id?: string; ten?: string }): boolean | null {
+    console.log(`[ZALO-CHECK] ${account.ten}: directIds.size=${directAccountIds.size}, zaloAccountId=${account.zaloAccountId}, soDienThoai=${account.soDienThoai}, id=${account.id}`);
     if (directAccountIds.size === 0) return null;
     if (!account.zaloAccountId && !account.soDienThoai) return null;
     // Match bằng zaloAccountId
