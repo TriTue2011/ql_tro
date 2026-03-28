@@ -517,6 +517,7 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [qrProxy, setQrProxy] = useState("");
   const [qrWaiting, setQrWaiting] = useState(false); // đang chờ user scan
+  const [linkedOwnId, setLinkedOwnId] = useState<string | null>(null); // ownId vừa link xong (chưa reload parent)
   const qrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevAccountCountRef = useRef(0);
 
@@ -550,9 +551,10 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
 
   useEffect(() => { reload(); }, [reload]);
 
-  // Tìm direct account khớp với user này
+  // Tìm direct account khớp với user này (bao gồm ownId vừa link xong)
   const matchedAccount = state?.directAccounts?.find(
     (a) =>
+      (linkedOwnId && a.ownId === linkedOwnId) ||
       (account?.zaloAccountId && a.ownId === account.zaloAccountId) ||
       (account?.soDienThoai && (a.ownId === account.soDienThoai || a.phone === account.soDienThoai))
   );
@@ -605,8 +607,9 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
           setQrImage(null); setQrWaiting(false);
           toast.success(`Đăng nhập thành công: ${data.name || data.ownId}`);
-          // Auto-link ownId → nguoiDung.zaloAccountId
+          // Auto-link ownId → nguoiDung.zaloAccountId + cập nhật local state ngay
           if (data.ownId && account?.id) {
+            setLinkedOwnId(data.ownId);
             postAction("linkDirectAccount", { ownId: data.ownId, targetUserId: account.id }).catch(() => {});
           }
           reload();
@@ -650,8 +653,9 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
                 setQrWaiting(false);
                 const newAcc = data.directAccounts[data.directAccounts.length - 1];
                 toast.success(`Đăng nhập direct thành công: ${newAcc?.name || newAcc?.ownId || "tài khoản mới"}`);
-                // Liên kết ownId với nguoiDung.zaloAccountId để tin nhắn hiển thị đúng
+                // Liên kết ownId với nguoiDung.zaloAccountId + cập nhật local state ngay
                 if (newAcc?.ownId && account?.id) {
+                  setLinkedOwnId(newAcc.ownId);
                   postAction("linkDirectAccount", {
                     ownId: newAcc.ownId,
                     targetUserId: account.id,
