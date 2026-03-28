@@ -185,6 +185,47 @@ export async function getAccountDetailsFromBotServer(ownId: string): Promise<Dat
   return botRequest("GET", `/api/accounts/${ownId}`);
 }
 
+/**
+ * Health check bot server — kiểm tra server có phản hồi + từng tài khoản có online không.
+ */
+export async function verifyBotServerHealth(configOverride?: BotConfig | null): Promise<{
+  serverOk: boolean;
+  serverError?: string;
+  accounts: { ownId: string; alive: boolean; name?: string; error?: string }[];
+}> {
+  const config = configOverride ?? await getBotConfig();
+  if (!config) return { serverOk: false, serverError: "Chưa cấu hình zalo_bot_server_url", accounts: [] };
+
+  // 1. Kiểm tra kết nối bot server
+  const r = await botRequest("GET", "/api/accounts", undefined, 10_000, config);
+  if (!r.ok) return { serverOk: false, serverError: r.error, accounts: [] };
+
+  const accounts = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.accounts ?? []);
+  if (!accounts.length) return { serverOk: true, accounts: [] };
+
+  // 2. Kiểm tra chi tiết từng tài khoản
+  const results: { ownId: string; alive: boolean; name?: string; error?: string }[] = [];
+  for (const acc of accounts) {
+    const id = acc.ownId || acc.id || acc.accountId || "";
+    if (!id) continue;
+    try {
+      const detail = await botRequest("GET", `/api/accounts/${id}`, undefined, 10_000, config);
+      const data = detail.data;
+      const isOnline = data?.isOnline ?? data?.isConnected ?? data?.loggedIn ?? (detail.ok && !detail.error);
+      results.push({
+        ownId: id,
+        alive: !!isOnline,
+        name: data?.name || data?.displayName || acc.name || "",
+        error: isOnline ? undefined : "Tài khoản offline trên bot server",
+      });
+    } catch (e: any) {
+      results.push({ ownId: id, alive: false, error: e.message });
+    }
+  }
+
+  return { serverOk: true, accounts: results };
+}
+
 export async function getAccountWebhooksFromBotServer(configOverride?: BotConfig | null): Promise<DataResult> {
   return botRequest("GET", "/api/account-webhooks", undefined, 15_000, configOverride);
 }

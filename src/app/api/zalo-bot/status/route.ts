@@ -1,14 +1,14 @@
 /**
  * GET /api/zalo-bot/status
+ * GET /api/zalo-bot/status?healthCheck=1  — health check thật (gọi API từng tài khoản)
  * Kiểm tra kết nối bot server, trả về danh sách tài khoản đang đăng nhập.
- * Chỉ admin / chuNha.
  */
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getAccountsFromBotServer, getBotConfig, getActiveMode } from '@/lib/zalo-bot-client';
+import { getAccountsFromBotServer, getBotConfig, getActiveMode, verifyBotServerHealth } from '@/lib/zalo-bot-client';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session || !['admin', 'chuNha', 'quanLy', 'dongChuTro', 'nhanVien'].includes(session.user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -36,6 +36,15 @@ export async function GET() {
     });
   }
 
+  const { searchParams } = new URL(request.url);
+  const doHealthCheck = searchParams.get('healthCheck') === '1';
+
+  // Health check thật: kiểm tra từng tài khoản trên bot server
+  let health: any = undefined;
+  if (doHealthCheck) {
+    health = await verifyBotServerHealth(config);
+  }
+
   const result = await getAccountsFromBotServer();
   return NextResponse.json({
     ok: !result.error,
@@ -43,5 +52,6 @@ export async function GET() {
     accounts: result.accounts,
     error: result.error,
     accountId: config.accountId,
+    health,
   });
 }
