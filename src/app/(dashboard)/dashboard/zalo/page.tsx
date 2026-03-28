@@ -375,6 +375,7 @@ interface DirectState {
   botServerUrl: string | null;
   botAccounts: any[];
   botError?: string;
+  savedCookies?: string[];
   proxies: any[];
 }
 
@@ -529,22 +530,23 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
   }, []);
 
   // Health check thật: gọi API Zalo xác nhận session còn sống
-  const runHealthCheck = useCallback(async () => {
+  // Chỉ check tài khoản của user này (trừ admin không có zaloAccountId thì check tất cả)
+  const runHealthCheck = useCallback(async (ownId?: string) => {
     setLoading(true);
     setHealthStatus(null);
     try {
+      const targetOwnId = ownId || account?.zaloAccountId || account?.soDienThoai;
       const res = await fetch("/api/admin/zalo-direct", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "healthCheck" }),
+        body: JSON.stringify({ action: "healthCheck", ...(targetOwnId ? { ownId: targetOwnId } : {}) }),
       });
       const data = await res.json();
       if (data.results) setHealthStatus(data.results);
-      // Reload state sau health check (loggedIn có thể đã thay đổi)
       await reload();
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [reload]);
+  }, [reload, account?.zaloAccountId, account?.soDienThoai]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -705,7 +707,7 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           )}
           {state && (
             <div className="flex items-center gap-2 flex-wrap">
-              {matchedAccount?.loggedIn || (isActive && state.directStatus.loggedInCount > 0) ? (
+              {matchedAccount?.loggedIn ? (
                 <>
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                   <span className="text-xs font-medium text-green-700">Đang kết nối</span>
@@ -716,7 +718,7 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
                   <span className="text-xs font-medium text-red-700">Mất kết nối</span>
                 </>
               )}
-              <Button size="sm" variant="outline" onClick={runHealthCheck} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
+              <Button size="sm" variant="outline" onClick={() => runHealthCheck()} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
                 {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Kiểm tra thật"}
               </Button>
             </div>
@@ -728,7 +730,6 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
                   {h.alive
                     ? <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
                     : <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
-                  <span className="font-mono">{h.ownId.slice(0, 12)}...</span>
                   <span className={h.alive ? "text-green-700" : "text-red-600"}>
                     {h.alive ? "OK — session hợp lệ" : h.error || "Session hết hạn"}
                   </span>
@@ -737,6 +738,51 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
             </div>
           )}
         </div>
+
+        {/* Thông tin tài khoản đang xem */}
+        {matchedAccount && (
+          <div className="border-t pt-3 space-y-2">
+            <div className="flex items-center justify-between p-2 rounded-lg border text-xs bg-gray-50">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${matchedAccount.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
+                <div className="min-w-0">
+                  <span className="font-medium">{matchedAccount.name || matchedAccount.phone || matchedAccount.ownId}</span>
+                  <div className="text-gray-400 font-mono text-[10px]">{matchedAccount.ownId}</div>
+                </div>
+              </div>
+              {canEdit && matchedAccount._source === "direct" && (
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => handleLogout(matchedAccount.ownId)}>
+                  <LogOut className="h-3 w-3 mr-1" /> Đăng xuất
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Saved cookies (auto-login khi restart) */}
+        {canEdit && state?.savedCookies && state.savedCookies.length > 0 && (
+          <div className="text-[11px] bg-amber-50 border border-amber-200 rounded p-2 space-y-1">
+            <p className="font-medium text-amber-800">Cookies đã lưu (sẽ auto-login khi restart):</p>
+            {state.savedCookies.map((id) => {
+              const isLoggedIn = uniqueAccounts.some((a) => a.ownId === id && a.loggedIn);
+              return (
+                <div key={id} className="flex items-center justify-between">
+                  <span className="font-mono">{id} {isLoggedIn ? "✓" : ""}</span>
+                  <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[10px] text-red-600"
+                    onClick={async () => {
+                      if (!confirm(`Xóa cookies cho ${id}? (Sẽ không auto-login khi restart)`)) return;
+                      const r = await postAction("deleteSavedCookies", { ownId: id });
+                      if (r.ok) { toast.success("Đã xóa cookies"); reload(); }
+                      else toast.error(r.error || "Lỗi xóa cookies");
+                    }}>
+                    Xóa cookies
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* QR Login */}
         {canEdit && (

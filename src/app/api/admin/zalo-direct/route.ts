@@ -48,6 +48,7 @@ export async function GET() {
     }
 
     const directAccounts = zaloDirect.getAccounts();
+    const savedCookies = zaloDirect.listSavedCookies();
 
     // Lấy proxies
     let proxies: any[] = [];
@@ -65,6 +66,7 @@ export async function GET() {
       botAccounts,
       botError,
       directAccounts,
+      savedCookies,
       proxies,
     });
   } catch (err: any) {
@@ -135,6 +137,13 @@ export async function POST(req: NextRequest) {
         if (!proxyUrl) return NextResponse.json({ ok: false, error: "Thiếu proxyUrl" }, { status: 400 });
         zaloDirect.removeProxy(proxyUrl);
         return NextResponse.json({ ok: true });
+      }
+
+      case "deleteSavedCookies": {
+        const { ownId } = body;
+        if (!ownId) return NextResponse.json({ ok: false, error: "Thiếu ownId" }, { status: 400 });
+        const result = zaloDirect.deleteSavedCookies(ownId);
+        return NextResponse.json({ ...result, savedCookies: zaloDirect.listSavedCookies() });
       }
 
       case "linkDirectAccount": {
