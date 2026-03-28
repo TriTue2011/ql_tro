@@ -3662,14 +3662,16 @@ export default function ZaloSettingsPage() {
     botOnline: Set<string>;
   }>({ mode: "none", directOnline: new Set(), botOnline: new Set() });
 
-  const loadBuildings = useCallback(async () => {
-    setLoading(true);
+  const initialLoadDone = useRef(false);
+  const loadBuildings = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch("/api/admin/zalo");
       const data = await res.json();
       if (data.ok) setBuildings(data.buildings);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+      initialLoadDone.current = true;
     }
   }, []);
 
@@ -3710,15 +3712,15 @@ export default function ZaloSettingsPage() {
 
   useEffect(() => { loadBuildings(); loadOnlineIds(); }, [loadBuildings, loadOnlineIds]);
 
-  // SSE: cập nhật tức thì khi user online/offline
+  // SSE: cập nhật tức thì khi user online/offline (silent = không reset UI)
   useRealtimeEvents(["user-status"], () => {
-    loadBuildings();
+    loadBuildings(true);
   });
 
-  // Auto-refresh trạng thái mỗi 30 giây (backup cho Zalo status)
+  // Auto-refresh trạng thái mỗi 30 giây (silent refresh)
   useEffect(() => {
     const interval = setInterval(() => {
-      loadBuildings();
+      loadBuildings(true);
       loadOnlineIds();
     }, 30 * 1000);
     return () => clearInterval(interval);
