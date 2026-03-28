@@ -707,32 +707,16 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           )}
           {state && (
             <div className="flex items-center gap-2 flex-wrap">
-              {matchedAccount ? (
-                /* Có tài khoản khớp → check theo tài khoản đó */
-                matchedAccount.loggedIn ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span className="text-xs font-medium text-green-700">Đang kết nối</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-4 w-4 text-red-500" />
-                    <span className="text-xs font-medium text-red-700">Mất kết nối</span>
-                  </>
-                )
+              {matchedAccount?.loggedIn ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span className="text-xs font-medium text-green-700">Đang kết nối</span>
+                </>
               ) : (
-                /* Chưa match được → fallback check tổng direct */
-                isActive && state.directStatus.loggedInCount > 0 ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span className="text-xs font-medium text-green-700">Đang kết nối</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-4 w-4 text-red-500" />
-                    <span className="text-xs font-medium text-red-700">Mất kết nối</span>
-                  </>
-                )
+                <>
+                  <XCircle className="h-4 w-4 text-red-500" />
+                  <span className="text-xs font-medium text-red-700">Mất kết nối</span>
+                </>
               )}
               <Button size="sm" variant="outline" onClick={() => runHealthCheck()} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
                 {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Kiểm tra thật"}
