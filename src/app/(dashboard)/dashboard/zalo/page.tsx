@@ -381,7 +381,7 @@ interface DirectState {
 
 // ─── Zalo Connection Overview (hiển thị trên danh sách tòa nhà) ──────────────
 
-function ZaloConnectionOverview() {
+function ZaloConnectionOverview({ buildings }: { buildings: BuildingData[] }) {
   const [state, setState] = useState<DirectState | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -405,6 +405,20 @@ function ZaloConnectionOverview() {
     })) || []),
   ];
   const uniqueAccounts = allAccounts.filter((a, i, arr) => arr.findIndex((b) => b.ownId === a.ownId) === i);
+
+  // Cross-reference ownId với buildings để tìm chủ sở hữu
+  function findOwner(ownId: string): { ten: string; vaiTro: string; toaNha: string } | null {
+    for (const b of buildings) {
+      if (b.chuTro?.zaloAccountId === ownId) {
+        return { ten: b.chuTro.ten, vaiTro: "Chủ trọ", toaNha: b.tenToaNha };
+      }
+      const ql = b.quanLys?.find((q) => q.zaloAccountId === ownId);
+      if (ql) {
+        return { ten: ql.ten, vaiTro: ql.vaiTro === "dongChuTro" ? "Đồng chủ trọ" : "Quản lý", toaNha: b.tenToaNha };
+      }
+    }
+    return null;
+  }
 
   if (loading && !state) {
     return (
@@ -476,30 +490,31 @@ function ZaloConnectionOverview() {
         {uniqueAccounts.length > 0 && (
           <div className="border-t pt-3 space-y-2">
             <p className="text-xs font-medium text-gray-600">Tài khoản ({uniqueAccounts.length})</p>
-            {uniqueAccounts.map((a) => (
-              <div key={a.ownId} className="flex items-center justify-between p-2 rounded-lg border text-xs">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-medium truncate">{a.phone || a.name || a.ownId}</span>
-                      {a.name && a.phone && <span className="text-gray-400">({a.name})</span>}
-                      <Badge variant="outline" className="text-[9px] px-1 py-0">
-                        {a._source === "direct" ? "Direct" : "Bot Server"}
-                      </Badge>
-                    </div>
-                    <div className="text-gray-400 flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-[10px]">{a.ownId}</span>
-                      {a.proxy
-                        ? <span className="text-[10px]"><Globe className="h-2.5 w-2.5 inline mr-0.5" />{a.proxy}</span>
-                        : <span className="text-[10px] text-gray-300"><Globe className="h-2.5 w-2.5 inline mr-0.5" />Không có proxy</span>
-                      }
+            {uniqueAccounts.map((a) => {
+              const owner = findOwner(a.ownId);
+              return (
+                <div key={a.ownId} className="flex items-center justify-between p-2 rounded-lg border text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium truncate">{a.phone || a.name || a.ownId}</span>
+                        <Badge variant="outline" className="text-[9px] px-1 py-0">
+                          {a._source === "direct" ? "Direct" : "Bot Server"}
+                        </Badge>
+                      </div>
+                      {owner && (
+                        <div className="text-[10px] text-blue-600">
+                          {owner.vaiTro}: <span className="font-medium">{owner.ten}</span> — {owner.toaNha}
+                        </div>
+                      )}
+                      <div className="text-gray-400 font-mono text-[10px]">{a.ownId}</div>
                     </div>
                   </div>
+                  <CheckCircle2 className={`h-4 w-4 flex-shrink-0 ${a.loggedIn ? "text-green-500" : "text-red-400"}`} />
                 </div>
-                <CheckCircle2 className={`h-4 w-4 flex-shrink-0 ${a.loggedIn ? "text-green-500" : "text-red-400"}`} />
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -3625,7 +3640,7 @@ export default function ZaloSettingsPage() {
       </div>
 
       {/* Zalo Connection Overview (admin only) */}
-      {isAdmin && <ZaloConnectionOverview />}
+      {isAdmin && <ZaloConnectionOverview buildings={buildings} />}
 
       {/* Building list */}
       <div className="space-y-2">
