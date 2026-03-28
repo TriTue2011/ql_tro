@@ -594,9 +594,9 @@ function MessageThread({
 
   useEffect(() => { load(); }, [load]);
   useRealtimeEvents(['zalo-message'], () => { void load(); });
-  // Polling fallback mỗi 5s phòng khi SSE bị mất kết nối
+  // Safety net: poll mỗi 30s phòng SSE mất kết nối (SSE vẫn là real-time chính)
   useEffect(() => {
-    const timer = setInterval(() => { void load(); }, 5000);
+    const timer = setInterval(() => { void load(); }, 30_000);
     return () => clearInterval(timer);
   }, [load]);
 
@@ -733,9 +733,9 @@ export default function ZaloMonitorPage() {
 
   useEffect(() => { loadConvs(); checkConnection(); }, [loadConvs, checkConnection]);
   useRealtimeEvents(['zalo-message'], () => { void loadConvs(); });
-  // Polling fallback mỗi 5s phòng khi SSE bị mất kết nối
+  // Safety net: poll mỗi 30s phòng SSE mất kết nối
   useEffect(() => {
-    const timer = setInterval(() => { void loadConvs(); }, 5000);
+    const timer = setInterval(() => { void loadConvs(); }, 30_000);
     return () => clearInterval(timer);
   }, [loadConvs]);
 
