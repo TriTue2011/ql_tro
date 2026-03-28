@@ -3396,10 +3396,10 @@ function PersonRow({
               <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
             )
           ) : (
-            /* Tài khoản khác: online/offline (web) + loại kết nối Zalo */
+            /* Tài khoản khác: trạng thái kết nối Zalo */
             isZaloOnline ? (
               <span className="text-[10px] text-green-600 font-medium">
-                Đang online — Zalo {zaloMode}
+                Zalo {zaloMode}
               </span>
             ) : account.zaloAccountId ? (
               <span className="text-[10px] text-red-500 font-medium">
