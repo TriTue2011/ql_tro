@@ -605,6 +605,10 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
           setQrImage(null); setQrWaiting(false);
           toast.success(`Đăng nhập thành công: ${data.name || data.ownId}`);
+          // Auto-link ownId → nguoiDung.zaloAccountId
+          if (data.ownId && account?.id) {
+            postAction("linkDirectAccount", { ownId: data.ownId, targetUserId: account.id }).catch(() => {});
+          }
           reload();
         } else if (!data.ok && data.error) {
           // Login thất bại (QR hết hạn, bị từ chối, lỗi)
