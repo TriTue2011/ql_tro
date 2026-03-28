@@ -3342,10 +3342,14 @@ function PersonRow({
   sessionUserId: string;
   onRefresh: () => void;
   onlineOwnIds: Set<string>;
+  zaloStatus: { mode: string; directOnline: Set<string>; botOnline: Set<string> };
 }) {
   const [open, setOpen] = useState(false);
   const isSelf = account.id === sessionUserId;
-  const isZaloOnline = !!(account.zaloAccountId && onlineOwnIds.has(account.zaloAccountId));
+  const isDirectOnline = !!(account.zaloAccountId && zaloStatus.directOnline.has(account.zaloAccountId));
+  const isBotOnline = !!(account.zaloAccountId && zaloStatus.botOnline.has(account.zaloAccountId));
+  const isZaloOnline = isDirectOnline || isBotOnline;
+  const zaloMode = isDirectOnline ? "Direct" : isBotOnline ? "Bot Server" : null;
 
   // Non-admin xem tài khoản người khác: chỉ hiển thị trạng thái kết nối (không mở rộng)
   const isOtherAccountView = !isAdmin && !isSelf;
@@ -3379,15 +3383,11 @@ function PersonRow({
           </span>
           {isZaloOnline ? (
             <span className="text-[10px] text-green-600 font-medium">
-              Đang đăng nhập
-            </span>
-          ) : account.botOnline === false ? (
-            <span className="text-[10px] text-red-500 font-medium">
-              Đã đăng xuất
+              Đang online — Zalo {zaloMode}
             </span>
           ) : account.zaloAccountId ? (
             <span className="text-[10px] text-red-500 font-medium">
-              Đã đăng xuất
+              Đang offline
             </span>
           ) : account.pendingZaloChatId ? (
             <span className="text-[10px] text-amber-500">
@@ -3440,6 +3440,7 @@ function RoleGroup({
   sessionUserId: string;
   onRefresh: () => void;
   onlineOwnIds: Set<string>;
+  zaloStatus: { mode: string; directOnline: Set<string>; botOnline: Set<string> };
 }) {
   const [open, setOpen] = useState(true);
   const isChuTroRole = role === "chuTro";
@@ -3486,7 +3487,9 @@ function RoleGroup({
               sessionUserId={sessionUserId}
               onRefresh={onRefresh}
               onlineOwnIds={onlineOwnIds}
+              zaloStatus={zaloStatus}
             />
+
           ))}
         </div>
       )}
@@ -3512,6 +3515,7 @@ function BuildingAccordion({
   defaultOpen: boolean;
   onRefresh: () => void;
   onlineOwnIds: Set<string>;
+  zaloStatus: { mode: string; directOnline: Set<string>; botOnline: Set<string> };
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -3616,6 +3620,11 @@ export default function ZaloSettingsPage() {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [onlineOwnIds, setOnlineOwnIds] = useState<Set<string>>(new Set());
+  const [zaloStatus, setZaloStatus] = useState<{
+    mode: string;
+    directOnline: Set<string>;
+    botOnline: Set<string>;
+  }>({ mode: "none", directOnline: new Set(), botOnline: new Set() });
 
   const loadBuildings = useCallback(async () => {
     setLoading(true);
@@ -3628,16 +3637,20 @@ export default function ZaloSettingsPage() {
     }
   }, []);
 
-  // Fetch danh sách ownId đang online
+  // Fetch danh sách ownId đang online (direct + bot server)
   const loadOnlineIds = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/zalo-direct");
       if (!res.ok) return;
       const data = await res.json();
-      const ids = new Set<string>(
+      const directIds = new Set<string>(
         (data.directAccounts || []).filter((a: any) => a.loggedIn).map((a: any) => a.ownId)
       );
-      setOnlineOwnIds(ids);
+      const botIds = new Set<string>(
+        (data.botAccounts || []).map((a: any) => a.ownId || a.id || "").filter(Boolean)
+      );
+      setOnlineOwnIds(directIds);
+      setZaloStatus({ mode: data.mode || "none", directOnline: directIds, botOnline: botIds });
     } catch { /* ignore */ }
   }, []);
 
@@ -3697,6 +3710,7 @@ export default function ZaloSettingsPage() {
                 defaultOpen={i === 0}
                 onRefresh={loadBuildings}
                 onlineOwnIds={onlineOwnIds}
+                zaloStatus={zaloStatus}
               />
             ))}
           </div>
