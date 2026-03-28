@@ -3348,8 +3348,14 @@ function PersonRow({
 }) {
   const [open, setOpen] = useState(false);
   const isSelf = account.id === sessionUserId;
-  const isDirectOnline = !!(account.zaloAccountId && zaloStatus.directOnline.has(account.zaloAccountId));
-  const isBotOnline = !!(account.zaloAccountId && zaloStatus.botOnline.has(account.zaloAccountId));
+
+  // Match bằng zaloAccountId hoặc soDienThoai (nhiều format)
+  const matchIds = [account.zaloAccountId, account.soDienThoai].filter(Boolean) as string[];
+  if (account.soDienThoai) {
+    matchIds.push(account.soDienThoai.replace(/^\+84/, "0"), account.soDienThoai.replace(/^0/, "+84"));
+  }
+  const isDirectOnline = matchIds.some((id) => zaloStatus.directOnline.has(id));
+  const isBotOnline = matchIds.some((id) => zaloStatus.botOnline.has(id));
   const isZaloOnline = isDirectOnline || isBotOnline;
   const zaloMode = isDirectOnline ? "Direct" : isBotOnline ? "Bot Server" : null;
 
@@ -3676,12 +3682,30 @@ export default function ZaloSettingsPage() {
       const res = await fetch("/api/admin/zalo-direct");
       if (!res.ok) return;
       const data = await res.json();
-      const directIds = new Set<string>(
-        (data.directAccounts || []).filter((a: any) => a.loggedIn).map((a: any) => a.ownId)
-      );
-      const botIds = new Set<string>(
-        (data.botAccounts || []).map((a: any) => a.ownId || a.id || "").filter(Boolean)
-      );
+      // Direct: thêm cả ownId và phone vào Set để match được nhiều cách
+      const directIds = new Set<string>();
+      for (const a of (data.directAccounts || [])) {
+        if (a.loggedIn) {
+          if (a.ownId) directIds.add(a.ownId);
+          if (a.phone) {
+            directIds.add(a.phone);
+            directIds.add(a.phone.replace(/^\+84/, "0"));
+            directIds.add(a.phone.replace(/^0/, "+84"));
+          }
+        }
+      }
+      // Bot: thêm cả ownId, id, phone
+      const botIds = new Set<string>();
+      for (const a of (data.botAccounts || [])) {
+        const id = a.ownId || a.id || "";
+        if (id) botIds.add(id);
+        const phone = a.phoneNumber || a.phone || "";
+        if (phone) {
+          botIds.add(phone);
+          botIds.add(phone.replace(/^\+84/, "0"));
+          botIds.add(phone.replace(/^0/, "+84"));
+        }
+      }
       setOnlineOwnIds(directIds);
       setZaloStatus({ mode: data.mode || "none", directOnline: directIds, botOnline: botIds });
     } catch { /* ignore */ }
