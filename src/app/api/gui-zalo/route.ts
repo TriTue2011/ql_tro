@@ -91,7 +91,12 @@ async function resolveLocalUrl(url: string): Promise<string> {
   // Relative path → absolute
   if (url.startsWith("/")) {
     const base = await getAppBaseUrl();
-    url = `${base}${url}`;
+    return `${base}${url}`;
+  }
+
+  // Presigned MinIO URLs (có X-Amz-) — KHÔNG chạy qua URL parser để tránh hỏng signature
+  if (url.includes("X-Amz-")) {
+    return url;
   }
 
   try {
@@ -102,10 +107,12 @@ async function resolveLocalUrl(url: string): Promise<string> {
         const baseParsed = new URL(base);
         if (baseParsed.hostname !== "localhost" && baseParsed.hostname !== "127.0.0.1") {
           parsed.hostname = baseParsed.hostname;
+          return parsed.toString();
         }
       } catch { /* ignore */ }
     }
-    return parsed.toString();
+    // Không cần sửa → trả nguyên URL gốc (tránh re-encode)
+    return url;
   } catch {
     return url;
   }

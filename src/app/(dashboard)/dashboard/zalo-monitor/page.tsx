@@ -566,7 +566,7 @@ function MessageThread({
     setLoading(true);
     try {
       const url = `/api/zalo/messages?chatId=${encodeURIComponent(chatId)}&limit=50${before ? `&before=${before}` : ''}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       const batch: ZaloMsg[] = data.data ?? [];
       if (before) {
@@ -671,10 +671,11 @@ function MessageThread({
         chatId={chatId}
         threadType={threadType}
         onSent={() => {
+          // Reload ngay + retry sau 600ms để đảm bảo DB đã ghi xong
+          load().then(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }));
           setTimeout(() => {
-            load();
-            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-          }, 300);
+            load().then(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }));
+          }, 600);
         }}
       />
     </div>
@@ -694,7 +695,7 @@ export default function ZaloMonitorPage() {
   const loadConvs = useCallback(async () => {
     setLoadingConvs(true);
     try {
-      const res = await fetch('/api/zalo/messages?conversations=1');
+      const res = await fetch('/api/zalo/messages?conversations=1', { cache: 'no-store' });
       const data = await res.json();
       if (data.data) setConvs(data.data);
     } catch { /* ignore */ } finally { setLoadingConvs(false); }

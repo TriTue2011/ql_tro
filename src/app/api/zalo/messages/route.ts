@@ -15,6 +15,9 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { attachRoomInfo } from "@/lib/zalo-room-info";
 
+// Tắt cache Next.js — tin nhắn cần luôn fresh
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session)
