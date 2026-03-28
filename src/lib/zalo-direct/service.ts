@@ -470,6 +470,37 @@ export async function logoutAccount(ownId: string): Promise<OkResult> {
   return { ok: true };
 }
 
+/**
+ * Liệt kê tất cả cookie files đã lưu (sẽ auto-login khi khởi động lại server).
+ */
+export function listSavedCookies(): string[] {
+  try {
+    const dir = getCookiesDir();
+    return fs.readdirSync(dir)
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => f.replace(".json", ""));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Xóa cookie file đã lưu (ngăn auto-login khi khởi động lại).
+ * Không ảnh hưởng account đang đăng nhập trong memory.
+ */
+export function deleteSavedCookies(ownId: string): OkResult {
+  try {
+    const p = cookiePath(ownId);
+    if (fs.existsSync(p)) {
+      fs.unlinkSync(p);
+      return { ok: true };
+    }
+    return { ok: false, error: `Không tìm thấy cookies cho ${ownId}` };
+  } catch (err: any) {
+    return { ok: false, error: err.message };
+  }
+}
+
 // ─── Session error detection + auto-relogin ─────────────────────────────────
 
 /** Kiểm tra lỗi liên quan đến phiên đăng nhập hết hạn */

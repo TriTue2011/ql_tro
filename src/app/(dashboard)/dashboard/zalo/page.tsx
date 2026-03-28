@@ -375,6 +375,7 @@ interface DirectState {
   botServerUrl: string | null;
   botAccounts: any[];
   botError?: string;
+  savedCookies?: string[];
   proxies: any[];
 }
 
@@ -737,6 +738,54 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
             </div>
           )}
         </div>
+
+        {/* Danh sách tài khoản direct */}
+        {uniqueAccounts.length > 0 && (
+          <div className="border-t pt-3 space-y-2">
+            <p className="text-xs font-medium text-gray-600">Tài khoản đang đăng nhập ({uniqueAccounts.length})</p>
+            {uniqueAccounts.map((a) => (
+              <div key={a.ownId} className="flex items-center justify-between p-2 rounded-lg border text-xs bg-gray-50">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
+                  <div className="min-w-0">
+                    <span className="font-medium">{a.name || a.phone || a.ownId}</span>
+                    <div className="text-gray-400 font-mono text-[10px]">{a.ownId}</div>
+                  </div>
+                </div>
+                {canEdit && a._source === "direct" && (
+                  <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => handleLogout(a.ownId)}>
+                    <LogOut className="h-3 w-3 mr-1" /> Đăng xuất
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Saved cookies (auto-login khi restart) */}
+        {canEdit && state?.savedCookies && state.savedCookies.length > 0 && (
+          <div className="text-[11px] bg-amber-50 border border-amber-200 rounded p-2 space-y-1">
+            <p className="font-medium text-amber-800">Cookies đã lưu (sẽ auto-login khi restart):</p>
+            {state.savedCookies.map((id) => {
+              const isLoggedIn = uniqueAccounts.some((a) => a.ownId === id && a.loggedIn);
+              return (
+                <div key={id} className="flex items-center justify-between">
+                  <span className="font-mono">{id} {isLoggedIn ? "✓" : ""}</span>
+                  <Button size="sm" variant="ghost" className="h-5 px-1.5 text-[10px] text-red-600"
+                    onClick={async () => {
+                      if (!confirm(`Xóa cookies cho ${id}? (Sẽ không auto-login khi restart)`)) return;
+                      const r = await postAction("deleteSavedCookies", { ownId: id });
+                      if (r.ok) { toast.success("Đã xóa cookies"); reload(); }
+                      else toast.error(r.error || "Lỗi xóa cookies");
+                    }}>
+                    Xóa cookies
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* QR Login */}
         {canEdit && (
