@@ -3333,6 +3333,7 @@ function PersonRow({
   sessionUserId,
   onRefresh,
   onlineOwnIds,
+  zaloStatus,
 }: {
   account: AccountData;
   buildingId: string;
@@ -3372,13 +3373,11 @@ function PersonRow({
           )}
           <span className={`text-[9px] ml-1 ${
             isZaloOnline ? "text-green-500" :
-            account.botOnline === false ? "text-red-500" :
-            account.zaloChatId ? "text-amber-400" :
+            account.zaloAccountId ? "text-red-500" :
             account.pendingZaloChatId ? "text-amber-400" : "text-gray-300"
           }`}>
             {isZaloOnline ? "●" :
-             account.botOnline === false ? "●" :
-             account.zaloChatId ? "●" :
+             account.zaloAccountId ? "●" :
              account.pendingZaloChatId ? "◐" : "○"}
           </span>
           {isZaloOnline ? (
@@ -3431,6 +3430,7 @@ function RoleGroup({
   sessionUserId,
   onRefresh,
   onlineOwnIds,
+  zaloStatus,
 }: {
   role: "chuTro" | "quanLy";
   people: AccountData[];
@@ -3507,6 +3507,7 @@ function BuildingAccordion({
   defaultOpen,
   onRefresh,
   onlineOwnIds,
+  zaloStatus,
 }: {
   building: BuildingData;
   isAdmin: boolean;
@@ -3586,6 +3587,7 @@ function BuildingAccordion({
               sessionUserId={sessionUserId}
               onRefresh={onRefresh}
               onlineOwnIds={onlineOwnIds}
+              zaloStatus={zaloStatus}
             />
           )}
           {quanLyGroup.length > 0 && (
@@ -3598,6 +3600,7 @@ function BuildingAccordion({
               sessionUserId={sessionUserId}
               onRefresh={onRefresh}
               onlineOwnIds={onlineOwnIds}
+              zaloStatus={zaloStatus}
             />
           )}
           {totalPeople === 0 && (
