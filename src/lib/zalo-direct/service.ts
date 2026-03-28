@@ -377,14 +377,31 @@ async function handleRelogin(ownId: string): Promise<void> {
     }
     console.warn(`[ZaloDirect] Relogin attempt ${attempt} thất bại cho ${ownId}: ${result.error}`);
 
-    // Nếu lỗi session hết hạn, không cần retry nữa
+    // Nếu lỗi session hết hạn (bị đăng nhập chỗ khác / cookies hỏng), xóa cookies và dừng
     if (result.error?.includes("QR") || result.error?.includes("hết hạn")) {
       account.loggedIn = false;
+      try {
+        const p = cookiePath(ownId);
+        if (fs.existsSync(p)) {
+          fs.unlinkSync(p);
+          console.warn(`[ZaloDirect] Đã xóa cookies hết hạn cho ${ownId} (bị đăng nhập chỗ khác?)`);
+        }
+      } catch { /* ignore */ }
+      sseEmit("zalo-account-status", { ownId, loggedIn: false, reason: "session_expired" });
       return;
     }
   }
   console.error(`[ZaloDirect] Relogin thất bại cho ${ownId} sau 3 lần thử`);
   account.loggedIn = false;
+  // Xóa cookies hỏng để không auto-login lại cookies lỗi khi restart
+  try {
+    const p = cookiePath(ownId);
+    if (fs.existsSync(p)) {
+      fs.unlinkSync(p);
+      console.warn(`[ZaloDirect] Đã xóa cookies sau 3 lần retry thất bại cho ${ownId}`);
+    }
+  } catch { /* ignore */ }
+  sseEmit("zalo-account-status", { ownId, loggedIn: false, reason: "relogin_failed" });
 }
 
 /**
