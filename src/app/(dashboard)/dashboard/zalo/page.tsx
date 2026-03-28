@@ -706,36 +706,34 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           )}
           {state && (
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Chỉ hiện "Đang kết nối" nếu tài khoản CỦA USER này đã đăng nhập,
-                  hoặc nếu user chưa có zaloAccountId thì check tổng (admin) */}
-              {matchedAccount?.loggedIn ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <span className="text-xs font-medium text-green-700">
-                    Đang kết nối ({matchedAccount.ownId})
-                  </span>
-                </>
-              ) : !account?.zaloAccountId && !account?.soDienThoai && isActive && state.directStatus.loggedInCount > 0 ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <span className="text-xs font-medium text-green-700">
-                    Đang kết nối ({state.directStatus.loggedInCount} TK)
-                  </span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-4 w-4 text-red-500" />
-                  <span className="text-xs font-medium text-red-700">
-                    {account?.zaloAccountId || account?.soDienThoai
-                      ? `Chưa đăng nhập TK ${account.zaloAccountId || account.soDienThoai}`
-                      : "Mất kết nối"}
-                  </span>
-                  {isActive && state.directStatus.loggedInCount > 0 && (
-                    <span className="text-[10px] text-amber-600">
-                      (có {state.directStatus.loggedInCount} TK khác đang online)
+              {isAdmin ? (
+                /* Admin: hiện tổng tất cả tài khoản */
+                isActive && state.directStatus.loggedInCount > 0 ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span className="text-xs font-medium text-green-700">
+                      Đang kết nối ({state.directStatus.loggedInCount} TK)
                     </span>
-                  )}
-                </>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-4 w-4 text-red-500" />
+                    <span className="text-xs font-medium text-red-700">Mất kết nối</span>
+                  </>
+                )
+              ) : (
+                /* User thường: chỉ check tài khoản của mình */
+                matchedAccount?.loggedIn ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span className="text-xs font-medium text-green-700">Đang kết nối</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-4 w-4 text-red-500" />
+                    <span className="text-xs font-medium text-red-700">Mất kết nối</span>
+                  </>
+                )
               )}
               <Button size="sm" variant="outline" onClick={runHealthCheck} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
                 {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Kiểm tra thật"}
