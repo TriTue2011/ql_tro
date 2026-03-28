@@ -707,33 +707,18 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           {state && (
             <div className="flex items-center gap-2 flex-wrap">
               {isAdmin ? (
-                /* Admin: hiện tổng tất cả tài khoản */
-                isActive && state.directStatus.loggedInCount > 0 ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span className="text-xs font-medium text-green-700">
-                      Đang kết nối ({state.directStatus.loggedInCount} TK)
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-4 w-4 text-red-500" />
-                    <span className="text-xs font-medium text-red-700">Mất kết nối</span>
-                  </>
-                )
+                /* Admin: không hiện status tổng, từng TK hiện bên dưới */
+                <span className="text-xs text-gray-500">{state.directStatus.loggedInCount}/{state.directStatus.accountCount} TK online</span>
+              ) : matchedAccount?.loggedIn ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span className="text-xs font-medium text-green-700">Đang kết nối</span>
+                </>
               ) : (
-                /* User thường: chỉ check tài khoản của mình */
-                matchedAccount?.loggedIn ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span className="text-xs font-medium text-green-700">Đang kết nối</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-4 w-4 text-red-500" />
-                    <span className="text-xs font-medium text-red-700">Mất kết nối</span>
-                  </>
-                )
+                <>
+                  <XCircle className="h-4 w-4 text-red-500" />
+                  <span className="text-xs font-medium text-red-700">Mất kết nối</span>
+                </>
               )}
               <Button size="sm" variant="outline" onClick={runHealthCheck} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
                 {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Kiểm tra thật"}
@@ -757,16 +742,21 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           )}
         </div>
 
-        {/* Danh sách tài khoản direct */}
-        {uniqueAccounts.length > 0 && (
+        {/* Danh sách tài khoản direct — admin thấy tất cả, user thường không thấy */}
+        {isAdmin && uniqueAccounts.length > 0 && (
           <div className="border-t pt-3 space-y-2">
-            <p className="text-xs font-medium text-gray-600">Tài khoản đang đăng nhập ({uniqueAccounts.length})</p>
+            <p className="text-xs font-medium text-gray-600">Tài khoản ({uniqueAccounts.length})</p>
             {uniqueAccounts.map((a) => (
               <div key={a.ownId} className="flex items-center justify-between p-2 rounded-lg border text-xs bg-gray-50">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
                   <div className="min-w-0">
-                    <span className="font-medium">{a.name || a.phone || a.ownId}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium">{a.name || a.phone || a.ownId}</span>
+                      <span className={`text-[10px] ${a.loggedIn ? "text-green-600" : "text-red-500"}`}>
+                        {a.loggedIn ? "Đang kết nối" : "Mất kết nối"}
+                      </span>
+                    </div>
                     <div className="text-gray-400 font-mono text-[10px]">{a.ownId}</div>
                   </div>
                 </div>
