@@ -55,6 +55,12 @@ export const authOptions: NextAuthOptions = {
             const isPasswordValid = await compare(credentials.matKhau, user.matKhau);
             if (!isPasswordValid) return null;
 
+            // Cập nhật thời gian hoạt động cuối
+            prisma.nguoiDung.update({
+              where: { id: user.id },
+              data: { hoatDongCuoi: new Date() },
+            }).catch(() => {});
+
             // Nếu không có email thì dùng placeholder (tránh NextAuth lỗi)
             const emailForSession = user.email || `nd.${user.soDienThoai}@phongtro.local`;
 
