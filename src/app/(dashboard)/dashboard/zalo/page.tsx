@@ -530,22 +530,23 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
   }, []);
 
   // Health check thật: gọi API Zalo xác nhận session còn sống
-  const runHealthCheck = useCallback(async () => {
+  // Chỉ check tài khoản của user này (trừ admin không có zaloAccountId thì check tất cả)
+  const runHealthCheck = useCallback(async (ownId?: string) => {
     setLoading(true);
     setHealthStatus(null);
     try {
+      const targetOwnId = ownId || account?.zaloAccountId || account?.soDienThoai;
       const res = await fetch("/api/admin/zalo-direct", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "healthCheck" }),
+        body: JSON.stringify({ action: "healthCheck", ...(targetOwnId ? { ownId: targetOwnId } : {}) }),
       });
       const data = await res.json();
       if (data.results) setHealthStatus(data.results);
-      // Reload state sau health check (loggedIn có thể đã thay đổi)
       await reload();
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [reload]);
+  }, [reload, account?.zaloAccountId, account?.soDienThoai]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -704,12 +705,9 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra...
             </div>
           )}
-          {state && (
+          {state && !isAdmin && (
             <div className="flex items-center gap-2 flex-wrap">
-              {isAdmin ? (
-                /* Admin: không hiện status tổng, từng TK hiện bên dưới */
-                <span className="text-xs text-gray-500">{state.directStatus.loggedInCount}/{state.directStatus.accountCount} TK online</span>
-              ) : matchedAccount?.loggedIn ? (
+              {matchedAccount?.loggedIn ? (
                 <>
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                   <span className="text-xs font-medium text-green-700">Đang kết nối</span>
@@ -720,19 +718,18 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
                   <span className="text-xs font-medium text-red-700">Mất kết nối</span>
                 </>
               )}
-              <Button size="sm" variant="outline" onClick={runHealthCheck} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
+              <Button size="sm" variant="outline" onClick={() => runHealthCheck()} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
                 {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Kiểm tra thật"}
               </Button>
             </div>
           )}
-          {healthStatus && (
+          {!isAdmin && healthStatus && (
             <div className="text-[11px] space-y-1 bg-gray-50 rounded p-2 border">
               {healthStatus.map((h) => (
                 <div key={h.ownId} className="flex items-center gap-1.5">
                   {h.alive
                     ? <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
                     : <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
-                  <span className="font-mono">{h.ownId.slice(0, 12)}...</span>
                   <span className={h.alive ? "text-green-700" : "text-red-600"}>
                     {h.alive ? "OK — session hợp lệ" : h.error || "Session hết hạn"}
                   </span>
@@ -746,28 +743,50 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
         {isAdmin && uniqueAccounts.length > 0 && (
           <div className="border-t pt-3 space-y-2">
             <p className="text-xs font-medium text-gray-600">Tài khoản ({uniqueAccounts.length})</p>
-            {uniqueAccounts.map((a) => (
-              <div key={a.ownId} className="flex items-center justify-between p-2 rounded-lg border text-xs bg-gray-50">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-medium">{a.name || a.phone || a.ownId}</span>
-                      <span className={`text-[10px] ${a.loggedIn ? "text-green-600" : "text-red-500"}`}>
-                        {a.loggedIn ? "Đang kết nối" : "Mất kết nối"}
+            {uniqueAccounts.map((a) => {
+              const hResult = healthStatus?.find((h) => h.ownId === a.ownId);
+              return (
+                <div key={a.ownId} className="p-2 rounded-lg border text-xs bg-gray-50 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium">{a.name || a.phone || a.ownId}</span>
+                          <span className={`text-[10px] ${a.loggedIn ? "text-green-600" : "text-red-500"}`}>
+                            {a.loggedIn ? "Đang kết nối" : "Mất kết nối"}
+                          </span>
+                        </div>
+                        <div className="text-gray-400 font-mono text-[10px]">{a.ownId}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]"
+                        disabled={loading}
+                        onClick={() => runHealthCheck(a.ownId)}>
+                        {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Kiểm tra thật"}
+                      </Button>
+                      {canEdit && a._source === "direct" && (
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleLogout(a.ownId)}>
+                          <LogOut className="h-3 w-3 mr-1" /> Đăng xuất
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  {hResult && (
+                    <div className="flex items-center gap-1.5 text-[11px] pl-4">
+                      {hResult.alive
+                        ? <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                        : <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
+                      <span className={hResult.alive ? "text-green-700" : "text-red-600"}>
+                        {hResult.alive ? "OK — session hợp lệ" : hResult.error || "Session hết hạn"}
                       </span>
                     </div>
-                    <div className="text-gray-400 font-mono text-[10px]">{a.ownId}</div>
-                  </div>
+                  )}
                 </div>
-                {canEdit && a._source === "direct" && (
-                  <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => handleLogout(a.ownId)}>
-                    <LogOut className="h-3 w-3 mr-1" /> Đăng xuất
-                  </Button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
