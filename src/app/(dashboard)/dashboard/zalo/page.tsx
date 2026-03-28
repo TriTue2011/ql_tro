@@ -3332,6 +3332,7 @@ function PersonRow({
   userRole,
   sessionUserId,
   onRefresh,
+  onlineOwnIds,
 }: {
   account: AccountData;
   buildingId: string;
@@ -3340,9 +3341,11 @@ function PersonRow({
   userRole: string;
   sessionUserId: string;
   onRefresh: () => void;
+  onlineOwnIds: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
   const isSelf = account.id === sessionUserId;
+  const isZaloOnline = !!(account.zaloAccountId && onlineOwnIds.has(account.zaloAccountId));
 
   // Non-admin xem tài khoản người khác: chỉ hiển thị trạng thái kết nối (không mở rộng)
   const isOtherAccountView = !isAdmin && !isSelf;
@@ -3364,25 +3367,35 @@ function PersonRow({
             <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Admin</Badge>
           )}
           <span className={`text-[9px] ml-1 ${
+            isZaloOnline ? "text-green-500" :
             account.botOnline === false ? "text-red-500" :
-            account.zaloChatId ? "text-green-500" :
+            account.zaloChatId ? "text-amber-400" :
             account.pendingZaloChatId ? "text-amber-400" : "text-gray-300"
           }`}>
-            {account.botOnline === false ? "●" :
+            {isZaloOnline ? "●" :
+             account.botOnline === false ? "●" :
              account.zaloChatId ? "●" :
              account.pendingZaloChatId ? "◐" : "○"}
           </span>
-          {account.botOnline === false ? (
-            <span className="text-[10px] text-red-500 font-medium">
-              Zalo đã bị đăng xuất
-            </span>
-          ) : account.zaloChatId ? (
+          {isZaloOnline ? (
             <span className="text-[10px] text-green-600 font-medium">
-              Đang kết nối
+              Đang đăng nhập
+            </span>
+          ) : account.botOnline === false ? (
+            <span className="text-[10px] text-red-500 font-medium">
+              Đã đăng xuất
+            </span>
+          ) : account.zaloAccountId ? (
+            <span className="text-[10px] text-red-500 font-medium">
+              Đã đăng xuất
+            </span>
+          ) : account.pendingZaloChatId ? (
+            <span className="text-[10px] text-amber-500">
+              Chờ xác nhận Zalo
             </span>
           ) : (
             <span className="text-[10px] text-gray-400">
-              {account.pendingZaloChatId ? "Chờ xác nhận Zalo" : "Chưa liên kết Zalo"}
+              Chưa liên kết Zalo
             </span>
           )}
         </div>
@@ -3417,6 +3430,7 @@ function RoleGroup({
   userRole,
   sessionUserId,
   onRefresh,
+  onlineOwnIds,
 }: {
   role: "chuTro" | "quanLy";
   people: AccountData[];
@@ -3425,6 +3439,7 @@ function RoleGroup({
   userRole: string;
   sessionUserId: string;
   onRefresh: () => void;
+  onlineOwnIds: Set<string>;
 }) {
   const [open, setOpen] = useState(true);
   const isChuTroRole = role === "chuTro";
@@ -3470,6 +3485,7 @@ function RoleGroup({
               userRole={userRole}
               sessionUserId={sessionUserId}
               onRefresh={onRefresh}
+              onlineOwnIds={onlineOwnIds}
             />
           ))}
         </div>
@@ -3487,6 +3503,7 @@ function BuildingAccordion({
   sessionUserId,
   defaultOpen,
   onRefresh,
+  onlineOwnIds,
 }: {
   building: BuildingData;
   isAdmin: boolean;
@@ -3494,6 +3511,7 @@ function BuildingAccordion({
   sessionUserId: string;
   defaultOpen: boolean;
   onRefresh: () => void;
+  onlineOwnIds: Set<string>;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -3563,6 +3581,7 @@ function BuildingAccordion({
               userRole={userRole}
               sessionUserId={sessionUserId}
               onRefresh={onRefresh}
+              onlineOwnIds={onlineOwnIds}
             />
           )}
           {quanLyGroup.length > 0 && (
@@ -3574,6 +3593,7 @@ function BuildingAccordion({
               userRole={userRole}
               sessionUserId={sessionUserId}
               onRefresh={onRefresh}
+              onlineOwnIds={onlineOwnIds}
             />
           )}
           {totalPeople === 0 && (
@@ -3595,6 +3615,7 @@ export default function ZaloSettingsPage() {
 
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onlineOwnIds, setOnlineOwnIds] = useState<Set<string>>(new Set());
 
   const loadBuildings = useCallback(async () => {
     setLoading(true);
@@ -3607,7 +3628,20 @@ export default function ZaloSettingsPage() {
     }
   }, []);
 
-  useEffect(() => { loadBuildings(); }, [loadBuildings]);
+  // Fetch danh sách ownId đang online
+  const loadOnlineIds = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/zalo-direct");
+      if (!res.ok) return;
+      const data = await res.json();
+      const ids = new Set<string>(
+        (data.directAccounts || []).filter((a: any) => a.loggedIn).map((a: any) => a.ownId)
+      );
+      setOnlineOwnIds(ids);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { loadBuildings(); loadOnlineIds(); }, [loadBuildings, loadOnlineIds]);
 
   return (
     <div className="space-y-4 p-4 md:p-6 max-w-3xl">
@@ -3662,6 +3696,7 @@ export default function ZaloSettingsPage() {
                 sessionUserId={sessionUserId}
                 defaultOpen={i === 0}
                 onRefresh={loadBuildings}
+                onlineOwnIds={onlineOwnIds}
               />
             ))}
           </div>
