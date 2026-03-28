@@ -55,6 +55,7 @@ export async function GET() {
         select: {
           id: true, ten: true, email: true, soDienThoai: true, vaiTro: true,
           zaloChatId: true, pendingZaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloWebhookToken: true, nhanThongBaoZalo: true,
+          hoatDongCuoi: true,
           zaloThongBaoCaiDat: { where: { toaNhaId: undefined }, select: allSettingFields() },
         },
       },
@@ -64,6 +65,7 @@ export async function GET() {
             select: {
               id: true, ten: true, email: true, soDienThoai: true, vaiTro: true,
               zaloChatId: true, pendingZaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloWebhookToken: true, nhanThongBaoZalo: true,
+              hoatDongCuoi: true,
               zaloThongBaoCaiDat: { select: allSettingFields() },
             },
           },
@@ -124,6 +126,7 @@ export async function GET() {
         select: {
           id: true, ten: true, email: true, soDienThoai: true, vaiTro: true,
           zaloChatId: true, pendingZaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloWebhookToken: true, nhanThongBaoZalo: true,
+          hoatDongCuoi: true,
           zaloThongBaoCaiDat: { where: { toaNhaId: undefined }, select: allSettingFields() },
         },
       },
@@ -133,6 +136,7 @@ export async function GET() {
             select: {
               id: true, ten: true, email: true, soDienThoai: true, vaiTro: true,
               zaloChatId: true, pendingZaloChatId: true, zaloAccountId: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloWebhookToken: true, nhanThongBaoZalo: true,
+              hoatDongCuoi: true,
               zaloThongBaoCaiDat: { select: allSettingFields() },
             },
           },

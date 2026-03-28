@@ -85,6 +85,7 @@ interface AccountData {
   nhanThongBaoZalo: boolean;
   settings: ZaloSettings | null;
   botOnline?: boolean | null; // true=online, false=bị out, null=chưa check
+  hoatDongCuoi?: string | null; // Thời gian hoạt động cuối trên web
 }
 
 interface BuildingData {
@@ -3347,10 +3348,23 @@ function PersonRow({
 }) {
   const [open, setOpen] = useState(false);
   const isSelf = account.id === sessionUserId;
-  const isDirectOnline = !!(account.zaloAccountId && zaloStatus.directOnline.has(account.zaloAccountId));
-  const isBotOnline = !!(account.zaloAccountId && zaloStatus.botOnline.has(account.zaloAccountId));
+
+  // Match bằng zaloAccountId hoặc soDienThoai (nhiều format)
+  const matchIds = [account.zaloAccountId, account.soDienThoai].filter(Boolean) as string[];
+  if (account.soDienThoai) {
+    matchIds.push(account.soDienThoai.replace(/^\+84/, "0"), account.soDienThoai.replace(/^0/, "+84"));
+  }
+  const isDirectOnline = matchIds.some((id) => zaloStatus.directOnline.has(id));
+  const isBotOnline = matchIds.some((id) => zaloStatus.botOnline.has(id));
   const isZaloOnline = isDirectOnline || isBotOnline;
   const zaloMode = isDirectOnline ? "Direct" : isBotOnline ? "Bot Server" : null;
+
+  // Kiểm tra web online: hoạt động trong 90 giây gần đây
+  const isWebOnline = (() => {
+    if (!account.hoatDongCuoi) return false;
+    const lastActive = new Date(account.hoatDongCuoi).getTime();
+    return Date.now() - lastActive < 90 * 1000;
+  })();
 
   // Non-admin xem tài khoản người khác: chỉ hiển thị trạng thái kết nối (không mở rộng)
   const isOtherAccountView = !isAdmin && !isSelf;
@@ -3372,13 +3386,17 @@ function PersonRow({
             <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Admin</Badge>
           )}
           <span className={`text-[9px] ml-1 ${
-            isZaloOnline ? "text-green-500" :
-            (account.zaloAccountId && !isZaloOnline) ? "text-red-500" :
-            account.pendingZaloChatId ? "text-amber-400" : "text-gray-300"
+            isSelf
+              ? (isZaloOnline ? "text-green-500" :
+                 (account.zaloAccountId && !isZaloOnline) ? "text-red-500" :
+                 account.pendingZaloChatId ? "text-amber-400" : "text-gray-300")
+              : (isWebOnline ? "text-green-500" : "text-gray-300")
           }`}>
-            {isZaloOnline ? "●" :
-             (account.zaloAccountId && !isZaloOnline) ? "●" :
-             account.pendingZaloChatId ? "◐" : "○"}
+            {isSelf
+              ? (isZaloOnline ? "●" :
+                 (account.zaloAccountId && !isZaloOnline) ? "●" :
+                 account.pendingZaloChatId ? "◐" : "○")
+              : (isWebOnline ? "●" : "○")}
           </span>
           {isSelf ? (
             /* Tài khoản đang đăng nhập: hiện trạng thái Zalo */
@@ -3396,20 +3414,24 @@ function PersonRow({
               <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
             )
           ) : (
-            /* Tài khoản khác: online/offline (web) + loại kết nối Zalo */
-            isZaloOnline ? (
-              <span className="text-[10px] text-green-600 font-medium">
-                Đang online — Zalo {zaloMode}
+            /* Tài khoản khác: web online/offline + Zalo connection type */
+            <>
+              <span className={`text-[10px] font-medium ${isWebOnline ? "text-green-600" : "text-gray-400"}`}>
+                {isWebOnline ? "Đang online" : "Offline"}
               </span>
-            ) : account.zaloAccountId ? (
-              <span className="text-[10px] text-red-500 font-medium">
-                Mất kết nối Zalo
-              </span>
-            ) : account.pendingZaloChatId ? (
-              <span className="text-[10px] text-amber-500">Chờ xác nhận Zalo</span>
-            ) : (
-              <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
-            )
+              <span className="text-[10px] text-gray-300">·</span>
+              {isZaloOnline ? (
+                <span className="text-[10px] text-blue-500">
+                  Zalo {zaloMode}
+                </span>
+              ) : account.zaloAccountId ? (
+                <span className="text-[10px] text-red-400">
+                  Mất kết nối Zalo
+                </span>
+              ) : (
+                <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
+              )}
+            </>
           )}
         </div>
         {!isOtherAccountView && (
@@ -3660,18 +3682,45 @@ export default function ZaloSettingsPage() {
       const res = await fetch("/api/admin/zalo-direct");
       if (!res.ok) return;
       const data = await res.json();
-      const directIds = new Set<string>(
-        (data.directAccounts || []).filter((a: any) => a.loggedIn).map((a: any) => a.ownId)
-      );
-      const botIds = new Set<string>(
-        (data.botAccounts || []).map((a: any) => a.ownId || a.id || "").filter(Boolean)
-      );
+      // Direct: thêm cả ownId và phone vào Set để match được nhiều cách
+      const directIds = new Set<string>();
+      for (const a of (data.directAccounts || [])) {
+        if (a.loggedIn) {
+          if (a.ownId) directIds.add(a.ownId);
+          if (a.phone) {
+            directIds.add(a.phone);
+            directIds.add(a.phone.replace(/^\+84/, "0"));
+            directIds.add(a.phone.replace(/^0/, "+84"));
+          }
+        }
+      }
+      // Bot: thêm cả ownId, id, phone
+      const botIds = new Set<string>();
+      for (const a of (data.botAccounts || [])) {
+        const id = a.ownId || a.id || "";
+        if (id) botIds.add(id);
+        const phone = a.phoneNumber || a.phone || "";
+        if (phone) {
+          botIds.add(phone);
+          botIds.add(phone.replace(/^\+84/, "0"));
+          botIds.add(phone.replace(/^0/, "+84"));
+        }
+      }
       setOnlineOwnIds(directIds);
       setZaloStatus({ mode: data.mode || "none", directOnline: directIds, botOnline: botIds });
     } catch { /* ignore */ }
   }, []);
 
   useEffect(() => { loadBuildings(); loadOnlineIds(); }, [loadBuildings, loadOnlineIds]);
+
+  // Auto-refresh trạng thái mỗi 30 giây (real-time online/offline + Zalo status)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadBuildings();
+      loadOnlineIds();
+    }, 30 * 1000);
+    return () => clearInterval(interval);
+  }, [loadBuildings, loadOnlineIds]);
 
   return (
     <div className="space-y-4 p-4 md:p-6 max-w-3xl">
