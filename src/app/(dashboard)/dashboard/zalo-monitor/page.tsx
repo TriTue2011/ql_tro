@@ -66,14 +66,27 @@ function getMsgType(msg: ZaloMsg): string | null {
   return (msg.rawPayload as any)?.data?.msgType || null;
 }
 
+/** Chuyển presigned MinIO URL → proxy URL (không hết hạn) */
+function toDisplayUrl(url: string): string {
+  try {
+    const parsed = new URL(url, 'http://x');
+    if (parsed.searchParams.has('X-Amz-Credential')) {
+      const pathParts = parsed.pathname.replace(/^\//, '').split('/');
+      if (pathParts.length >= 2) return `/api/files/${pathParts.join('/')}`;
+    }
+  } catch { /* ignore */ }
+  return url;
+}
+
 /** Trích xuất URL ảnh/file/video từ rawPayload hoặc attachmentUrl */
 function getMediaUrl(msg: ZaloMsg): string | null {
-  if (msg.attachmentUrl) return msg.attachmentUrl;
+  if (msg.attachmentUrl) return toDisplayUrl(msg.attachmentUrl);
   const raw = (msg.rawPayload as any)?.data;
   if (!raw) return null;
   const c = raw.content;
   if (typeof c === 'object' && c) {
-    return c.href || c.hdUrl || c.normalUrl || c.thumb || c.url || c.fileUrl || null;
+    const url = c.href || c.hdUrl || c.normalUrl || c.thumb || c.url || c.fileUrl || null;
+    return url ? toDisplayUrl(url) : null;
   }
   return null;
 }
@@ -566,7 +579,7 @@ function MessageThread({
     setLoading(true);
     try {
       const url = `/api/zalo/messages?chatId=${encodeURIComponent(chatId)}&limit=50${before ? `&before=${before}` : ''}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       const batch: ZaloMsg[] = data.data ?? [];
       if (before) {
@@ -671,10 +684,11 @@ function MessageThread({
         chatId={chatId}
         threadType={threadType}
         onSent={() => {
+          // Reload ngay + retry sau 600ms để đảm bảo DB đã ghi xong
+          load().then(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }));
           setTimeout(() => {
-            load();
-            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-          }, 300);
+            load().then(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }));
+          }, 600);
         }}
       />
     </div>
@@ -694,7 +708,7 @@ export default function ZaloMonitorPage() {
   const loadConvs = useCallback(async () => {
     setLoadingConvs(true);
     try {
-      const res = await fetch('/api/zalo/messages?conversations=1');
+      const res = await fetch('/api/zalo/messages?conversations=1', { cache: 'no-store' });
       const data = await res.json();
       if (data.data) setConvs(data.data);
     } catch { /* ignore */ } finally { setLoadingConvs(false); }

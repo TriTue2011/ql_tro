@@ -46,6 +46,29 @@ const schema = z
     message: "Cần cung cấp message, imageUrl, fileUrl hoặc videoUrl",
   });
 
+/**
+ * Chuyển presigned MinIO URL thành proxy URL vĩnh viễn.
+ * http://172.16.10.27:9000/ql-tro/folder/file.jpg?X-Amz-... → /api/files/ql-tro/folder/file.jpg
+ */
+function toProxyUrl(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    // Presigned MinIO URL — chuyển thành proxy URL không hết hạn
+    if (parsed.searchParams.has("X-Amz-Credential")) {
+      const pathParts = parsed.pathname.replace(/^\//, "").split("/");
+      if (pathParts.length >= 2) {
+        return `/api/files/${pathParts.join("/")}`;
+      }
+    }
+    // /api/files/... hoặc /uploads/... — giữ nguyên
+    if (parsed.pathname.startsWith("/api/files/") || parsed.pathname.startsWith("/uploads/")) {
+      return parsed.pathname;
+    }
+  } catch { /* ignore */ }
+  return url;
+}
+
 /** Lưu tin nhắn gửi đi vào DB (ZaloMessage) để có lịch sử */
 async function logSentMessage(
   chatId: string,
@@ -54,12 +77,14 @@ async function logSentMessage(
   ownId?: string,
 ) {
   try {
+    // Chuyển presigned URL → proxy URL trước khi lưu (tránh hết hạn)
+    const permanentUrl = toProxyUrl(attachmentUrl);
     const saved = await prisma.zaloMessage.create({
       data: {
         chatId,
         ownId: ownId || null,
         content: content || "[media]",
-        attachmentUrl: attachmentUrl || null,
+        attachmentUrl: permanentUrl,
         role: "bot",
         eventName: "send",
       },
@@ -91,7 +116,12 @@ async function resolveLocalUrl(url: string): Promise<string> {
   // Relative path → absolute
   if (url.startsWith("/")) {
     const base = await getAppBaseUrl();
-    url = `${base}${url}`;
+    return `${base}${url}`;
+  }
+
+  // Presigned MinIO URLs (có X-Amz-) — KHÔNG chạy qua URL parser để tránh hỏng signature
+  if (url.includes("X-Amz-")) {
+    return url;
   }
 
   try {
@@ -102,10 +132,12 @@ async function resolveLocalUrl(url: string): Promise<string> {
         const baseParsed = new URL(base);
         if (baseParsed.hostname !== "localhost" && baseParsed.hostname !== "127.0.0.1") {
           parsed.hostname = baseParsed.hostname;
+          return parsed.toString();
         }
       } catch { /* ignore */ }
     }
-    return parsed.toString();
+    // Không cần sửa → trả nguyên URL gốc (tránh re-encode)
+    return url;
   } catch {
     return url;
   }
