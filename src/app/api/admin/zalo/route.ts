@@ -75,18 +75,45 @@ export async function GET() {
     },
   });
 
-  // Kiểm tra tài khoản nào đang online qua Direct
+  // Kiểm tra tài khoản nào đang online qua Direct + auto-fix zaloAccountId
   const directAccountIds: Set<string> = new Set();
+  // Map ownId → userId (DB) để reverse-match khi zaloAccountId khác ownId
+  const directOwnIdToUserId: Map<string, string> = new Map();
   try {
     const directAccounts = zaloDirect.getAccounts();
     for (const acc of directAccounts) {
-      if (acc.loggedIn) {
-        if (acc.ownId) directAccountIds.add(acc.ownId);
+      if (acc.loggedIn && acc.ownId) {
+        directAccountIds.add(acc.ownId);
         if (acc.phone) {
           directAccountIds.add(acc.phone);
           directAccountIds.add(acc.phone.replace(/^\+84/, '0'));
           directAccountIds.add(acc.phone.replace(/^0/, '+84'));
         }
+      }
+      // Auto-fix: gán zaloAccountId = ownId cho user match SĐT
+      if (acc.ownId && acc.phone) {
+        const phoneVariants = [acc.phone, acc.phone.replace(/^\+84/, '0'), acc.phone.replace(/^0/, '+84')];
+        await prisma.nguoiDung.updateMany({
+          where: { soDienThoai: { in: phoneVariants }, zaloAccountId: { not: acc.ownId } },
+          data: { zaloAccountId: acc.ownId },
+        }).catch(() => {});
+        await prisma.nguoiDung.updateMany({
+          where: { soDienThoai: { in: phoneVariants }, zaloAccountId: null },
+          data: { zaloAccountId: acc.ownId },
+        }).catch(() => {});
+      }
+    }
+
+    // Reverse lookup: tìm users đã link zaloAccountId nhưng ownId khác
+    // (trường hợp phone không có trong direct account)
+    if (directAccounts.length > 0) {
+      const allDirectOwnIds = directAccounts.map(a => a.ownId).filter(Boolean);
+      const linkedUsers = await prisma.nguoiDung.findMany({
+        where: { zaloAccountId: { in: allDirectOwnIds } },
+        select: { id: true, zaloAccountId: true },
+      });
+      for (const u of linkedUsers) {
+        if (u.zaloAccountId) directOwnIdToUserId.set(u.zaloAccountId, u.id);
       }
     }
   } catch { /* ignore */ }
@@ -162,13 +189,32 @@ export async function GET() {
     },
   });
 
-  function checkOnline(account: { zaloAccountId?: string | null; soDienThoai?: string | null }, idSet: Set<string>): boolean | null {
-    if (idSet.size === 0) return null;
+  function checkDirectOnline(account: { zaloAccountId?: string | null; soDienThoai?: string | null; id?: string; ten?: string }): boolean | null {
+    if (directAccountIds.size === 0) return null;
     if (!account.zaloAccountId && !account.soDienThoai) return null;
-    if (account.zaloAccountId && idSet.has(account.zaloAccountId)) return true;
+    // Match bằng zaloAccountId
+    if (account.zaloAccountId && directAccountIds.has(account.zaloAccountId)) return true;
+    // Match bằng SĐT
     if (account.soDienThoai) {
       const phone = account.soDienThoai;
-      if (idSet.has(phone) || idSet.has(phone.replace(/^0/, '+84')) || idSet.has(phone.replace(/^\+84/, '0'))) return true;
+      if (directAccountIds.has(phone) || directAccountIds.has(phone.replace(/^0/, '+84')) || directAccountIds.has(phone.replace(/^\+84/, '0'))) return true;
+    }
+    // Reverse match: user.id khớp với directOwnIdToUserId
+    if (account.id) {
+      for (const [ownId, userId] of directOwnIdToUserId) {
+        if (userId === account.id && directAccountIds.has(ownId)) return true;
+      }
+    }
+    return account.zaloAccountId ? false : null;
+  }
+
+  function checkBotOnline(account: { zaloAccountId?: string | null; soDienThoai?: string | null }): boolean | null {
+    if (botAccountIds.size === 0) return null;
+    if (!account.zaloAccountId && !account.soDienThoai) return null;
+    if (account.zaloAccountId && botAccountIds.has(account.zaloAccountId)) return true;
+    if (account.soDienThoai) {
+      const phone = account.soDienThoai;
+      if (botAccountIds.has(phone) || botAccountIds.has(phone.replace(/^0/, '+84')) || botAccountIds.has(phone.replace(/^\+84/, '0'))) return true;
     }
     return account.zaloAccountId ? false : null;
   }
@@ -180,14 +226,14 @@ export async function GET() {
     chuTro: {
       ...omit(b.chuSoHuu, 'zaloThongBaoCaiDat'),
       settings: b.chuSoHuu.zaloThongBaoCaiDat.find(s => s.toaNhaId === b.id) ?? null,
-      botOnline: checkOnline(b.chuSoHuu, botAccountIds),
-      directOnline: checkOnline(b.chuSoHuu, directAccountIds),
+      botOnline: checkBotOnline(b.chuSoHuu),
+      directOnline: checkDirectOnline(b.chuSoHuu),
     },
     quanLys: b.nguoiQuanLy.map(q => ({
       ...omit(q.nguoiDung, 'zaloThongBaoCaiDat'),
       settings: q.nguoiDung.zaloThongBaoCaiDat.find(s => s.toaNhaId === b.id) ?? null,
-      botOnline: checkOnline(q.nguoiDung, botAccountIds),
-      directOnline: checkOnline(q.nguoiDung, directAccountIds),
+      botOnline: checkBotOnline(q.nguoiDung),
+      directOnline: checkDirectOnline(q.nguoiDung),
     })),
   }));
 
