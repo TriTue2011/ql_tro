@@ -381,7 +381,7 @@ interface DirectState {
 
 // ─── Zalo Connection Overview (hiển thị trên danh sách tòa nhà) ──────────────
 
-function ZaloConnectionOverview({ buildings }: { buildings: BuildingData[] }) {
+function ZaloConnectionOverview() {
   const [state, setState] = useState<DirectState | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -406,19 +406,8 @@ function ZaloConnectionOverview({ buildings }: { buildings: BuildingData[] }) {
   ];
   const uniqueAccounts = allAccounts.filter((a, i, arr) => arr.findIndex((b) => b.ownId === a.ownId) === i);
 
-  // Cross-reference ownId với buildings để tìm chủ sở hữu
-  function findOwner(ownId: string): { ten: string; vaiTro: string; toaNha: string } | null {
-    for (const b of buildings) {
-      if (b.chuTro?.zaloAccountId === ownId) {
-        return { ten: b.chuTro.ten, vaiTro: "Chủ trọ", toaNha: b.tenToaNha };
-      }
-      const ql = b.quanLys?.find((q) => q.zaloAccountId === ownId);
-      if (ql) {
-        return { ten: ql.ten, vaiTro: ql.vaiTro === "dongChuTro" ? "Đồng chủ trọ" : "Quản lý", toaNha: b.tenToaNha };
-      }
-    }
-    return null;
-  }
+  // Lấy thông tin chủ sở hữu từ API response
+  const accountOwners: Record<string, { ten: string; vaiTro: string; toaNha?: string }> = (state as any)?.accountOwners || {};
 
   if (loading && !state) {
     return (
@@ -491,7 +480,7 @@ function ZaloConnectionOverview({ buildings }: { buildings: BuildingData[] }) {
           <div className="border-t pt-3 space-y-2">
             <p className="text-xs font-medium text-gray-600">Tài khoản ({uniqueAccounts.length})</p>
             {uniqueAccounts.map((a) => {
-              const owner = findOwner(a.ownId);
+              const owner = accountOwners[a.ownId];
               return (
                 <div key={a.ownId} className="flex items-center justify-between p-2 rounded-lg border text-xs">
                   <div className="flex items-center gap-2 min-w-0">
@@ -3343,6 +3332,7 @@ function PersonRow({
   userRole,
   sessionUserId,
   onRefresh,
+  onlineOwnIds,
 }: {
   account: AccountData;
   buildingId: string;
@@ -3351,9 +3341,15 @@ function PersonRow({
   userRole: string;
   sessionUserId: string;
   onRefresh: () => void;
+  onlineOwnIds: Set<string>;
+  zaloStatus: { mode: string; directOnline: Set<string>; botOnline: Set<string> };
 }) {
   const [open, setOpen] = useState(false);
   const isSelf = account.id === sessionUserId;
+  const isDirectOnline = !!(account.zaloAccountId && zaloStatus.directOnline.has(account.zaloAccountId));
+  const isBotOnline = !!(account.zaloAccountId && zaloStatus.botOnline.has(account.zaloAccountId));
+  const isZaloOnline = isDirectOnline || isBotOnline;
+  const zaloMode = isDirectOnline ? "Direct" : isBotOnline ? "Bot Server" : null;
 
   // Non-admin xem tài khoản người khác: chỉ hiển thị trạng thái kết nối (không mở rộng)
   const isOtherAccountView = !isAdmin && !isSelf;
@@ -3375,25 +3371,31 @@ function PersonRow({
             <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Admin</Badge>
           )}
           <span className={`text-[9px] ml-1 ${
+            isZaloOnline ? "text-green-500" :
             account.botOnline === false ? "text-red-500" :
-            account.zaloChatId ? "text-green-500" :
+            account.zaloChatId ? "text-amber-400" :
             account.pendingZaloChatId ? "text-amber-400" : "text-gray-300"
           }`}>
-            {account.botOnline === false ? "●" :
+            {isZaloOnline ? "●" :
+             account.botOnline === false ? "●" :
              account.zaloChatId ? "●" :
              account.pendingZaloChatId ? "◐" : "○"}
           </span>
-          {account.botOnline === false ? (
-            <span className="text-[10px] text-red-500 font-medium">
-              Zalo đã bị đăng xuất
-            </span>
-          ) : account.zaloChatId ? (
+          {isZaloOnline ? (
             <span className="text-[10px] text-green-600 font-medium">
-              Đang kết nối
+              Đang online — Zalo {zaloMode}
+            </span>
+          ) : account.zaloAccountId ? (
+            <span className="text-[10px] text-red-500 font-medium">
+              Đang offline
+            </span>
+          ) : account.pendingZaloChatId ? (
+            <span className="text-[10px] text-amber-500">
+              Chờ xác nhận Zalo
             </span>
           ) : (
             <span className="text-[10px] text-gray-400">
-              {account.pendingZaloChatId ? "Chờ xác nhận Zalo" : "Chưa liên kết Zalo"}
+              Chưa liên kết Zalo
             </span>
           )}
         </div>
@@ -3428,6 +3430,7 @@ function RoleGroup({
   userRole,
   sessionUserId,
   onRefresh,
+  onlineOwnIds,
 }: {
   role: "chuTro" | "quanLy";
   people: AccountData[];
@@ -3436,6 +3439,8 @@ function RoleGroup({
   userRole: string;
   sessionUserId: string;
   onRefresh: () => void;
+  onlineOwnIds: Set<string>;
+  zaloStatus: { mode: string; directOnline: Set<string>; botOnline: Set<string> };
 }) {
   const [open, setOpen] = useState(true);
   const isChuTroRole = role === "chuTro";
@@ -3481,7 +3486,10 @@ function RoleGroup({
               userRole={userRole}
               sessionUserId={sessionUserId}
               onRefresh={onRefresh}
+              onlineOwnIds={onlineOwnIds}
+              zaloStatus={zaloStatus}
             />
+
           ))}
         </div>
       )}
@@ -3498,6 +3506,7 @@ function BuildingAccordion({
   sessionUserId,
   defaultOpen,
   onRefresh,
+  onlineOwnIds,
 }: {
   building: BuildingData;
   isAdmin: boolean;
@@ -3505,6 +3514,8 @@ function BuildingAccordion({
   sessionUserId: string;
   defaultOpen: boolean;
   onRefresh: () => void;
+  onlineOwnIds: Set<string>;
+  zaloStatus: { mode: string; directOnline: Set<string>; botOnline: Set<string> };
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -3574,6 +3585,7 @@ function BuildingAccordion({
               userRole={userRole}
               sessionUserId={sessionUserId}
               onRefresh={onRefresh}
+              onlineOwnIds={onlineOwnIds}
             />
           )}
           {quanLyGroup.length > 0 && (
@@ -3585,6 +3597,7 @@ function BuildingAccordion({
               userRole={userRole}
               sessionUserId={sessionUserId}
               onRefresh={onRefresh}
+              onlineOwnIds={onlineOwnIds}
             />
           )}
           {totalPeople === 0 && (
@@ -3606,6 +3619,12 @@ export default function ZaloSettingsPage() {
 
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onlineOwnIds, setOnlineOwnIds] = useState<Set<string>>(new Set());
+  const [zaloStatus, setZaloStatus] = useState<{
+    mode: string;
+    directOnline: Set<string>;
+    botOnline: Set<string>;
+  }>({ mode: "none", directOnline: new Set(), botOnline: new Set() });
 
   const loadBuildings = useCallback(async () => {
     setLoading(true);
@@ -3618,7 +3637,24 @@ export default function ZaloSettingsPage() {
     }
   }, []);
 
-  useEffect(() => { loadBuildings(); }, [loadBuildings]);
+  // Fetch danh sách ownId đang online (direct + bot server)
+  const loadOnlineIds = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/zalo-direct");
+      if (!res.ok) return;
+      const data = await res.json();
+      const directIds = new Set<string>(
+        (data.directAccounts || []).filter((a: any) => a.loggedIn).map((a: any) => a.ownId)
+      );
+      const botIds = new Set<string>(
+        (data.botAccounts || []).map((a: any) => a.ownId || a.id || "").filter(Boolean)
+      );
+      setOnlineOwnIds(directIds);
+      setZaloStatus({ mode: data.mode || "none", directOnline: directIds, botOnline: botIds });
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { loadBuildings(); loadOnlineIds(); }, [loadBuildings, loadOnlineIds]);
 
   return (
     <div className="space-y-4 p-4 md:p-6 max-w-3xl">
@@ -3640,7 +3676,7 @@ export default function ZaloSettingsPage() {
       </div>
 
       {/* Zalo Connection Overview (admin only) */}
-      {isAdmin && <ZaloConnectionOverview buildings={buildings} />}
+      {isAdmin && <ZaloConnectionOverview />}
 
       {/* Building list */}
       <div className="space-y-2">
@@ -3673,6 +3709,8 @@ export default function ZaloSettingsPage() {
                 sessionUserId={sessionUserId}
                 defaultOpen={i === 0}
                 onRefresh={loadBuildings}
+                onlineOwnIds={onlineOwnIds}
+                zaloStatus={zaloStatus}
               />
             ))}
           </div>
