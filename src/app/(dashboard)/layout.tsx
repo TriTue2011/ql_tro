@@ -481,7 +481,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if (!session) return;
     const ping = () => fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
     ping(); // Gửi ngay khi mount
-    const interval = setInterval(ping, 2 * 60 * 1000);
+    const interval = setInterval(ping, 30 * 1000); // 30 giây
     return () => clearInterval(interval);
   }, [session]);
 
