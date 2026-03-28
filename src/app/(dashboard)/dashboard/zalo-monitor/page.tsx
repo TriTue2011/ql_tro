@@ -594,6 +594,11 @@ function MessageThread({
 
   useEffect(() => { load(); }, [load]);
   useRealtimeEvents(['zalo-message'], () => { void load(); });
+  // Polling fallback mỗi 5s phòng khi SSE bị mất kết nối
+  useEffect(() => {
+    const timer = setInterval(() => { void load(); }, 5000);
+    return () => clearInterval(timer);
+  }, [load]);
 
   async function handleDelete(id: string) {
     await fetch(`/api/zalo/messages?id=${id}`, { method: 'DELETE' });
@@ -728,6 +733,11 @@ export default function ZaloMonitorPage() {
 
   useEffect(() => { loadConvs(); checkConnection(); }, [loadConvs, checkConnection]);
   useRealtimeEvents(['zalo-message'], () => { void loadConvs(); });
+  // Polling fallback mỗi 5s phòng khi SSE bị mất kết nối
+  useEffect(() => {
+    const timer = setInterval(() => { void loadConvs(); }, 5000);
+    return () => clearInterval(timer);
+  }, [loadConvs]);
 
   async function handleDeleteAll() {
     if (!confirm('Xóa tất cả tin nhắn?')) return;
