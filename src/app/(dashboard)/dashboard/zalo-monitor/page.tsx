@@ -66,14 +66,27 @@ function getMsgType(msg: ZaloMsg): string | null {
   return (msg.rawPayload as any)?.data?.msgType || null;
 }
 
+/** Chuyển presigned MinIO URL → proxy URL (không hết hạn) */
+function toDisplayUrl(url: string): string {
+  try {
+    const parsed = new URL(url, 'http://x');
+    if (parsed.searchParams.has('X-Amz-Credential')) {
+      const pathParts = parsed.pathname.replace(/^\//, '').split('/');
+      if (pathParts.length >= 2) return `/api/files/${pathParts.join('/')}`;
+    }
+  } catch { /* ignore */ }
+  return url;
+}
+
 /** Trích xuất URL ảnh/file/video từ rawPayload hoặc attachmentUrl */
 function getMediaUrl(msg: ZaloMsg): string | null {
-  if (msg.attachmentUrl) return msg.attachmentUrl;
+  if (msg.attachmentUrl) return toDisplayUrl(msg.attachmentUrl);
   const raw = (msg.rawPayload as any)?.data;
   if (!raw) return null;
   const c = raw.content;
   if (typeof c === 'object' && c) {
-    return c.href || c.hdUrl || c.normalUrl || c.thumb || c.url || c.fileUrl || null;
+    const url = c.href || c.hdUrl || c.normalUrl || c.thumb || c.url || c.fileUrl || null;
+    return url ? toDisplayUrl(url) : null;
   }
   return null;
 }
