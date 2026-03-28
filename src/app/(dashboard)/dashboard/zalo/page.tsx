@@ -85,6 +85,7 @@ interface AccountData {
   nhanThongBaoZalo: boolean;
   settings: ZaloSettings | null;
   botOnline?: boolean | null; // true=online, false=bị out, null=chưa check
+  directOnline?: boolean | null; // true=đang kết nối direct, false=mất kết nối, null=chưa check
   hoatDongCuoi?: string | null; // Thời gian hoạt động cuối trên web
 }
 
@@ -3349,13 +3350,9 @@ function PersonRow({
   const [open, setOpen] = useState(false);
   const isSelf = account.id === sessionUserId;
 
-  // Match bằng zaloAccountId hoặc soDienThoai (nhiều format)
-  const matchIds = [account.zaloAccountId, account.soDienThoai].filter(Boolean) as string[];
-  if (account.soDienThoai) {
-    matchIds.push(account.soDienThoai.replace(/^\+84/, "0"), account.soDienThoai.replace(/^0/, "+84"));
-  }
-  const isDirectOnline = matchIds.some((id) => zaloStatus.directOnline.has(id));
-  const isBotOnline = matchIds.some((id) => zaloStatus.botOnline.has(id));
+  // Trạng thái Zalo từ server-side matching (đáng tin cậy hơn client-side)
+  const isDirectOnline = account.directOnline === true;
+  const isBotOnline = account.botOnline === true;
   const isZaloOnline = isDirectOnline || isBotOnline;
   const zaloMode = isDirectOnline ? "Direct" : isBotOnline ? "Bot Server" : null;
 

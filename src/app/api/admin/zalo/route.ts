@@ -12,6 +12,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { getAccountsFromBotServer } from '@/lib/zalo-bot-client';
+import * as zaloDirect from '@/lib/zalo-direct/service';
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,22 @@ export async function GET() {
       },
     },
   });
+
+  // Kiểm tra tài khoản nào đang online qua Direct
+  const directAccountIds: Set<string> = new Set();
+  try {
+    const directAccounts = zaloDirect.getAccounts();
+    for (const acc of directAccounts) {
+      if (acc.loggedIn) {
+        if (acc.ownId) directAccountIds.add(acc.ownId);
+        if (acc.phone) {
+          directAccountIds.add(acc.phone);
+          directAccountIds.add(acc.phone.replace(/^\+84/, '0'));
+          directAccountIds.add(acc.phone.replace(/^0/, '+84'));
+        }
+      }
+    }
+  } catch { /* ignore */ }
 
   // Kiểm tra tài khoản nào đang online trên bot server + auto-fix data
   let botAccountIds: Set<string> = new Set();
@@ -145,13 +162,13 @@ export async function GET() {
     },
   });
 
-  function checkBotOnline(account: { zaloAccountId?: string | null; soDienThoai?: string | null }): boolean | null {
-    if (botAccountIds.size === 0) return null;
+  function checkOnline(account: { zaloAccountId?: string | null; soDienThoai?: string | null }, idSet: Set<string>): boolean | null {
+    if (idSet.size === 0) return null;
     if (!account.zaloAccountId && !account.soDienThoai) return null;
-    if (account.zaloAccountId && botAccountIds.has(account.zaloAccountId)) return true;
+    if (account.zaloAccountId && idSet.has(account.zaloAccountId)) return true;
     if (account.soDienThoai) {
       const phone = account.soDienThoai;
-      if (botAccountIds.has(phone) || botAccountIds.has(phone.replace(/^0/, '+84')) || botAccountIds.has(phone.replace(/^\+84/, '0'))) return true;
+      if (idSet.has(phone) || idSet.has(phone.replace(/^0/, '+84')) || idSet.has(phone.replace(/^\+84/, '0'))) return true;
     }
     return account.zaloAccountId ? false : null;
   }
@@ -163,12 +180,14 @@ export async function GET() {
     chuTro: {
       ...omit(b.chuSoHuu, 'zaloThongBaoCaiDat'),
       settings: b.chuSoHuu.zaloThongBaoCaiDat.find(s => s.toaNhaId === b.id) ?? null,
-      botOnline: checkBotOnline(b.chuSoHuu),
+      botOnline: checkOnline(b.chuSoHuu, botAccountIds),
+      directOnline: checkOnline(b.chuSoHuu, directAccountIds),
     },
     quanLys: b.nguoiQuanLy.map(q => ({
       ...omit(q.nguoiDung, 'zaloThongBaoCaiDat'),
       settings: q.nguoiDung.zaloThongBaoCaiDat.find(s => s.toaNhaId === b.id) ?? null,
-      botOnline: checkBotOnline(q.nguoiDung),
+      botOnline: checkOnline(q.nguoiDung, botAccountIds),
+      directOnline: checkOnline(q.nguoiDung, directAccountIds),
     })),
   }));
 
