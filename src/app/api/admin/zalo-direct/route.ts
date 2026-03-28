@@ -36,13 +36,15 @@ export async function GET() {
     const directStatus = zaloDirect.getDirectModeStatus();
     const botConfig = await getBotConfig();
 
-    // Lấy accounts từ cả 2 nguồn
+    // Lấy accounts từ bot server (chỉ khi KHÔNG dùng direct mode)
     let botAccounts: any[] = [];
     let botError: string | undefined;
-    if (botConfig?.serverUrl) {
+    if (botConfig?.serverUrl && mode !== "direct") {
       const result = await getAccountsFromBotServer();
       botAccounts = result.accounts;
       botError = result.error;
+    } else if (botConfig?.serverUrl && mode === "direct") {
+      botError = "Đang dùng chế độ Trực tiếp";
     }
 
     const directAccounts = zaloDirect.getAccounts();

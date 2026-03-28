@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== 'admin') {
+  if (!session || !['admin', 'chuNha', 'quanLy', 'dongChuTro'].includes(session.user?.role ?? '')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

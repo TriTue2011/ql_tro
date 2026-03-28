@@ -12,6 +12,7 @@ import {
   sendFileViaBotServer,
   sendVideoViaBotServer,
   getBotConfig,
+  getActiveMode,
   BotConfig,
 } from "@/lib/zalo-bot-client";
 import {
@@ -311,52 +312,45 @@ export async function POST(request: NextRequest) {
     const fixedFileUrl = fileUrl ? fixUrl : undefined;
     const fixedVideoUrl = videoUrl ? fixUrl : undefined;
 
-    // Helper: thử gửi qua bot server, nếu thất bại (tài khoản không tồn tại) → fallback direct mode
-    async function sendWithFallback(): Promise<{ ok: boolean; error?: string }> {
-      // Thử bot server trước (nếu có config)
-      let botResult: { ok: boolean; error?: string } | null = null;
-      const hasBotServer = !!botConfig?.serverUrl;
+    // Xác định chế độ gửi: direct ưu tiên nếu đang đăng nhập, không dùng bot server khi đang dùng direct
+    const activeMode = await getActiveMode();
 
-      if (hasBotServer) {
+    async function sendWithFallback(): Promise<{ ok: boolean; error?: string }> {
+      // ═══ Direct mode (zca-js) — ưu tiên nếu đang hoạt động ═══
+      if (activeMode === "direct") {
+        const directImgUrl = imageUrl || undefined;
+        const directFileUrl = fileUrl || undefined;
+        const directVideoUrl = videoUrl || undefined;
+
+        if (directVideoUrl) {
+          return directSendVideo(chatId!, {
+            videoUrl: directVideoUrl, thumbnailUrl, msg: message, duration: durationMs,
+          }, tType, accountSelection);
+        } else if (directFileUrl) {
+          return directSendFile(chatId!, directFileUrl, message, tType, 0, accountSelection);
+        } else if (directImgUrl) {
+          return directSendImage(chatId!, directImgUrl, message, tType, 0, accountSelection);
+        } else {
+          return directSendMessage(chatId!, message!, tType, 0, null, accountSelection);
+        }
+      }
+
+      // ═══ Bot server mode ═══
+      if (activeMode === "bot-server" && botConfig?.serverUrl) {
         if (fixedVideoUrl) {
-          botResult = await sendVideoViaBotServer(chatId!, fixedVideoUrl, {
+          return sendVideoViaBotServer(chatId!, fixedVideoUrl, {
             thumbnailUrl, durationMs, threadType: tType, accountSelection, configOverride: botConfig,
           });
         } else if (fixedFileUrl) {
-          botResult = await sendFileViaBotServer(chatId!, fixedFileUrl, message, tType, accountSelection, botConfig);
+          return sendFileViaBotServer(chatId!, fixedFileUrl, message, tType, accountSelection, botConfig);
         } else if (fixedImageUrl) {
-          botResult = await sendImageViaBotServer(chatId!, fixedImageUrl, message, tType, accountSelection, botConfig);
+          return sendImageViaBotServer(chatId!, fixedImageUrl, message, tType, accountSelection, botConfig);
         } else {
-          botResult = await sendMessageViaBotServer(chatId!, message!, tType, accountSelection, botConfig);
+          return sendMessageViaBotServer(chatId!, message!, tType, accountSelection, botConfig);
         }
-
-        // Nếu bot server thành công → trả về luôn
-        if (botResult.ok) return botResult;
-
-        // Nếu lỗi KHÔNG phải "không tìm thấy tài khoản" → trả lỗi luôn, không fallback
-        const errLower = (botResult.error || "").toLowerCase();
-        if (!errLower.includes("không tìm thấy tài khoản") && !errLower.includes("not found")) {
-          return botResult;
-        }
-        // Fallback to direct mode below
       }
 
-      // Direct mode (zca-js) — dùng URL gốc, helpers tự xử lý /api/files/ qua MinIO client
-      const directImgUrl = imageUrl || undefined;
-      const directFileUrl = fileUrl || undefined;
-      const directVideoUrl = videoUrl || undefined;
-
-      if (directVideoUrl) {
-        return directSendVideo(chatId!, {
-          videoUrl: directVideoUrl, thumbnailUrl, msg: message, duration: durationMs,
-        }, tType, accountSelection);
-      } else if (directFileUrl) {
-        return directSendFile(chatId!, directFileUrl, message, tType, 0, accountSelection);
-      } else if (directImgUrl) {
-        return directSendImage(chatId!, directImgUrl, message, tType, 0, accountSelection);
-      } else {
-        return directSendMessage(chatId!, message!, tType, 0, null, accountSelection);
-      }
+      return { ok: false, error: "Không có tài khoản Zalo nào đang kết nối (cần đăng nhập Direct hoặc Bot Server)" };
     }
 
     const result = await sendWithFallback();

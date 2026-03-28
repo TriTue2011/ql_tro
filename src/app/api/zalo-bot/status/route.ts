@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getAccountsFromBotServer, getBotConfig } from '@/lib/zalo-bot-client';
+import { getAccountsFromBotServer, getBotConfig, getActiveMode } from '@/lib/zalo-bot-client';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -21,6 +21,18 @@ export async function GET() {
       serverUrl: '',
       accounts: [],
       error: 'Chưa cấu hình zalo_bot_server_url trong Cài đặt',
+    });
+  }
+
+  // Kiểm tra mode thực tế — nếu đang dùng direct thì bot server không nên hiện "kết nối"
+  const mode = await getActiveMode();
+  if (mode === "direct") {
+    return NextResponse.json({
+      ok: false,
+      serverUrl: config.serverUrl,
+      accounts: [],
+      error: 'Đang dùng chế độ Trực tiếp (Direct). Bot Server không hoạt động.',
+      accountId: config.accountId,
     });
   }
 
