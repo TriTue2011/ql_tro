@@ -50,6 +50,48 @@ export async function GET() {
     const directAccounts = zaloDirect.getAccounts();
     const savedCookies = zaloDirect.listSavedCookies();
 
+    // Tìm chủ sở hữu cho từng ownId (nguoiDung + khachThue)
+    const allOwnIds = directAccounts.map((a) => a.ownId).filter(Boolean);
+    let accountOwners: Record<string, { ten: string; vaiTro: string; toaNha?: string }> = {};
+    if (allOwnIds.length > 0 && session.user.role === "admin") {
+      const [nguoiDungs, khachThues] = await Promise.all([
+        prisma.nguoiDung.findMany({
+          where: { zaloAccountId: { in: allOwnIds } },
+          select: {
+            zaloAccountId: true, ten: true, vaiTro: true,
+            toaNhaSoHuu: { select: { tenToaNha: true }, take: 1 },
+            quanLyToaNha: { select: { toaNha: { select: { tenToaNha: true } } }, take: 1 },
+          },
+        }),
+        prisma.khachThue.findMany({
+          where: { zaloChatId: { in: allOwnIds } },
+          select: {
+            zaloChatId: true, hoTen: true,
+            phong: { select: { toaNha: { select: { tenToaNha: true } } } },
+          },
+        }),
+      ]);
+      for (const nd of nguoiDungs) {
+        if (!nd.zaloAccountId) continue;
+        const vaiTroMap: Record<string, string> = {
+          admin: "Admin", chuNha: "Chủ trọ", dongChuTro: "Đồng chủ trọ",
+          quanLy: "Quản lý", nhanVien: "Nhân viên",
+        };
+        const toaNha = nd.toaNhaSoHuu?.[0]?.tenToaNha || nd.quanLyToaNha?.[0]?.toaNha?.tenToaNha || "";
+        accountOwners[nd.zaloAccountId] = {
+          ten: nd.ten, vaiTro: vaiTroMap[nd.vaiTro ?? ""] || nd.vaiTro || "",
+          toaNha,
+        };
+      }
+      for (const kt of khachThues) {
+        if (!kt.zaloChatId || accountOwners[kt.zaloChatId]) continue;
+        accountOwners[kt.zaloChatId] = {
+          ten: kt.hoTen, vaiTro: "Khách thuê",
+          toaNha: kt.phong?.toaNha?.tenToaNha || "",
+        };
+      }
+    }
+
     // Lấy proxies
     let proxies: any[] = [];
     if (mode === "direct") {
@@ -67,6 +109,7 @@ export async function GET() {
       botError,
       directAccounts,
       savedCookies,
+      accountOwners,
       proxies,
     });
   } catch (err: any) {

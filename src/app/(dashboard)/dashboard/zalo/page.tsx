@@ -381,7 +381,7 @@ interface DirectState {
 
 // ─── Zalo Connection Overview (hiển thị trên danh sách tòa nhà) ──────────────
 
-function ZaloConnectionOverview({ buildings }: { buildings: BuildingData[] }) {
+function ZaloConnectionOverview() {
   const [state, setState] = useState<DirectState | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -406,19 +406,8 @@ function ZaloConnectionOverview({ buildings }: { buildings: BuildingData[] }) {
   ];
   const uniqueAccounts = allAccounts.filter((a, i, arr) => arr.findIndex((b) => b.ownId === a.ownId) === i);
 
-  // Cross-reference ownId với buildings để tìm chủ sở hữu
-  function findOwner(ownId: string): { ten: string; vaiTro: string; toaNha: string } | null {
-    for (const b of buildings) {
-      if (b.chuTro?.zaloAccountId === ownId) {
-        return { ten: b.chuTro.ten, vaiTro: "Chủ trọ", toaNha: b.tenToaNha };
-      }
-      const ql = b.quanLys?.find((q) => q.zaloAccountId === ownId);
-      if (ql) {
-        return { ten: ql.ten, vaiTro: ql.vaiTro === "dongChuTro" ? "Đồng chủ trọ" : "Quản lý", toaNha: b.tenToaNha };
-      }
-    }
-    return null;
-  }
+  // Lấy thông tin chủ sở hữu từ API response
+  const accountOwners: Record<string, { ten: string; vaiTro: string; toaNha?: string }> = (state as any)?.accountOwners || {};
 
   if (loading && !state) {
     return (
@@ -491,7 +480,7 @@ function ZaloConnectionOverview({ buildings }: { buildings: BuildingData[] }) {
           <div className="border-t pt-3 space-y-2">
             <p className="text-xs font-medium text-gray-600">Tài khoản ({uniqueAccounts.length})</p>
             {uniqueAccounts.map((a) => {
-              const owner = findOwner(a.ownId);
+              const owner = accountOwners[a.ownId];
               return (
                 <div key={a.ownId} className="flex items-center justify-between p-2 rounded-lg border text-xs">
                   <div className="flex items-center gap-2 min-w-0">
@@ -3640,7 +3629,7 @@ export default function ZaloSettingsPage() {
       </div>
 
       {/* Zalo Connection Overview (admin only) */}
-      {isAdmin && <ZaloConnectionOverview buildings={buildings} />}
+      {isAdmin && <ZaloConnectionOverview />}
 
       {/* Building list */}
       <div className="space-y-2">
