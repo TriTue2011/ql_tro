@@ -468,6 +468,7 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
 }) {
   const [state, setState] = useState<DirectState | null>(null);
   const [loading, setLoading] = useState(false);
+  const [healthStatus, setHealthStatus] = useState<{ ownId: string; alive: boolean; error?: string }[] | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [qrProxy, setQrProxy] = useState("");
@@ -483,6 +484,24 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, []);
+
+  // Health check thật: gọi API Zalo xác nhận session còn sống
+  const runHealthCheck = useCallback(async () => {
+    setLoading(true);
+    setHealthStatus(null);
+    try {
+      const res = await fetch("/api/admin/zalo-direct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "healthCheck" }),
+      });
+      const data = await res.json();
+      if (data.results) setHealthStatus(data.results);
+      // Reload state sau health check (loggedIn có thể đã thay đổi)
+      await reload();
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, [reload]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -642,7 +661,7 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
             </div>
           )}
           {state && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {matchedAccount?.loggedIn || (isActive && state.directStatus.loggedInCount > 0) ? (
                 <>
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -654,6 +673,24 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
                   <span className="text-xs font-medium text-red-700">Mất kết nối</span>
                 </>
               )}
+              <Button size="sm" variant="outline" onClick={runHealthCheck} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
+                {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Kiểm tra thật"}
+              </Button>
+            </div>
+          )}
+          {healthStatus && (
+            <div className="text-[11px] space-y-1 bg-gray-50 rounded p-2 border">
+              {healthStatus.map((h) => (
+                <div key={h.ownId} className="flex items-center gap-1.5">
+                  {h.alive
+                    ? <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                    : <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
+                  <span className="font-mono">{h.ownId.slice(0, 12)}...</span>
+                  <span className={h.alive ? "text-green-700" : "text-red-600"}>
+                    {h.alive ? "OK — session hợp lệ" : h.error || "Session hết hạn"}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>

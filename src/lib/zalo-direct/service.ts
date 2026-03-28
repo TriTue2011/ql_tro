@@ -1203,6 +1203,58 @@ export function removeProxy(proxyUrl: string) {
 
 // ─── Status check ────────────────────────────────────────────────────────────
 
+/**
+ * Health check thật — gọi API Zalo để xác nhận session còn sống.
+ * Nếu session hết hạn → tự động đánh dấu loggedIn = false.
+ */
+export async function verifyAccountHealth(ownId?: string): Promise<{
+  ownId: string;
+  alive: boolean;
+  error?: string;
+}[]> {
+  const store = getStore();
+  const targets = ownId
+    ? store.accounts.filter((a) => a.ownId === ownId)
+    : store.accounts.filter((a) => a.loggedIn);
+
+  const results: { ownId: string; alive: boolean; error?: string }[] = [];
+
+  for (const acc of targets) {
+    if (!acc.api) {
+      acc.loggedIn = false;
+      results.push({ ownId: acc.ownId, alive: false, error: "Không có API instance" });
+      continue;
+    }
+
+    try {
+      // Gọi API nhẹ nhất: lấy danh sách bạn bè (hoặc lấy context)
+      const ctx = acc.api.getContext();
+      if (!ctx) {
+        acc.loggedIn = false;
+        results.push({ ownId: acc.ownId, alive: false, error: "Context null — session hết hạn" });
+        continue;
+      }
+
+      // Thử gọi API thật để xác nhận session
+      await Promise.race([
+        acc.api.getAllFriends(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10_000)),
+      ]);
+      results.push({ ownId: acc.ownId, alive: true });
+    } catch (err: any) {
+      const msg = err.message || "Unknown error";
+      console.warn(`[ZaloDirect] Health check failed for ${acc.ownId}: ${msg}`);
+      // Session hết hạn → đánh dấu offline
+      if (msg.includes("zpw_sek") || msg.includes("not logged") || msg.includes("session") || msg.includes("Timeout")) {
+        acc.loggedIn = false;
+      }
+      results.push({ ownId: acc.ownId, alive: false, error: msg });
+    }
+  }
+
+  return results;
+}
+
 export function isDirectModeAvailable(): boolean {
   return getStore().accounts.length > 0 && getStore().accounts.some((a) => a.loggedIn);
 }

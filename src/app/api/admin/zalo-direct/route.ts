@@ -92,6 +92,12 @@ export async function POST(req: NextRequest) {
     }
 
     switch (action) {
+      case "healthCheck": {
+        const { ownId } = body;
+        const results = await zaloDirect.verifyAccountHealth(ownId || undefined);
+        return NextResponse.json({ ok: true, results, accounts: zaloDirect.getAccounts() });
+      }
+
       case "loginQR": {
         const { proxyUrl } = body;
         const result = await zaloDirect.loginWithQR(proxyUrl || undefined);
