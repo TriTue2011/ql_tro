@@ -3373,29 +3373,43 @@ function PersonRow({
           )}
           <span className={`text-[9px] ml-1 ${
             isZaloOnline ? "text-green-500" :
-            account.zaloAccountId ? "text-red-500" :
+            (account.zaloAccountId && !isZaloOnline) ? "text-red-500" :
             account.pendingZaloChatId ? "text-amber-400" : "text-gray-300"
           }`}>
             {isZaloOnline ? "●" :
-             account.zaloAccountId ? "●" :
+             (account.zaloAccountId && !isZaloOnline) ? "●" :
              account.pendingZaloChatId ? "◐" : "○"}
           </span>
-          {isZaloOnline ? (
-            <span className="text-[10px] text-green-600 font-medium">
-              Đang online — Zalo {zaloMode}
-            </span>
-          ) : account.zaloAccountId ? (
-            <span className="text-[10px] text-red-500 font-medium">
-              Đang offline
-            </span>
-          ) : account.pendingZaloChatId ? (
-            <span className="text-[10px] text-amber-500">
-              Chờ xác nhận Zalo
-            </span>
+          {isSelf ? (
+            /* Tài khoản đang đăng nhập: hiện trạng thái Zalo */
+            isZaloOnline ? (
+              <span className="text-[10px] text-green-600 font-medium">
+                Zalo {zaloMode}
+              </span>
+            ) : account.zaloAccountId ? (
+              <span className="text-[10px] text-red-500 font-medium">
+                Mất kết nối Zalo
+              </span>
+            ) : account.pendingZaloChatId ? (
+              <span className="text-[10px] text-amber-500">Chờ xác nhận Zalo</span>
+            ) : (
+              <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
+            )
           ) : (
-            <span className="text-[10px] text-gray-400">
-              Chưa liên kết Zalo
-            </span>
+            /* Tài khoản khác: online/offline (web) + loại kết nối Zalo */
+            isZaloOnline ? (
+              <span className="text-[10px] text-green-600 font-medium">
+                Đang online — Zalo {zaloMode}
+              </span>
+            ) : account.zaloAccountId ? (
+              <span className="text-[10px] text-red-500 font-medium">
+                Mất kết nối Zalo
+              </span>
+            ) : account.pendingZaloChatId ? (
+              <span className="text-[10px] text-amber-500">Chờ xác nhận Zalo</span>
+            ) : (
+              <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
+            )
           )}
         </div>
         {!isOtherAccountView && (
