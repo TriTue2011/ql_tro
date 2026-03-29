@@ -1045,6 +1045,12 @@
 .bs-pulse-dot.dot-red       { background: #ef4444; }
 .bs-pulse-dot.dot-red::after { background: rgba(239,68,68,0.4); }
 
+.bs-pulse-dot.dot-gray       { background: #9ca3af; }
+.bs-pulse-dot.dot-gray::after { background: rgba(156,163,175,0.4); }
+
+.bs-pulse-dot.dot-orange       { background: #f97316; }
+.bs-pulse-dot.dot-orange::after { background: rgba(249,115,22,0.4); }
+
 /* =========================================================
    MOBILE
    ========================================================= */
