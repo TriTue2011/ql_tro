@@ -51,6 +51,7 @@ export async function GET() {
       trangThai: user.trangThai,
       zaloChatId: user.zaloChatId ?? null,
       zaloChatIds: user.zaloChatIds ?? null,
+      zaloAccountId: user.zaloAccountId ?? null,
       pendingZaloChatId: user.pendingZaloChatId ?? null,
       ngayTao: user.ngayTao?.toISOString(),
       ngayCapNhat: user.ngayCapNhat?.toISOString(),

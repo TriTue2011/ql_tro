@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
 
   const { id: userId, role } = session.user;
   const toaNhaId = req.nextUrl.searchParams.get('toaNhaId');
+  const botAccountId = req.nextUrl.searchParams.get('botAccountId');
 
   if (!toaNhaId) {
     return NextResponse.json({ error: 'Cần toaNhaId' }, { status: 400 });
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
                 hoTen: true,
                 soDienThoai: true,
                 zaloChatId: true,
+                zaloChatIds: true,
                 nhanThongBaoZalo: true,
               },
             },
@@ -61,6 +63,15 @@ export async function GET(req: NextRequest) {
         },
       },
     });
+
+    // Helper: resolve threadId cho bot account cụ thể
+    function resolveThreadId(kt: { zaloChatId: string | null; zaloChatIds: any }): string | null {
+      if (botAccountId && Array.isArray(kt.zaloChatIds)) {
+        const entry = kt.zaloChatIds.find((e: any) => e.ten === botAccountId);
+        if (entry?.threadId) return entry.threadId;
+      }
+      return kt.zaloChatId;
+    }
 
     const khachThues: {
       id: string;
@@ -74,10 +85,13 @@ export async function GET(req: NextRequest) {
     for (const phong of phongs) {
       for (const hd of phong.hopDongs) {
         for (const kt of hd.khachThues) {
-          // Avoid duplicates
           if (!khachThues.find(k => k.id === kt.id)) {
             khachThues.push({
-              ...kt,
+              id: kt.id,
+              hoTen: kt.hoTen,
+              soDienThoai: kt.soDienThoai,
+              zaloChatId: resolveThreadId(kt),
+              nhanThongBaoZalo: kt.nhanThongBaoZalo,
               phong: { maPhong: phong.maPhong, tang: phong.tang },
             });
           }

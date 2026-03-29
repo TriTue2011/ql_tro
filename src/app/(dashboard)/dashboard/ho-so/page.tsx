@@ -56,6 +56,7 @@ interface UserProfile {
   ngayCapNhat?: string;
   zaloChatId?: string | null;
   zaloChatIds?: { ten: string; userId: string; threadId: string }[] | null;
+  zaloAccountId?: string | null;
   pendingZaloChatId?: string | null;
 }
 
@@ -584,7 +585,7 @@ export default function ProfilePage() {
 
                 {/* Danh bạ Zalo — theo tòa nhà / role / tầng */}
                 <div className="md:col-span-2">
-                  <ZaloContactDirectory />
+                  <ZaloContactDirectory currentUserId={profile?.id} currentBotAccountId={profile?.zaloAccountId} />
                 </div>
               </div>
 
@@ -895,10 +896,22 @@ interface ContactEntry {
   tang?: number;
 }
 
-function ZaloContactDirectory() {
+function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
+  currentUserId?: string;
+  currentBotAccountId?: string | null;
+}) {
   const [buildings, setBuildings] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+
+  // Resolve threadId: tìm trong zaloChatIds entry khớp với bot account của user đang đăng nhập
+  function resolveThreadId(person: any): string | null {
+    if (currentBotAccountId && Array.isArray(person.zaloChatIds)) {
+      const entry = person.zaloChatIds.find((e: any) => e.ten === currentBotAccountId);
+      if (entry?.threadId) return entry.threadId;
+    }
+    return person.zaloChatId || null;
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -914,17 +927,19 @@ function ZaloContactDirectory() {
         const unique = allPeople.filter((p: any) => {
           if (!p || seen.has(p.id)) return false;
           seen.add(p.id);
-          return p.vaiTro !== 'admin';
+          // Bỏ admin và bỏ tài khoản đang đăng nhập
+          return p.vaiTro !== 'admin' && p.id !== currentUserId;
         });
 
         const chuTro = unique.filter((p: any) => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro')
-          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: p.zaloChatId }));
+          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
         const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien')
-          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: p.zaloChatId }));
+          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
 
         let khachThue: ContactEntry[] = [];
         try {
-          const ktRes = await fetch(`/api/admin/zalo/khach-thue?toaNhaId=${b.id}`);
+          const botParam = currentBotAccountId ? `&botAccountId=${encodeURIComponent(currentBotAccountId)}` : '';
+          const ktRes = await fetch(`/api/admin/zalo/khach-thue?toaNhaId=${b.id}${botParam}`);
           const ktData = await ktRes.json();
           if (ktData.ok) {
             khachThue = (ktData.khachThues || []).map((kt: any) => ({
@@ -941,7 +956,8 @@ function ZaloContactDirectory() {
       setLoading(false);
       setLoaded(true);
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, currentBotAccountId]);
 
   useEffect(() => { if (!loaded) load(); }, [loaded, load]);
 
