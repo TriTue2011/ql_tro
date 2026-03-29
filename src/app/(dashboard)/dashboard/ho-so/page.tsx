@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,11 @@ import {
   Clock,
   Plus,
   Trash2,
+  Building2,
+  Crown,
+  Users,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -576,6 +581,11 @@ export default function ProfilePage() {
                       Nhắn tin cho bot Zalo — hệ thống tự phát hiện và liên kết Chat ID của bạn
                     </p>
                 </div>
+
+                {/* Danh bạ Zalo — theo tòa nhà / role / tầng */}
+                <div className="md:col-span-2">
+                  <ZaloContactDirectory />
+                </div>
               </div>
 
 
@@ -871,5 +881,281 @@ export default function ProfilePage() {
         </TabsContent>}
       </Tabs>
     </div>
+  );
+}
+
+// ─── Danh bạ Zalo: Tòa nhà → Role → Bảng liên hệ ───────────────────────────
+
+interface ContactEntry {
+  id: string;
+  ten: string;
+  soDienThoai: string | null;
+  zaloChatId: string | null;
+  phong?: string;
+  tang?: number;
+}
+
+function ZaloContactDirectory() {
+  const [buildings, setBuildings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/zalo');
+      const data = await res.json();
+      if (!data.ok) return;
+
+      const result: any[] = [];
+      for (const b of data.buildings || []) {
+        const allPeople = [b.chuTro, ...(b.quanLys || [])];
+        const seen = new Set<string>();
+        const unique = allPeople.filter((p: any) => {
+          if (!p || seen.has(p.id)) return false;
+          seen.add(p.id);
+          return p.vaiTro !== 'admin';
+        });
+
+        const chuTro = unique.filter((p: any) => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro')
+          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: p.zaloChatId }));
+        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien')
+          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: p.zaloChatId }));
+
+        let khachThue: ContactEntry[] = [];
+        try {
+          const ktRes = await fetch(`/api/admin/zalo/khach-thue?toaNhaId=${b.id}`);
+          const ktData = await ktRes.json();
+          if (ktData.ok) {
+            khachThue = (ktData.khachThues || []).map((kt: any) => ({
+              id: kt.id, ten: kt.hoTen, soDienThoai: kt.soDienThoai, zaloChatId: kt.zaloChatId,
+              phong: kt.phong?.maPhong, tang: kt.phong?.tang,
+            }));
+          }
+        } catch { /* ignore */ }
+
+        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuTro, quanLy, khachThue });
+      }
+      setBuildings(result);
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => { if (!loaded) load(); }, [loaded, load]);
+
+  const handleUpdateChatId = async (id: string, type: 'nguoiDung' | 'khachThue', zaloChatId: string) => {
+    try {
+      const res = await fetch('/api/admin/zalo/khach-thue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, type, zaloChatId }),
+      });
+      const data = await res.json();
+      if (data.ok) { toast.success('Đã cập nhật Thread ID'); load(); }
+      else toast.error(data.error || 'Lỗi cập nhật');
+    } catch { toast.error('Lỗi kết nối'); }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs md:text-sm flex items-center gap-1.5">
+          <Building2 className="h-3.5 w-3.5 text-blue-500" />
+          Danh bạ Zalo theo tòa nhà
+        </Label>
+        <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={load} disabled={loading}>
+          {loading ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-400" /> : '↻ Tải lại'}
+        </Button>
+      </div>
+
+      {loading && !loaded && (
+        <div className="text-xs text-muted-foreground text-center py-3">Đang tải...</div>
+      )}
+      {loaded && buildings.length === 0 && (
+        <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
+          Chưa có tòa nhà
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        {buildings.map(b => (
+          <DirBuilding key={b.id} building={b} onUpdate={handleUpdateChatId} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DirBuilding({ building, onUpdate }: { building: any; onUpdate: (id: string, type: 'nguoiDung' | 'khachThue', v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border rounded-md overflow-hidden">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-2 min-w-0">
+          <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
+          <span className="text-xs font-semibold text-gray-800 truncate">{building.tenToaNha}</span>
+        </div>
+        {open ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="border-t bg-gray-50 p-2 space-y-1.5">
+          {building.chuTro.length > 0 && (
+            <DirRoleGroup label="Chủ trọ" icon={<Crown className="h-3 w-3 text-amber-500" />}
+              badgeClass="bg-amber-100 text-amber-700" people={building.chuTro}
+              onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
+          )}
+          {building.quanLy.length > 0 && (
+            <DirRoleGroup label="Quản lý" icon={<Users className="h-3 w-3 text-blue-400" />}
+              badgeClass="bg-blue-100 text-blue-700" people={building.quanLy}
+              onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
+          )}
+          {building.khachThue.length > 0 && (
+            <DirTenantGroup tenants={building.khachThue} onUpdate={(id, v) => onUpdate(id, 'khachThue', v)} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirRoleGroup({ label, icon, badgeClass, people, onUpdate }: {
+  label: string; icon: any; badgeClass: string; people: ContactEntry[];
+  onUpdate: (id: string, v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border rounded-md overflow-hidden bg-white">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-1.5">
+          {icon}
+          <span className="text-xs font-medium">{label}</span>
+          <Badge variant="outline" className={`text-[9px] px-1 py-0 h-3.5 ${badgeClass}`}>{people.length}</Badge>
+        </div>
+        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="border-t overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead><tr className="bg-gray-100 text-gray-600">
+              <th className="text-left px-2 py-1.5 font-medium">Tên</th>
+              <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
+              <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
+            </tr></thead>
+            <tbody className="divide-y">
+              {people.map(p => (
+                <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="px-2 py-1.5 font-medium text-gray-800">{p.ten}</td>
+                  <td className="px-2 py-1.5 text-gray-600">{p.soDienThoai || '—'}</td>
+                  <td className="px-2 py-1.5">
+                    <DirEditableCell value={p.zaloChatId || ''} placeholder="Chưa có" onSave={v => onUpdate(p.id, v)} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirTenantGroup({ tenants, onUpdate }: { tenants: ContactEntry[]; onUpdate: (id: string, v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const floors = tenants.reduce<Record<number, ContactEntry[]>>((acc, t) => {
+    const f = t.tang ?? 0;
+    (acc[f] ||= []).push(t);
+    return acc;
+  }, {});
+  const sortedFloors = Object.keys(floors).map(Number).sort((a, b) => a - b);
+
+  return (
+    <div className="border rounded-md overflow-hidden bg-white">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-1.5">
+          <User className="h-3 w-3 text-green-500" />
+          <span className="text-xs font-medium">Khách thuê</span>
+          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-green-100 text-green-700">{tenants.length}</Badge>
+        </div>
+        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="border-t p-1.5 space-y-1">
+          {sortedFloors.map(f => (
+            <DirFloorGroup key={f} tang={f} tenants={floors[f]} onUpdate={onUpdate} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirFloorGroup({ tang, tenants, onUpdate }: { tang: number; tenants: ContactEntry[]; onUpdate: (id: string, v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border rounded overflow-hidden">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-medium text-gray-600">Tầng {tang}</span>
+          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-gray-50">{tenants.length}</Badge>
+        </div>
+        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="border-t overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead><tr className="bg-gray-100 text-gray-600">
+              <th className="text-left px-2 py-1.5 font-medium">Phòng</th>
+              <th className="text-left px-2 py-1.5 font-medium">Tên</th>
+              <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
+              <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
+            </tr></thead>
+            <tbody className="divide-y">
+              {tenants.map(t => (
+                <tr key={t.id} className="hover:bg-gray-50">
+                  <td className="px-2 py-1.5 font-medium text-gray-800">{t.phong || '—'}</td>
+                  <td className="px-2 py-1.5 text-gray-700">{t.ten}</td>
+                  <td className="px-2 py-1.5 text-gray-600">{t.soDienThoai || '—'}</td>
+                  <td className="px-2 py-1.5">
+                    <DirEditableCell value={t.zaloChatId || ''} placeholder="Chưa có" onSave={v => onUpdate(t.id, v)} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirEditableCell({ value, placeholder, onSave }: { value: string; placeholder?: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setDraft(value); }, [value]);
+  useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
+
+  const commit = () => { setEditing(false); if (draft !== value) onSave(draft); };
+
+  if (editing) {
+    return (
+      <Input ref={ref} value={draft} onChange={e => setDraft(e.target.value)}
+        onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
+        className="h-6 text-xs px-1 font-mono" placeholder={placeholder} />
+    );
+  }
+  return (
+    <span onClick={() => setEditing(true)}
+      className={`cursor-pointer hover:bg-blue-50 rounded px-1 py-0.5 text-xs font-mono ${!value ? 'text-gray-300 italic' : ''}`}
+      title="Nhấn để sửa">
+      {value || placeholder || '—'}
+    </span>
   );
 }
