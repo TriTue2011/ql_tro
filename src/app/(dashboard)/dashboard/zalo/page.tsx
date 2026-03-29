@@ -3332,178 +3332,207 @@ function ApiExplorerToggle({ account }: { account: AccountData }) {
   );
 }
 
-// ─── Person Row ───────────────────────────────────────────────────────────────
+// ─── Editable Cell ───────────────────────────────────────────────────────────
 
-function PersonRow({
-  account,
-  buildingId,
-  isChuTro,
-  isAdmin,
-  userRole,
-  sessionUserId,
-  onRefresh,
-  onlineOwnIds,
-  zaloStatus,
+function EditableCell({
+  value,
+  onSave,
+  placeholder,
+  className = "",
 }: {
-  account: AccountData;
-  buildingId: string;
-  isChuTro: boolean;
-  isAdmin: boolean;
-  userRole: string;
-  sessionUserId: string;
-  onRefresh: () => void;
-  onlineOwnIds: Set<string>;
-  zaloStatus: { mode: string; directOnline: Set<string>; botOnline: Set<string> };
+  value: string;
+  onSave: (v: string) => void;
+  placeholder?: string;
+  className?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const isSelf = account.id === sessionUserId;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Trạng thái Zalo từ server-side matching (đáng tin cậy hơn client-side)
-  const isDirectOnline = account.directOnline === true;
-  const isBotOnline = account.botOnline === true;
-  const isZaloOnline = isDirectOnline || isBotOnline;
-  const zaloMode = isDirectOnline ? "Direct" : isBotOnline ? "Bot Server" : null;
+  useEffect(() => { setDraft(value); }, [value]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
 
-  // Kiểm tra web online: hoạt động trong 90 giây gần đây
-  const isWebOnline = (() => {
-    if (!account.hoatDongCuoi) return false;
-    const lastActive = new Date(account.hoatDongCuoi).getTime();
-    return Date.now() - lastActive < 45 * 1000; // 45s (3 heartbeats @ 15s)
-  })();
+  const commit = () => {
+    setEditing(false);
+    if (draft !== value) onSave(draft);
+  };
 
-  // Non-admin xem tài khoản người khác: chỉ hiển thị trạng thái kết nối (không mở rộng)
-  const isOtherAccountView = !isAdmin && !isSelf;
+  if (editing) {
+    return (
+      <Input
+        ref={inputRef}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
+        className={`h-7 text-xs px-1.5 ${className}`}
+        placeholder={placeholder}
+      />
+    );
+  }
 
   return (
-    <div>
+    <span
+      onClick={() => setEditing(true)}
+      className={`cursor-pointer hover:bg-blue-50 rounded px-1 py-0.5 text-xs ${!value ? "text-gray-300 italic" : ""} ${className}`}
+      title="Nhấn để sửa"
+    >
+      {value || placeholder || "—"}
+    </span>
+  );
+}
+
+// ─── Contact Table (for staff roles) ─────────────────────────────────────────
+
+function ContactTable({
+  people,
+  onUpdateChatId,
+}: {
+  people: AccountData[];
+  onUpdateChatId: (id: string, type: "nguoiDung", chatId: string) => void;
+}) {
+  if (people.length === 0) return null;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-gray-100 text-gray-600">
+            <th className="text-left px-3 py-2 font-medium">Tên</th>
+            <th className="text-left px-3 py-2 font-medium">Số điện thoại</th>
+            <th className="text-left px-3 py-2 font-medium">Thread ID</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {people.map(p => (
+            <tr key={p.id} className="hover:bg-gray-50">
+              <td className="px-3 py-2 font-medium text-gray-800">{p.ten}</td>
+              <td className="px-3 py-2 text-gray-600">{p.soDienThoai || "—"}</td>
+              <td className="px-3 py-2">
+                <EditableCell
+                  value={p.zaloChatId || ""}
+                  placeholder="Chưa có"
+                  onSave={v => onUpdateChatId(p.id, "nguoiDung", v)}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Tenant Floor Group ──────────────────────────────────────────────────────
+
+interface TenantInfo {
+  id: string;
+  hoTen: string;
+  soDienThoai: string | null;
+  zaloChatId: string | null;
+  phong: { maPhong: string; tang: number };
+}
+
+function TenantFloorGroup({
+  tang,
+  tenants,
+  onUpdateChatId,
+}: {
+  tang: number;
+  tenants: TenantInfo[];
+  onUpdateChatId: (id: string, type: "khachThue", chatId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="border rounded-md overflow-hidden">
       <button
         type="button"
-        onClick={() => !isOtherAccountView && setOpen(v => !v)}
-        className={`w-full flex items-center justify-between px-4 py-3 transition-colors text-left ${
-          isOtherAccountView ? "cursor-default" : "hover:bg-gray-50"
-        }`}
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-gray-50 transition-colors"
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-          <span className="text-sm font-medium truncate">{account.ten}</span>
-          {isSelf && <span className="text-[10px] text-gray-400">(bạn)</span>}
-          {isSelf && isAdmin && (
-            <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">Admin</Badge>
-          )}
-          <span className={`text-[9px] ml-1 ${
-            isSelf
-              ? (isDirectOnline ? "text-green-500" :
-                 isBotOnline ? "text-blue-500" :
-                 (account.zaloAccountId && !isZaloOnline) ? "text-orange-500" :
-                 account.pendingZaloChatId ? "text-amber-400" : "text-gray-400")
-              : (isWebOnline ? "text-red-500" : "text-gray-400")
-          }`}>
-            {isSelf
-              ? (isZaloOnline ? "●" :
-                 (account.zaloAccountId && !isZaloOnline) ? "●" :
-                 account.pendingZaloChatId ? "◐" : "○")
-              : (isWebOnline ? "●" : "○")}
-          </span>
-          {isSelf ? (
-            /* Tài khoản đang đăng nhập: hiện trạng thái Zalo */
-            isDirectOnline ? (
-              <span className="text-[10px] text-green-600 font-medium">
-                Zalo Direct
-              </span>
-            ) : isBotOnline ? (
-              <span className="text-[10px] text-blue-600 font-medium">
-                Zalo Bot Server
-              </span>
-            ) : account.zaloAccountId ? (
-              <span className="text-[10px] text-orange-500 font-medium">
-                Mất kết nối Zalo
-              </span>
-            ) : account.pendingZaloChatId ? (
-              <span className="text-[10px] text-amber-500">Chờ xác nhận Zalo</span>
-            ) : (
-              <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
-            )
-          ) : (
-            /* Tài khoản khác: web online/offline + Zalo connection type */
-            <>
-              <span className={`text-[10px] font-medium ${isWebOnline ? "text-red-500" : "text-gray-400"}`}>
-                {isWebOnline ? "Đang online" : "Offline"}
-              </span>
-              <span className="text-[10px] text-gray-300">·</span>
-              {isDirectOnline ? (
-                <span className="text-[10px] text-green-500">
-                  Zalo Direct
-                </span>
-              ) : isBotOnline ? (
-                <span className="text-[10px] text-blue-500">
-                  Zalo Bot Server
-                </span>
-              ) : account.zaloAccountId ? (
-                <span className="text-[10px] text-orange-500">
-                  Mất kết nối Zalo
-                </span>
-              ) : (
-                <span className="text-[10px] text-gray-400">Chưa liên kết Zalo</span>
-              )}
-            </>
-          )}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-700">Tầng {tang}</span>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-gray-50 text-gray-500">
+            {tenants.length}
+          </Badge>
         </div>
-        {!isOtherAccountView && (
-          open
-            ? <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
-            : <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
-        )}
+        {open ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
       </button>
-      {open && !isOtherAccountView && (
-        <AccountSettings
-          account={account}
-          buildingId={buildingId}
-          isChuTro={isChuTro}
-          isAdmin={isAdmin}
-          userRole={userRole}
-          isSelf={isSelf}
-          onSaved={onRefresh}
-        />
+      {open && (
+        <div className="border-t overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-100 text-gray-600">
+                <th className="text-left px-3 py-2 font-medium">Phòng</th>
+                <th className="text-left px-3 py-2 font-medium">Tên</th>
+                <th className="text-left px-3 py-2 font-medium">Số điện thoại</th>
+                <th className="text-left px-3 py-2 font-medium">Thread ID</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {tenants.map(t => (
+                <tr key={t.id} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 font-medium text-gray-800">{t.phong.maPhong}</td>
+                  <td className="px-3 py-2 text-gray-700">{t.hoTen}</td>
+                  <td className="px-3 py-2 text-gray-600">{t.soDienThoai || "—"}</td>
+                  <td className="px-3 py-2">
+                    <EditableCell
+                      value={t.zaloChatId || ""}
+                      placeholder="Chưa có"
+                      onSave={v => onUpdateChatId(t.id, "khachThue", v)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
 }
 
-// ─── Role Group ───────────────────────────────────────────────────────────────
+// ─── Role Group (new: table-based) ───────────────────────────────────────────
 
 function RoleGroup({
   role,
   people,
   buildingId,
-  isAdmin,
-  userRole,
-  sessionUserId,
-  onRefresh,
-  onlineOwnIds,
-  zaloStatus,
+  onUpdateChatId,
+  tenants,
+  onUpdateTenantChatId,
 }: {
-  role: "chuTro" | "quanLy";
-  people: AccountData[];
+  role: "chuTro" | "quanLy" | "khachThue";
+  people?: AccountData[];
   buildingId: string;
-  isAdmin: boolean;
-  userRole: string;
-  sessionUserId: string;
-  onRefresh: () => void;
-  onlineOwnIds: Set<string>;
-  zaloStatus: { mode: string; directOnline: Set<string>; botOnline: Set<string> };
+  onUpdateChatId: (id: string, type: "nguoiDung", chatId: string) => void;
+  tenants?: TenantInfo[];
+  onUpdateTenantChatId?: (id: string, type: "khachThue", chatId: string) => void;
 }) {
-  const [open, setOpen] = useState(true);
-  const isChuTroRole = role === "chuTro";
+  const [open, setOpen] = useState(false);
 
-  const visiblePeople = people;
-  if (visiblePeople.length === 0) return null;
+  const isKhachThue = role === "khachThue";
+  const count = isKhachThue ? (tenants?.length || 0) : (people?.length || 0);
+  if (count === 0) return null;
 
-  const roleLabel = isChuTroRole ? "Chủ trọ" : "Quản lý";
-  const RoleIcon = isChuTroRole ? Crown : Users;
-  const iconColor = isChuTroRole ? "text-amber-500" : "text-blue-400";
-  const badgeClass = isChuTroRole
-    ? "bg-amber-100 text-amber-700 border-amber-200"
-    : "bg-blue-100 text-blue-700 border-blue-200";
+  const roleConfig = {
+    chuTro: { label: "Chủ trọ", Icon: Crown, iconColor: "text-amber-500", badgeClass: "bg-amber-100 text-amber-700 border-amber-200" },
+    quanLy: { label: "Quản lý", Icon: Users, iconColor: "text-blue-400", badgeClass: "bg-blue-100 text-blue-700 border-blue-200" },
+    khachThue: { label: "Khách thuê", Icon: User, iconColor: "text-green-500", badgeClass: "bg-green-100 text-green-700 border-green-200" },
+  }[role];
+
+  const { label, Icon, iconColor, badgeClass } = roleConfig;
+
+  // Group tenants by floor
+  const floorGroups = isKhachThue && tenants
+    ? tenants.reduce<Record<number, TenantInfo[]>>((acc, t) => {
+        const f = t.phong.tang;
+        (acc[f] ||= []).push(t);
+        return acc;
+      }, {})
+    : {};
+  const sortedFloors = Object.keys(floorGroups).map(Number).sort((a, b) => a - b);
 
   return (
     <div className="border rounded-md overflow-hidden">
@@ -3513,34 +3542,30 @@ function RoleGroup({
         className="w-full flex items-center justify-between px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <RoleIcon className={`h-3.5 w-3.5 ${iconColor}`} />
-          <span className="text-sm font-medium">{roleLabel}</span>
+          <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
+          <span className="text-sm font-medium">{label}</span>
           <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${badgeClass}`}>
-            {visiblePeople.length}
+            {count}
           </Badge>
         </div>
-        {open
-          ? <ChevronDown className="h-4 w-4 text-gray-400" />
-          : <ChevronRight className="h-4 w-4 text-gray-400" />
-        }
+        {open ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
       </button>
       {open && (
-        <div className="divide-y border-t">
-          {visiblePeople.map(person => (
-            <PersonRow
-              key={person.id}
-              account={person}
-              buildingId={buildingId}
-              isChuTro={isChuTroRole}
-              isAdmin={isAdmin}
-              userRole={userRole}
-              sessionUserId={sessionUserId}
-              onRefresh={onRefresh}
-              onlineOwnIds={onlineOwnIds}
-              zaloStatus={zaloStatus}
-            />
-
-          ))}
+        <div className="border-t">
+          {isKhachThue ? (
+            <div className="p-2 space-y-1.5">
+              {sortedFloors.map(f => (
+                <TenantFloorGroup
+                  key={f}
+                  tang={f}
+                  tenants={floorGroups[f]}
+                  onUpdateChatId={onUpdateTenantChatId!}
+                />
+              ))}
+            </div>
+          ) : (
+            <ContactTable people={people!} onUpdateChatId={onUpdateChatId} />
+          )}
         </div>
       )}
     </div>
@@ -3569,6 +3594,8 @@ function BuildingAccordion({
   zaloStatus: { mode: string; directOnline: Set<string>; botOnline: Set<string> };
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [tenants, setTenants] = useState<TenantInfo[]>([]);
+  const [tenantsLoaded, setTenantsLoaded] = useState(false);
 
   // Gom tất cả từ chuTro + quanLys, loại trùng và loại vaiTro admin
   const allPeople = [building.chuTro, ...building.quanLys];
@@ -3578,14 +3605,8 @@ function BuildingAccordion({
     seen.add(p.id);
     return true;
   });
-  // Không hiển thị admin hệ thống trong danh sách tòa nhà
   const visiblePeople = uniquePeople.filter(p => p.vaiTro !== 'admin');
 
-  // Phân quyền hiển thị theo role:
-  // - admin: thấy chuNha (đầy đủ)
-  // - chuNha: thấy mình + dongChuTro + quanLy + nhanVien
-  // - quanLy: thấy mình + nhanVien
-  // - dongChuTro / nhanVien: chỉ thấy mình
   let filteredPeople = visiblePeople;
   if (userRole === 'dongChuTro' || userRole === 'nhanVien') {
     filteredPeople = visiblePeople.filter(p => p.id === sessionUserId);
@@ -3593,7 +3614,6 @@ function BuildingAccordion({
     filteredPeople = visiblePeople.filter(p => p.id === sessionUserId || p.vaiTro === 'nhanVien');
   }
 
-  // Phân nhóm theo vaiTro thực tế
   const chuTroGroup = isAdmin
     ? filteredPeople.filter(p => p.vaiTro === 'chuNha')
     : filteredPeople.filter(p => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro');
@@ -3601,6 +3621,41 @@ function BuildingAccordion({
     ? []
     : filteredPeople.filter(p => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien');
   const totalPeople = chuTroGroup.length + quanLyGroup.length;
+
+  // Load tenants when building is expanded
+  const loadTenants = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/zalo/khach-thue?toaNhaId=${building.id}`);
+      const data = await res.json();
+      if (data.ok) setTenants(data.khachThues || []);
+    } catch { /* ignore */ }
+    setTenantsLoaded(true);
+  }, [building.id]);
+
+  useEffect(() => {
+    if (open && !tenantsLoaded) loadTenants();
+  }, [open, tenantsLoaded, loadTenants]);
+
+  // Update zaloChatId for staff or tenant
+  const handleUpdateChatId = async (id: string, type: "nguoiDung" | "khachThue", chatId: string) => {
+    try {
+      const res = await fetch("/api/admin/zalo/khach-thue", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, type, zaloChatId: chatId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success("Đã cập nhật Thread ID");
+        if (type === "nguoiDung") onRefresh();
+        else loadTenants();
+      } else {
+        toast.error(data.error || "Lỗi cập nhật");
+      }
+    } catch {
+      toast.error("Lỗi kết nối");
+    }
+  };
 
   if (totalPeople === 0 && !isAdmin) return null;
 
@@ -3614,16 +3669,8 @@ function BuildingAccordion({
         <div className="flex items-center gap-2.5 min-w-0">
           <Building2 className="h-5 w-5 text-blue-600 shrink-0" />
           <span className="font-semibold text-gray-800 truncate">{building.tenToaNha}</span>
-          {totalPeople > 0 && (
-            <Badge variant="outline" className="text-[10px] px-1.5 text-gray-500 shrink-0">
-              {totalPeople} người
-            </Badge>
-          )}
         </div>
-        {open
-          ? <ChevronDown className="h-5 w-5 text-gray-400 shrink-0" />
-          : <ChevronRight className="h-5 w-5 text-gray-400 shrink-0" />
-        }
+        {open ? <ChevronDown className="h-5 w-5 text-gray-400 shrink-0" /> : <ChevronRight className="h-5 w-5 text-gray-400 shrink-0" />}
       </button>
       {open && (
         <div className="bg-gray-50 border-t p-3 space-y-2">
@@ -3632,12 +3679,7 @@ function BuildingAccordion({
               role="chuTro"
               people={chuTroGroup}
               buildingId={building.id}
-              isAdmin={isAdmin}
-              userRole={userRole}
-              sessionUserId={sessionUserId}
-              onRefresh={onRefresh}
-              onlineOwnIds={onlineOwnIds}
-              zaloStatus={zaloStatus}
+              onUpdateChatId={(id, type, chatId) => handleUpdateChatId(id, type, chatId)}
             />
           )}
           {quanLyGroup.length > 0 && (
@@ -3645,16 +3687,18 @@ function BuildingAccordion({
               role="quanLy"
               people={quanLyGroup}
               buildingId={building.id}
-              isAdmin={isAdmin}
-              userRole={userRole}
-              sessionUserId={sessionUserId}
-              onRefresh={onRefresh}
-              onlineOwnIds={onlineOwnIds}
-              zaloStatus={zaloStatus}
+              onUpdateChatId={(id, type, chatId) => handleUpdateChatId(id, type, chatId)}
             />
           )}
-          {totalPeople === 0 && (
-            <p className="text-xs text-gray-400 text-center py-2">Chưa gán người quản lý cho tòa nhà này</p>
+          <RoleGroup
+            role="khachThue"
+            buildingId={building.id}
+            tenants={tenants}
+            onUpdateChatId={(id, type, chatId) => handleUpdateChatId(id, type, chatId)}
+            onUpdateTenantChatId={(id, type, chatId) => handleUpdateChatId(id, type, chatId)}
+          />
+          {totalPeople === 0 && tenants.length === 0 && (
+            <p className="text-xs text-gray-400 text-center py-2">Chưa có dữ liệu</p>
           )}
         </div>
       )}
