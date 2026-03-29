@@ -583,10 +583,12 @@ export default function ProfilePage() {
                     </p>
                 </div>
 
-                {/* Danh bạ Zalo — theo tòa nhà / role / tầng */}
+                {/* Danh bạ Zalo — chỉ hiện cho chuNha, dongChuTro, quanLy */}
+                {profile?.vaiTro && ['chuNha', 'dongChuTro', 'quanLy'].includes(profile.vaiTro) && (
                 <div className="md:col-span-2">
                   <ZaloContactDirectory currentUserId={profile?.id} currentBotAccountId={profile?.zaloAccountId} />
                 </div>
+                )}
               </div>
 
 
