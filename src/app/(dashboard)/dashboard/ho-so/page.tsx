@@ -1016,7 +1016,6 @@ function DirRoleGroup({ label, icon, badgeClass, people, onUpdate }: {
   onUpdate: (id: string, v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const hasMultipleRoles = new Set(people.map(p => p.vaiTro).filter(Boolean)).size > 1;
   return (
     <div className="border rounded-md overflow-hidden bg-white">
       <button type="button" onClick={() => setOpen(v => !v)}
@@ -1033,7 +1032,7 @@ function DirRoleGroup({ label, icon, badgeClass, people, onUpdate }: {
           <table className="w-full text-xs">
             <thead><tr className="bg-gray-100 text-gray-600">
               <th className="text-left px-2 py-1.5 font-medium">Tên</th>
-              {hasMultipleRoles && <th className="text-left px-2 py-1.5 font-medium">Vai trò</th>}
+              <th className="text-left px-2 py-1.5 font-medium">Vai trò</th>
               <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
               <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
             </tr></thead>
@@ -1041,7 +1040,7 @@ function DirRoleGroup({ label, icon, badgeClass, people, onUpdate }: {
               {people.map(p => (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-2 py-1.5 font-medium text-gray-800">{p.ten}</td>
-                  {hasMultipleRoles && <td className="px-2 py-1.5"><RoleBadge vaiTro={p.vaiTro} /></td>}
+                  <td className="px-2 py-1.5"><RoleBadge vaiTro={p.vaiTro} /></td>
                   <td className="px-2 py-1.5 text-gray-600">{p.soDienThoai || '—'}</td>
                   <td className="px-2 py-1.5">
                     <DirEditableCell value={p.zaloChatId || ''} placeholder="Chưa có" onSave={v => onUpdate(p.id, v)} />
