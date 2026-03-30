@@ -255,30 +255,30 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
           {status && (
             <>
               <div className="flex items-center gap-2 flex-wrap">
-                {status.ok ? <CheckCircle2 className="h-4 w-4 text-blue-500" /> : <XCircle className="h-4 w-4 text-orange-500" />}
-                <span className={`text-xs font-medium ${status.ok ? "text-blue-700" : "text-orange-700"}`}>
+                {status.ok ? <CheckCircle2 className="h-4 w-4 text-blue-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
+                <span className={`text-xs font-medium ${status.ok ? "text-blue-700" : "text-red-700"}`}>
                   {status.ok ? "Đang kết nối" : "Mất kết nối"}
                 </span>
                 <Button size="sm" variant="outline" onClick={runBotHealthCheck} disabled={loading} className="h-6 px-2 text-[10px] ml-auto">
                   {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Kiểm tra thật"}
                 </Button>
               </div>
-              {status.error && <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1.5 rounded">{status.error}</div>}
+              {status.error && <div className="text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded">{status.error}</div>}
               {healthResult && (
                 <div className="text-[11px] space-y-1 bg-gray-50 rounded p-2 border">
                   <div className="flex items-center gap-1.5">
                     {healthResult.serverOk
                       ? <CheckCircle2 className="h-3 w-3 text-blue-500 shrink-0" />
-                      : <XCircle className="h-3 w-3 text-orange-500 shrink-0" />}
+                      : <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
                     <span>Server: {healthResult.serverOk ? "OK" : healthResult.serverError}</span>
                   </div>
                   {healthResult.accounts.map((h) => (
                     <div key={h.ownId} className="flex items-center gap-1.5">
                       {h.alive
                         ? <CheckCircle2 className="h-3 w-3 text-blue-500 shrink-0" />
-                        : <XCircle className="h-3 w-3 text-orange-500 shrink-0" />}
+                        : <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
                       <span className="font-mono">{h.ownId.slice(0, 12)}...</span>
-                      <span className={h.alive ? "text-blue-700" : "text-orange-600"}>
+                      <span className={h.alive ? "text-blue-700" : "text-red-600"}>
                         {h.alive ? `OK${h.name ? ` — ${h.name}` : ""}` : h.error || "Offline"}
                       </span>
                     </div>
@@ -489,7 +489,7 @@ function ZaloConnectionOverview() {
                     <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
                       a.loggedIn
                         ? (a._source === "bot-server" ? "bg-blue-500" : "bg-green-500")
-                        : "bg-orange-400"
+                        : "bg-red-400"
                     }`} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -509,7 +509,7 @@ function ZaloConnectionOverview() {
                   <CheckCircle2 className={`h-4 w-4 flex-shrink-0 ${
                     a.loggedIn
                       ? (a._source === "bot-server" ? "text-blue-500" : "text-green-500")
-                      : "text-orange-400"
+                      : "text-red-400"
                   }`} />
                 </div>
               );
@@ -736,8 +736,8 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
                 </>
               ) : matchedAccount && !matchedAccount.loggedIn ? (
                 <>
-                  <XCircle className="h-4 w-4 text-orange-500" />
-                  <span className="text-xs font-medium text-orange-700">Mất kết nối</span>
+                  <XCircle className="h-4 w-4 text-red-500" />
+                  <span className="text-xs font-medium text-red-700">Mất kết nối</span>
                 </>
               ) : (
                 <>
@@ -756,8 +756,8 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
                 <div key={h.ownId} className="flex items-center gap-1.5">
                   {h.alive
                     ? <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                    : <XCircle className="h-3 w-3 text-orange-500 shrink-0" />}
-                  <span className={h.alive ? "text-green-700" : "text-orange-600"}>
+                    : <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
+                  <span className={h.alive ? "text-green-700" : "text-red-600"}>
                     {h.alive ? "OK — session hợp lệ" : h.error || "Session hết hạn"}
                   </span>
                 </div>
@@ -771,7 +771,7 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
           <div className="border-t pt-3 space-y-2">
             <div className="flex items-center justify-between p-2 rounded-lg border text-xs bg-gray-50">
               <div className="flex items-center gap-2 min-w-0">
-                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${matchedAccount.loggedIn ? "bg-green-500" : "bg-orange-400"}`} />
+                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${matchedAccount.loggedIn ? "bg-green-500" : "bg-red-400"}`} />
                 <div className="min-w-0">
                   <span className="font-medium">{matchedAccount.name || matchedAccount.phone || matchedAccount.ownId}</span>
                   <div className="text-gray-400 font-mono text-[10px]">{matchedAccount.ownId}</div>
@@ -3394,9 +3394,9 @@ function PersonRow({
             isSelf
               ? (isDirectOnline ? "text-green-500" :
                  isBotOnline ? "text-blue-500" :
-                 (account.zaloAccountId && !isZaloOnline) ? "text-orange-500" :
+                 (account.zaloAccountId && !isZaloOnline) ? "text-red-500" :
                  account.pendingZaloChatId ? "text-amber-400" : "text-gray-400")
-              : (isWebOnline ? "text-red-500" : "text-gray-400")
+              : (isWebOnline ? "text-orange-500" : "text-gray-400")
           }`}>
             {isSelf
               ? (isZaloOnline ? "●" :
@@ -3415,7 +3415,7 @@ function PersonRow({
                 Zalo Bot Server
               </span>
             ) : account.zaloAccountId ? (
-              <span className="text-[10px] text-orange-500 font-medium">
+              <span className="text-[10px] text-red-500 font-medium">
                 Mất kết nối Zalo
               </span>
             ) : account.pendingZaloChatId ? (
@@ -3426,7 +3426,7 @@ function PersonRow({
           ) : (
             /* Tài khoản khác: web online/offline + Zalo connection type */
             <>
-              <span className={`text-[10px] font-medium ${isWebOnline ? "text-red-500" : "text-gray-400"}`}>
+              <span className={`text-[10px] font-medium ${isWebOnline ? "text-orange-500" : "text-gray-400"}`}>
                 {isWebOnline ? "Đang online" : "Offline"}
               </span>
               <span className="text-[10px] text-gray-300">·</span>
@@ -3439,7 +3439,7 @@ function PersonRow({
                   Zalo Bot Server
                 </span>
               ) : account.zaloAccountId ? (
-                <span className="text-[10px] text-orange-500">
+                <span className="text-[10px] text-red-500">
                   Mất kết nối Zalo
                 </span>
               ) : (

@@ -1,8 +1,6 @@
 /**
- * GET /api/admin/zalo/khach-thue?toaNhaId=xxx
- * Lấy danh sách khách thuê của tòa nhà (có thông tin Zalo)
- *
- * Dùng cho tính năng "Tin nhắn tự động" — gửi hàng loạt.
+ * GET  /api/admin/zalo/khach-thue?toaNhaId=xxx — Lấy danh sách khách thuê (có thông tin Zalo)
+ * PUT  /api/admin/zalo/khach-thue — Cập nhật zaloChatId cho khách thuê hoặc người dùng
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -18,6 +16,7 @@ export async function GET(req: NextRequest) {
 
   const { id: userId, role } = session.user;
   const toaNhaId = req.nextUrl.searchParams.get('toaNhaId');
+  const botAccountId = req.nextUrl.searchParams.get('botAccountId');
 
   if (!toaNhaId) {
     return NextResponse.json({ error: 'Cần toaNhaId' }, { status: 400 });
@@ -46,6 +45,7 @@ export async function GET(req: NextRequest) {
       where: { toaNhaId },
       select: {
         maPhong: true,
+        tang: true,
         hopDongs: {
           where: { trangThai: 'dangThue' },
           select: {
@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
                 hoTen: true,
                 soDienThoai: true,
                 zaloChatId: true,
+                zaloChatIds: true,
                 nhanThongBaoZalo: true,
               },
             },
@@ -63,23 +64,35 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // Helper: resolve threadId cho bot account cụ thể
+    function resolveThreadId(kt: { zaloChatId: string | null; zaloChatIds: any }): string | null {
+      if (botAccountId && Array.isArray(kt.zaloChatIds)) {
+        const entry = kt.zaloChatIds.find((e: any) => e.ten === botAccountId);
+        if (entry?.threadId) return entry.threadId;
+      }
+      return kt.zaloChatId;
+    }
+
     const khachThues: {
       id: string;
       hoTen: string;
       soDienThoai: string | null;
       zaloChatId: string | null;
       nhanThongBaoZalo: boolean;
-      phong: { maPhong: string };
+      phong: { maPhong: string; tang: number };
     }[] = [];
 
     for (const phong of phongs) {
       for (const hd of phong.hopDongs) {
         for (const kt of hd.khachThues) {
-          // Avoid duplicates
           if (!khachThues.find(k => k.id === kt.id)) {
             khachThues.push({
-              ...kt,
-              phong: { maPhong: phong.maPhong },
+              id: kt.id,
+              hoTen: kt.hoTen,
+              soDienThoai: kt.soDienThoai,
+              zaloChatId: resolveThreadId(kt),
+              nhanThongBaoZalo: kt.nhanThongBaoZalo,
+              phong: { maPhong: phong.maPhong, tang: phong.tang },
             });
           }
         }
@@ -89,6 +102,50 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, khachThues });
   } catch (err: any) {
     console.error('[khach-thue GET] error:', err);
+    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  }
+}
+
+/**
+ * PUT /api/admin/zalo/khach-thue
+ * Body: { id, type: 'khachThue' | 'nguoiDung', zaloChatId }
+ */
+export async function PUT(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { role } = session.user;
+  if (role !== 'admin' && role !== 'chuNha' && role !== 'quanLy') {
+    return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
+  }
+
+  try {
+    const body = await req.json();
+    const { id, type, zaloChatId } = body;
+
+    if (!id || !type) {
+      return NextResponse.json({ error: 'Thiếu id hoặc type' }, { status: 400 });
+    }
+
+    if (type === 'khachThue') {
+      await prisma.khachThue.update({
+        where: { id },
+        data: { zaloChatId: zaloChatId || null },
+      });
+    } else if (type === 'nguoiDung') {
+      await prisma.nguoiDung.update({
+        where: { id },
+        data: { zaloChatId: zaloChatId || null },
+      });
+    } else {
+      return NextResponse.json({ error: 'type phải là khachThue hoặc nguoiDung' }, { status: 400 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    console.error('[khach-thue PUT] error:', err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
