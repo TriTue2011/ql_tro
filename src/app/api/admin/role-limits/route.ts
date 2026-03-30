@@ -12,8 +12,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
-const DEFAULT_LIMITS: Record<string, number> = { dongChuTro: 2, quanLy: 3, nhanVien: 5 };
-const VALID_KEYS = ['dongChuTro', 'quanLy', 'nhanVien'];
+const DEFAULT_LIMITS: Record<string, number> = { chuNha: 1, dongChuTro: 2, quanLy: 3, nhanVien: 5 };
+const VALID_KEYS = ['chuNha', 'dongChuTro', 'quanLy', 'nhanVien'];
 
 async function getGlobalLimits(): Promise<Record<string, number>> {
   const row = await prisma.caiDat.findUnique({ where: { khoa: 'role_limits' } });
