@@ -233,7 +233,35 @@ export function BsSidebar({
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   const role: Role = session?.user?.role ?? 'nhanVien';
-  const navGroups = buildNavGroups(role);
+  const [hiddenPaths, setHiddenPaths] = useState<Set<string>>(new Set());
+
+  // Check zaloMonitor permission — ẩn khỏi sidebar nếu bị tắt
+  useEffect(() => {
+    if (role === 'admin') return;
+    (async () => {
+      try {
+        const bRes = await fetch('/api/toa-nha?limit=100');
+        if (!bRes.ok) return;
+        const bData = await bRes.json();
+        const buildings = bData.data || [];
+        if (buildings.length === 0) return;
+        const pRes = await fetch(`/api/admin/zalo-quyen?toaNhaId=${buildings[0].id}`);
+        const pData = await pRes.json();
+        if (pData.ok && pData.effective) {
+          const matchingKeys = Object.keys(pData.effective).filter(k => k === role || k.startsWith(`${role}_`));
+          if (matchingKeys.length > 0) {
+            const allowed = matchingKeys.some(k => pData.effective[k]?.zaloMonitor !== false);
+            if (!allowed) setHiddenPaths(prev => new Set([...prev, '/dashboard/zalo-monitor']));
+          }
+        }
+      } catch {}
+    })();
+  }, [role]);
+
+  const navGroups = buildNavGroups(role).map(g => ({
+    ...g,
+    items: g.items.filter(it => !hiddenPaths.has(it.href)),
+  })).filter(g => g.items.length > 0);
 
   // Auto-open group containing current path
   useEffect(() => {
