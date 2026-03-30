@@ -116,6 +116,7 @@ const ZALO_FEATURES = [
   { key: 'ketBan', label: 'Kết bạn' },
   { key: 'theoDoiTin', label: 'Theo dõi tin' },
   { key: 'zaloMonitor', label: 'Zalo Monitor' },
+  { key: 'quanLyQuyen', label: 'Quản lý quyền' },
 ];
 
 export default function AccountManagementPage() {
@@ -170,6 +171,8 @@ export default function AccountManagementPage() {
   // Zalo permissions per building — { buildingId: { admin: {...}, chuNha: {...} } }
   const [zaloPerms, setZaloPerms] = useState<Record<string, { admin: Record<string, Record<string, boolean>>; chuNha: Record<string, Record<string, boolean>>; quanLy: Record<string, Record<string, boolean>> }>>({});
   const [zaloPermsSaving, setZaloPermsSaving] = useState<string | null>(null); // buildingId being saved
+  // Per-building flag: can current user manage Zalo perms for subordinates?
+  const [canManageZaloPerms, setCanManageZaloPerms] = useState<Record<string, boolean>>({});
   // Đếm số lượng vai trò đang có trên mỗi tòa nhà
   const getRoleCountPerBuilding = (buildingId: string, role: string, excludeUserId?: string) => {
     return users.filter(u => {
@@ -329,6 +332,34 @@ export default function AccountManagementPage() {
     });
     return map;
   };
+
+  // Check if current (non-admin) user has quanLyQuyen per building
+  useEffect(() => {
+    const role = session?.user?.role;
+    if (role === 'admin' || !role) return;
+    if (buildings.length === 0 || users.length === 0) return;
+    const currentUser = users.find(u => u.id === session?.user?.id);
+    if (!currentUser) return;
+    (async () => {
+      const result: Record<string, boolean> = {};
+      for (const b of buildings) {
+        try {
+          const res = await fetch(`/api/admin/zalo-quyen?toaNhaId=${b.id}`);
+          const data = await res.json();
+          if (data.ok && data.effective) {
+            const slotNum = (currentUser.zaloViTri as any)?.[b.id];
+            const slotKey = slotNum ? `${role}_${slotNum}` : role;
+            const perms = data.effective[slotKey] || data.effective[role];
+            result[b.id] = perms?.quanLyQuyen !== false;
+          } else {
+            result[b.id] = true;
+          }
+        } catch { result[b.id] = true; }
+      }
+      setCanManageZaloPerms(result);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.role, session?.user?.id, buildings.length, users.length]);
 
   const fetchUsers = async (forceRefresh = false) => {
     try {
@@ -908,7 +939,8 @@ export default function AccountManagementPage() {
               quanLy: ['nhanVien'],
             };
             const myRole = session?.user?.role || '';
-            const canEditZalo = roleKey && buildingId && (ROLE_HIERARCHY[myRole] || []).includes(roleKey);
+            const canEditZalo = roleKey && buildingId && (ROLE_HIERARCHY[myRole] || []).includes(roleKey)
+              && (isAdmin || canManageZaloPerms[buildingId] !== false);
             const bPerms = buildingId ? zaloPerms[buildingId] : null;
             const level = getMyLevel();
             const slotCount = (limit && limit > 1) ? limit : 0; // 0 = single toggle set
@@ -957,7 +989,7 @@ export default function AccountManagementPage() {
                                   <div key={slotKey}>
                                     <p className="text-[10px] font-medium text-gray-500 mb-1">{label} {slotNum}</p>
                                     <div className="flex flex-wrap gap-1.5">
-                                      {ZALO_FEATURES.map(feat => {
+                                      {ZALO_FEATURES.filter(f => f.key !== 'quanLyQuyen' || roleKey !== 'nhanVien').map(feat => {
                                         const aOff = bPerms?.admin?.[slotKey]?.[feat.key] === false;
                                         const cOff = bPerms?.chuNha?.[slotKey]?.[feat.key] === false;
                                         const higherOff = (level === 'chuNha' && aOff) || (level === 'quanLy' && (aOff || cOff));
@@ -981,7 +1013,7 @@ export default function AccountManagementPage() {
                             ) : (
                               // Single slot
                               <div className="flex flex-wrap gap-1.5">
-                                {ZALO_FEATURES.map(feat => {
+                                {ZALO_FEATURES.filter(f => f.key !== 'quanLyQuyen' || roleKey !== 'nhanVien').map(feat => {
                                   const aOff = bPerms?.admin?.[roleKey!]?.[feat.key] === false;
                                   const cOff = bPerms?.chuNha?.[roleKey!]?.[feat.key] === false;
                                   const higherOff = (level === 'chuNha' && aOff) || (level === 'quanLy' && (aOff || cOff));
