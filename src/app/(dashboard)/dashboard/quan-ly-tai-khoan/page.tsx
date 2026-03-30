@@ -961,12 +961,12 @@ export default function AccountManagementPage() {
                                         const aOff = bPerms?.admin?.[slotKey]?.[feat.key] === false;
                                         const cOff = bPerms?.chuNha?.[slotKey]?.[feat.key] === false;
                                         const higherOff = (level === 'chuNha' && aOff) || (level === 'quanLy' && (aOff || cOff));
-                                        const checked = higherOff ? false : (currentPerms[feat.key] ?? true);
+                                        if (higherOff) return null;
+                                        const checked = currentPerms[feat.key] ?? true;
                                         return (
-                                          <label key={feat.key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${higherOff ? 'opacity-40' : ''} ${checked ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                                          <label key={feat.key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${checked ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
                                             <Switch
                                               checked={checked}
-                                              disabled={higherOff}
                                               onCheckedChange={(v) => toggleZaloPerm(buildingId, slotKey, feat.key, v)}
                                               className="scale-50"
                                             />
@@ -985,13 +985,13 @@ export default function AccountManagementPage() {
                                   const aOff = bPerms?.admin?.[roleKey!]?.[feat.key] === false;
                                   const cOff = bPerms?.chuNha?.[roleKey!]?.[feat.key] === false;
                                   const higherOff = (level === 'chuNha' && aOff) || (level === 'quanLy' && (aOff || cOff));
+                                  if (higherOff) return null;
                                   const currentPerms = bPerms?.[level]?.[roleKey!] || {};
-                                  const checked = higherOff ? false : (currentPerms[feat.key] ?? true);
+                                  const checked = currentPerms[feat.key] ?? true;
                                   return (
-                                    <label key={feat.key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${higherOff ? 'opacity-40' : ''} ${checked ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                                    <label key={feat.key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${checked ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
                                       <Switch
                                         checked={checked}
-                                        disabled={higherOff}
                                         onCheckedChange={(v) => toggleZaloPerm(buildingId, roleKey!, feat.key, v)}
                                         className="scale-50"
                                       />
