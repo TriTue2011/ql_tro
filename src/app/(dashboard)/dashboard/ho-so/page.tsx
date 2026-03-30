@@ -813,9 +813,13 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
           return p.vaiTro !== 'admin' && p.id !== currentUserId;
         });
 
-        const chuTro = unique.filter((p: any) => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro')
+        const chuNha = unique.filter((p: any) => p.vaiTro === 'chuNha')
           .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
-        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien')
+        const dongChuTro = unique.filter((p: any) => p.vaiTro === 'dongChuTro')
+          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
+        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy')
+          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
+        const nhanVien = unique.filter((p: any) => p.vaiTro === 'nhanVien')
           .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
 
         let khachThue: ContactEntry[] = [];
@@ -831,7 +835,7 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
           }
         } catch { /* ignore */ }
 
-        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuTro, quanLy, khachThue });
+        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuNha, dongChuTro, quanLy, nhanVien, khachThue });
       }
       setBuildings(result);
     } catch { /* ignore */ } finally {
@@ -980,17 +984,27 @@ function DirBuilding({ building, onUpdate }: { building: any; onUpdate: (id: str
       </button>
       {open && (
         <div className="border-t bg-gray-50 p-2 space-y-1.5">
-          {building.chuTro.length > 0 && (
-            <DirRoleGroup label="Chủ trọ" icon={<Crown className="h-3 w-3 text-amber-500" />}
-              badgeClass="bg-amber-100 text-amber-700" people={building.chuTro}
+          {building.chuNha?.length > 0 && (
+            <DirRoleGroup label="Chủ nhà" icon={<Crown className="h-3 w-3 text-amber-500" />}
+              badgeClass="bg-amber-100 text-amber-700" people={building.chuNha}
               onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
           )}
-          {building.quanLy.length > 0 && (
+          {building.dongChuTro?.length > 0 && (
+            <DirRoleGroup label="Đồng chủ trọ" icon={<Crown className="h-3 w-3 text-orange-400" />}
+              badgeClass="bg-orange-100 text-orange-700" people={building.dongChuTro}
+              onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
+          )}
+          {building.quanLy?.length > 0 && (
             <DirRoleGroup label="Quản lý" icon={<Users className="h-3 w-3 text-blue-400" />}
               badgeClass="bg-blue-100 text-blue-700" people={building.quanLy}
               onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
           )}
-          {building.khachThue.length > 0 && (
+          {building.nhanVien?.length > 0 && (
+            <DirRoleGroup label="Nhân viên" icon={<Users className="h-3 w-3 text-purple-400" />}
+              badgeClass="bg-purple-100 text-purple-700" people={building.nhanVien}
+              onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
+          )}
+          {building.khachThue?.length > 0 && (
             <DirTenantGroup tenants={building.khachThue} onUpdate={(id, v) => onUpdate(id, 'khachThue', v)} />
           )}
         </div>

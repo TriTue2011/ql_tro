@@ -754,10 +754,11 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
           return p.vaiTro !== 'admin' && p.id !== currentUserId;
         });
 
-        const chuTro = unique.filter((p: any) => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro')
-          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, threadId: resolveThreadId(p) }));
-        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien')
-          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, threadId: resolveThreadId(p) }));
+        const mapPerson = (p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, threadId: resolveThreadId(p) });
+        const chuNha = unique.filter((p: any) => p.vaiTro === 'chuNha').map(mapPerson);
+        const dongChuTro = unique.filter((p: any) => p.vaiTro === 'dongChuTro').map(mapPerson);
+        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy').map(mapPerson);
+        const nhanVien = unique.filter((p: any) => p.vaiTro === 'nhanVien').map(mapPerson);
 
         let khachThue: CompactContact[] = [];
         try {
@@ -772,7 +773,7 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
           }
         } catch { /* ignore */ }
 
-        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuTro, quanLy, khachThue });
+        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuNha, dongChuTro, quanLy, nhanVien, khachThue });
       }
       setBuildings(result);
     } catch { /* ignore */ }
@@ -801,22 +802,23 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
 
         {buildings.map(b => (
           <div key={b.id} className="border-b last:border-0">
-            {/* Chủ trọ */}
-            {b.chuTro.length > 0 && (
-              <CompactRoleSection
-                label="Chủ trọ" icon={<Crown className="h-3 w-3 text-amber-500" />}
-                badgeClass="bg-amber-50 text-amber-700"
-                people={b.chuTro} onSelectThread={onSelectThread} />
+            {b.chuNha?.length > 0 && (
+              <CompactRoleSection label="Chủ nhà" icon={<Crown className="h-3 w-3 text-amber-500" />}
+                badgeClass="bg-amber-50 text-amber-700" people={b.chuNha} onSelectThread={onSelectThread} />
             )}
-            {/* Quản lý */}
-            {b.quanLy.length > 0 && (
-              <CompactRoleSection
-                label="Quản lý" icon={<Users className="h-3 w-3 text-blue-400" />}
-                badgeClass="bg-blue-50 text-blue-700"
-                people={b.quanLy} onSelectThread={onSelectThread} />
+            {b.dongChuTro?.length > 0 && (
+              <CompactRoleSection label="Đồng chủ trọ" icon={<Crown className="h-3 w-3 text-orange-400" />}
+                badgeClass="bg-orange-50 text-orange-700" people={b.dongChuTro} onSelectThread={onSelectThread} />
             )}
-            {/* Khách thuê */}
-            {b.khachThue.length > 0 && (
+            {b.quanLy?.length > 0 && (
+              <CompactRoleSection label="Quản lý" icon={<Users className="h-3 w-3 text-blue-400" />}
+                badgeClass="bg-blue-50 text-blue-700" people={b.quanLy} onSelectThread={onSelectThread} />
+            )}
+            {b.nhanVien?.length > 0 && (
+              <CompactRoleSection label="Nhân viên" icon={<Users className="h-3 w-3 text-purple-400" />}
+                badgeClass="bg-purple-50 text-purple-700" people={b.nhanVien} onSelectThread={onSelectThread} />
+            )}
+            {b.khachThue?.length > 0 && (
               <CompactTenantSection tenants={b.khachThue} onSelectThread={onSelectThread} />
             )}
           </div>
