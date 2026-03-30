@@ -847,8 +847,11 @@ export default function AccountManagementPage() {
       {/* Grouped by building */}
       <div className="space-y-4">
         {(() => {
-          const renderUserRow = (user: User) => {
+          const renderUserRow = (user: User, buildingId?: string, roleKey?: string) => {
             const isCurrentUser = session?.user?.id === user.id;
+            const slotNum = buildingId && user.zaloViTri ? (user.zaloViTri as Record<string, number>)[buildingId] : null;
+            const limit = buildingId && roleKey ? getRoleLimitForBuilding(buildingId, roleKey) : 0;
+            const slotLabel = slotNum && roleKey && limit > 1 ? `${ROLE_LABELS[roleKey] || roleKey} ${slotNum}` : null;
             return (
               <div key={user.id ?? user._id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-50">
                 <Avatar className="h-9 w-9 shrink-0">
@@ -860,6 +863,7 @@ export default function AccountManagementPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm text-gray-900 truncate">{getUserName(user)}</span>
+                    {slotLabel && <Badge variant="outline" className="text-[10px] h-4 px-1 text-blue-600 border-blue-200 bg-blue-50">{slotLabel}</Badge>}
                     {isCurrentUser && <Badge variant="outline" className="text-[10px] h-4 px-1">Bạn</Badge>}
                     <Badge variant={getUserIsActive(user) ? 'default' : 'secondary'} className="text-[10px] h-4 px-1">
                       {getUserIsActive(user) ? 'Hoạt động' : 'Ngừng'}
@@ -917,7 +921,7 @@ export default function AccountManagementPage() {
                 {isOpen && (
                   <div>
                     <div className="divide-y divide-gray-100 px-1">
-                      {sectionUsers.map(renderUserRow)}
+                      {sectionUsers.map(u => renderUserRow(u, buildingId, roleKey))}
                     </div>
                     {/* Inline Zalo Permissions */}
                     {canEditZalo && (
