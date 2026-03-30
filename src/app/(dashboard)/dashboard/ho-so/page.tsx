@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -32,10 +32,13 @@ import {
   Wrench,
   FileText,
   Lock,
-  MessageCircle,
-  Clock,
   Plus,
   Trash2,
+  Building2,
+  Crown,
+  Users,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,6 +54,7 @@ interface UserProfile {
   ngayCapNhat?: string;
   zaloChatId?: string | null;
   zaloChatIds?: { ten: string; userId: string; threadId: string }[] | null;
+  zaloAccountId?: string | null;
   pendingZaloChatId?: string | null;
 }
 
@@ -111,66 +115,6 @@ export default function ProfilePage() {
     zaloChatId: '',
   });
 
-  // ── Zalo chatIds state ────────────────────────────────────────
-  const [zaloChatIds, setZaloChatIds] = useState<{ ten: string; userId: string; threadId: string }[]>([]);
-  const [zaloSaving, setZaloSaving] = useState(false);
-
-  async function handleSaveZaloChatIds() {
-    if (!profile?.id) return;
-    setZaloSaving(true);
-    try {
-      const valid = zaloChatIds.filter(e => e.threadId || e.userId);
-      const res = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zaloChatIds: valid }),
-      });
-      if (res.ok) {
-        const d = await res.json();
-        setProfile(d);
-        setZaloChatIds(Array.isArray(d.zaloChatIds) ? d.zaloChatIds : []);
-        toast.success('Đã lưu liên kết Zalo');
-      } else {
-        toast.error('Lưu thất bại');
-      }
-    } catch {
-      toast.error('Không thể kết nối máy chủ');
-    } finally {
-      setZaloSaving(false);
-    }
-  }
-
-  // ── Zalo pending confirm state ────────────────────────────────
-  const [zaloPendingLoading, setZaloPendingLoading] = useState(false);
-
-  async function handleZaloPendingAction(action: 'confirm' | 'reject') {
-    if (!profile?.id) return;
-    setZaloPendingLoading(true);
-    try {
-      const res = await fetch('/api/zalo/link-chat-id-nguoi-dung', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nguoiDungId: profile.id, action }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success(data.message);
-        // Reload profile (API trả flat object, không wrap success/data)
-        const r = await fetch('/api/user/profile');
-        if (r.ok) {
-          const d = await r.json();
-          setProfile(d);
-        }
-      } else {
-        toast.error(data.error || 'Có lỗi xảy ra');
-      }
-    } catch {
-      toast.error('Không thể kết nối máy chủ');
-    } finally {
-      setZaloPendingLoading(false);
-    }
-  }
-
   // ── Security state ────────────────────────────────────────────
   const [pwForm, setPwForm] = useState({ matKhauHienTai: '', matKhauMoi: '', xacNhanMatKhau: '' });
   const [pwSaving, setPwSaving] = useState(false);
@@ -203,7 +147,6 @@ export default function ProfilePage() {
           avatar: data.anhDaiDien || '',
           zaloChatId: data.zaloChatId || '',
         });
-        setZaloChatIds(Array.isArray(data.zaloChatIds) ? data.zaloChatIds : []);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -462,120 +405,12 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Zalo — liên kết theo tài khoản bot */}
-                <div className="space-y-2 md:col-span-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs md:text-sm flex items-center gap-1.5">
-                        <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
-                        Liên kết Zalo theo tài khoản bot
-                      </Label>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1"
-                        onClick={() => setZaloChatIds(prev => [...prev, { ten: '', userId: '', threadId: '' }])}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Thêm dòng
-                      </Button>
-                    </div>
-
-                    {/* Header */}
-                    <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 px-1">
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Tên bot</span>
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">User ID</span>
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Thread ID</span>
-                      <span className="w-7" />
-                    </div>
-
-                    {zaloChatIds.length === 0 && (
-                      <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
-                        Chưa có liên kết — hệ thống tự điền khi bot tìm thấy số điện thoại
-                      </div>
-                    )}
-                    {zaloChatIds.map((entry, idx) => (
-                      <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 items-center">
-                        <Input
-                          value={entry.ten}
-                          onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, ten: e.target.value } : r))}
-                          placeholder="Tên bot..."
-                          className="h-8 text-xs font-mono"
-                        />
-                        <Input
-                          value={entry.userId}
-                          onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, userId: e.target.value } : r))}
-                          placeholder="User ID..."
-                          className="h-8 text-xs font-mono"
-                        />
-                        <Input
-                          value={entry.threadId}
-                          onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, threadId: e.target.value } : r))}
-                          placeholder="Thread ID..."
-                          className="h-8 text-xs font-mono"
-                        />
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => setZaloChatIds(prev => prev.filter((_, i) => i !== idx))}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ))}
-                    {zaloChatIds.length > 0 && (
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] text-muted-foreground">Dòng đầu tiên là Chat ID chính.</p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          onClick={handleSaveZaloChatIds}
-                          disabled={zaloSaving}
-                        >
-                          <Save className="h-3.5 w-3.5 mr-1" />
-                          {zaloSaving ? 'Đang lưu...' : 'Lưu Zalo'}
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Pending confirmation */}
-                    {profile?.pendingZaloChatId && (
-                      <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-1.5">
-                        <p className="text-[10px] text-amber-700 flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          Phát hiện Chat ID mới: <span className="font-mono font-semibold">{profile.pendingZaloChatId}</span>
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-6 text-[10px] px-2 bg-green-600 hover:bg-green-700"
-                            disabled={zaloPendingLoading}
-                            onClick={() => handleZaloPendingAction('confirm')}
-                          >
-                            <CheckCircle2 className="h-3 w-3 mr-1" /> Xác nhận
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-6 text-[10px] px-2 border-red-300 text-red-600 hover:bg-red-50"
-                            disabled={zaloPendingLoading}
-                            onClick={() => handleZaloPendingAction('reject')}
-                          >
-                            <XCircle className="h-3 w-3 mr-1" /> Từ chối
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-[10px] text-muted-foreground">
-                      Nhắn tin cho bot Zalo — hệ thống tự phát hiện và liên kết Chat ID của bạn
-                    </p>
+                {/* Danh bạ Zalo — chỉ hiện cho chuNha, dongChuTro, quanLy */}
+                {profile?.vaiTro && ['chuNha', 'dongChuTro', 'quanLy'].includes(profile.vaiTro) && (
+                <div className="md:col-span-2">
+                  <ZaloContactDirectory currentUserId={profile?.id} currentBotAccountId={profile?.zaloAccountId} />
                 </div>
+                )}
               </div>
 
 
@@ -871,5 +706,434 @@ export default function ProfilePage() {
         </TabsContent>}
       </Tabs>
     </div>
+  );
+}
+
+// ─── Danh bạ Zalo: Tòa nhà → Role → Bảng liên hệ ───────────────────────────
+
+interface ContactEntry {
+  id: string;
+  ten: string;
+  soDienThoai: string | null;
+  zaloChatId: string | null;
+  phong?: string;
+  tang?: number;
+}
+
+function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
+  currentUserId?: string;
+  currentBotAccountId?: string | null;
+}) {
+  const [buildings, setBuildings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  // ── Danh bạ ngoài ──
+  const [externalContacts, setExternalContacts] = useState<{ id: string; ten: string; soDienThoai: string; threadId: string }[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newContact, setNewContact] = useState({ ten: '', soDienThoai: '', threadId: '' });
+  const [addingSaving, setAddingSaving] = useState(false);
+
+  const loadExternal = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/zalo/danh-ba-ngoai');
+      const data = await res.json();
+      if (data.ok) setExternalContacts(data.contacts.map((c: any) => ({
+        id: c.id, ten: c.ten, soDienThoai: c.soDienThoai || '', threadId: c.threadId || '',
+      })));
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleAddExternal = async () => {
+    if (!newContact.ten.trim()) { toast.error('Vui lòng nhập tên'); return; }
+    setAddingSaving(true);
+    try {
+      const res = await fetch('/api/admin/zalo/danh-ba-ngoai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newContact),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success('Đã thêm liên hệ');
+        setNewContact({ ten: '', soDienThoai: '', threadId: '' });
+        setShowAddForm(false);
+        loadExternal();
+      } else toast.error(data.error || 'Lỗi');
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setAddingSaving(false); }
+  };
+
+  const handleUpdateExternal = async (id: string, field: string, value: string) => {
+    try {
+      const res = await fetch('/api/admin/zalo/danh-ba-ngoai', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, [field]: value }),
+      });
+      const data = await res.json();
+      if (data.ok) { toast.success('Đã cập nhật'); loadExternal(); }
+      else toast.error(data.error || 'Lỗi');
+    } catch { toast.error('Lỗi kết nối'); }
+  };
+
+  const handleDeleteExternal = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/zalo/danh-ba-ngoai?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.ok) { toast.success('Đã xóa'); loadExternal(); }
+      else toast.error(data.error || 'Lỗi');
+    } catch { toast.error('Lỗi kết nối'); }
+  };
+
+  // Resolve threadId: tìm trong zaloChatIds entry khớp với bot account của user đang đăng nhập
+  function resolveThreadId(person: any): string | null {
+    if (currentBotAccountId && Array.isArray(person.zaloChatIds)) {
+      const entry = person.zaloChatIds.find((e: any) => e.ten === currentBotAccountId);
+      if (entry?.threadId) return entry.threadId;
+    }
+    return person.zaloChatId || null;
+  }
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/zalo');
+      const data = await res.json();
+      if (!data.ok) return;
+
+      const result: any[] = [];
+      for (const b of data.buildings || []) {
+        const allPeople = [b.chuTro, ...(b.quanLys || [])];
+        const seen = new Set<string>();
+        const unique = allPeople.filter((p: any) => {
+          if (!p || seen.has(p.id)) return false;
+          seen.add(p.id);
+          // Bỏ admin và bỏ tài khoản đang đăng nhập
+          return p.vaiTro !== 'admin' && p.id !== currentUserId;
+        });
+
+        const chuTro = unique.filter((p: any) => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro')
+          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
+        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien')
+          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
+
+        let khachThue: ContactEntry[] = [];
+        try {
+          const botParam = currentBotAccountId ? `&botAccountId=${encodeURIComponent(currentBotAccountId)}` : '';
+          const ktRes = await fetch(`/api/admin/zalo/khach-thue?toaNhaId=${b.id}${botParam}`);
+          const ktData = await ktRes.json();
+          if (ktData.ok) {
+            khachThue = (ktData.khachThues || []).map((kt: any) => ({
+              id: kt.id, ten: kt.hoTen, soDienThoai: kt.soDienThoai, zaloChatId: kt.zaloChatId,
+              phong: kt.phong?.maPhong, tang: kt.phong?.tang,
+            }));
+          }
+        } catch { /* ignore */ }
+
+        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuTro, quanLy, khachThue });
+      }
+      setBuildings(result);
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+      setLoaded(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, currentBotAccountId]);
+
+  useEffect(() => { if (!loaded) { load(); loadExternal(); } }, [loaded, load, loadExternal]);
+
+  const handleUpdateChatId = async (id: string, type: 'nguoiDung' | 'khachThue', zaloChatId: string) => {
+    try {
+      const res = await fetch('/api/admin/zalo/khach-thue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, type, zaloChatId }),
+      });
+      const data = await res.json();
+      if (data.ok) { toast.success('Đã cập nhật Thread ID'); load(); }
+      else toast.error(data.error || 'Lỗi cập nhật');
+    } catch { toast.error('Lỗi kết nối'); }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs md:text-sm flex items-center gap-1.5">
+          <Building2 className="h-3.5 w-3.5 text-blue-500" />
+          Danh bạ Zalo theo tòa nhà
+        </Label>
+        <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={load} disabled={loading}>
+          {loading ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-400" /> : '↻ Tải lại'}
+        </Button>
+      </div>
+
+      {loading && !loaded && (
+        <div className="text-xs text-muted-foreground text-center py-3">Đang tải...</div>
+      )}
+      {loaded && buildings.length === 0 && (
+        <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
+          Chưa có tòa nhà
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        {buildings.map(b => (
+          <DirBuilding key={b.id} building={b} onUpdate={handleUpdateChatId} />
+        ))}
+      </div>
+
+      {/* Danh bạ ngoài — thêm thủ công */}
+      <div className="mt-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs md:text-sm flex items-center gap-1.5">
+            <Plus className="h-3.5 w-3.5 text-green-500" />
+            Liên hệ khác
+          </Label>
+          <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1"
+            onClick={() => setShowAddForm(v => !v)}>
+            <Plus className="h-3.5 w-3.5" />
+            Thêm
+          </Button>
+        </div>
+
+        {showAddForm && (
+          <div className="border rounded-md p-2 bg-gray-50 space-y-2">
+            <div className="grid grid-cols-3 gap-1.5">
+              <Input value={newContact.ten} onChange={e => setNewContact(p => ({ ...p, ten: e.target.value }))}
+                placeholder="Tên *" className="h-8 text-xs" />
+              <Input value={newContact.soDienThoai} onChange={e => setNewContact(p => ({ ...p, soDienThoai: e.target.value }))}
+                placeholder="Số điện thoại" className="h-8 text-xs" />
+              <Input value={newContact.threadId} onChange={e => setNewContact(p => ({ ...p, threadId: e.target.value }))}
+                placeholder="Thread ID" className="h-8 text-xs font-mono" />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button type="button" size="sm" variant="ghost" className="h-7 text-xs"
+                onClick={() => { setShowAddForm(false); setNewContact({ ten: '', soDienThoai: '', threadId: '' }); }}>
+                Hủy
+              </Button>
+              <Button type="button" size="sm" className="h-7 text-xs" onClick={handleAddExternal} disabled={addingSaving}>
+                {addingSaving ? 'Đang lưu...' : 'Lưu'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {externalContacts.length > 0 && (
+          <div className="border rounded-md overflow-hidden bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead><tr className="bg-gray-100 text-gray-600">
+                  <th className="text-left px-2 py-1.5 font-medium">Tên</th>
+                  <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
+                  <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
+                  <th className="w-7" />
+                </tr></thead>
+                <tbody className="divide-y">
+                  {externalContacts.map(c => (
+                    <tr key={c.id} className="hover:bg-gray-50">
+                      <td className="px-2 py-1.5">
+                        <DirEditableCell value={c.ten} placeholder="Tên" onSave={v => handleUpdateExternal(c.id, 'ten', v)} />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <DirEditableCell value={c.soDienThoai} placeholder="SĐT" onSave={v => handleUpdateExternal(c.id, 'soDienThoai', v)} />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <DirEditableCell value={c.threadId} placeholder="Chưa có" onSave={v => handleUpdateExternal(c.id, 'threadId', v)} />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Button type="button" size="icon" variant="ghost"
+                          className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleDeleteExternal(c.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {externalContacts.length === 0 && !showAddForm && (
+          <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
+            Chưa có liên hệ ngoài — nhấn "Thêm" để thêm mới
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DirBuilding({ building, onUpdate }: { building: any; onUpdate: (id: string, type: 'nguoiDung' | 'khachThue', v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border rounded-md overflow-hidden">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-2 min-w-0">
+          <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
+          <span className="text-xs font-semibold text-gray-800 truncate">{building.tenToaNha}</span>
+        </div>
+        {open ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="border-t bg-gray-50 p-2 space-y-1.5">
+          {building.chuTro.length > 0 && (
+            <DirRoleGroup label="Chủ trọ" icon={<Crown className="h-3 w-3 text-amber-500" />}
+              badgeClass="bg-amber-100 text-amber-700" people={building.chuTro}
+              onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
+          )}
+          {building.quanLy.length > 0 && (
+            <DirRoleGroup label="Quản lý" icon={<Users className="h-3 w-3 text-blue-400" />}
+              badgeClass="bg-blue-100 text-blue-700" people={building.quanLy}
+              onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
+          )}
+          {building.khachThue.length > 0 && (
+            <DirTenantGroup tenants={building.khachThue} onUpdate={(id, v) => onUpdate(id, 'khachThue', v)} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirRoleGroup({ label, icon, badgeClass, people, onUpdate }: {
+  label: string; icon: any; badgeClass: string; people: ContactEntry[];
+  onUpdate: (id: string, v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border rounded-md overflow-hidden bg-white">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-1.5">
+          {icon}
+          <span className="text-xs font-medium">{label}</span>
+          <Badge variant="outline" className={`text-[9px] px-1 py-0 h-3.5 ${badgeClass}`}>{people.length}</Badge>
+        </div>
+        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="border-t overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead><tr className="bg-gray-100 text-gray-600">
+              <th className="text-left px-2 py-1.5 font-medium">Tên</th>
+              <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
+              <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
+            </tr></thead>
+            <tbody className="divide-y">
+              {people.map(p => (
+                <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="px-2 py-1.5 font-medium text-gray-800">{p.ten}</td>
+                  <td className="px-2 py-1.5 text-gray-600">{p.soDienThoai || '—'}</td>
+                  <td className="px-2 py-1.5">
+                    <DirEditableCell value={p.zaloChatId || ''} placeholder="Chưa có" onSave={v => onUpdate(p.id, v)} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirTenantGroup({ tenants, onUpdate }: { tenants: ContactEntry[]; onUpdate: (id: string, v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const floors = tenants.reduce<Record<number, ContactEntry[]>>((acc, t) => {
+    const f = t.tang ?? 0;
+    (acc[f] ||= []).push(t);
+    return acc;
+  }, {});
+  const sortedFloors = Object.keys(floors).map(Number).sort((a, b) => a - b);
+
+  return (
+    <div className="border rounded-md overflow-hidden bg-white">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-1.5">
+          <User className="h-3 w-3 text-green-500" />
+          <span className="text-xs font-medium">Khách thuê</span>
+          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-green-100 text-green-700">{tenants.length}</Badge>
+        </div>
+        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="border-t p-1.5 space-y-1">
+          {sortedFloors.map(f => (
+            <DirFloorGroup key={f} tang={f} tenants={floors[f]} onUpdate={onUpdate} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirFloorGroup({ tang, tenants, onUpdate }: { tang: number; tenants: ContactEntry[]; onUpdate: (id: string, v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border rounded overflow-hidden">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-medium text-gray-600">Tầng {tang}</span>
+          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-gray-50">{tenants.length}</Badge>
+        </div>
+        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="border-t overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead><tr className="bg-gray-100 text-gray-600">
+              <th className="text-left px-2 py-1.5 font-medium">Phòng</th>
+              <th className="text-left px-2 py-1.5 font-medium">Tên</th>
+              <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
+              <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
+            </tr></thead>
+            <tbody className="divide-y">
+              {tenants.map(t => (
+                <tr key={t.id} className="hover:bg-gray-50">
+                  <td className="px-2 py-1.5 font-medium text-gray-800">{t.phong || '—'}</td>
+                  <td className="px-2 py-1.5 text-gray-700">{t.ten}</td>
+                  <td className="px-2 py-1.5 text-gray-600">{t.soDienThoai || '—'}</td>
+                  <td className="px-2 py-1.5">
+                    <DirEditableCell value={t.zaloChatId || ''} placeholder="Chưa có" onSave={v => onUpdate(t.id, v)} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirEditableCell({ value, placeholder, onSave }: { value: string; placeholder?: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setDraft(value); }, [value]);
+  useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
+
+  const commit = () => { setEditing(false); if (draft !== value) onSave(draft); };
+
+  if (editing) {
+    return (
+      <Input ref={ref} value={draft} onChange={e => setDraft(e.target.value)}
+        onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
+        className="h-6 text-xs px-1 font-mono" placeholder={placeholder} />
+    );
+  }
+  return (
+    <span onClick={() => setEditing(true)}
+      className={`cursor-pointer hover:bg-blue-50 rounded px-1 py-0.5 text-xs font-mono ${!value ? 'text-gray-300 italic' : ''}`}
+      title="Nhấn để sửa">
+      {value || placeholder || '—'}
+    </span>
   );
 }
