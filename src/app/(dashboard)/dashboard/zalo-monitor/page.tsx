@@ -7,7 +7,7 @@ import {
   Copy, Trash2, Users, User, RefreshCw, Wifi, WifiOff,
   MessageSquare, Building2, DoorOpen, ChevronLeft, Bot,
   Send, Paperclip, Image as ImageIcon, X, FileText, Film, Loader2, HardDrive,
-  Crown, ChevronDown, ChevronRight, Phone, BookUser,
+  ChevronDown, ChevronRight, Phone, BookUser,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -713,12 +713,6 @@ interface CompactContact {
   tang?: number;
 }
 
-const ROLE_LABELS: Record<string, { label: string; cls: string }> = {
-  chuNha: { label: 'Chủ nhà', cls: 'bg-amber-100 text-amber-700' },
-  dongChuTro: { label: 'Đồng chủ trọ', cls: 'bg-orange-100 text-orange-700' },
-  quanLy: { label: 'Quản lý', cls: 'bg-blue-100 text-blue-700' },
-  nhanVien: { label: 'Nhân viên', cls: 'bg-purple-100 text-purple-700' },
-};
 
 function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: string) => void }) {
   const { data: session } = useSession();
@@ -773,8 +767,10 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
         });
 
         const mapPerson = (p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, threadId: resolveThreadId(p), vaiTro: p.vaiTro });
-        const chuTro = unique.filter((p: any) => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro').map(mapPerson);
-        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien').map(mapPerson);
+        const chuNha = unique.filter((p: any) => p.vaiTro === 'chuNha').map(mapPerson);
+        const dongChuTro = unique.filter((p: any) => p.vaiTro === 'dongChuTro').map(mapPerson);
+        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy').map(mapPerson);
+        const nhanVien = unique.filter((p: any) => p.vaiTro === 'nhanVien').map(mapPerson);
 
         let khachThue: CompactContact[] = [];
         try {
@@ -789,7 +785,7 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
           }
         } catch { /* ignore */ }
 
-        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuTro, quanLy, khachThue });
+        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuNha, dongChuTro, quanLy, nhanVien, khachThue });
       }
       setBuildings(result);
     } catch { /* ignore */ }
@@ -818,13 +814,17 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
 
         {buildings.map(b => (
           <div key={b.id} className="border-b last:border-0">
-            {b.chuTro?.length > 0 && (
-              <CompactRoleSection label="Chủ trọ" icon={<Crown className="h-3 w-3 text-amber-500" />}
-                badgeClass="bg-amber-50 text-amber-700" people={b.chuTro} onSelectThread={onSelectThread} />
+            {b.chuNha?.length > 0 && (
+              <CompactRoleSection label="Chủ nhà" people={b.chuNha} onSelectThread={onSelectThread} />
+            )}
+            {b.dongChuTro?.length > 0 && (
+              <CompactRoleSection label="Đồng chủ trọ" people={b.dongChuTro} onSelectThread={onSelectThread} />
             )}
             {b.quanLy?.length > 0 && (
-              <CompactRoleSection label="Quản lý" icon={<Users className="h-3 w-3 text-blue-400" />}
-                badgeClass="bg-blue-50 text-blue-700" people={b.quanLy} onSelectThread={onSelectThread} />
+              <CompactRoleSection label="Quản lý" people={b.quanLy} onSelectThread={onSelectThread} />
+            )}
+            {b.nhanVien?.length > 0 && (
+              <CompactRoleSection label="Nhân viên" people={b.nhanVien} onSelectThread={onSelectThread} />
             )}
             {b.khachThue?.length > 0 && (
               <CompactTenantSection tenants={b.khachThue} onSelectThread={onSelectThread} />
@@ -835,8 +835,7 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
         {/* Liên hệ khác */}
         {externalContacts.length > 0 && (
           <div className="border-b last:border-0">
-            <CompactRoleSection label="Liên hệ khác" icon={<Phone className="h-3 w-3 text-green-500" />}
-              badgeClass="bg-green-50 text-green-700" people={externalContacts} onSelectThread={onSelectThread} />
+            <CompactRoleSection label="Liên hệ khác" people={externalContacts} onSelectThread={onSelectThread} />
           </div>
         )}
       </div>
@@ -844,8 +843,8 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
   );
 }
 
-function CompactRoleSection({ label, icon, badgeClass, people, onSelectThread }: {
-  label: string; icon: any; badgeClass: string;
+function CompactRoleSection({ label, people, onSelectThread }: {
+  label: string;
   people: CompactContact[];
   onSelectThread: (threadId: string) => void;
 }) {
@@ -854,9 +853,8 @@ function CompactRoleSection({ label, icon, badgeClass, people, onSelectThread }:
     <div>
       <button type="button" onClick={() => setOpen(v => !v)}
         className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-50 transition-colors">
-        {icon}
         <span className="text-[11px] font-semibold text-gray-600">{label}</span>
-        <Badge variant="outline" className={`text-[9px] px-1 py-0 h-3.5 ${badgeClass}`}>{people.length}</Badge>
+        <span className="text-[10px] text-gray-400">({people.length})</span>
         <span className="flex-1" />
         {open ? <ChevronDown className="h-3 w-3 text-gray-300" /> : <ChevronRight className="h-3 w-3 text-gray-300" />}
       </button>
@@ -924,7 +922,6 @@ function CompactPersonItem({ person, showRoom, onSelectThread }: {
   onSelectThread: (threadId: string) => void;
 }) {
   const hasThread = !!person.threadId;
-  const roleInfo = person.vaiTro ? ROLE_LABELS[person.vaiTro] : null;
   return (
     <button
       type="button"
@@ -941,9 +938,6 @@ function CompactPersonItem({ person, showRoom, onSelectThread }: {
           </Badge>
         )}
         <span className="text-xs font-medium text-gray-800 truncate">{person.ten}</span>
-        {roleInfo && (
-          <Badge variant="outline" className={`text-[9px] px-1 py-0 h-3.5 shrink-0 ${roleInfo.cls}`}>{roleInfo.label}</Badge>
-        )}
       </div>
       {person.soDienThoai && (
         <div className="flex items-center gap-1 mt-0.5 ml-0.5">
