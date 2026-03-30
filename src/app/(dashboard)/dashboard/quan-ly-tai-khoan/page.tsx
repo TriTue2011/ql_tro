@@ -901,8 +901,14 @@ export default function AccountManagementPage() {
             const limit = roleKey && buildingId ? getRoleLimitForBuilding(buildingId, roleKey) : null;
             const zaloKey = `${key}-zalo`;
             const isZaloOpen = !!openSections[zaloKey];
-            // Admin/chuNha/quanLy can all manage Zalo permissions for subordinate roles
-            const canEditZalo = (isAdmin || isChuNha || session?.user?.role === 'quanLy') && roleKey && buildingId && roleKey !== 'admin';
+            // Admin/chuNha/quanLy can manage Zalo permissions only for subordinate roles
+            const ROLE_HIERARCHY: Record<string, string[]> = {
+              admin: ['chuNha', 'dongChuTro', 'quanLy', 'nhanVien'],
+              chuNha: ['dongChuTro', 'quanLy', 'nhanVien'],
+              quanLy: ['nhanVien'],
+            };
+            const myRole = session?.user?.role || '';
+            const canEditZalo = roleKey && buildingId && (ROLE_HIERARCHY[myRole] || []).includes(roleKey);
             const bPerms = buildingId ? zaloPerms[buildingId] : null;
             const level = getMyLevel();
             const slotCount = (limit && limit > 1) ? limit : 0; // 0 = single toggle set
