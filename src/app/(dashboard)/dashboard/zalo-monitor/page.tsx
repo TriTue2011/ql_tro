@@ -7,6 +7,7 @@ import {
   Copy, Trash2, Users, User, RefreshCw, Wifi, WifiOff,
   MessageSquare, Building2, DoorOpen, ChevronLeft, Bot,
   Send, Paperclip, Image as ImageIcon, X, FileText, Film, Loader2, HardDrive,
+  Crown, ChevronDown, ChevronRight, Phone, BookUser,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -700,15 +701,271 @@ function MessageThread({
   );
 }
 
+// ─── Compact Contact Directory ───────────────────────────────────────────────
+
+interface CompactContact {
+  id: string;
+  ten: string;
+  soDienThoai: string | null;
+  threadId: string | null;
+  vaiTro?: string;
+  phong?: string;
+  tang?: number;
+}
+
+const ROLE_LABELS: Record<string, { label: string; cls: string }> = {
+  chuNha: { label: 'Chủ nhà', cls: 'bg-amber-100 text-amber-700' },
+  dongChuTro: { label: 'Đồng chủ trọ', cls: 'bg-orange-100 text-orange-700' },
+  quanLy: { label: 'Quản lý', cls: 'bg-blue-100 text-blue-700' },
+  nhanVien: { label: 'Nhân viên', cls: 'bg-purple-100 text-purple-700' },
+};
+
+function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: string) => void }) {
+  const { data: session } = useSession();
+  const [buildings, setBuildings] = useState<any[]>([]);
+  const [externalContacts, setExternalContacts] = useState<CompactContact[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [botAccountId, setBotAccountId] = useState<string | null>(null);
+
+  const currentUserId = session?.user?.id;
+
+  // Lấy zaloAccountId từ profile
+  useEffect(() => {
+    fetch('/api/user/profile').then(r => r.json()).then(d => {
+      if (d.zaloAccountId) setBotAccountId(d.zaloAccountId);
+    }).catch(() => {});
+  }, []);
+
+  const loadExternal = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/zalo/danh-ba-ngoai');
+      const data = await res.json();
+      if (data.ok) setExternalContacts(data.contacts.map((c: any) => ({
+        id: c.id, ten: c.ten, soDienThoai: c.soDienThoai || null, threadId: c.threadId || null,
+      })));
+    } catch { /* ignore */ }
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      function resolveThreadId(person: any): string | null {
+        if (botAccountId && Array.isArray(person.zaloChatIds)) {
+          const entry = person.zaloChatIds.find((e: any) => e.ten === botAccountId);
+          if (entry?.threadId) return entry.threadId;
+        }
+        return person.zaloChatId || null;
+      }
+
+      const res = await fetch('/api/admin/zalo');
+      const data = await res.json();
+      if (!data.ok) return;
+
+      const result: any[] = [];
+      for (const b of data.buildings || []) {
+        const allPeople = [b.chuTro, ...(b.quanLys || [])];
+        const seen = new Set<string>();
+        const unique = allPeople.filter((p: any) => {
+          if (!p || seen.has(p.id)) return false;
+          seen.add(p.id);
+          return p.vaiTro !== 'admin' && p.id !== currentUserId;
+        });
+
+        const mapPerson = (p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, threadId: resolveThreadId(p), vaiTro: p.vaiTro });
+        const chuTro = unique.filter((p: any) => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro').map(mapPerson);
+        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien').map(mapPerson);
+
+        let khachThue: CompactContact[] = [];
+        try {
+          const botParam = botAccountId ? `&botAccountId=${encodeURIComponent(botAccountId)}` : '';
+          const ktRes = await fetch(`/api/admin/zalo/khach-thue?toaNhaId=${b.id}${botParam}`);
+          const ktData = await ktRes.json();
+          if (ktData.ok) {
+            khachThue = (ktData.khachThues || []).map((kt: any) => ({
+              id: kt.id, ten: kt.hoTen, soDienThoai: kt.soDienThoai, threadId: kt.zaloChatId,
+              phong: kt.phong?.maPhong, tang: kt.phong?.tang,
+            }));
+          }
+        } catch { /* ignore */ }
+
+        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuTro, quanLy, khachThue });
+      }
+      setBuildings(result);
+    } catch { /* ignore */ }
+    finally { setLoading(false); setLoaded(true); }
+  }, [currentUserId, botAccountId]);
+
+  useEffect(() => { if (!loaded) { load(); loadExternal(); } }, [loaded, load, loadExternal]);
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-2 px-3 py-2 border-b bg-white shrink-0">
+        <BookUser className="h-4 w-4 text-blue-500" />
+        <span className="flex-1 text-sm font-semibold text-gray-700">Danh bạ</span>
+        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={load} disabled={loading}>
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {loading && !loaded && (
+          <div className="p-8 text-center text-gray-400 text-xs">Đang tải...</div>
+        )}
+        {loaded && buildings.length === 0 && (
+          <div className="p-8 text-center text-gray-400 text-xs">Chưa có dữ liệu</div>
+        )}
+
+        {buildings.map(b => (
+          <div key={b.id} className="border-b last:border-0">
+            {b.chuTro?.length > 0 && (
+              <CompactRoleSection label="Chủ trọ" icon={<Crown className="h-3 w-3 text-amber-500" />}
+                badgeClass="bg-amber-50 text-amber-700" people={b.chuTro} onSelectThread={onSelectThread} />
+            )}
+            {b.quanLy?.length > 0 && (
+              <CompactRoleSection label="Quản lý" icon={<Users className="h-3 w-3 text-blue-400" />}
+                badgeClass="bg-blue-50 text-blue-700" people={b.quanLy} onSelectThread={onSelectThread} />
+            )}
+            {b.khachThue?.length > 0 && (
+              <CompactTenantSection tenants={b.khachThue} onSelectThread={onSelectThread} />
+            )}
+          </div>
+        ))}
+
+        {/* Liên hệ khác */}
+        {externalContacts.length > 0 && (
+          <div className="border-b last:border-0">
+            <CompactRoleSection label="Liên hệ khác" icon={<Phone className="h-3 w-3 text-green-500" />}
+              badgeClass="bg-green-50 text-green-700" people={externalContacts} onSelectThread={onSelectThread} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CompactRoleSection({ label, icon, badgeClass, people, onSelectThread }: {
+  label: string; icon: any; badgeClass: string;
+  people: CompactContact[];
+  onSelectThread: (threadId: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-50 transition-colors">
+        {icon}
+        <span className="text-[11px] font-semibold text-gray-600">{label}</span>
+        <Badge variant="outline" className={`text-[9px] px-1 py-0 h-3.5 ${badgeClass}`}>{people.length}</Badge>
+        <span className="flex-1" />
+        {open ? <ChevronDown className="h-3 w-3 text-gray-300" /> : <ChevronRight className="h-3 w-3 text-gray-300" />}
+      </button>
+      {open && (
+        <div className="px-1.5 pb-1.5">
+          {people.map(p => (
+            <CompactPersonItem key={p.id} person={p} onSelectThread={onSelectThread} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompactTenantSection({ tenants, onSelectThread }: {
+  tenants: CompactContact[];
+  onSelectThread: (threadId: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  const floors = tenants.reduce<Record<number, CompactContact[]>>((acc, t) => {
+    const f = t.tang ?? 0;
+    (acc[f] ||= []).push(t);
+    return acc;
+  }, {});
+  const sortedFloors = Object.keys(floors).map(Number).sort((a, b) => a - b);
+
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-50 transition-colors">
+        <User className="h-3 w-3 text-green-500" />
+        <span className="text-[11px] font-semibold text-gray-600">Khách thuê</span>
+        <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-green-50 text-green-700">{tenants.length}</Badge>
+        <span className="flex-1" />
+        {open ? <ChevronDown className="h-3 w-3 text-gray-300" /> : <ChevronRight className="h-3 w-3 text-gray-300" />}
+      </button>
+      {open && (
+        <div className="px-1.5 pb-1.5">
+          {sortedFloors.map(f => (
+            <CompactFloorGroup key={f} tang={f} tenants={floors[f]} onSelectThread={onSelectThread} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompactFloorGroup({ tang, tenants, onSelectThread }: {
+  tang: number; tenants: CompactContact[];
+  onSelectThread: (threadId: string) => void;
+}) {
+  return (
+    <div className="ml-2">
+      <div className="text-[10px] text-gray-400 font-medium px-2 py-0.5">Tầng {tang}</div>
+      {tenants.map(t => (
+        <CompactPersonItem key={t.id} person={t} showRoom onSelectThread={onSelectThread} />
+      ))}
+    </div>
+  );
+}
+
+function CompactPersonItem({ person, showRoom, onSelectThread }: {
+  person: CompactContact; showRoom?: boolean;
+  onSelectThread: (threadId: string) => void;
+}) {
+  const hasThread = !!person.threadId;
+  const roleInfo = person.vaiTro ? ROLE_LABELS[person.vaiTro] : null;
+  return (
+    <button
+      type="button"
+      disabled={!hasThread}
+      onClick={() => hasThread && onSelectThread(person.threadId!)}
+      className={`w-full text-left rounded-md px-2 py-1.5 transition-colors ${
+        hasThread ? 'hover:bg-blue-50 cursor-pointer' : 'opacity-60 cursor-default'
+      }`}
+    >
+      <div className="flex items-center gap-1.5">
+        {showRoom && person.phong && (
+          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-gray-300 text-gray-500 shrink-0">
+            {person.phong}
+          </Badge>
+        )}
+        <span className="text-xs font-medium text-gray-800 truncate">{person.ten}</span>
+        {roleInfo && (
+          <Badge variant="outline" className={`text-[9px] px-1 py-0 h-3.5 shrink-0 ${roleInfo.cls}`}>{roleInfo.label}</Badge>
+        )}
+      </div>
+      {person.soDienThoai && (
+        <div className="flex items-center gap-1 mt-0.5 ml-0.5">
+          <Phone className="h-2.5 w-2.5 text-gray-300" />
+          <span className="text-[10px] text-gray-400">{person.soDienThoai}</span>
+        </div>
+      )}
+    </button>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ZaloMonitorPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === 'admin';
+  const showContacts = session?.user?.role && ['chuNha', 'dongChuTro', 'quanLy'].includes(session.user.role);
   const [convs, setConvs] = useState<ZaloMsg[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [connected, setConnected] = useState<boolean | null>(null);
+  const [leftTab, setLeftTab] = useState<'conv' | 'contacts'>('conv');
 
   const loadConvs = useCallback(async () => {
     setLoadingConvs(true);
@@ -774,16 +1031,42 @@ export default function ZaloMonitorPage() {
 
       {/* 2-column layout */}
       <div className="flex flex-1 overflow-hidden rounded-xl border bg-white shadow-sm">
-        {/* Left — conversation list */}
-        <div className={`w-full md:w-72 lg:w-80 border-r shrink-0 ${selectedChatId ? 'hidden md:flex md:flex-col' : 'flex flex-col'}`}>
-          <ConversationList
-            convs={convs}
-            selectedId={selectedChatId}
-            onSelect={setSelectedChatId}
-            onDeleteAll={handleDeleteAll}
-            loading={loadingConvs}
-            onRefresh={loadConvs}
-          />
+        {/* Left — conversation list / contacts */}
+        <div className={`w-full md:w-72 lg:w-80 border-r shrink-0 flex flex-col ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
+          {/* Tab switcher */}
+          {showContacts && (
+            <div className="flex border-b shrink-0">
+              <button type="button"
+                className={`flex-1 text-xs font-medium py-2 transition-colors ${leftTab === 'conv' ? 'text-blue-600 border-b-2 border-blue-500 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                onClick={() => setLeftTab('conv')}>
+                <MessageSquare className="h-3.5 w-3.5 inline mr-1" />Hội thoại
+              </button>
+              <button type="button"
+                className={`flex-1 text-xs font-medium py-2 transition-colors ${leftTab === 'contacts' ? 'text-blue-600 border-b-2 border-blue-500 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                onClick={() => setLeftTab('contacts')}>
+                <BookUser className="h-3.5 w-3.5 inline mr-1" />Danh bạ
+              </button>
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="flex-1 overflow-hidden">
+            {leftTab === 'conv' ? (
+              <ConversationList
+                convs={convs}
+                selectedId={selectedChatId}
+                onSelect={setSelectedChatId}
+                onDeleteAll={handleDeleteAll}
+                loading={loadingConvs}
+                onRefresh={loadConvs}
+              />
+            ) : (
+              <CompactContactDir onSelectThread={(threadId) => {
+                setSelectedChatId(threadId);
+                setLeftTab('conv');
+              }} />
+            )}
+          </div>
         </div>
 
         {/* Right — message thread */}
