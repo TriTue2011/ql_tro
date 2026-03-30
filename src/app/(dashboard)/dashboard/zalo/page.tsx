@@ -3206,25 +3206,43 @@ function AccountSettings({
 // ─── 4 cards ẩn/hiện per-account ─────────────────────────────────────────────
 
 const ACCOUNT_CARDS = [
-  { key: "botserver",  label: "Bot Server",     Icon: Server,        color: "text-blue-600",    adminOnly: false },
-  { key: "direct",     label: "Trực tiếp",      Icon: Zap,           color: "text-emerald-600", adminOnly: false },
-  { key: "proxy",      label: "Proxy",          Icon: Globe,         color: "text-cyan-600",    adminOnly: true },
-  { key: "webhook",    label: "Webhook",        Icon: Webhook,       color: "text-violet-600",  adminOnly: true },
-  { key: "automsg",    label: "Tin tự động",    Icon: MessageSquare, color: "text-indigo-600",  adminOnly: true },
-  { key: "testsend",   label: "Test gửi",       Icon: Send,          color: "text-green-600",   adminOnly: true },
-  { key: "friendreq",  label: "Kết bạn",        Icon: UserPlus,      color: "text-pink-600",    adminOnly: true },
-  { key: "monitor",    label: "Theo dõi tin",   Icon: Eye,           color: "text-orange-500",  adminOnly: false },
+  { key: "botserver",  label: "Bot Server",     Icon: Server,        color: "text-blue-600",    adminOnly: false, permKey: "botServer" },
+  { key: "direct",     label: "Trực tiếp",      Icon: Zap,           color: "text-emerald-600", adminOnly: false, permKey: "trucTiep" },
+  { key: "proxy",      label: "Proxy",          Icon: Globe,         color: "text-cyan-600",    adminOnly: true,  permKey: "proxy" },
+  { key: "webhook",    label: "Webhook",        Icon: Webhook,       color: "text-violet-600",  adminOnly: true,  permKey: "webhook" },
+  { key: "automsg",    label: "Tin tự động",    Icon: MessageSquare, color: "text-indigo-600",  adminOnly: true,  permKey: "tinTuDong" },
+  { key: "testsend",   label: "Test gửi",       Icon: Send,          color: "text-green-600",   adminOnly: true,  permKey: "testGui" },
+  { key: "friendreq",  label: "Kết bạn",        Icon: UserPlus,      color: "text-pink-600",    adminOnly: true,  permKey: "ketBan" },
+  { key: "monitor",    label: "Theo dõi tin",   Icon: Eye,           color: "text-orange-500",  adminOnly: false, permKey: "theoDoiTin" },
 ] as const;
 
 function PerAccountCards({ account, isAdmin, userRole, canEdit, buildingId }: {
   account: AccountData; isAdmin: boolean; userRole: string; canEdit: boolean; buildingId: string;
 }) {
   const [openCard, setOpenCard] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<Record<string, boolean> | null>(null);
+
+  // Fetch effective permissions for this building + role
+  useEffect(() => {
+    if (isAdmin) return; // Admin bypasses permission checks
+    const effectiveRole = account.vaiTro || userRole;
+    fetch(`/api/admin/zalo-quyen?toaNhaId=${buildingId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok && data.effective?.[effectiveRole]) {
+          setPermissions(data.effective[effectiveRole]);
+        }
+      })
+      .catch(() => {});
+  }, [buildingId, account.vaiTro, userRole, isAdmin]);
 
   // Admin: hiện tất cả
   // chuNha/quanLy (tài khoản của mình): thêm tin tự động, test gửi, kết bạn
   // dongChuTro/nhanVien: chỉ botserver, direct, monitor
   const visibleCards = ACCOUNT_CARDS.filter(c => {
+    // Permission check (non-admin): if effective permission is off, hide the card
+    if (!isAdmin && permissions && permissions[c.permKey] === false) return false;
+
     if (isAdmin) return true;
     if (c.key === "botserver" || c.key === "direct" || c.key === "monitor") return true;
     // chuNha/quanLy được dùng automsg, testsend, friendreq cho tài khoản mình (canEdit = true)
