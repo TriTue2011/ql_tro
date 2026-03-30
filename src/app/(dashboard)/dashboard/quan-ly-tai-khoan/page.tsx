@@ -38,6 +38,7 @@ import {
   ChevronDown,
   ChevronRight,
   Settings,
+  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
@@ -148,6 +149,75 @@ export default function AccountManagementPage() {
   const [editGlobalLimits, setEditGlobalLimits] = useState<Record<string, number>>(DEFAULT_ROLE_LIMITS);
   const [editBuildingLimits, setEditBuildingLimits] = useState<Record<string, Record<string, number>>>({});
   const [limitsSaving, setLimitsSaving] = useState(false);
+
+  // ── Zalo permissions state ──
+  const [isZaloQuyenDialogOpen, setIsZaloQuyenDialogOpen] = useState(false);
+  const [zaloQuyenBuilding, setZaloQuyenBuilding] = useState<string>('');
+  const [zaloQuyenAdmin, setZaloQuyenAdmin] = useState<Record<string, Record<string, boolean>>>({});
+  const [zaloQuyenChuNha, setZaloQuyenChuNha] = useState<Record<string, Record<string, boolean>>>({});
+  const [zaloQuyenSaving, setZaloQuyenSaving] = useState(false);
+
+  const ZALO_FEATURES = [
+    { key: 'botServer', label: 'Bot Server' },
+    { key: 'trucTiep', label: 'Trực tiếp' },
+    { key: 'proxy', label: 'Proxy' },
+    { key: 'webhook', label: 'Webhook' },
+    { key: 'tinTuDong', label: 'Tin tự động' },
+    { key: 'testGui', label: 'Test gửi' },
+    { key: 'ketBan', label: 'Kết bạn' },
+    { key: 'theoDoiTin', label: 'Theo dõi tin' },
+    { key: 'zaloMonitor', label: 'Zalo Monitor' },
+  ];
+  const ZALO_ROLES = [
+    { key: 'chuNha', label: 'Chủ nhà' },
+    { key: 'dongChuTro', label: 'Đồng chủ trọ' },
+    { key: 'quanLy', label: 'Quản lý' },
+    { key: 'nhanVien', label: 'Nhân viên' },
+  ];
+  const CHU_NHA_ROLES = ['dongChuTro', 'quanLy', 'nhanVien'];
+
+  const defaultFeatures = () => Object.fromEntries(ZALO_FEATURES.map(f => [f.key, true]));
+
+  const openZaloQuyenDialog = async (toaNhaId: string) => {
+    setZaloQuyenBuilding(toaNhaId);
+    try {
+      const res = await fetch(`/api/admin/zalo-quyen?toaNhaId=${toaNhaId}`);
+      const data = await res.json();
+      if (data.ok) {
+        setZaloQuyenAdmin(data.admin || {});
+        setZaloQuyenChuNha(data.chuNha || {});
+      } else {
+        // Default all on
+        const def: Record<string, Record<string, boolean>> = {};
+        ZALO_ROLES.forEach(r => { def[r.key] = defaultFeatures(); });
+        setZaloQuyenAdmin(def);
+        const defCN: Record<string, Record<string, boolean>> = {};
+        CHU_NHA_ROLES.forEach(r => { defCN[r] = defaultFeatures(); });
+        setZaloQuyenChuNha(defCN);
+      }
+    } catch {
+      toast.error('Lỗi tải quyền Zalo');
+      return;
+    }
+    setIsZaloQuyenDialogOpen(true);
+  };
+
+  const handleSaveZaloQuyen = async () => {
+    setZaloQuyenSaving(true);
+    try {
+      const level = isAdmin ? 'admin' : 'chuNha';
+      const permissions = isAdmin ? zaloQuyenAdmin : zaloQuyenChuNha;
+      const res = await fetch('/api/admin/zalo-quyen', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toaNhaId: zaloQuyenBuilding, level, permissions }),
+      });
+      const data = await res.json();
+      if (data.ok) toast.success('Đã lưu quyền Zalo');
+      else toast.error(data.error || 'Lỗi');
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setZaloQuyenSaving(false); }
+  };
 
   // Đếm số lượng vai trò đang có trên mỗi tòa nhà
   const getRoleCountPerBuilding = (buildingId: string, role: string, excludeUserId?: string) => {
@@ -538,6 +608,17 @@ export default function AccountManagementPage() {
             >
               <Settings className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Giới hạn</span>
+            </Button>
+          )}
+          {(isAdmin || isChuNha) && buildings.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openZaloQuyenDialog(buildings[0].id)}
+              className="flex-1 sm:flex-none"
+            >
+              <MessageCircle className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Quyền Zalo</span>
             </Button>
           )}
           <Button
@@ -975,6 +1056,106 @@ export default function AccountManagementPage() {
             </Button>
             <Button size="sm" onClick={handleEditUser} className="w-full sm:w-auto">
               Cập nhật
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Zalo Permissions Dialog */}
+      <Dialog open={isZaloQuyenDialogOpen} onOpenChange={setIsZaloQuyenDialogOpen}>
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-[640px] max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-base md:text-lg">Quyền Zalo theo tòa nhà</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
+              {isAdmin
+                ? 'Bật/tắt từng tính năng Zalo cho mỗi vai trò. Chủ trọ chỉ có thể tắt thêm, không bật lại những gì đã tắt.'
+                : 'Bật/tắt tính năng Zalo cho các vai trò dưới quyền (trong giới hạn quản trị viên cho phép).'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 space-y-4 py-2 pr-1">
+            {/* Building selector */}
+            {buildings.length > 1 && (
+              <div className="space-y-1">
+                <Label className="text-xs">Tòa nhà</Label>
+                <Select
+                  value={zaloQuyenBuilding}
+                  onValueChange={(v) => openZaloQuyenDialog(v)}
+                >
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Chọn tòa nhà" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {buildings.map(b => (
+                      <SelectItem key={b.id} value={b.id}>{b.tenToaNha}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {buildings.length === 1 && (
+              <div className="flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5 text-blue-500" />
+                <span className="text-sm font-medium">{buildings[0].tenToaNha}</span>
+              </div>
+            )}
+
+            {/* Toggle matrix */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 pr-2 font-medium text-muted-foreground">Tính năng</th>
+                    {(isAdmin ? ZALO_ROLES : ZALO_ROLES.filter(r => CHU_NHA_ROLES.includes(r.key))).map(r => (
+                      <th key={r.key} className="text-center py-2 px-1 font-medium text-muted-foreground whitespace-nowrap">{r.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ZALO_FEATURES.map(feat => (
+                    <tr key={feat.key} className="border-b last:border-0">
+                      <td className="py-2 pr-2 font-medium">{feat.label}</td>
+                      {(isAdmin ? ZALO_ROLES : ZALO_ROLES.filter(r => CHU_NHA_ROLES.includes(r.key))).map(role => {
+                        const adminDisabled = isAdmin ? false : (zaloQuyenAdmin[role.key]?.[feat.key] === false);
+                        const currentData = isAdmin ? zaloQuyenAdmin : zaloQuyenChuNha;
+                        const checked = currentData[role.key]?.[feat.key] ?? true;
+                        return (
+                          <td key={role.key} className="text-center py-2 px-1">
+                            <Switch
+                              checked={adminDisabled ? false : checked}
+                              disabled={adminDisabled}
+                              onCheckedChange={(v) => {
+                                if (isAdmin) {
+                                  setZaloQuyenAdmin(prev => ({
+                                    ...prev,
+                                    [role.key]: { ...(prev[role.key] || defaultFeatures()), [feat.key]: v },
+                                  }));
+                                } else {
+                                  setZaloQuyenChuNha(prev => ({
+                                    ...prev,
+                                    [role.key]: { ...(prev[role.key] || defaultFeatures()), [feat.key]: v },
+                                  }));
+                                }
+                              }}
+                              className="scale-75"
+                            />
+                            {adminDisabled && (
+                              <p className="text-[9px] text-red-400 mt-0.5">Admin tắt</p>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setIsZaloQuyenDialogOpen(false)} className="w-full sm:w-auto">
+              Hủy
+            </Button>
+            <Button size="sm" onClick={handleSaveZaloQuyen} disabled={zaloQuyenSaving} className="w-full sm:w-auto">
+              {zaloQuyenSaving ? 'Đang lưu...' : 'Lưu quyền'}
             </Button>
           </DialogFooter>
         </DialogContent>

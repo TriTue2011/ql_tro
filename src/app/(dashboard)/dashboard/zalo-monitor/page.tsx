@@ -960,6 +960,32 @@ export default function ZaloMonitorPage() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [leftTab, setLeftTab] = useState<'conv' | 'contacts'>('conv');
+  const [zaloMonitorAllowed, setZaloMonitorAllowed] = useState<boolean | null>(null);
+
+  // Check zaloMonitor permission for non-admin users
+  useEffect(() => {
+    if (isAdmin) { setZaloMonitorAllowed(true); return; }
+    const role = session?.user?.role;
+    if (!role) return;
+    // Fetch user's buildings to check permission
+    (async () => {
+      try {
+        const bRes = await fetch('/api/toa-nha?limit=100');
+        if (!bRes.ok) { setZaloMonitorAllowed(true); return; }
+        const bData = await bRes.json();
+        const buildings = bData.data || [];
+        if (buildings.length === 0) { setZaloMonitorAllowed(true); return; }
+        // Check first building's permission
+        const pRes = await fetch(`/api/admin/zalo-quyen?toaNhaId=${buildings[0].id}`);
+        const pData = await pRes.json();
+        if (pData.ok && pData.effective?.[role]) {
+          setZaloMonitorAllowed(pData.effective[role].zaloMonitor !== false);
+        } else {
+          setZaloMonitorAllowed(true); // Default: allowed
+        }
+      } catch { setZaloMonitorAllowed(true); }
+    })();
+  }, [isAdmin, session?.user?.role]);
 
   const loadConvs = useCallback(async () => {
     setLoadingConvs(true);
@@ -989,6 +1015,19 @@ export default function ZaloMonitorPage() {
     const timer = setInterval(() => { void loadConvs(); }, 30_000);
     return () => clearInterval(timer);
   }, [loadConvs]);
+
+  // Block access if zaloMonitor permission is disabled
+  if (zaloMonitorAllowed === false) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <WifiOff className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-gray-700 mb-1">Zalo Monitor đã bị tắt</h2>
+          <p className="text-sm text-gray-500">Quản trị viên hoặc chủ trọ đã tắt tính năng này cho vai trò của bạn.</p>
+        </div>
+      </div>
+    );
+  }
 
   async function handleDeleteAll() {
     if (!confirm('Xóa tất cả tin nhắn?')) return;

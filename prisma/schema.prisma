@@ -419,6 +419,13 @@ model CaiDatToaNha {
   // null = dùng văn mẫu mặc định
   zaloVanMau       String?
 
+  // Quyền sử dụng tính năng Zalo per role per tòa nhà
+  // JSON: { admin: { chuNha: {...}, dongChuTro: {...}, quanLy: {...}, nhanVien: {...} }, chuNha: { dongChuTro: {...}, quanLy: {...}, nhanVien: {...} } }
+  // Mỗi object chứa: { botServer, trucTiep, proxy, webhook, tinTuDong, testGui, ketBan, theoDoiTin, zaloMonitor }
+  // null = tất cả tính năng được bật (mặc định)
+  // Quyền thực tế = admin[role] AND chuNha[role] (admin là trần, chuNha chỉ hạn chế thêm)
+  zaloQuyenTinhNang String?
+
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
 }
