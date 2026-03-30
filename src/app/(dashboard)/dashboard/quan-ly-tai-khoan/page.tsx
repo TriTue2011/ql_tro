@@ -51,12 +51,13 @@ interface Building {
 
 // Nhãn vai trò
 const ROLE_LABELS: Record<string, string> = {
+  chuNha: 'Chủ trọ',
   dongChuTro: 'Đồng chủ trọ',
   quanLy: 'Quản lý',
   nhanVien: 'Nhân viên',
 };
 
-const DEFAULT_ROLE_LIMITS: Record<string, number> = { dongChuTro: 2, quanLy: 3, nhanVien: 5 };
+const DEFAULT_ROLE_LIMITS: Record<string, number> = { chuNha: 1, dongChuTro: 2, quanLy: 3, nhanVien: 5 };
 
 interface User {
   _id: string;
@@ -1012,10 +1013,11 @@ export default function AccountManagementPage() {
           // Nhóm theo tòa nhà
           const buildingGroups = buildings.map(b => ({
             building: b,
-            chuTro: filteredUsers.filter(u => (u.toaNhaIds || []).includes(b.id) && ['chuNha', 'dongChuTro'].includes(getUserRole(u))),
+            chuNha: filteredUsers.filter(u => (u.toaNhaIds || []).includes(b.id) && getUserRole(u) === 'chuNha'),
+            dongChuTro: filteredUsers.filter(u => (u.toaNhaIds || []).includes(b.id) && getUserRole(u) === 'dongChuTro'),
             quanLy: filteredUsers.filter(u => (u.toaNhaIds || []).includes(b.id) && getUserRole(u) === 'quanLy'),
             nhanVien: filteredUsers.filter(u => (u.toaNhaIds || []).includes(b.id) && getUserRole(u) === 'nhanVien'),
-          })).filter(g => g.chuTro.length + g.quanLy.length + g.nhanVien.length > 0);
+          })).filter(g => g.chuNha.length + g.dongChuTro.length + g.quanLy.length + g.nhanVien.length > 0);
 
           const adminUsers = filteredUsers.filter(u => getUserRole(u) === 'admin');
 
@@ -1028,7 +1030,8 @@ export default function AccountManagementPage() {
                     <h3 className="font-semibold text-gray-800">{g.building.tenToaNha}</h3>
                   </div>
                   <div className="ml-6 space-y-1.5">
-                    {renderSection(`${g.building.id}-chuTro`, 'Chủ trọ', g.chuTro, 'dongChuTro', g.building.id)}
+                    {renderSection(`${g.building.id}-chuNha`, 'Chủ trọ', g.chuNha, 'chuNha', g.building.id)}
+                    {renderSection(`${g.building.id}-dongChuTro`, 'Đồng chủ trọ', g.dongChuTro, 'dongChuTro', g.building.id)}
                     {renderSection(`${g.building.id}-quanLy`, 'Quản lý', g.quanLy, 'quanLy', g.building.id)}
                     {renderSection(`${g.building.id}-nhanVien`, 'Nhân viên', g.nhanVien, 'nhanVien', g.building.id)}
                   </div>
@@ -1238,7 +1241,9 @@ export default function AccountManagementPage() {
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Giới hạn chung (mặc định)</p>
                 <div className="grid gap-2">
-                  {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                  {Object.entries(ROLE_LABELS)
+                    .filter(([key]) => isAdmin || key !== 'chuNha')
+                    .map(([key, label]) => (
                     <div key={key} className="flex items-center justify-between gap-3">
                       <Label className="text-sm">{label}</Label>
                       <Input
@@ -1259,8 +1264,9 @@ export default function AccountManagementPage() {
                 <div className="space-y-3">
                   {buildings.map(b => {
                     const bLimits = editBuildingLimits[b.id] || {};
+                    const visibleRoles = Object.keys(ROLE_LABELS).filter(k => isAdmin || k !== 'chuNha');
                     const displayLimits = isChuNha
-                      ? Object.fromEntries(Object.keys(ROLE_LABELS).map(k => [k, bLimits[k] || globalLimits[k] || 0]))
+                      ? Object.fromEntries(visibleRoles.map(k => [k, bLimits[k] || globalLimits[k] || 0]))
                       : bLimits;
                     return (
                       <div key={b.id} className="border rounded-md p-2.5 space-y-1.5">
@@ -1268,8 +1274,10 @@ export default function AccountManagementPage() {
                           <Building2 className="h-3.5 w-3.5 text-blue-500" />
                           <span className="text-sm font-medium">{b.tenToaNha}</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {Object.entries(ROLE_LABELS)
+                            .filter(([key]) => isAdmin || key !== 'chuNha')
+                            .map(([key, label]) => (
                             <div key={key} className="space-y-0.5">
                               <Label className="text-[10px] text-muted-foreground">{label}</Label>
                               {isAdmin ? (
