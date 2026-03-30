@@ -38,6 +38,7 @@ export async function GET() {
       zaloChatId: true,
       nhanThongBaoZalo: true,
       zaloAccountId: true,
+      zaloViTri: true,
       ngayTao: true,
       ngayCapNhat: true,
       toaNha: { select: { id: true, tenToaNha: true }, take: 1 },
@@ -209,15 +210,16 @@ export async function POST(request: NextRequest) {
     const bySdt = await prisma.nguoiDung.findFirst({ where: { soDienThoai: phone } });
     if (bySdt) return NextResponse.json({ error: 'Số điện thoại đã được sử dụng' }, { status: 400 });
 
-    const hashedPassword = password ? await hash(password, 12) : null;
+    const hashedPassword = password ? await hash(password, 12) : phone;
 
     const newUser = await prisma.nguoiDung.create({
       data: {
         ten: sanitizeText(name),
         email: cleanEmail,
-        ...(hashedPassword ? { matKhau: hashedPassword } : {}),
+        matKhau: hashedPassword,
         soDienThoai: phone,
         vaiTro: role,
+        ...(body.zaloViTri ? { zaloViTri: body.zaloViTri } : {}),
       },
     });
 

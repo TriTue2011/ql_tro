@@ -86,6 +86,7 @@ interface User {
   quyenThanhToan?: boolean;
   quyenSuCo?: boolean;
   nguoiTaoTen?: string | null;
+  zaloViTri?: Record<string, number> | null; // { buildingId: slotNumber }
 }
 
 interface CreateUserData {
@@ -96,12 +97,25 @@ interface CreateUserData {
   role: string;
   toaNhaId: string;
   toaNhaIds: string[];
+  zaloViTri: Record<string, number>; // { buildingId: slotNumber }
   quyenKichHoatTaiKhoan: boolean;
   quyenHopDong: boolean;
   quyenHoaDon: boolean;
   quyenThanhToan: boolean;
   quyenSuCo: boolean;
 }
+
+const ZALO_FEATURES = [
+  { key: 'botServer', label: 'Bot Server' },
+  { key: 'trucTiep', label: 'Trực tiếp' },
+  { key: 'proxy', label: 'Proxy' },
+  { key: 'webhook', label: 'Webhook' },
+  { key: 'tinTuDong', label: 'Tin tự động' },
+  { key: 'testGui', label: 'Test gửi' },
+  { key: 'ketBan', label: 'Kết bạn' },
+  { key: 'theoDoiTin', label: 'Theo dõi tin' },
+  { key: 'zaloMonitor', label: 'Zalo Monitor' },
+];
 
 export default function AccountManagementPage() {
   const { data: session } = useSession();
@@ -122,6 +136,7 @@ export default function AccountManagementPage() {
     role: 'nhanVien',
     toaNhaId: '',
     toaNhaIds: [],
+    zaloViTri: {},
     quyenKichHoatTaiKhoan: false,
     quyenHopDong: false,
     quyenHoaDon: false,
@@ -136,6 +151,7 @@ export default function AccountManagementPage() {
     zaloChatId: '',
     toaNhaId: '',
     toaNhaIds: [] as string[],
+    zaloViTri: {} as Record<string, number>,
     quyenKichHoatTaiKhoan: false,
     quyenHopDong: false,
     quyenHoaDon: false,
@@ -145,6 +161,14 @@ export default function AccountManagementPage() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [globalLimits, setGlobalLimits] = useState<Record<string, number>>(DEFAULT_ROLE_LIMITS);
   const [perBuildingLimits, setPerBuildingLimits] = useState<Record<string, Record<string, number>>>({});
+  // Giới hạn dialog
+  const [isLimitsDialogOpen, setIsLimitsDialogOpen] = useState(false);
+  const [editGlobalLimits, setEditGlobalLimits] = useState<Record<string, number>>(DEFAULT_ROLE_LIMITS);
+  const [editBuildingLimits, setEditBuildingLimits] = useState<Record<string, Record<string, number>>>({});
+  const [limitsSaving, setLimitsSaving] = useState(false);
+  // Zalo permissions per building — { buildingId: { admin: {...}, chuNha: {...} } }
+  const [zaloPerms, setZaloPerms] = useState<Record<string, { admin: Record<string, Record<string, boolean>>; chuNha: Record<string, Record<string, boolean>>; quanLy: Record<string, Record<string, boolean>> }>>({});
+  const [zaloPermsSaving, setZaloPermsSaving] = useState<string | null>(null); // buildingId being saved
   // Đếm số lượng vai trò đang có trên mỗi tòa nhà
   const getRoleCountPerBuilding = (buildingId: string, role: string, excludeUserId?: string) => {
     return users.filter(u => {
@@ -209,6 +233,100 @@ export default function AccountManagementPage() {
         setPerBuildingLimits(data.perBuilding || {});
       }
     } catch {}
+  };
+
+  const handleSaveLimits = async () => {
+    if (!isAdmin) return;
+    setLimitsSaving(true);
+    try {
+      const globalRes = await fetch('/api/admin/role-limits', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editGlobalLimits),
+      });
+      if (!globalRes.ok) { const err = await globalRes.json(); toast.error(err.error || 'Lưu thất bại'); return; }
+      for (const building of buildings) {
+        const edited = editBuildingLimits[building.id];
+        if (!edited) continue;
+        await fetch('/api/admin/role-limits', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ toaNhaId: building.id, ...edited }),
+        });
+      }
+      await fetchRoleLimits();
+      setIsLimitsDialogOpen(false);
+      toast.success('Đã lưu giới hạn vai trò');
+    } catch { toast.error('Không thể kết nối máy chủ'); }
+    finally { setLimitsSaving(false); }
+  };
+
+  // Zalo permissions — 3 levels: admin, chuNha, quanLy
+  const getMyLevel = (): 'admin' | 'chuNha' | 'quanLy' => {
+    if (isAdmin) return 'admin';
+    if (isChuNha) return 'chuNha';
+    return 'quanLy';
+  };
+
+  const loadZaloPerms = async (toaNhaId: string) => {
+    try {
+      const res = await fetch(`/api/admin/zalo-quyen?toaNhaId=${toaNhaId}`);
+      const data = await res.json();
+      if (data.ok) {
+        setZaloPerms(prev => ({ ...prev, [toaNhaId]: { admin: data.admin || {}, chuNha: data.chuNha || {}, quanLy: data.quanLy || {} } }));
+      }
+    } catch {}
+  };
+
+  const saveZaloPerms = async (toaNhaId: string) => {
+    setZaloPermsSaving(toaNhaId);
+    try {
+      const level = getMyLevel();
+      const perms = zaloPerms[toaNhaId]?.[level] || {};
+      const res = await fetch('/api/admin/zalo-quyen', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toaNhaId, level, permissions: perms }),
+      });
+      const data = await res.json();
+      if (data.ok) toast.success('Đã lưu quyền Zalo');
+      else toast.error(data.error || 'Lỗi');
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setZaloPermsSaving(null); }
+  };
+
+  const toggleZaloPerm = (toaNhaId: string, slotKey: string, featureKey: string, value: boolean) => {
+    const level = getMyLevel();
+    setZaloPerms(prev => {
+      const bPerms = prev[toaNhaId] || { admin: {}, chuNha: {}, quanLy: {} };
+      const defaults = Object.fromEntries(ZALO_FEATURES.map(f => [f.key, true]));
+      return {
+        ...prev,
+        [toaNhaId]: {
+          ...bPerms,
+          [level]: {
+            ...bPerms[level],
+            [slotKey]: { ...defaults, ...(bPerms[level]?.[slotKey] || {}), [featureKey]: value },
+          },
+        },
+      };
+    });
+  };
+
+  // Get slot key for a role in a building
+  const getSlotKey = (role: string, buildingId: string): string => {
+    const limit = getRoleLimitForBuilding(buildingId, role);
+    return limit <= 1 ? role : role; // for single, just use role name
+  };
+
+  // Get taken slots for a role in a building
+  const getTakenSlots = (buildingId: string, role: string, excludeUserId?: string): Map<number, User> => {
+    const map = new Map<number, User>();
+    users.forEach(u => {
+      if (excludeUserId && (u.id === excludeUserId || u._id === excludeUserId)) return;
+      if (getUserRole(u) !== role) return;
+      if (!(u.toaNhaIds || []).includes(buildingId)) return;
+      const slot = (u.zaloViTri as any)?.[buildingId];
+      if (typeof slot === 'number') map.set(slot, u);
+    });
+    return map;
   };
 
   const fetchUsers = async (forceRefresh = false) => {
@@ -299,7 +417,7 @@ export default function AccountManagementPage() {
         }
         toast.success('Tạo tài khoản thành công');
         setIsCreateDialogOpen(false);
-        setCreateUserData({ name: '', email: '', password: '', phone: '', role: 'nhanVien', toaNhaId: '', toaNhaIds: [], quyenKichHoatTaiKhoan: false, quyenHopDong: false, quyenHoaDon: false, quyenThanhToan: false, quyenSuCo: false });
+        setCreateUserData({ name: '', email: '', password: '', phone: '', role: 'nhanVien', toaNhaId: '', toaNhaIds: [], zaloViTri: {}, quyenKichHoatTaiKhoan: false, quyenHopDong: false, quyenHoaDon: false, quyenThanhToan: false, quyenSuCo: false });
         cache.clearCache();
         fetchUsers(true);
       } else {
@@ -405,6 +523,7 @@ export default function AccountManagementPage() {
       zaloChatId: user.zaloChatId || '',
       toaNhaId: user.toaNhaId || '',
       toaNhaIds: user.toaNhaIds?.length ? user.toaNhaIds : (user.toaNhaId ? [user.toaNhaId] : []),
+      zaloViTri: (user.zaloViTri as Record<string, number>) || {},
       quyenKichHoatTaiKhoan: user.quyenKichHoatTaiKhoan ?? false,
       quyenHopDong: user.quyenHopDong ?? false,
       quyenHoaDon: user.quyenHoaDon ?? false,
@@ -492,22 +611,11 @@ export default function AccountManagementPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open('/dashboard/quan-ly-tai-khoan/gioi-han', '_blank')}
+              onClick={() => { setEditGlobalLimits({ ...globalLimits }); setEditBuildingLimits({ ...perBuildingLimits }); setIsLimitsDialogOpen(true); }}
               className="flex-1 sm:flex-none"
             >
               <Settings className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Giới hạn</span>
-            </Button>
-          )}
-          {(isAdmin || isChuNha) && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open('/dashboard/quan-ly-tai-khoan/quyen-zalo', '_blank')}
-              className="flex-1 sm:flex-none"
-            >
-              <MessageCircle className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Quyền Zalo</span>
             </Button>
           )}
           <Button
@@ -654,6 +762,41 @@ export default function AccountManagementPage() {
                 </div>
               </div>
             )}
+            {/* Vị trí Zalo (slot) — hiện khi limit > 1 */}
+            {createUserData.role !== 'admin' && createUserData.toaNhaIds.length > 0 && (
+              <div className="space-y-2">
+                {createUserData.toaNhaIds.map(tid => {
+                  const limit = getRoleLimitForBuilding(tid, createUserData.role);
+                  if (limit <= 1) return null;
+                  const bName = buildings.find(b => b.id === tid)?.tenToaNha || tid;
+                  const taken = getTakenSlots(tid, createUserData.role);
+                  return (
+                    <div key={tid} className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">{bName} — Vị trí</Label>
+                      <Select
+                        value={String(createUserData.zaloViTri[tid] || '')}
+                        onValueChange={(v) => setCreateUserData({ ...createUserData, zaloViTri: { ...createUserData.zaloViTri, [tid]: parseInt(v) } })}
+                      >
+                        <SelectTrigger className="text-sm h-8">
+                          <SelectValue placeholder="Chọn vị trí" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: limit }, (_, i) => {
+                            const n = i + 1;
+                            const takenBy = taken.get(n);
+                            return (
+                              <SelectItem key={n} value={String(n)} disabled={!!takenBy}>
+                                {ROLE_LABELS[createUserData.role] || createUserData.role} {n} {takenBy ? `(${getUserName(takenBy)})` : ''}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {/* Quyền hạn — chỉ hiện khi tạo quanLy + gán ít nhất 1 tòa nhà */}
             {createUserData.role === 'quanLy' && createUserData.toaNhaIds.length > 0 && (
               <div className="rounded-md border p-3 space-y-2">
@@ -747,10 +890,18 @@ export default function AccountManagementPage() {
             );
           };
 
-          const renderSection = (key: string, label: string, users: User[], roleKey?: string, buildingId?: string) => {
-            if (users.length === 0) return null;
+          const renderSection = (key: string, label: string, sectionUsers: User[], roleKey?: string, buildingId?: string) => {
+            if (sectionUsers.length === 0 && !(isAdmin || isChuNha)) return null;
             const isOpen = !!openSections[key];
             const limit = roleKey && buildingId ? getRoleLimitForBuilding(buildingId, roleKey) : null;
+            const zaloKey = `${key}-zalo`;
+            const isZaloOpen = !!openSections[zaloKey];
+            // Admin/chuNha/quanLy can all manage Zalo permissions for subordinate roles
+            const canEditZalo = (isAdmin || isChuNha || session?.user?.role === 'quanLy') && roleKey && buildingId && roleKey !== 'admin';
+            const bPerms = buildingId ? zaloPerms[buildingId] : null;
+            const level = getMyLevel();
+            const slotCount = (limit && limit > 1) ? limit : 0; // 0 = single toggle set
+
             return (
               <div key={key} className="border rounded-lg overflow-hidden">
                 <button
@@ -759,13 +910,95 @@ export default function AccountManagementPage() {
                   onClick={() => toggleSection(key)}
                 >
                   <span className="text-sm font-medium text-gray-700">
-                    {label} <span className="text-gray-400 font-normal">({users.length}{limit ? `/${limit}` : ''})</span>
+                    {label} <span className="text-gray-400 font-normal">({sectionUsers.length}{limit ? `/${limit}` : ''})</span>
                   </span>
                   {isOpen ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
                 </button>
                 {isOpen && (
-                  <div className="divide-y divide-gray-100 px-1">
-                    {users.map(renderUserRow)}
+                  <div>
+                    <div className="divide-y divide-gray-100 px-1">
+                      {sectionUsers.map(renderUserRow)}
+                    </div>
+                    {/* Inline Zalo Permissions */}
+                    {canEditZalo && (
+                      <div className="border-t">
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2 px-4 py-2 text-xs text-gray-500 hover:bg-gray-50"
+                          onClick={() => {
+                            if (!isZaloOpen && buildingId && !bPerms) loadZaloPerms(buildingId);
+                            toggleSection(zaloKey);
+                          }}
+                        >
+                          <MessageCircle className="h-3 w-3" />
+                          <span>Quyền Zalo</span>
+                          {isZaloOpen ? <ChevronDown className="h-3 w-3 ml-auto" /> : <ChevronRight className="h-3 w-3 ml-auto" />}
+                        </button>
+                        {isZaloOpen && buildingId && roleKey && (
+                          <div className="px-3 pb-3 space-y-2">
+                            {slotCount > 0 ? (
+                              // Multiple slots
+                              Array.from({ length: slotCount }, (_, i) => {
+                                const slotNum = i + 1;
+                                const slotKey = `${roleKey}_${slotNum}`;
+                                const currentPerms = bPerms?.[level]?.[slotKey] || {};
+                                return (
+                                  <div key={slotKey}>
+                                    <p className="text-[10px] font-medium text-gray-500 mb-1">{label} {slotNum}</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {ZALO_FEATURES.map(feat => {
+                                        const aOff = bPerms?.admin?.[slotKey]?.[feat.key] === false;
+                                        const cOff = bPerms?.chuNha?.[slotKey]?.[feat.key] === false;
+                                        const higherOff = (level === 'chuNha' && aOff) || (level === 'quanLy' && (aOff || cOff));
+                                        const checked = higherOff ? false : (currentPerms[feat.key] ?? true);
+                                        return (
+                                          <label key={feat.key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${higherOff ? 'opacity-40' : ''} ${checked ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                                            <Switch
+                                              checked={checked}
+                                              disabled={higherOff}
+                                              onCheckedChange={(v) => toggleZaloPerm(buildingId, slotKey, feat.key, v)}
+                                              className="scale-50"
+                                            />
+                                            {feat.label}
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              // Single slot
+                              <div className="flex flex-wrap gap-1.5">
+                                {ZALO_FEATURES.map(feat => {
+                                  const aOff = bPerms?.admin?.[roleKey!]?.[feat.key] === false;
+                                  const cOff = bPerms?.chuNha?.[roleKey!]?.[feat.key] === false;
+                                  const higherOff = (level === 'chuNha' && aOff) || (level === 'quanLy' && (aOff || cOff));
+                                  const currentPerms = bPerms?.[level]?.[roleKey!] || {};
+                                  const checked = higherOff ? false : (currentPerms[feat.key] ?? true);
+                                  return (
+                                    <label key={feat.key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${higherOff ? 'opacity-40' : ''} ${checked ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                                      <Switch
+                                        checked={checked}
+                                        disabled={higherOff}
+                                        onCheckedChange={(v) => toggleZaloPerm(buildingId, roleKey!, feat.key, v)}
+                                        className="scale-50"
+                                      />
+                                      {feat.label}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            <div className="flex justify-end pt-1">
+                              <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => saveZaloPerms(buildingId)} disabled={zaloPermsSaving === buildingId}>
+                                {zaloPermsSaving === buildingId ? 'Lưu...' : 'Lưu quyền Zalo'}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -914,6 +1147,41 @@ export default function AccountManagementPage() {
                 </div>
               </div>
             )}
+            {/* Vị trí Zalo (slot) — hiện khi limit > 1 */}
+            {editUserData.role !== 'admin' && editUserData.toaNhaIds.length > 0 && (
+              <div className="space-y-2">
+                {editUserData.toaNhaIds.map(tid => {
+                  const limit = getRoleLimitForBuilding(tid, editUserData.role);
+                  if (limit <= 1) return null;
+                  const bName = buildings.find(b => b.id === tid)?.tenToaNha || tid;
+                  const taken = getTakenSlots(tid, editUserData.role, selectedUser?.id ?? selectedUser?._id);
+                  return (
+                    <div key={tid} className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">{bName} — Vị trí</Label>
+                      <Select
+                        value={String(editUserData.zaloViTri[tid] || '')}
+                        onValueChange={(v) => setEditUserData({ ...editUserData, zaloViTri: { ...editUserData.zaloViTri, [tid]: parseInt(v) } })}
+                      >
+                        <SelectTrigger className="text-sm h-8">
+                          <SelectValue placeholder="Chọn vị trí" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: limit }, (_, i) => {
+                            const n = i + 1;
+                            const takenBy = taken.get(n);
+                            return (
+                              <SelectItem key={n} value={String(n)} disabled={!!takenBy}>
+                                {ROLE_LABELS[editUserData.role] || editUserData.role} {n} {takenBy ? `(${getUserName(takenBy)})` : ''}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {/* Quyền hạn — chỉ hiện khi đang sửa quanLy và đã gán ít nhất 1 tòa nhà */}
             {editUserData.role === 'quanLy' && editUserData.toaNhaIds.length > 0 && (
               <div className="rounded-md border p-3 space-y-2">
@@ -946,6 +1214,95 @@ export default function AccountManagementPage() {
             <Button size="sm" onClick={handleEditUser} className="w-full sm:w-auto">
               Cập nhật
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Limits Dialog */}
+      <Dialog open={isLimitsDialogOpen} onOpenChange={setIsLimitsDialogOpen}>
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-[520px] max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-base md:text-lg">Giới hạn vai trò</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
+              {isAdmin
+                ? 'Cài đặt số lượng tối đa mỗi vai trò trên mỗi tòa nhà.'
+                : 'Giới hạn số lượng mỗi vai trò do quản trị viên cài đặt.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 space-y-4 py-2 pr-1">
+            {isAdmin && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Giới hạn chung (mặc định)</p>
+                <div className="grid gap-2">
+                  {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                    <div key={key} className="flex items-center justify-between gap-3">
+                      <Label className="text-sm">{label}</Label>
+                      <Input
+                        type="number" min={0} max={100}
+                        value={editGlobalLimits[key] ?? 0}
+                        onChange={(e) => setEditGlobalLimits({ ...editGlobalLimits, [key]: parseInt(e.target.value) || 0 })}
+                        className="w-20 text-sm text-center"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {buildings.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Giới hạn theo tòa nhà</p>
+                {isAdmin && <p className="text-[10px] text-muted-foreground">Để trống (0) = dùng giới hạn chung</p>}
+                <div className="space-y-3">
+                  {buildings.map(b => {
+                    const bLimits = editBuildingLimits[b.id] || {};
+                    const displayLimits = isChuNha
+                      ? Object.fromEntries(Object.keys(ROLE_LABELS).map(k => [k, bLimits[k] || globalLimits[k] || 0]))
+                      : bLimits;
+                    return (
+                      <div key={b.id} className="border rounded-md p-2.5 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="h-3.5 w-3.5 text-blue-500" />
+                          <span className="text-sm font-medium">{b.tenToaNha}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                            <div key={key} className="space-y-0.5">
+                              <Label className="text-[10px] text-muted-foreground">{label}</Label>
+                              {isAdmin ? (
+                                <Input
+                                  type="number" min={0} max={100}
+                                  placeholder={String(editGlobalLimits[key] ?? 0)}
+                                  value={bLimits[key] || ''}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    setEditBuildingLimits({ ...editBuildingLimits, [b.id]: { ...bLimits, [key]: val } });
+                                  }}
+                                  className="h-8 text-xs text-center"
+                                />
+                              ) : (
+                                <div className="h-8 flex items-center justify-center text-sm font-medium bg-muted rounded-md">
+                                  {displayLimits[key] ?? 0}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setIsLimitsDialogOpen(false)} className="w-full sm:w-auto">
+              {isAdmin ? 'Hủy' : 'Đóng'}
+            </Button>
+            {isAdmin && (
+              <Button size="sm" onClick={handleSaveLimits} disabled={limitsSaving} className="w-full sm:w-auto">
+                {limitsSaving ? 'Đang lưu...' : 'Lưu giới hạn'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
