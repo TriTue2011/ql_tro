@@ -708,14 +708,22 @@ interface CompactContact {
   ten: string;
   soDienThoai: string | null;
   threadId: string | null;
+  vaiTro?: string;
   phong?: string;
   tang?: number;
-  vaiTro?: string;
 }
+
+const ROLE_LABELS: Record<string, { label: string; cls: string }> = {
+  chuNha: { label: 'Chủ nhà', cls: 'bg-amber-100 text-amber-700' },
+  dongChuTro: { label: 'Đồng chủ trọ', cls: 'bg-orange-100 text-orange-700' },
+  quanLy: { label: 'Quản lý', cls: 'bg-blue-100 text-blue-700' },
+  nhanVien: { label: 'Nhân viên', cls: 'bg-purple-100 text-purple-700' },
+};
 
 function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: string) => void }) {
   const { data: session } = useSession();
   const [buildings, setBuildings] = useState<any[]>([]);
+  const [externalContacts, setExternalContacts] = useState<CompactContact[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [botAccountId, setBotAccountId] = useState<string | null>(null);
@@ -727,6 +735,16 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
     fetch('/api/user/profile').then(r => r.json()).then(d => {
       if (d.zaloAccountId) setBotAccountId(d.zaloAccountId);
     }).catch(() => {});
+  }, []);
+
+  const loadExternal = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/zalo/danh-ba-ngoai');
+      const data = await res.json();
+      if (data.ok) setExternalContacts(data.contacts.map((c: any) => ({
+        id: c.id, ten: c.ten, soDienThoai: c.soDienThoai || null, threadId: c.threadId || null,
+      })));
+    } catch { /* ignore */ }
   }, []);
 
   const load = useCallback(async () => {
@@ -754,11 +772,9 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
           return p.vaiTro !== 'admin' && p.id !== currentUserId;
         });
 
-        const mapPerson = (p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, threadId: resolveThreadId(p) });
-        const chuNha = unique.filter((p: any) => p.vaiTro === 'chuNha').map(mapPerson);
-        const dongChuTro = unique.filter((p: any) => p.vaiTro === 'dongChuTro').map(mapPerson);
-        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy').map(mapPerson);
-        const nhanVien = unique.filter((p: any) => p.vaiTro === 'nhanVien').map(mapPerson);
+        const mapPerson = (p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, threadId: resolveThreadId(p), vaiTro: p.vaiTro });
+        const chuTro = unique.filter((p: any) => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro').map(mapPerson);
+        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien').map(mapPerson);
 
         let khachThue: CompactContact[] = [];
         try {
@@ -773,14 +789,14 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
           }
         } catch { /* ignore */ }
 
-        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuNha, dongChuTro, quanLy, nhanVien, khachThue });
+        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuTro, quanLy, khachThue });
       }
       setBuildings(result);
     } catch { /* ignore */ }
     finally { setLoading(false); setLoaded(true); }
   }, [currentUserId, botAccountId]);
 
-  useEffect(() => { if (!loaded) load(); }, [loaded, load]);
+  useEffect(() => { if (!loaded) { load(); loadExternal(); } }, [loaded, load, loadExternal]);
 
   return (
     <div className="flex flex-col h-full">
@@ -802,27 +818,27 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
 
         {buildings.map(b => (
           <div key={b.id} className="border-b last:border-0">
-            {b.chuNha?.length > 0 && (
-              <CompactRoleSection label="Chủ nhà" icon={<Crown className="h-3 w-3 text-amber-500" />}
-                badgeClass="bg-amber-50 text-amber-700" people={b.chuNha} onSelectThread={onSelectThread} />
-            )}
-            {b.dongChuTro?.length > 0 && (
-              <CompactRoleSection label="Đồng chủ trọ" icon={<Crown className="h-3 w-3 text-orange-400" />}
-                badgeClass="bg-orange-50 text-orange-700" people={b.dongChuTro} onSelectThread={onSelectThread} />
+            {b.chuTro?.length > 0 && (
+              <CompactRoleSection label="Chủ trọ" icon={<Crown className="h-3 w-3 text-amber-500" />}
+                badgeClass="bg-amber-50 text-amber-700" people={b.chuTro} onSelectThread={onSelectThread} />
             )}
             {b.quanLy?.length > 0 && (
               <CompactRoleSection label="Quản lý" icon={<Users className="h-3 w-3 text-blue-400" />}
                 badgeClass="bg-blue-50 text-blue-700" people={b.quanLy} onSelectThread={onSelectThread} />
-            )}
-            {b.nhanVien?.length > 0 && (
-              <CompactRoleSection label="Nhân viên" icon={<Users className="h-3 w-3 text-purple-400" />}
-                badgeClass="bg-purple-50 text-purple-700" people={b.nhanVien} onSelectThread={onSelectThread} />
             )}
             {b.khachThue?.length > 0 && (
               <CompactTenantSection tenants={b.khachThue} onSelectThread={onSelectThread} />
             )}
           </div>
         ))}
+
+        {/* Liên hệ khác */}
+        {externalContacts.length > 0 && (
+          <div className="border-b last:border-0">
+            <CompactRoleSection label="Liên hệ khác" icon={<Phone className="h-3 w-3 text-green-500" />}
+              badgeClass="bg-green-50 text-green-700" people={externalContacts} onSelectThread={onSelectThread} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -908,6 +924,7 @@ function CompactPersonItem({ person, showRoom, onSelectThread }: {
   onSelectThread: (threadId: string) => void;
 }) {
   const hasThread = !!person.threadId;
+  const roleInfo = person.vaiTro ? ROLE_LABELS[person.vaiTro] : null;
   return (
     <button
       type="button"
@@ -924,6 +941,9 @@ function CompactPersonItem({ person, showRoom, onSelectThread }: {
           </Badge>
         )}
         <span className="text-xs font-medium text-gray-800 truncate">{person.ten}</span>
+        {roleInfo && (
+          <Badge variant="outline" className={`text-[9px] px-1 py-0 h-3.5 shrink-0 ${roleInfo.cls}`}>{roleInfo.label}</Badge>
+        )}
       </div>
       {person.soDienThoai && (
         <div className="flex items-center gap-1 mt-0.5 ml-0.5">

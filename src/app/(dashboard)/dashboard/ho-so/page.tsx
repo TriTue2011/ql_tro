@@ -716,6 +716,7 @@ interface ContactEntry {
   ten: string;
   soDienThoai: string | null;
   zaloChatId: string | null;
+  vaiTro?: string;
   phong?: string;
   tang?: number;
 }
@@ -813,14 +814,9 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
           return p.vaiTro !== 'admin' && p.id !== currentUserId;
         });
 
-        const chuNha = unique.filter((p: any) => p.vaiTro === 'chuNha')
-          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
-        const dongChuTro = unique.filter((p: any) => p.vaiTro === 'dongChuTro')
-          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
-        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy')
-          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
-        const nhanVien = unique.filter((p: any) => p.vaiTro === 'nhanVien')
-          .map((p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) }));
+        const mapP = (p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p), vaiTro: p.vaiTro });
+        const chuTro = unique.filter((p: any) => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro').map(mapP);
+        const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien').map(mapP);
 
         let khachThue: ContactEntry[] = [];
         try {
@@ -835,7 +831,7 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
           }
         } catch { /* ignore */ }
 
-        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuNha, dongChuTro, quanLy, nhanVien, khachThue });
+        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuTro, quanLy, khachThue });
       }
       setBuildings(result);
     } catch { /* ignore */ } finally {
@@ -984,24 +980,14 @@ function DirBuilding({ building, onUpdate }: { building: any; onUpdate: (id: str
       </button>
       {open && (
         <div className="border-t bg-gray-50 p-2 space-y-1.5">
-          {building.chuNha?.length > 0 && (
-            <DirRoleGroup label="Chủ nhà" icon={<Crown className="h-3 w-3 text-amber-500" />}
-              badgeClass="bg-amber-100 text-amber-700" people={building.chuNha}
-              onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
-          )}
-          {building.dongChuTro?.length > 0 && (
-            <DirRoleGroup label="Đồng chủ trọ" icon={<Crown className="h-3 w-3 text-orange-400" />}
-              badgeClass="bg-orange-100 text-orange-700" people={building.dongChuTro}
+          {building.chuTro?.length > 0 && (
+            <DirRoleGroup label="Chủ trọ" icon={<Crown className="h-3 w-3 text-amber-500" />}
+              badgeClass="bg-amber-100 text-amber-700" people={building.chuTro}
               onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
           )}
           {building.quanLy?.length > 0 && (
             <DirRoleGroup label="Quản lý" icon={<Users className="h-3 w-3 text-blue-400" />}
               badgeClass="bg-blue-100 text-blue-700" people={building.quanLy}
-              onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
-          )}
-          {building.nhanVien?.length > 0 && (
-            <DirRoleGroup label="Nhân viên" icon={<Users className="h-3 w-3 text-purple-400" />}
-              badgeClass="bg-purple-100 text-purple-700" people={building.nhanVien}
               onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
           )}
           {building.khachThue?.length > 0 && (
@@ -1013,11 +999,24 @@ function DirBuilding({ building, onUpdate }: { building: any; onUpdate: (id: str
   );
 }
 
+function RoleBadge({ vaiTro }: { vaiTro?: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    chuNha: { label: 'Chủ nhà', cls: 'bg-amber-100 text-amber-700' },
+    dongChuTro: { label: 'Đồng chủ trọ', cls: 'bg-orange-100 text-orange-700' },
+    quanLy: { label: 'Quản lý', cls: 'bg-blue-100 text-blue-700' },
+    nhanVien: { label: 'Nhân viên', cls: 'bg-purple-100 text-purple-700' },
+  };
+  const info = vaiTro ? map[vaiTro] : null;
+  if (!info) return null;
+  return <Badge variant="outline" className={`text-[9px] px-1 py-0 h-3.5 ${info.cls}`}>{info.label}</Badge>;
+}
+
 function DirRoleGroup({ label, icon, badgeClass, people, onUpdate }: {
   label: string; icon: any; badgeClass: string; people: ContactEntry[];
   onUpdate: (id: string, v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const hasMultipleRoles = new Set(people.map(p => p.vaiTro).filter(Boolean)).size > 1;
   return (
     <div className="border rounded-md overflow-hidden bg-white">
       <button type="button" onClick={() => setOpen(v => !v)}
@@ -1034,6 +1033,7 @@ function DirRoleGroup({ label, icon, badgeClass, people, onUpdate }: {
           <table className="w-full text-xs">
             <thead><tr className="bg-gray-100 text-gray-600">
               <th className="text-left px-2 py-1.5 font-medium">Tên</th>
+              {hasMultipleRoles && <th className="text-left px-2 py-1.5 font-medium">Vai trò</th>}
               <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
               <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
             </tr></thead>
@@ -1041,6 +1041,7 @@ function DirRoleGroup({ label, icon, badgeClass, people, onUpdate }: {
               {people.map(p => (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-2 py-1.5 font-medium text-gray-800">{p.ten}</td>
+                  {hasMultipleRoles && <td className="px-2 py-1.5"><RoleBadge vaiTro={p.vaiTro} /></td>}
                   <td className="px-2 py-1.5 text-gray-600">{p.soDienThoai || '—'}</td>
                   <td className="px-2 py-1.5">
                     <DirEditableCell value={p.zaloChatId || ''} placeholder="Chưa có" onSave={v => onUpdate(p.id, v)} />
