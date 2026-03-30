@@ -31,7 +31,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, role, isActive, zaloChatId, zaloChatIds, toaNhaId, toaNhaIds } = body;
+    const { name, phone, role, isActive, zaloChatId, zaloChatIds, toaNhaId, toaNhaIds, zaloViTri } = body;
 
     // chuNha/dongChuTro: chỉ được sửa dongChuTro/quanLy/nhanVien thuộc tòa nhà của mình
     if (callerRole !== 'admin') {
@@ -63,6 +63,7 @@ export async function PUT(
         updateData.zaloChatId = zaloChatId || null;
       }
 
+      if (zaloViTri !== undefined) updateData.zaloViTri = zaloViTri;
       await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
       // Cập nhật gán tòa nhà trong phạm vi tòa nhà của mình (hỗ trợ multi-select)
@@ -111,6 +112,7 @@ export async function PUT(
       updateData.zaloChatId = zaloChatId || null;
     }
 
+    if (zaloViTri !== undefined) updateData.zaloViTri = zaloViTri;
     await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
     if (role !== 'admin') {

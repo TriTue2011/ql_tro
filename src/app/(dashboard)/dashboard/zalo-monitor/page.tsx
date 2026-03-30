@@ -975,13 +975,21 @@ export default function ZaloMonitorPage() {
         const bData = await bRes.json();
         const buildings = bData.data || [];
         if (buildings.length === 0) { setZaloMonitorAllowed(true); return; }
-        // Check first building's permission
+        // Check first building's permission (try slot-specific first, then role-level)
         const pRes = await fetch(`/api/admin/zalo-quyen?toaNhaId=${buildings[0].id}`);
         const pData = await pRes.json();
-        if (pData.ok && pData.effective?.[role]) {
-          setZaloMonitorAllowed(pData.effective[role].zaloMonitor !== false);
+        if (pData.ok && pData.effective) {
+          // Check all keys matching this role
+          const matchingKeys = Object.keys(pData.effective).filter(k => k === role || k.startsWith(`${role}_`));
+          if (matchingKeys.length > 0) {
+            // If any slot allows zaloMonitor, allow it
+            const allowed = matchingKeys.some(k => pData.effective[k].zaloMonitor !== false);
+            setZaloMonitorAllowed(allowed);
+          } else {
+            setZaloMonitorAllowed(true);
+          }
         } else {
-          setZaloMonitorAllowed(true); // Default: allowed
+          setZaloMonitorAllowed(true);
         }
       } catch { setZaloMonitorAllowed(true); }
     })();

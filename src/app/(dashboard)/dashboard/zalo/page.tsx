@@ -74,6 +74,7 @@ interface AccountData {
   email: string;
   soDienThoai?: string | null;
   vaiTro?: string;
+  zaloViTri?: Record<string, number> | null;
   zaloChatId: string | null;
   pendingZaloChatId?: string | null;
   zaloAccountId: string | null;
@@ -3222,19 +3223,23 @@ function PerAccountCards({ account, isAdmin, userRole, canEdit, buildingId }: {
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<Record<string, boolean> | null>(null);
 
-  // Fetch effective permissions for this building + role
+  // Fetch effective permissions for this building + role/slot
   useEffect(() => {
     if (isAdmin) return; // Admin bypasses permission checks
-    const effectiveRole = account.vaiTro || userRole;
+    const role = account.vaiTro || userRole;
+    const slotNum = (account.zaloViTri as any)?.[buildingId];
+    const slotKey = slotNum ? `${role}_${slotNum}` : role;
     fetch(`/api/admin/zalo-quyen?toaNhaId=${buildingId}`)
       .then(r => r.json())
       .then(data => {
-        if (data.ok && data.effective?.[effectiveRole]) {
-          setPermissions(data.effective[effectiveRole]);
+        if (data.ok) {
+          // Try slot-specific first, then fall back to role-level
+          const perms = data.effective?.[slotKey] || data.effective?.[role];
+          if (perms) setPermissions(perms);
         }
       })
       .catch(() => {});
-  }, [buildingId, account.vaiTro, userRole, isAdmin]);
+  }, [buildingId, account.vaiTro, account.zaloViTri, userRole, isAdmin]);
 
   // Admin: hiện tất cả
   // chuNha/quanLy (tài khoản của mình): thêm tin tự động, test gửi, kết bạn
