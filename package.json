@@ -5,11 +5,11 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "prebuild": "node scripts/migrate-prod.js",
-    "build": "prisma generate && next build --turbopack",
+    "build": "prisma generate --config prisma/prisma.config.ts && next build --turbopack",
     "start": "next start",
     "lint": "eslint",
     "check-setup": "node scripts/check-setup.js",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate --config prisma/prisma.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
