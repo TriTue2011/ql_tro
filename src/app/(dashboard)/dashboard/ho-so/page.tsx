@@ -32,8 +32,6 @@ import {
   Wrench,
   FileText,
   Lock,
-  MessageCircle,
-  Clock,
   Plus,
   Trash2,
   Building2,
@@ -117,66 +115,6 @@ export default function ProfilePage() {
     zaloChatId: '',
   });
 
-  // ── Zalo chatIds state ────────────────────────────────────────
-  const [zaloChatIds, setZaloChatIds] = useState<{ ten: string; userId: string; threadId: string }[]>([]);
-  const [zaloSaving, setZaloSaving] = useState(false);
-
-  async function handleSaveZaloChatIds() {
-    if (!profile?.id) return;
-    setZaloSaving(true);
-    try {
-      const valid = zaloChatIds.filter(e => e.threadId || e.userId);
-      const res = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zaloChatIds: valid }),
-      });
-      if (res.ok) {
-        const d = await res.json();
-        setProfile(d);
-        setZaloChatIds(Array.isArray(d.zaloChatIds) ? d.zaloChatIds : []);
-        toast.success('Đã lưu liên kết Zalo');
-      } else {
-        toast.error('Lưu thất bại');
-      }
-    } catch {
-      toast.error('Không thể kết nối máy chủ');
-    } finally {
-      setZaloSaving(false);
-    }
-  }
-
-  // ── Zalo pending confirm state ────────────────────────────────
-  const [zaloPendingLoading, setZaloPendingLoading] = useState(false);
-
-  async function handleZaloPendingAction(action: 'confirm' | 'reject') {
-    if (!profile?.id) return;
-    setZaloPendingLoading(true);
-    try {
-      const res = await fetch('/api/zalo/link-chat-id-nguoi-dung', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nguoiDungId: profile.id, action }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success(data.message);
-        // Reload profile (API trả flat object, không wrap success/data)
-        const r = await fetch('/api/user/profile');
-        if (r.ok) {
-          const d = await r.json();
-          setProfile(d);
-        }
-      } else {
-        toast.error(data.error || 'Có lỗi xảy ra');
-      }
-    } catch {
-      toast.error('Không thể kết nối máy chủ');
-    } finally {
-      setZaloPendingLoading(false);
-    }
-  }
-
   // ── Security state ────────────────────────────────────────────
   const [pwForm, setPwForm] = useState({ matKhauHienTai: '', matKhauMoi: '', xacNhanMatKhau: '' });
   const [pwSaving, setPwSaving] = useState(false);
@@ -209,7 +147,6 @@ export default function ProfilePage() {
           avatar: data.anhDaiDien || '',
           zaloChatId: data.zaloChatId || '',
         });
-        setZaloChatIds(Array.isArray(data.zaloChatIds) ? data.zaloChatIds : []);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -466,121 +403,6 @@ export default function ProfilePage() {
                     <Shield className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
                     {profile?.vaiTro && getRoleBadge(profile.vaiTro)}
                   </div>
-                </div>
-
-                {/* Zalo — liên kết theo tài khoản bot */}
-                <div className="space-y-2 md:col-span-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs md:text-sm flex items-center gap-1.5">
-                        <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
-                        Liên kết Zalo theo tài khoản bot
-                      </Label>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1"
-                        onClick={() => setZaloChatIds(prev => [...prev, { ten: '', userId: '', threadId: '' }])}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Thêm dòng
-                      </Button>
-                    </div>
-
-                    {/* Header */}
-                    <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 px-1">
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Tên bot</span>
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">User ID</span>
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Thread ID</span>
-                      <span className="w-7" />
-                    </div>
-
-                    {zaloChatIds.length === 0 && (
-                      <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
-                        Chưa có liên kết — hệ thống tự điền khi bot tìm thấy số điện thoại
-                      </div>
-                    )}
-                    {zaloChatIds.map((entry, idx) => (
-                      <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 items-center">
-                        <Input
-                          value={entry.ten}
-                          onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, ten: e.target.value } : r))}
-                          placeholder="Tên bot..."
-                          className="h-8 text-xs font-mono"
-                        />
-                        <Input
-                          value={entry.userId}
-                          onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, userId: e.target.value } : r))}
-                          placeholder="User ID..."
-                          className="h-8 text-xs font-mono"
-                        />
-                        <Input
-                          value={entry.threadId}
-                          onChange={e => setZaloChatIds(prev => prev.map((r, i) => i === idx ? { ...r, threadId: e.target.value } : r))}
-                          placeholder="Thread ID..."
-                          className="h-8 text-xs font-mono"
-                        />
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => setZaloChatIds(prev => prev.filter((_, i) => i !== idx))}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ))}
-                    {zaloChatIds.length > 0 && (
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] text-muted-foreground">Dòng đầu tiên là Chat ID chính.</p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          onClick={handleSaveZaloChatIds}
-                          disabled={zaloSaving}
-                        >
-                          <Save className="h-3.5 w-3.5 mr-1" />
-                          {zaloSaving ? 'Đang lưu...' : 'Lưu Zalo'}
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Pending confirmation */}
-                    {profile?.pendingZaloChatId && (
-                      <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-1.5">
-                        <p className="text-[10px] text-amber-700 flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          Phát hiện Chat ID mới: <span className="font-mono font-semibold">{profile.pendingZaloChatId}</span>
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-6 text-[10px] px-2 bg-green-600 hover:bg-green-700"
-                            disabled={zaloPendingLoading}
-                            onClick={() => handleZaloPendingAction('confirm')}
-                          >
-                            <CheckCircle2 className="h-3 w-3 mr-1" /> Xác nhận
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-6 text-[10px] px-2 border-red-300 text-red-600 hover:bg-red-50"
-                            disabled={zaloPendingLoading}
-                            onClick={() => handleZaloPendingAction('reject')}
-                          >
-                            <XCircle className="h-3 w-3 mr-1" /> Từ chối
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-[10px] text-muted-foreground">
-                      Nhắn tin cho bot Zalo — hệ thống tự phát hiện và liên kết Chat ID của bạn
-                    </p>
                 </div>
 
                 {/* Danh bạ Zalo — chỉ hiện cho chuNha, dongChuTro, quanLy */}
@@ -906,6 +728,64 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+  // ── Danh bạ ngoài ──
+  const [externalContacts, setExternalContacts] = useState<{ id: string; ten: string; soDienThoai: string; threadId: string }[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newContact, setNewContact] = useState({ ten: '', soDienThoai: '', threadId: '' });
+  const [addingSaving, setAddingSaving] = useState(false);
+
+  const loadExternal = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/zalo/danh-ba-ngoai');
+      const data = await res.json();
+      if (data.ok) setExternalContacts(data.contacts.map((c: any) => ({
+        id: c.id, ten: c.ten, soDienThoai: c.soDienThoai || '', threadId: c.threadId || '',
+      })));
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleAddExternal = async () => {
+    if (!newContact.ten.trim()) { toast.error('Vui lòng nhập tên'); return; }
+    setAddingSaving(true);
+    try {
+      const res = await fetch('/api/admin/zalo/danh-ba-ngoai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newContact),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success('Đã thêm liên hệ');
+        setNewContact({ ten: '', soDienThoai: '', threadId: '' });
+        setShowAddForm(false);
+        loadExternal();
+      } else toast.error(data.error || 'Lỗi');
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setAddingSaving(false); }
+  };
+
+  const handleUpdateExternal = async (id: string, field: string, value: string) => {
+    try {
+      const res = await fetch('/api/admin/zalo/danh-ba-ngoai', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, [field]: value }),
+      });
+      const data = await res.json();
+      if (data.ok) { toast.success('Đã cập nhật'); loadExternal(); }
+      else toast.error(data.error || 'Lỗi');
+    } catch { toast.error('Lỗi kết nối'); }
+  };
+
+  const handleDeleteExternal = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/zalo/danh-ba-ngoai?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.ok) { toast.success('Đã xóa'); loadExternal(); }
+      else toast.error(data.error || 'Lỗi');
+    } catch { toast.error('Lỗi kết nối'); }
+  };
+
   // Resolve threadId: tìm trong zaloChatIds entry khớp với bot account của user đang đăng nhập
   function resolveThreadId(person: any): string | null {
     if (currentBotAccountId && Array.isArray(person.zaloChatIds)) {
@@ -961,7 +841,7 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, currentBotAccountId]);
 
-  useEffect(() => { if (!loaded) load(); }, [loaded, load]);
+  useEffect(() => { if (!loaded) { load(); loadExternal(); } }, [loaded, load, loadExternal]);
 
   const handleUpdateChatId = async (id: string, type: 'nguoiDung' | 'khachThue', zaloChatId: string) => {
     try {
@@ -1001,6 +881,86 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
         {buildings.map(b => (
           <DirBuilding key={b.id} building={b} onUpdate={handleUpdateChatId} />
         ))}
+      </div>
+
+      {/* Danh bạ ngoài — thêm thủ công */}
+      <div className="mt-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs md:text-sm flex items-center gap-1.5">
+            <Plus className="h-3.5 w-3.5 text-green-500" />
+            Liên hệ khác
+          </Label>
+          <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1"
+            onClick={() => setShowAddForm(v => !v)}>
+            <Plus className="h-3.5 w-3.5" />
+            Thêm
+          </Button>
+        </div>
+
+        {showAddForm && (
+          <div className="border rounded-md p-2 bg-gray-50 space-y-2">
+            <div className="grid grid-cols-3 gap-1.5">
+              <Input value={newContact.ten} onChange={e => setNewContact(p => ({ ...p, ten: e.target.value }))}
+                placeholder="Tên *" className="h-8 text-xs" />
+              <Input value={newContact.soDienThoai} onChange={e => setNewContact(p => ({ ...p, soDienThoai: e.target.value }))}
+                placeholder="Số điện thoại" className="h-8 text-xs" />
+              <Input value={newContact.threadId} onChange={e => setNewContact(p => ({ ...p, threadId: e.target.value }))}
+                placeholder="Thread ID" className="h-8 text-xs font-mono" />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button type="button" size="sm" variant="ghost" className="h-7 text-xs"
+                onClick={() => { setShowAddForm(false); setNewContact({ ten: '', soDienThoai: '', threadId: '' }); }}>
+                Hủy
+              </Button>
+              <Button type="button" size="sm" className="h-7 text-xs" onClick={handleAddExternal} disabled={addingSaving}>
+                {addingSaving ? 'Đang lưu...' : 'Lưu'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {externalContacts.length > 0 && (
+          <div className="border rounded-md overflow-hidden bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead><tr className="bg-gray-100 text-gray-600">
+                  <th className="text-left px-2 py-1.5 font-medium">Tên</th>
+                  <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
+                  <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
+                  <th className="w-7" />
+                </tr></thead>
+                <tbody className="divide-y">
+                  {externalContacts.map(c => (
+                    <tr key={c.id} className="hover:bg-gray-50">
+                      <td className="px-2 py-1.5">
+                        <DirEditableCell value={c.ten} placeholder="Tên" onSave={v => handleUpdateExternal(c.id, 'ten', v)} />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <DirEditableCell value={c.soDienThoai} placeholder="SĐT" onSave={v => handleUpdateExternal(c.id, 'soDienThoai', v)} />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <DirEditableCell value={c.threadId} placeholder="Chưa có" onSave={v => handleUpdateExternal(c.id, 'threadId', v)} />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Button type="button" size="icon" variant="ghost"
+                          className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleDeleteExternal(c.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {externalContacts.length === 0 && !showAddForm && (
+          <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
+            Chưa có liên hệ ngoài — nhấn "Thêm" để thêm mới
+          </div>
+        )}
       </div>
     </div>
   );

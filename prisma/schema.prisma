@@ -44,6 +44,7 @@ model NguoiDung {
   yeuCauPheDuyet    YeuCauThayDoi[]
   zaloThongBaoCaiDat    ZaloThongBaoCaiDat[]
   zaloDongChuTroThreads ZaloDongChuTroThread[]
+  danhBaNgoai           DanhBaNgoai[]
 }
 
 model ToaNha {
@@ -473,6 +474,20 @@ model ZaloBanBe {
   @@unique([zaloAccountId, friendUserId])
   @@index([friendUserId])
   @@index([zaloAccountId])
+}
+
+// Danh bạ ngoài — liên hệ thêm thủ công bởi user (không có trong hệ thống)
+model DanhBaNgoai {
+  id            String   @id @default(cuid())
+  ten           String
+  soDienThoai   String?
+  threadId      String?
+  nguoiTaoId    String
+  nguoiTao      NguoiDung @relation(fields: [nguoiTaoId], references: [id])
+  ngayTao       DateTime @default(now())
+  ngayCapNhat   DateTime @updatedAt
+
+  @@index([nguoiTaoId])
 }
 
 // Danh sách endpoint của Zalo Bot Server — seed từ code, proxy dùng làm whitelist
