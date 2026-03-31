@@ -123,6 +123,7 @@ export async function GET() {
         zaloChatId: u.zaloChatId,
         nhanThongBaoZalo: u.nhanThongBaoZalo,
         zaloAccountId: u.zaloAccountId,
+        zaloViTri: u.zaloViTri,
         nguoiTaoId: nguoiTaoId,
         nguoiTaoTen: nguoiTaoId ? (creatorMap.get(nguoiTaoId) ?? null) : null,
         ngayTao: u.ngayTao.toISOString(),
