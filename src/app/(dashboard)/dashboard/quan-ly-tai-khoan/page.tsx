@@ -555,7 +555,12 @@ export default function AccountManagementPage() {
       zaloChatId: user.zaloChatId || '',
       toaNhaId: user.toaNhaId || '',
       toaNhaIds: user.toaNhaIds?.length ? user.toaNhaIds : (user.toaNhaId ? [user.toaNhaId] : []),
-      zaloViTri: (user.zaloViTri as Record<string, number>) || {},
+      zaloViTri: (() => {
+      const raw = (user.zaloViTri as Record<string, number>) || {};
+      const result: Record<string, number> = {};
+      for (const [k, v] of Object.entries(raw)) { if (v) result[k] = Number(v); }
+      return result;
+    })(),
       quyenKichHoatTaiKhoan: user.quyenKichHoatTaiKhoan ?? false,
       quyenHopDong: user.quyenHopDong ?? false,
       quyenHoaDon: user.quyenHoaDon ?? false,
