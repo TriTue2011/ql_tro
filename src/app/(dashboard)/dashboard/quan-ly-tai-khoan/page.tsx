@@ -950,7 +950,7 @@ export default function AccountManagementPage() {
             const isZaloOpen = !!openSections[zaloKey];
             // Admin/chuNha/quanLy can manage Zalo permissions only for subordinate roles
             const ROLE_HIERARCHY: Record<string, string[]> = {
-              admin: ['chuNha', 'dongChuTro', 'quanLy', 'nhanVien'],
+              admin: ['chuNha'],
               chuNha: ['dongChuTro', 'quanLy', 'nhanVien'],
               quanLy: ['nhanVien'],
             };
