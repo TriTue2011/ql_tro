@@ -950,9 +950,15 @@ export default function AccountManagementPage() {
             const isZaloOpen = !!openSections[zaloKey];
             // Admin/chuNha/quanLy can manage Zalo permissions only for subordinate roles
             const ROLE_HIERARCHY: Record<string, string[]> = {
-              admin: ['chuNha'],
+              admin: ['chuNha', 'dongChuTro', 'quanLy', 'nhanVien'],
               chuNha: ['dongChuTro', 'quanLy', 'nhanVien'],
               quanLy: ['nhanVien'],
+            };
+            // "Quản lý quyền" chỉ hiện cho cấp dưới trực tiếp có thể quản lý tiếp
+            // admin → chuNha, chuNha → quanLy (dongChuTro/nhanVien không quản lý ai)
+            const DIRECT_MANAGE_TARGETS: Record<string, string[]> = {
+              admin: ['chuNha'],
+              chuNha: ['quanLy'],
             };
             const myRole = session?.user?.role || '';
             const canEditZalo = roleKey && buildingId && (ROLE_HIERARCHY[myRole] || []).includes(roleKey)
@@ -1005,7 +1011,7 @@ export default function AccountManagementPage() {
                                   <div key={slotKey}>
                                     <p className="text-[10px] font-medium text-gray-500 mb-1">{label} {slotNum}</p>
                                     <div className="flex flex-wrap gap-1.5">
-                                      {ZALO_FEATURES.filter(f => f.key !== 'quanLyQuyen' || roleKey !== 'nhanVien').map(feat => {
+                                      {ZALO_FEATURES.filter(f => f.key !== 'quanLyQuyen' || (DIRECT_MANAGE_TARGETS[myRole] || []).includes(roleKey!)).map(feat => {
                                         const aOff = bPerms?.admin?.[slotKey]?.[feat.key] === false;
                                         const cOff = bPerms?.chuNha?.[slotKey]?.[feat.key] === false;
                                         const higherOff = (level === 'chuNha' && aOff) || (level === 'quanLy' && (aOff || cOff));
@@ -1029,7 +1035,7 @@ export default function AccountManagementPage() {
                             ) : (
                               // Single slot
                               <div className="flex flex-wrap gap-1.5">
-                                {ZALO_FEATURES.filter(f => f.key !== 'quanLyQuyen' || roleKey !== 'nhanVien').map(feat => {
+                                {ZALO_FEATURES.filter(f => f.key !== 'quanLyQuyen' || (DIRECT_MANAGE_TARGETS[myRole] || []).includes(roleKey!)).map(feat => {
                                   const aOff = bPerms?.admin?.[roleKey!]?.[feat.key] === false;
                                   const cOff = bPerms?.chuNha?.[roleKey!]?.[feat.key] === false;
                                   const higherOff = (level === 'chuNha' && aOff) || (level === 'quanLy' && (aOff || cOff));
