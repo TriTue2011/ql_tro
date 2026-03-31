@@ -347,9 +347,20 @@ export default function AccountManagementPage() {
           const res = await fetch(`/api/admin/zalo-quyen?toaNhaId=${b.id}`);
           const data = await res.json();
           if (data.ok && data.effective) {
+            // Tìm slot key chính xác của user, hoặc check tất cả slot keys cho role
             const slotNum = (currentUser.zaloViTri as any)?.[b.id];
-            const slotKey = slotNum ? `${role}_${slotNum}` : role;
-            const perms = data.effective[slotKey] || data.effective[role];
+            let perms: Record<string, boolean> | undefined;
+            if (slotNum) {
+              perms = data.effective[`${role}_${slotNum}`] || data.effective[role];
+            } else {
+              // Không có slot cụ thể → check tất cả matching keys, lấy restrictive nhất
+              const matchingKeys = Object.keys(data.effective).filter(k => k === role || k.startsWith(`${role}_`));
+              if (matchingKeys.length > 0) {
+                // Nếu bất kỳ slot nào tắt quanLyQuyen → tắt (vì không biết user thuộc slot nào)
+                const allPerms = matchingKeys.map(k => data.effective[k]);
+                perms = { quanLyQuyen: allPerms.every(p => p?.quanLyQuyen !== false) };
+              }
+            }
             result[b.id] = perms?.quanLyQuyen !== false;
           } else {
             result[b.id] = true;
