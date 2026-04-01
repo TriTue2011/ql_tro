@@ -208,7 +208,7 @@ export default function AccountManagementPage() {
 
   useEffect(() => {
     const role = session?.user?.role;
-    const canAccess = role === 'admin' || role === 'chuNha' || role === 'dongChuTro';
+    const canAccess = role === 'admin' || role === 'chuNha' || role === 'dongChuTro' || role === 'quanLy';
     if (canAccess && !hasFetchedRef.current) {
       hasFetchedRef.current = true;
       fetchUsers(false);
@@ -612,6 +612,8 @@ export default function AccountManagementPage() {
   const isChuNha = session?.user?.role === 'chuNha';
   const isDongChuTro = session?.user?.role === 'dongChuTro';
   const isQuanLy = session?.user?.role === 'quanLy';
+  // quanLy: read-only toàn trang khi không được cấp quanLyQuyen ở bất kỳ tòa nhà nào
+  const quanLyReadOnly = isQuanLy && !Object.values(canManageZaloPerms).some(v => v === true);
 
   if (!isAdmin && !isChuNha && !isDongChuTro && !isQuanLy) {
     return (
@@ -642,9 +644,10 @@ export default function AccountManagementPage() {
         <div>
           <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
             Quản lý tài khoản
+            {quanLyReadOnly && <span className="text-sm font-normal text-orange-500 ml-2">(chỉ xem)</span>}
           </h1>
           <p className="text-xs md:text-sm text-gray-600">
-            {isChuNha || isDongChuTro ? 'Quản lý tài khoản đồng chủ trọ, quản lý và nhân viên' : 'Quản lý người dùng và phân quyền hệ thống'}
+            {quanLyReadOnly ? 'Bạn chỉ có quyền xem, không thể chỉnh sửa' : isChuNha || isDongChuTro ? 'Quản lý tài khoản đồng chủ trọ, quản lý và nhân viên' : isQuanLy ? 'Quản lý tài khoản nhân viên' : 'Quản lý người dùng và phân quyền hệ thống'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -669,7 +672,7 @@ export default function AccountManagementPage() {
             <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
           </Button>
-          {(isAdmin || isChuNha || isDongChuTro) && (
+          {(isAdmin || isChuNha || isDongChuTro || (isQuanLy && !quanLyReadOnly)) && (
             <Button size="sm" onClick={() => setIsCreateDialogOpen(true)} className="flex-1 sm:flex-none">
               <Plus className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Tạo tài khoản</span>
@@ -921,7 +924,7 @@ export default function AccountManagementPage() {
                     </span>
                   </div>
                 </div>
-                {!isCurrentUser && (
+                {!isCurrentUser && !quanLyReadOnly && (
                   <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(user)}>
                       <Edit className="h-3.5 w-3.5" />
