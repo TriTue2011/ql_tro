@@ -266,7 +266,7 @@ export default function AccountManagementPage() {
   // Zalo permissions — 3 levels: admin, chuNha, quanLy
   const getMyLevel = (): 'admin' | 'chuNha' | 'quanLy' => {
     if (isAdmin) return 'admin';
-    if (isChuNha) return 'chuNha';
+    if (isChuNha || isDongChuTro) return 'chuNha';
     return 'quanLy';
   };
 

@@ -95,7 +95,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const { role: userRole } = session.user;
-  if (!['admin', 'chuNha', 'quanLy'].includes(userRole ?? '')) {
+  if (!['admin', 'chuNha', 'dongChuTro', 'quanLy'].includes(userRole ?? '')) {
     return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
   }
 
@@ -110,26 +110,25 @@ export async function PUT(req: NextRequest) {
   if (level === 'admin' && userRole !== 'admin') {
     return NextResponse.json({ error: 'Chỉ admin' }, { status: 403 });
   }
-  if (level === 'chuNha' && userRole !== 'admin' && userRole !== 'chuNha') {
+  if (level === 'chuNha' && !['admin', 'chuNha', 'dongChuTro'].includes(userRole!)) {
     return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
   }
-  if (level === 'quanLy' && !['admin', 'chuNha', 'quanLy'].includes(userRole!)) {
+  if (level === 'quanLy' && !['admin', 'chuNha', 'dongChuTro', 'quanLy'].includes(userRole!)) {
     return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
   }
 
-  // Verify ownership
-  if (userRole === 'chuNha') {
+  // Verify ownership — check cả chủ sở hữu lẫn gán qua toaNhaNguoiQuanLy
+  if (userRole !== 'admin') {
     const owns = await prisma.toaNha.findFirst({
       where: { id: toaNhaId, chuSoHuuId: session.user.id },
       select: { id: true },
     });
-    if (!owns) return NextResponse.json({ error: 'Không có quyền với tòa nhà này' }, { status: 403 });
-  }
-  if (userRole === 'quanLy') {
-    const manages = await prisma.toaNhaNguoiQuanLy.findFirst({
-      where: { toaNhaId, nguoiDungId: session.user.id },
-    });
-    if (!manages) return NextResponse.json({ error: 'Không có quyền với tòa nhà này' }, { status: 403 });
+    if (!owns) {
+      const manages = await prisma.toaNhaNguoiQuanLy.findFirst({
+        where: { toaNhaId, nguoiDungId: session.user.id },
+      });
+      if (!manages) return NextResponse.json({ error: 'Không có quyền với tòa nhà này' }, { status: 403 });
+    }
   }
 
   const row = await prisma.caiDatToaNha.findUnique({ where: { toaNhaId } });
