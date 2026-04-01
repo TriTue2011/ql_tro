@@ -20,7 +20,7 @@ import prisma from '@/lib/prisma';
 
 export const ZALO_FEATURES = [
   'botServer', 'trucTiep', 'proxy', 'webhook',
-  'tinTuDong', 'testGui', 'ketBan', 'theoDoiTin', 'zaloMonitor',
+  'tinTuDong', 'testGui', 'ketBan', 'theoDoiTin', 'zaloMonitor', 'quanLyQuyen',
 ] as const;
 
 export type ZaloFeature = typeof ZALO_FEATURES[number];

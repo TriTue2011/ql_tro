@@ -952,13 +952,14 @@ export default function AccountManagementPage() {
             const ROLE_HIERARCHY: Record<string, string[]> = {
               admin: ['chuNha', 'dongChuTro', 'quanLy', 'nhanVien'],
               chuNha: ['dongChuTro', 'quanLy', 'nhanVien'],
+              dongChuTro: ['quanLy', 'nhanVien'],
               quanLy: ['nhanVien'],
             };
             // "Quản lý quyền" chỉ hiện cho cấp dưới trực tiếp có thể quản lý tiếp
-            // admin → chuNha, chuNha → quanLy (dongChuTro/nhanVien không quản lý ai)
+            // admin → chuNha, chuNha → dongChuTro + quanLy (ủy quyền khi vắng)
             const DIRECT_MANAGE_TARGETS: Record<string, string[]> = {
               admin: ['chuNha'],
-              chuNha: ['quanLy'],
+              chuNha: ['dongChuTro', 'quanLy'],
             };
             const myRole = session?.user?.role || '';
             const canEditZalo = roleKey && buildingId && (ROLE_HIERARCHY[myRole] || []).includes(roleKey)
