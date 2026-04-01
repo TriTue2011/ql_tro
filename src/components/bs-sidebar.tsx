@@ -236,7 +236,7 @@ export function BsSidebar({
   const role: Role = session?.user?.role ?? 'nhanVien';
   const [hiddenPaths, setHiddenPaths] = useState<Set<string>>(new Set());
 
-  // Check zaloMonitor permission — ẩn khỏi sidebar nếu bị tắt
+  // Check permissions — ẩn khỏi sidebar nếu bị tắt
   useEffect(() => {
     if (role === 'admin') return;
     (async () => {
@@ -251,8 +251,16 @@ export function BsSidebar({
         if (pData.ok && pData.effective) {
           const matchingKeys = Object.keys(pData.effective).filter(k => k === role || k.startsWith(`${role}_`));
           if (matchingKeys.length > 0) {
-            const allowed = matchingKeys.some(k => pData.effective[k]?.zaloMonitor !== false);
-            if (!allowed) setHiddenPaths(prev => new Set([...prev, '/dashboard/zalo-monitor']));
+            const hidden = new Set<string>();
+            // Ẩn Zalo Monitor nếu bị tắt
+            const monitorAllowed = matchingKeys.some(k => pData.effective[k]?.zaloMonitor !== false);
+            if (!monitorAllowed) hidden.add('/dashboard/zalo-monitor');
+            // dongChuTro: ẩn Quản lý tài khoản nếu không được cấp quanLyQuyen
+            if (role === 'dongChuTro') {
+              const canManage = matchingKeys.some(k => pData.effective[k]?.quanLyQuyen === true);
+              if (!canManage) hidden.add('/dashboard/quan-ly-tai-khoan');
+            }
+            if (hidden.size > 0) setHiddenPaths(prev => new Set([...prev, ...hidden]));
           }
         }
       } catch {}
