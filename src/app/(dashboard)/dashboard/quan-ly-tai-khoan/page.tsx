@@ -962,8 +962,8 @@ export default function AccountManagementPage() {
               chuNha: ['dongChuTro', 'quanLy'],
             };
             const myRole = session?.user?.role || '';
-            const canEditZalo = roleKey && buildingId && (ROLE_HIERARCHY[myRole] || []).includes(roleKey)
-              && (isAdmin || canManageZaloPerms[buildingId] !== false);
+            const canViewZalo = roleKey && buildingId && (ROLE_HIERARCHY[myRole] || []).includes(roleKey);
+            const canEditZalo = canViewZalo && (isAdmin || canManageZaloPerms[buildingId] !== false);
             const bPerms = buildingId ? zaloPerms[buildingId] : null;
             const level = getMyLevel();
             const slotCount = (limit && limit > 1) ? limit : 0; // 0 = single toggle set
@@ -985,8 +985,8 @@ export default function AccountManagementPage() {
                     <div className="divide-y divide-gray-100 px-1">
                       {sectionUsers.map(u => renderUserRow(u, buildingId, roleKey))}
                     </div>
-                    {/* Inline Zalo Permissions */}
-                    {canEditZalo && (
+                    {/* Inline Zalo Permissions — canViewZalo: xem, canEditZalo: chỉnh sửa */}
+                    {canViewZalo && (
                       <div className="border-t">
                         <button
                           type="button"
@@ -998,6 +998,7 @@ export default function AccountManagementPage() {
                         >
                           <MessageCircle className="h-3 w-3" />
                           <span>Quyền Zalo</span>
+                          {!canEditZalo && <span className="text-[9px] text-orange-500 ml-1">(chỉ xem)</span>}
                           {isZaloOpen ? <ChevronDown className="h-3 w-3 ml-auto" /> : <ChevronRight className="h-3 w-3 ml-auto" />}
                         </button>
                         {isZaloOpen && buildingId && roleKey && (
@@ -1016,12 +1017,13 @@ export default function AccountManagementPage() {
                                         const aOff = bPerms?.admin?.[slotKey]?.[feat.key] === false;
                                         const cOff = bPerms?.chuNha?.[slotKey]?.[feat.key] === false;
                                         const higherOff = (level === 'chuNha' && aOff) || (level === 'quanLy' && (aOff || cOff));
-                                        if (higherOff) return null;
-                                        const checked = currentPerms[feat.key] ?? true;
+                                        if (higherOff && !canEditZalo) return null;
+                                        const checked = higherOff ? false : (currentPerms[feat.key] ?? true);
                                         return (
-                                          <label key={feat.key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${checked ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                                          <label key={feat.key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${higherOff ? 'opacity-40' : ''} ${checked ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
                                             <Switch
                                               checked={checked}
+                                              disabled={!canEditZalo || higherOff}
                                               onCheckedChange={(v) => toggleZaloPerm(buildingId, slotKey, feat.key, v)}
                                               className="scale-50"
                                             />
@@ -1040,13 +1042,14 @@ export default function AccountManagementPage() {
                                   const aOff = bPerms?.admin?.[roleKey!]?.[feat.key] === false;
                                   const cOff = bPerms?.chuNha?.[roleKey!]?.[feat.key] === false;
                                   const higherOff = (level === 'chuNha' && aOff) || (level === 'quanLy' && (aOff || cOff));
-                                  if (higherOff) return null;
+                                  if (higherOff && !canEditZalo) return null;
                                   const currentPerms = bPerms?.[level]?.[roleKey!] || {};
-                                  const checked = currentPerms[feat.key] ?? true;
+                                  const checked = higherOff ? false : (currentPerms[feat.key] ?? true);
                                   return (
-                                    <label key={feat.key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${checked ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                                    <label key={feat.key} className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${higherOff ? 'opacity-40' : ''} ${checked ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
                                       <Switch
                                         checked={checked}
+                                        disabled={!canEditZalo || higherOff}
                                         onCheckedChange={(v) => toggleZaloPerm(buildingId, roleKey!, feat.key, v)}
                                         className="scale-50"
                                       />
@@ -1056,11 +1059,13 @@ export default function AccountManagementPage() {
                                 })}
                               </div>
                             )}
-                            <div className="flex justify-end pt-1">
-                              <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => saveZaloPerms(buildingId)} disabled={zaloPermsSaving === buildingId}>
-                                {zaloPermsSaving === buildingId ? 'Lưu...' : 'Lưu quyền Zalo'}
-                              </Button>
-                            </div>
+                            {canEditZalo && (
+                              <div className="flex justify-end pt-1">
+                                <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => saveZaloPerms(buildingId)} disabled={zaloPermsSaving === buildingId}>
+                                  {zaloPermsSaving === buildingId ? 'Lưu...' : 'Lưu quyền Zalo'}
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
