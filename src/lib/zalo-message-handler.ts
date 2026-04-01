@@ -246,7 +246,10 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
       await sendReply(token, chatId,
         `✅ Liên kết thành công!\n\n` +
         `Xin chào ${nguoiDung.ten}, tài khoản quản lý của bạn đã được liên kết với Zalo này.\n` +
-        'Từ giờ hệ thống sẽ nhận dạng bạn qua cuộc trò chuyện này.',
+        'Từ giờ bạn sẽ nhận thông báo qua Zalo:\n' +
+        '📄 Hóa đơn (quá hạn, xác nhận thanh toán)\n' +
+        '🔧 Sự cố (báo cáo mới, cập nhật)\n' +
+        '📊 Nhắc chỉ số điện/nước',
         accountSelection,
       );
       return true;
@@ -276,7 +279,10 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
     await sendReply(
       token, chatId,
       `✅ Đăng ký thành công!\n\n` +
-      `Xin chào ${kt.hoTen}, từ giờ bạn sẽ nhận thông báo hóa đơn và hợp đồng qua Zalo này.\n\n` +
+      `Xin chào ${kt.hoTen}, từ giờ bạn sẽ nhận thông báo qua Zalo này:\n` +
+      '📄 Hóa đơn (tạo mới, nhắc thanh toán)\n' +
+      '🔧 Sự cố (cập nhật trạng thái xử lý)\n' +
+      '📋 Yêu cầu thay đổi (kết quả phê duyệt)\n\n' +
       'Để tắt thông báo hoặc thay đổi cài đặt:\n' +
       '▶ Đăng nhập cổng thông tin khách thuê\n' +
       '▶ Vào mục "Thông tin cá nhân"\n' +

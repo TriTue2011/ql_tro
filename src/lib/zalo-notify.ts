@@ -384,7 +384,7 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string): P
  */
 export async function notifyMeterReminder(toaNhaId: string, tenToaNha: string): Promise<void> {
   try {
-    const msg = [
+    const msgAdmin = [
       `📊 NHẮC NHỞ CHỐT CHỈ SỐ ĐIỆN/NƯỚC`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
       `🏠 Tòa nhà: ${tenToaNha}`,
@@ -393,11 +393,34 @@ export async function notifyMeterReminder(toaNhaId: string, tenToaNha: string): 
     ].join('\n');
 
     // Gửi nhóm chat (nhắc nhở chung vẫn gửi nhóm)
-    await sendToGroup(toaNhaId, msg);
+    await sendToGroup(toaNhaId, msgAdmin);
 
-    // Gửi cá nhân theo routing
+    // Gửi cá nhân cho chủ trọ/quản lý theo routing
     const targets = await getTargets(toaNhaId, 'NhacNho');
-    await Promise.all(targets.map(t => sendZalo(t.chatId, msg, toaNhaId)));
+    await Promise.all(targets.map(t => sendZalo(t.chatId, msgAdmin, toaNhaId)));
+
+    // Gửi nhắc nhở cho khách thuê đang có hợp đồng
+    const msgKhachThue = [
+      `📊 NHẮC NHỞ CHỐT CHỈ SỐ ĐIỆN/NƯỚC`,
+      `━━━━━━━━━━━━━━━━━━━━━━`,
+      `🏠 Tòa nhà: ${tenToaNha}`,
+      ``,
+      `Đã đến kỳ chốt chỉ số điện/nước. Vui lòng kiểm tra và báo chỉ số cho quản lý.`,
+    ].join('\n');
+
+    const khachThues = await prisma.khachThue.findMany({
+      where: {
+        hopDong: { some: { phong: { toaNhaId }, trangThai: 'dangThue' } },
+        nhanThongBaoZalo: true,
+        zaloChatId: { not: null },
+      },
+      select: { zaloChatId: true },
+    });
+    await Promise.all(
+      khachThues
+        .filter(kt => kt.zaloChatId)
+        .map(kt => sendZalo(kt.zaloChatId!, msgKhachThue, toaNhaId))
+    );
   } catch (e) {
     console.error('[zalo-notify] notifyMeterReminder error:', e);
   }

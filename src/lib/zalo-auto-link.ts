@@ -452,12 +452,10 @@ export async function notifyTenantsOfNewManager(
     });
     if (!quanLy) return;
 
-    // Lấy bot selection (dùng account quản lý nếu có quyền delegate)
+    // Dùng bot của quản lý cũ / chủ trọ (không dùng bot quản lý mới)
     const sel = await getBotSelectionForBuilding(toaNhaId);
     const toaNhaInfo = sel.toaNha;
-
-    // Ưu tiên dùng tài khoản quản lý nếu quản lý có zaloAccountId
-    const accountId = quanLy.zaloAccountId ?? sel.accountId;
+    const accountId = sel.accountId;
 
     // Lấy tất cả khách thuê đang ở trong tòa nhà (có hợp đồng hoạt động + có zaloChatId)
     const khachThues = await prisma.khachThue.findMany({

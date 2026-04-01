@@ -111,7 +111,7 @@ export async function PUT(
       const msgMap: Record<string, string> = {
         dangXuLy: `✅ Sự cố "${suCo.tieuDe}" của bạn đã được tiếp nhận và đang xử lý.`,
         daXong: `🎉 Sự cố "${suCo.tieuDe}" đã được xử lý xong!${validatedData.ghiChuXuLy ? `\nGhi chú: ${validatedData.ghiChuXuLy}` : ''}`,
-        daHuy: `ℹ️ Sự cố "${suCo.tieuDe}" đã được đóng/hủy.`,
+        daHuy: `ℹ️ Sự cố "${suCo.tieuDe}" đã được đóng/hủy.${validatedData.ghiChuXuLy ? `\nGhi chú: ${validatedData.ghiChuXuLy}` : ''}`,
       };
       const msg = msgMap[validatedData.trangThai];
       if (msg) {

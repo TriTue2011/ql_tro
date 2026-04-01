@@ -3,7 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import { notifyKhachThue, notifyDaiDienHopDong } from '@/lib/send-zalo';
+import { notifyKhachThue, notifyDaiDienHopDong, getToaNhaIdOfKhachThue } from '@/lib/send-zalo';
+import { autoLinkZaloChatIds } from '@/lib/zalo-auto-link';
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 
 function canManage(role?: string) {
@@ -151,10 +152,19 @@ export async function PUT(request: NextRequest) {
             where: { id: sau.hopDongId },
             data: { khachThue: { connect: { id: created.id } } },
           });
+          // Auto-link Zalo cho người mới
+          if (!sdt.startsWith('PENDING_')) {
+            const toaNhaId = await getToaNhaIdOfKhachThue(created.id);
+            if (toaNhaId) autoLinkZaloChatIds('khachThue', created.id, sdt, toaNhaId).catch(() => {});
+          }
           // Thông báo cho người đứng hợp đồng
           if (!isUnder18) {
-            const loginMsg = `🎉 Tài khoản cho ${newMember.hoTen} đã được phê duyệt!\n📱 Tài khoản: ${sdt.startsWith('PENDING_') ? '(chưa có SĐT)' : sdt}\n🔑 Mật khẩu mặc định: admin123\n⚠️ Vui lòng đăng nhập và đổi mật khẩu ngay tại mục Cài đặt > Bảo mật.`;
+            const loginMsg = `🎉 Tài khoản cho ${newMember.hoTen} đã được tạo!\n📱 Tài khoản: ${sdt.startsWith('PENDING_') ? '(chưa có SĐT)' : sdt}\n🔑 Mật khẩu: admin123\n⚠️ Vui lòng đăng nhập và đổi mật khẩu ngay tại mục Cài đặt > Bảo mật.`;
             notifyDaiDienHopDong(sau.hopDongId, loginMsg).catch(() => {});
+            // Gửi trực tiếp cho người mới nếu có SĐT
+            if (!sdt.startsWith('PENDING_')) {
+              notifyKhachThue(created.id, loginMsg).catch(() => {});
+            }
           }
         }
       } else if (sau.action === 'sua') {
