@@ -255,8 +255,8 @@ export function BsSidebar({
             // Ẩn Zalo Monitor nếu bị tắt
             const monitorAllowed = matchingKeys.some(k => pData.effective[k]?.zaloMonitor !== false);
             if (!monitorAllowed) hidden.add('/dashboard/zalo-monitor');
-            // dongChuTro: ẩn Quản lý tài khoản nếu không được cấp quanLyQuyen
-            if (role === 'dongChuTro') {
+            // dongChuTro/quanLy: ẩn Quản lý tài khoản nếu không được cấp quanLyQuyen
+            if (role === 'dongChuTro' || role === 'quanLy') {
               const canManage = matchingKeys.some(k => pData.effective[k]?.quanLyQuyen === true);
               if (!canManage) hidden.add('/dashboard/quan-ly-tai-khoan');
             }
