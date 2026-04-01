@@ -337,9 +337,7 @@ export default function AccountManagementPage() {
   useEffect(() => {
     const role = session?.user?.role;
     if (role === 'admin' || !role) return;
-    if (buildings.length === 0 || users.length === 0) return;
-    const currentUser = users.find(u => u.id === session?.user?.id);
-    if (!currentUser) return;
+    if (buildings.length === 0) return;
     (async () => {
       const result: Record<string, boolean> = {};
       for (const b of buildings) {
@@ -347,21 +345,15 @@ export default function AccountManagementPage() {
           const res = await fetch(`/api/admin/zalo-quyen?toaNhaId=${b.id}`);
           const data = await res.json();
           if (data.ok && data.effective) {
-            // Tìm slot key chính xác của user, hoặc check tất cả slot keys cho role
-            const slotNum = (currentUser.zaloViTri as any)?.[b.id];
-            let perms: Record<string, boolean> | undefined;
-            if (slotNum) {
-              perms = data.effective[`${role}_${slotNum}`] || data.effective[role];
+            // Check tất cả matching keys cho role hiện tại
+            const matchingKeys = Object.keys(data.effective).filter(k => k === role || k.startsWith(`${role}_`));
+            if (matchingKeys.length > 0) {
+              // Nếu bất kỳ slot nào tắt quanLyQuyen → tắt
+              const allowed = matchingKeys.some(k => data.effective[k]?.quanLyQuyen !== false);
+              result[b.id] = allowed;
             } else {
-              // Không có slot cụ thể → check tất cả matching keys, lấy restrictive nhất
-              const matchingKeys = Object.keys(data.effective).filter(k => k === role || k.startsWith(`${role}_`));
-              if (matchingKeys.length > 0) {
-                // Nếu bất kỳ slot nào tắt quanLyQuyen → tắt (vì không biết user thuộc slot nào)
-                const allPerms = matchingKeys.map(k => data.effective[k]);
-                perms = { quanLyQuyen: allPerms.every(p => p?.quanLyQuyen !== false) };
-              }
+              result[b.id] = true;
             }
-            result[b.id] = perms?.quanLyQuyen !== false;
           } else {
             result[b.id] = true;
           }
@@ -370,7 +362,7 @@ export default function AccountManagementPage() {
       setCanManageZaloPerms(result);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.role, session?.user?.id, buildings.length, users.length]);
+  }, [session?.user?.role, buildings.length]);
 
   const fetchUsers = async (forceRefresh = false) => {
     try {
