@@ -112,6 +112,7 @@ function buildNavGroups(role: Role): NavGroup[] {
           { label: 'Tòa nhà', href: '/dashboard/toa-nha' },
           { label: 'Phòng', href: '/dashboard/phong' },
           { label: 'Khách thuê', href: '/dashboard/khach-thue' },
+          { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
         ],
       },
       {
@@ -160,7 +161,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         { label: 'Tòa nhà', href: '/dashboard/toa-nha' },
         { label: 'Phòng', href: '/dashboard/phong' },
         { label: 'Khách thuê', href: '/dashboard/khach-thue' },
-        ...(isChuNha ? [{ label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' }] : []),
+        ...((isChuNha || isDongChuTro || isQuanLy) ? [{ label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' }] : []),
       ],
     },
     {

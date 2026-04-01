@@ -611,8 +611,9 @@ export default function AccountManagementPage() {
   const isAdmin = session?.user?.role === 'admin';
   const isChuNha = session?.user?.role === 'chuNha';
   const isDongChuTro = session?.user?.role === 'dongChuTro';
+  const isQuanLy = session?.user?.role === 'quanLy';
 
-  if (!isAdmin && !isChuNha && !isDongChuTro) {
+  if (!isAdmin && !isChuNha && !isDongChuTro && !isQuanLy) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">

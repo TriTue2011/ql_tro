@@ -22,7 +22,7 @@ export async function GET() {
     const session = await getServerSession(authOptions);
 
     const role = session?.user?.role;
-    const ALLOWED_MANAGERS = ['admin', 'chuNha', 'dongChuTro'];
+    const ALLOWED_MANAGERS = ['admin', 'chuNha', 'dongChuTro', 'quanLy'];
     if (!session?.user?.id || !ALLOWED_MANAGERS.includes(role ?? '')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -64,7 +64,7 @@ export async function GET() {
         select: selectFields,
       });
     } else {
-      // chuNha/dongChuTro: thấy dongChuTro, quanLy, nhanVien gán vào tòa nhà của mình
+      // chuNha/dongChuTro/quanLy: thấy cấp dưới gán vào tòa nhà của mình
       const myBuildingIds = await prisma.toaNha.findMany({
         where: {
           OR: [
@@ -75,9 +75,14 @@ export async function GET() {
         select: { id: true },
       }).then(rows => rows.map(r => r.id));
 
+      // quanLy chỉ thấy nhanVien; chuNha/dongChuTro thấy dongChuTro, quanLy, nhanVien
+      const visibleRoles = role === 'quanLy'
+        ? ['nhanVien']
+        : ['dongChuTro', 'quanLy', 'nhanVien'];
+
       users = await prisma.nguoiDung.findMany({
         where: {
-          vaiTro: { in: ['dongChuTro', 'quanLy', 'nhanVien'] },
+          vaiTro: { in: visibleRoles },
           toaNhaQuanLy: { some: { toaNhaId: { in: myBuildingIds } } },
         },
         take: 1000,
