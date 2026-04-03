@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
 const loginSchema = z.object({
-  soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ'),
+  taiKhoan: z.string().min(1, 'Vui lòng nhập số điện thoại hoặc email'),
   matKhau: z.string().min(1, 'Mật khẩu là bắt buộc'),
 });
 
@@ -16,18 +16,27 @@ export async function POST(request: NextRequest) {
     const validatedData = loginSchema.parse(body);
 
     const repo = await getKhachThueRepo();
-    const khachThue = await repo.findBySoDienThoai(validatedData.soDienThoai);
+    const taiKhoan = validatedData.taiKhoan.trim();
+
+    // Tìm khách thuê bằng SĐT hoặc email
+    let khachThue: Awaited<ReturnType<typeof repo.findBySoDienThoai>>;
+    const isPhone = /^[0-9]{10,11}$/.test(taiKhoan);
+    if (isPhone) {
+      khachThue = await repo.findBySoDienThoai(taiKhoan);
+    } else {
+      khachThue = await repo.findByEmail(taiKhoan);
+    }
 
     if (!khachThue) {
       return NextResponse.json(
-        { success: false, message: 'Số điện thoại hoặc mật khẩu không đúng' },
+        { success: false, message: 'Tài khoản hoặc mật khẩu không đúng' },
         { status: 401 }
       );
     }
 
     if (!khachThue.matKhau) {
       return NextResponse.json(
-        { success: false, message: 'Tài khoản chưa được kích hoạt. Vui lòng liên hệ quản lý để tạo mật khẩu.' },
+        { success: false, message: 'Tài khoản chưa được tạo mật khẩu. Vui lòng liên hệ quản lý.' },
         { status: 401 }
       );
     }
@@ -64,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     if (!isPasswordValid) {
       return NextResponse.json(
-        { success: false, message: 'Số điện thoại hoặc mật khẩu không đúng' },
+        { success: false, message: 'Tài khoản hoặc mật khẩu không đúng' },
         { status: 401 }
       );
     }
@@ -72,7 +81,8 @@ export async function POST(request: NextRequest) {
     const token = jwt.sign(
       {
         id: khachThue.id,
-        soDienThoai: khachThue.soDienThoai,
+        soDienThoai: khachThue.soDienThoai || '',
+        email: khachThue.email || '',
         hoTen: khachThue.hoTen,
         role: 'khachThue'
       },

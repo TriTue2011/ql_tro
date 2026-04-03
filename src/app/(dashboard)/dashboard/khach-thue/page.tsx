@@ -144,7 +144,8 @@ export default function KhachThuePage() {
 
   const filteredKhachThue = khachThueList.filter(khachThue =>
     khachThue.hoTen.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    khachThue.soDienThoai.includes(searchTerm) ||
+    (khachThue.soDienThoai || '').includes(searchTerm) ||
+    (khachThue.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     khachThue.cccd.includes(searchTerm) ||
     khachThue.queQuan.toLowerCase().includes(searchTerm.toLowerCase())
   ).filter(k =>
@@ -216,8 +217,9 @@ export default function KhachThuePage() {
           const data = await res.json();
           setKhachThueList(prev => prev.map(k => k.id === id ? { ...k, hasMatKhau: true } : k));
           cache.clearCache();
+          const taiKhoan = data.soDienThoai || data.email || '';
           toast.success(
-            `Đã kích hoạt! Mật khẩu: ${data.matKhau} — SĐT đăng nhập: ${data.soDienThoai}`,
+            `Đã kích hoạt! Mật khẩu: ${data.matKhau} — Đăng nhập bằng: ${taiKhoan}`,
             { duration: 10000 }
           );
         } else {
@@ -529,7 +531,8 @@ export default function KhachThuePage() {
                                         <TrangThaiBadge trangThai={kt.trangThai} />
                                       </div>
                                       <div className="space-y-1 text-xs text-gray-600">
-                                        <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" />{kt.soDienThoai}</div>
+                                        {kt.soDienThoai && <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" />{kt.soDienThoai}</div>}
+                                        {kt.email && <div className="flex items-center gap-1.5"><Mail className="h-3 w-3" />{kt.email}</div>}
                                         <div className="flex items-center gap-1.5"><CreditCard className="h-3 w-3 font-mono" />{kt.cccd}</div>
                                       </div>
                                       {canEdit && (

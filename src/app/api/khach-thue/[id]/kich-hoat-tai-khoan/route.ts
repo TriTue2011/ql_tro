@@ -123,7 +123,7 @@ export async function POST(
     return NextResponse.json({ error: 'Không có quyền kích hoạt tài khoản khách thuê' }, { status: 403 });
   }
 
-  const kt = await prisma.khachThue.findUnique({ where: { id }, select: { id: true, soDienThoai: true } });
+  const kt = await prisma.khachThue.findUnique({ where: { id }, select: { id: true, soDienThoai: true, email: true } });
   if (!kt) return NextResponse.json({ error: 'Không tìm thấy khách thuê' }, { status: 404 });
 
   // Kiểm tra giới hạn số khách thuê được đăng nhập web
@@ -139,7 +139,7 @@ export async function POST(
   const hashed = await hash(plainPassword, 12);
   await prisma.khachThue.update({ where: { id }, data: { matKhau: hashed } });
 
-  return NextResponse.json({ matKhau: plainPassword, soDienThoai: kt.soDienThoai });
+  return NextResponse.json({ matKhau: plainPassword, soDienThoai: kt.soDienThoai, email: kt.email });
 }
 
 export async function DELETE(

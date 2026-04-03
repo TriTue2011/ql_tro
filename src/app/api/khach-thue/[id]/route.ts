@@ -6,9 +6,11 @@ import { z } from 'zod';
 import { sseEmit } from '@/lib/sse-emitter';
 import { hash } from 'bcryptjs';
 
+import prisma from '@/lib/prisma';
+
 const khachThueSchema = z.object({
   hoTen: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
-  soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ'),
+  soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ').optional().or(z.literal('')),
   email: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
   cccd: z.string().regex(/^[0-9]{12}$/, 'CCCD phải có 12 chữ số'),
   ngaySinh: z.string().min(1, 'Ngày sinh là bắt buộc'),
@@ -19,7 +21,7 @@ const khachThueSchema = z.object({
     matSau: z.string().optional(),
   }).optional(),
   ngheNghiep: z.string().optional(),
-  matKhau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').optional(),
+  matKhau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').optional().or(z.literal('')),
   zaloChatId: z.string().max(64).optional(),
   zaloChatIds: z.array(z.object({
     ten: z.string(),
@@ -27,7 +29,10 @@ const khachThueSchema = z.object({
     threadId: z.string(),
   })).optional(),
   nhanThongBaoZalo: z.boolean().optional(),
-});
+}).refine(
+  data => (data.soDienThoai && data.soDienThoai.trim() !== '') || (data.email && data.email.trim() !== ''),
+  { message: 'Cần ít nhất số điện thoại hoặc email', path: ['soDienThoai'] }
+);
 
 export async function GET(
   request: NextRequest,
@@ -88,31 +93,41 @@ export async function PUT(
     const { id } = await params;
     const repo = await getKhachThueRepo();
 
-    // Check if phone or CCCD already exists (excluding current record)
-    const existingBySdt = await repo.findMany({ search: validatedData.soDienThoai, limit: 10 });
+    const sdt = validatedData.soDienThoai?.trim() || undefined;
+    const email = validatedData.email?.trim() || undefined;
+
+    // Kiểm tra trùng SĐT (trừ bản ghi hiện tại)
+    if (sdt) {
+      const dup = await prisma.khachThue.findUnique({ where: { soDienThoai: sdt }, select: { id: true } });
+      if (dup && dup.id !== id) {
+        return NextResponse.json({ message: 'Số điện thoại đã được sử dụng' }, { status: 400 });
+      }
+    }
+    // Kiểm tra trùng email (trừ bản ghi hiện tại)
+    if (email) {
+      const dup = await prisma.khachThue.findUnique({ where: { email }, select: { id: true } });
+      if (dup && dup.id !== id) {
+        return NextResponse.json({ message: 'Email đã được sử dụng' }, { status: 400 });
+      }
+    }
+    // Kiểm tra trùng CCCD
     const existingByCCCD = await repo.findMany({ search: validatedData.cccd, limit: 10 });
-
-    const sdtExists = existingBySdt.data.some(k => k.soDienThoai === validatedData.soDienThoai && k.id !== id);
-    const cccdExists = existingByCCCD.data.some(k => k.cccd === validatedData.cccd && k.id !== id);
-
-    if (sdtExists || cccdExists) {
-      return NextResponse.json(
-        { message: 'Số điện thoại hoặc CCCD đã được sử dụng' },
-        { status: 400 }
-      );
+    if (existingByCCCD.data.some(k => k.cccd === validatedData.cccd && k.id !== id)) {
+      return NextResponse.json({ message: 'CCCD đã được sử dụng' }, { status: 400 });
     }
 
     const updateData: Parameters<typeof repo.update>[1] = {
       hoTen: validatedData.hoTen,
-      soDienThoai: validatedData.soDienThoai,
-      email: validatedData.email || undefined,
+      soDienThoai: sdt,
+      email,
       ngheNghiep: validatedData.ngheNghiep,
       // Chỉ cập nhật anhCCCD nếu được gửi lên — tránh ghi đè ảnh cũ bằng object rỗng
       ...(validatedData.anhCCCD && { anhCCCD: validatedData.anhCCCD }),
     };
 
-    if (validatedData.matKhau) {
-      updateData.matKhau = await hash(validatedData.matKhau, 12);
+    const matKhauRaw = validatedData.matKhau?.trim() || '';
+    if (matKhauRaw) {
+      updateData.matKhau = await hash(matKhauRaw, 12);
     }
     // zaloChatIds: cập nhật bảng liên kết theo tài khoản bot
     if (validatedData.zaloChatIds !== undefined) {

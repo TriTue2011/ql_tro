@@ -181,7 +181,7 @@ export interface AnhCCCD {
 export interface KhachThueData {
   id: string;
   hoTen: string;
-  soDienThoai: string;
+  soDienThoai?: string;
   email?: string;
   cccd: string;
   ngaySinh: Date;
@@ -200,7 +200,7 @@ export interface KhachThueData {
 
 export interface CreateKhachThueInput {
   hoTen: string;
-  soDienThoai: string;
+  soDienThoai?: string;
   email?: string;
   cccd: string;
   ngaySinh: Date | string;

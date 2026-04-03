@@ -74,28 +74,26 @@ export const authOptions: NextAuthOptions = {
             };
           }
 
-          // 2. Nếu không tìm thấy NguoiDung và đầu vào là số điện thoại → thử KhachThue
-          if (isPhone) {
-            const khachThue = await prisma.khachThue.findFirst({
-              where: { soDienThoai: login },
-            });
+          // 2. Nếu không tìm thấy NguoiDung → thử KhachThue (SĐT hoặc email)
+          const khachThue = isPhone
+            ? await prisma.khachThue.findFirst({ where: { soDienThoai: login } })
+            : await prisma.khachThue.findFirst({ where: { email: login.toLowerCase() } });
 
-            if (khachThue && khachThue.matKhau) {
-              const isPasswordValid = await compare(credentials.matKhau, khachThue.matKhau);
-              if (!isPasswordValid) return null;
+          if (khachThue && khachThue.matKhau) {
+            const isPasswordValid = await compare(credentials.matKhau, khachThue.matKhau);
+            if (!isPasswordValid) return null;
 
-              // Email placeholder nếu KhachThue không có email
-              const email = khachThue.email || `kt.${khachThue.soDienThoai}@phongtro.local`;
+            // Email placeholder nếu KhachThue không có email
+            const email = khachThue.email || `kt.${khachThue.soDienThoai || khachThue.id}@phongtro.local`;
 
-              return {
-                id: khachThue.id,
-                email,
-                name: khachThue.hoTen,
-                role: 'khachThue',
-                phone: khachThue.soDienThoai,
-                avatar: undefined,
-              };
-            }
+            return {
+              id: khachThue.id,
+              email,
+              name: khachThue.hoTen,
+              role: 'khachThue',
+              phone: khachThue.soDienThoai || '',
+              avatar: undefined,
+            };
           }
 
           return null;

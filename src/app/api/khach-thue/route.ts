@@ -14,7 +14,7 @@ import { autoLinkZaloChatIds } from '@/lib/zalo-auto-link';
 
 const khachThueSchema = z.object({
   hoTen: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
-  soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ'),
+  soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ').optional().or(z.literal('')),
   email: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
   cccd: z.string().regex(/^[0-9]{12}$/, 'CCCD phải có 12 chữ số'),
   ngaySinh: z.string().min(1, 'Ngày sinh là bắt buộc'),
@@ -25,8 +25,11 @@ const khachThueSchema = z.object({
     matSau: z.string().optional(),
   }).optional(),
   ngheNghiep: z.string().optional(),
-  matKhau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').optional(),
-});
+  matKhau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').optional().or(z.literal('')),
+}).refine(
+  data => (data.soDienThoai && data.soDienThoai.trim() !== '') || (data.email && data.email.trim() !== ''),
+  { message: 'Cần ít nhất số điện thoại hoặc email', path: ['soDienThoai'] }
+);
 
 export async function GET(request: NextRequest) {
   try {
@@ -140,28 +143,36 @@ export async function POST(request: NextRequest) {
 
     const repo = await getKhachThueRepo();
 
-    // Check if phone or CCCD already exists
-    const existingBySdt = await repo.findMany({ search: validatedData.soDienThoai, limit: 1 });
+    const sdt = validatedData.soDienThoai?.trim() || undefined;
+    const email = validatedData.email?.trim() || undefined;
+
+    // Kiểm tra trùng SĐT
+    if (sdt) {
+      const existingBySdt = await repo.findMany({ search: sdt, limit: 1 });
+      if (existingBySdt.data.some(k => k.soDienThoai === sdt)) {
+        return NextResponse.json({ message: 'Số điện thoại đã được sử dụng' }, { status: 400 });
+      }
+    }
+    // Kiểm tra trùng email
+    if (email) {
+      const existing = await prisma.khachThue.findUnique({ where: { email } });
+      if (existing) {
+        return NextResponse.json({ message: 'Email đã được sử dụng' }, { status: 400 });
+      }
+    }
+    // Kiểm tra trùng CCCD
     const existingByCCCD = await repo.findMany({ search: validatedData.cccd, limit: 1 });
-
-    const sdtExists = existingBySdt.data.some(k => k.soDienThoai === validatedData.soDienThoai);
-    const cccdExists = existingByCCCD.data.some(k => k.cccd === validatedData.cccd);
-
-    if (sdtExists || cccdExists) {
-      return NextResponse.json(
-        { message: 'Số điện thoại hoặc CCCD đã được sử dụng' },
-        { status: 400 }
-      );
+    if (existingByCCCD.data.some(k => k.cccd === validatedData.cccd)) {
+      return NextResponse.json({ message: 'CCCD đã được sử dụng' }, { status: 400 });
     }
 
-    const hashedPassword = validatedData.matKhau
-      ? await hash(validatedData.matKhau, 12)
-      : undefined;
+    const matKhauRaw = validatedData.matKhau?.trim() || '';
+    const hashedPassword = matKhauRaw ? await hash(matKhauRaw, 12) : undefined;
 
     const newKhachThue = await repo.create({
       hoTen: sanitizeText(validatedData.hoTen),
-      soDienThoai: validatedData.soDienThoai,
-      email: validatedData.email || undefined,
+      soDienThoai: sdt,
+      email,
       cccd: validatedData.cccd,
       ngaySinh: new Date(validatedData.ngaySinh),
       gioiTinh: validatedData.gioiTinh,
@@ -183,7 +194,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Tự động tra cứu và liên kết zaloChatId qua bot server (fire-and-forget)
-    autoLinkZaloChatIds('khachThue', newKhachThue.id, validatedData.soDienThoai).catch(() => {});
+    if (sdt) {
+      autoLinkZaloChatIds('khachThue', newKhachThue.id, sdt).catch(() => {});
+    }
 
     sseEmit('khach-thue', { action: 'created' });
     return NextResponse.json({
@@ -201,10 +214,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { message: 'Số điện thoại hoặc CCCD đã được sử dụng' },
-        { status: 400 }
-      );
+      const target = (error.meta?.target as string[]) || [];
+      let msg = 'Thông tin đã được sử dụng';
+      if (target.includes('soDienThoai')) msg = 'Số điện thoại đã được sử dụng';
+      else if (target.includes('email')) msg = 'Email đã được sử dụng';
+      else if (target.includes('cccd')) msg = 'CCCD đã được sử dụng';
+      return NextResponse.json({ message: msg }, { status: 400 });
     }
 
     console.error('Error creating khach thue:', error);

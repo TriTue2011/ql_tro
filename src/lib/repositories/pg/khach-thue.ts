@@ -13,7 +13,7 @@ function normalize(raw: any): KhachThueData {
   return {
     id: raw.id,
     hoTen: raw.hoTen,
-    soDienThoai: raw.soDienThoai,
+    soDienThoai: raw.soDienThoai ?? undefined,
     email: raw.email ?? undefined,
     cccd: raw.cccd,
     ngaySinh: raw.ngaySinh,
@@ -46,6 +46,14 @@ export default class KhachThueRepository {
     return { ...normalize(raw), matKhau: raw.matKhau ?? undefined };
   }
 
+  async findByEmail(
+    email: string
+  ): Promise<(KhachThueData & { matKhau?: string }) | null> {
+    const raw = await prisma.khachThue.findUnique({ where: { email } });
+    if (!raw) return null;
+    return { ...normalize(raw), matKhau: raw.matKhau ?? undefined };
+  }
+
   async findMany(opts: QueryOptions & { toaNhaIds?: string[] }): Promise<PaginatedResult<KhachThueData>> {
     const page = opts.page ?? 1;
     const limit = opts.limit ?? 20;
@@ -57,6 +65,7 @@ export default class KhachThueRepository {
             { hoTen: { contains: opts.search, mode: 'insensitive' as const } },
             { cccd: { contains: opts.search, mode: 'insensitive' as const } },
             { soDienThoai: { contains: opts.search, mode: 'insensitive' as const } },
+            { email: { contains: opts.search, mode: 'insensitive' as const } },
           ],
         }
       : {};

@@ -7,13 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Phone, Lock, LogIn, Home } from 'lucide-react';
+import { User, Lock, LogIn, Home } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function KhachThueDangNhapPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    soDienThoai: '',
+    taiKhoan: '',
     matKhau: '',
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +24,7 @@ export default function KhachThueDangNhapPage() {
 
     try {
       const result = await signIn('credentials', {
-        emailOrPhone: formData.soDienThoai,
+        emailOrPhone: formData.taiKhoan,
         matKhau: formData.matKhau,
         redirect: false,
       });
@@ -33,7 +33,7 @@ export default function KhachThueDangNhapPage() {
         toast.success('Đăng nhập thành công!');
         router.push('/khach-thue/dashboard');
       } else {
-        toast.error('Số điện thoại hoặc mật khẩu không đúng');
+        toast.error('Tài khoản hoặc mật khẩu không đúng');
       }
     } catch (error) {
       console.error('Error logging in:', error);
@@ -52,21 +52,21 @@ export default function KhachThueDangNhapPage() {
           </div>
           <CardTitle className="text-2xl font-bold">Đăng nhập Khách thuê</CardTitle>
           <CardDescription>
-            Nhập số điện thoại và mật khẩu để xem thông tin phòng trọ của bạn
+            Nhập số điện thoại hoặc email và mật khẩu để xem thông tin phòng trọ của bạn
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="soDienThoai">Số điện thoại</Label>
+              <Label htmlFor="taiKhoan">Số điện thoại hoặc Email</Label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  id="soDienThoai"
-                  type="tel"
-                  placeholder="0123456789"
-                  value={formData.soDienThoai}
-                  onChange={(e) => setFormData(prev => ({ ...prev, soDienThoai: e.target.value }))}
+                  id="taiKhoan"
+                  type="text"
+                  placeholder="0123456789 hoặc email@example.com"
+                  value={formData.taiKhoan}
+                  onChange={(e) => setFormData(prev => ({ ...prev, taiKhoan: e.target.value }))}
                   className="pl-10"
                   required
                 />

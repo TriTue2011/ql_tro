@@ -99,7 +99,7 @@ export interface KhachThue {
   id?: string;
   _id?: string;
   hoTen: string;
-  soDienThoai: string;
+  soDienThoai?: string;
   email?: string;
   cccd: string;
   ngaySinh: Date;

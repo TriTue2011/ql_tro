@@ -149,8 +149,8 @@ model Phong {
 model KhachThue {
   id            String    @id @default(cuid())
   hoTen         String
-  soDienThoai   String    @unique
-  email         String?
+  soDienThoai   String?   @unique // Tùy chọn — cần ít nhất 1 trong soDienThoai hoặc email
+  email         String?   @unique // Tùy chọn — cần ít nhất 1 trong soDienThoai hoặc email
   cccd          String    @unique
   ngaySinh      DateTime
   gioiTinh      String    // nam | nu | khac

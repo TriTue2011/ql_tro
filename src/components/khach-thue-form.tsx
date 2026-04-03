@@ -138,6 +138,12 @@ export function KhachThueForm({
 
     if (isSubmitting) return;
 
+    // Validate: cần ít nhất SĐT hoặc email
+    if (!formData.soDienThoai.trim() && !formData.email.trim()) {
+      toast.error('Cần nhập ít nhất số điện thoại hoặc email');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -217,26 +223,33 @@ export function KhachThueForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="soDienThoai" className="text-xs md:text-sm">Số điện thoại</Label>
+              <Label htmlFor="soDienThoai" className="text-xs md:text-sm">
+                Số điện thoại
+                <span className="text-muted-foreground font-normal ml-1">(cần ít nhất SĐT hoặc email)</span>
+              </Label>
               <Input
                 id="soDienThoai"
                 value={formData.soDienThoai}
                 onChange={(e) => setFormData(prev => ({ ...prev, soDienThoai: e.target.value }))}
-                required
                 className="text-sm"
+                placeholder="Tùy chọn nếu đã có email"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs md:text-sm">Email</Label>
+              <Label htmlFor="email" className="text-xs md:text-sm">
+                Email
+                <span className="text-muted-foreground font-normal ml-1">(cần ít nhất SĐT hoặc email)</span>
+              </Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 className="text-sm"
+                placeholder="Tùy chọn nếu đã có SĐT"
               />
             </div>
 
@@ -302,13 +315,16 @@ export function KhachThueForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="matKhau" className="text-xs md:text-sm">Mật khẩu đăng nhập</Label>
+            <Label htmlFor="matKhau" className="text-xs md:text-sm">
+              Mật khẩu đăng nhập web
+              {!khachThue && <span className="text-muted-foreground font-normal ml-1">(bỏ trống = không cho đăng nhập)</span>}
+            </Label>
             <Input
               id="matKhau"
               type="password"
               value={formData.matKhau}
               onChange={(e) => setFormData(prev => ({ ...prev, matKhau: e.target.value }))}
-              placeholder={khachThue && (khachThue as any).hasMatKhau ? "Để trống nếu không muốn thay đổi" : "Nhập mật khẩu (tối thiểu 6 ký tự)"}
+              placeholder={khachThue && (khachThue as any).hasMatKhau ? "Để trống nếu không muốn thay đổi" : "Bỏ trống = không cho đăng nhập web"}
               className="text-sm"
             />
             {/* Password strength indicator */}
@@ -322,7 +338,7 @@ export function KhachThueForm({
                 return (
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-500">Chưa tạo</span>
-                    <span className="text-[10px] text-muted-foreground">Tạo mật khẩu để khách thuê có thể đăng nhập.</span>
+                    <span className="text-[10px] text-muted-foreground">Bỏ trống = khách thuê không thể đăng nhập web.</span>
                   </div>
                 );
               }

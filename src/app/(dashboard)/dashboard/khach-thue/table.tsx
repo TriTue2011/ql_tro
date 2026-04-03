@@ -198,15 +198,20 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
     header: "Liên hệ",
     cell: ({ row }) => (
       <div className="min-w-40">
-        <div className="flex items-center gap-2 text-sm">
-          <Phone className="h-3 w-3 text-muted-foreground" />
-          {row.original.soDienThoai}
-        </div>
+        {row.original.soDienThoai && (
+          <div className="flex items-center gap-2 text-sm">
+            <Phone className="h-3 w-3 text-muted-foreground" />
+            {row.original.soDienThoai}
+          </div>
+        )}
         {row.original.email && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Mail className="h-3 w-3" />
+          <div className={`flex items-center gap-2 ${row.original.soDienThoai ? 'text-xs text-muted-foreground' : 'text-sm'}`}>
+            <Mail className="h-3 w-3 text-muted-foreground" />
             {row.original.email}
           </div>
+        )}
+        {!row.original.soDienThoai && !row.original.email && (
+          <span className="text-xs text-muted-foreground italic">Chưa có</span>
         )}
       </div>
     ),
