@@ -14,7 +14,7 @@ const zaloChatEntrySchema = z.object({
 
 const updateProfileSchema = z.object({
   ten: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100).optional(),
-  soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ').optional(),
+  soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ').optional().or(z.literal('')),
   // anhDaiDien chỉ cho phép đường dẫn nội bộ hoặc URL Cloudinary/MinIO hợp lệ
   anhDaiDien: z.string().max(500).regex(
     /^(\/api\/files\/[\w\-./]+|https:\/\/res\.cloudinary\.com\/[\w\-./]+|https?:\/\/[^<>"']+)$/,
@@ -100,7 +100,7 @@ export async function PUT(request: NextRequest) {
 
     const updatedUser = await repo.update(existingUser.id, {
       ten: ten ? sanitizeText(ten) : undefined,
-      soDienThoai,
+      soDienThoai: soDienThoai || null,
       anhDaiDien: anhDaiDien ?? undefined,
       ...(zaloChatId !== undefined && { zaloChatId: sanitizeText(zaloChatId) }),
       ...(validEntries !== undefined && { zaloChatIds: validEntries as any }),

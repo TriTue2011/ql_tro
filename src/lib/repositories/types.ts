@@ -51,7 +51,7 @@ export interface CreateNguoiDungInput {
 
 export interface UpdateNguoiDungInput {
   ten?: string;
-  soDienThoai?: string;
+  soDienThoai?: string | null;
   vaiTro?: 'admin' | 'chuNha' | 'nhanVien';
   anhDaiDien?: string;
   trangThai?: 'hoatDong' | 'khoa';
