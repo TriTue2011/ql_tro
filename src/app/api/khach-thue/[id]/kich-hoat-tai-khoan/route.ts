@@ -58,19 +58,16 @@ async function hasPermission(userId: string, role: string, khachThueId: string):
   const toaNhaId = await getToaNhaIdOfKhachThue(khachThueId);
   if (!toaNhaId) return false;
 
-  // Kiểm tra cài đặt tòa nhà: admin đã bật + chủ trọ đã bật
+  // Kiểm tra cài đặt tòa nhà: admin đã bật = mặc định cho phép
   const caiDat = await prisma.caiDatToaNha.findUnique({
     where: { toaNhaId },
-    select: { adminBatDangNhapKT: true, chuTroBatDangNhapKT: true },
+    select: { adminBatDangNhapKT: true },
   });
-  // Phải cả admin lẫn chủ trọ đều bật thì mới cho phép kích hoạt
-  const dangNhapDuocPhep = caiDat?.adminBatDangNhapKT === true && caiDat?.chuTroBatDangNhapKT === true;
+  if (!caiDat?.adminBatDangNhapKT) return false;
 
-  if (role === 'chuNha') return dangNhapDuocPhep;
+  if (role === 'chuNha') return true;
 
   if (role !== 'quanLy') return false;
-
-  if (!dangNhapDuocPhep) return false;
 
   const perm = await prisma.toaNhaNguoiQuanLy.findUnique({
     where: { toaNhaId_nguoiDungId: { toaNhaId, nguoiDungId: userId } },

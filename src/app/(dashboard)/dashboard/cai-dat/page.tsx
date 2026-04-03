@@ -1629,7 +1629,7 @@ function AdminDangNhapKTPanel() {
           Quản lý đăng nhập web khách thuê
         </CardTitle>
         <CardDescription className="text-xs md:text-sm">
-          Bật/tắt tính năng đăng nhập web cho khách thuê theo từng tòa nhà. Khi admin bật, chủ trọ mới có quyền bật/tắt cho tòa nhà của mình.
+          Bật/tắt tính năng đăng nhập web cho khách thuê theo từng tòa nhà. Admin bật = mặc định cho phép. Chủ trọ có thể tắt thêm nếu muốn.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-4">
@@ -1660,7 +1660,7 @@ function AdminDangNhapKTPanel() {
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Cho phép đăng nhập web khách thuê</Label>
                 <p className="text-xs text-gray-500">
-                  Khi bật, chủ trọ sẽ thấy và có quyền bật/tắt đăng nhập cho khách thuê tại tòa nhà này
+                  Bật = khách thuê tòa nhà này được đăng nhập web. Chủ trọ có thể tắt thêm nếu muốn.
                 </p>
               </div>
               <Switch checked={adminBat} onCheckedChange={setAdminBat} />
@@ -1690,20 +1690,13 @@ function AdminDangNhapKTPanel() {
               </div>
             )}
 
-            {/* Trạng thái chủ trọ */}
+            {/* Trạng thái */}
             {adminBat && (
-              <div className="flex items-center gap-2 p-3 rounded-lg border bg-blue-50">
-                {chuTroBat ? (
-                  <>
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-700">Chủ trọ đã bật đăng nhập khách thuê cho tòa nhà này</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-4 w-4 text-amber-600" />
-                    <span className="text-sm text-amber-700">Chủ trọ chưa bật đăng nhập khách thuê (mặc định tắt)</span>
-                  </>
-                )}
+              <div className="flex items-center gap-2 p-3 rounded-lg border bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-700">
+                  Đăng nhập web khách thuê đang hoạt động{!chuTroBat && ' (chủ trọ đã tắt — khách thuê sẽ không đăng nhập được)'}
+                </span>
               </div>
             )}
 

@@ -433,7 +433,7 @@ model CaiDatToaNha {
   // Khi admin tắt → tất cả khách thuê tòa nhà này không thể đăng nhập web
   adminBatDangNhapKT   Boolean @default(false) // Admin cho phép tính năng đăng nhập KT
   gioiHanDangNhapKT    Int?                    // Giới hạn số khách thuê được bật đăng nhập (null = không giới hạn)
-  chuTroBatDangNhapKT  Boolean @default(false) // Chủ trọ bật/tắt đăng nhập KT (chỉ có tác dụng khi adminBatDangNhapKT = true)
+  chuTroBatDangNhapKT  Boolean @default(true)  // Chủ trọ tắt thêm nếu muốn (mặc định cho phép khi admin bật)
 
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
