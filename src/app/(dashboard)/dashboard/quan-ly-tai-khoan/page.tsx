@@ -399,6 +399,11 @@ export default function AccountManagementPage() {
   };
 
   const handleCreateUser = async () => {
+    // Cần ít nhất SĐT hoặc email
+    if (!createUserData.phone?.trim() && !createUserData.email?.trim()) {
+      toast.error('Cần nhập ít nhất số điện thoại hoặc email');
+      return;
+    }
     // Kiểm tra giới hạn vai trò trên mỗi tòa nhà
     if (createUserData.role !== 'admin' && createUserData.toaNhaIds.length > 0) {
       const limitError = checkRoleLimitExceeded(createUserData.toaNhaIds, createUserData.role);
@@ -704,27 +709,26 @@ export default function AccountManagementPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone" className="text-xs md:text-sm">
-                Số điện thoại <span className="text-red-500">*</span>
+                Số điện thoại <span className="text-muted-foreground text-[10px]">(cần ít nhất SĐT hoặc email)</span>
               </Label>
               <Input
                 id="phone"
                 value={createUserData.phone}
                 onChange={(e) => setCreateUserData({ ...createUserData, phone: e.target.value })}
-                placeholder="Nhập số điện thoại (dùng để đăng nhập)"
+                placeholder="Tùy chọn nếu đã có email"
                 className="text-sm"
-                required
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email" className="text-xs md:text-sm">
-                Email <span className="text-muted-foreground text-[10px]">(tùy chọn)</span>
+                Email <span className="text-muted-foreground text-[10px]">(cần ít nhất SĐT hoặc email)</span>
               </Label>
               <Input
                 id="email"
                 type="email"
                 value={createUserData.email}
                 onChange={(e) => setCreateUserData({ ...createUserData, email: e.target.value })}
-                placeholder="Nhập email (không bắt buộc)"
+                placeholder="Tùy chọn nếu đã có SĐT"
                 className="text-sm"
               />
             </div>

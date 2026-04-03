@@ -5,12 +5,15 @@ import { z } from 'zod';
 
 const schema = z.object({
   ten: z.string().min(2),
-  email: z.string().email(),
+  email: z.string().email().optional().or(z.literal('')),
   matKhau: z.string().min(6),
-  soDienThoai: z.string().regex(/^[0-9]{10,11}$/),
+  soDienThoai: z.string().regex(/^[0-9]{10,11}$/).optional().or(z.literal('')),
   // Phải cung cấp đúng SECRET để tránh ai đó gọi endpoint này tùy tiện
   setupSecret: z.string().min(1),
-});
+}).refine(
+  data => (data.soDienThoai && data.soDienThoai.trim() !== '') || (data.email && data.email.trim() !== ''),
+  { message: 'Cần ít nhất số điện thoại hoặc email', path: ['soDienThoai'] }
+);
 
 /**
  * POST /api/admin/create-first
@@ -54,12 +57,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const cleanEmail = data.email?.trim() ? data.email.toLowerCase() : null;
+    const cleanPhone = data.soDienThoai?.trim() || null;
+
     // Kiểm tra email đã tồn tại chưa
-    const existing = await prisma.nguoiDung.findUnique({
-      where: { email: data.email.toLowerCase() },
-    });
-    if (existing) {
-      return NextResponse.json({ message: 'Email đã được sử dụng' }, { status: 400 });
+    if (cleanEmail) {
+      const existing = await prisma.nguoiDung.findUnique({ where: { email: cleanEmail } });
+      if (existing) {
+        return NextResponse.json({ message: 'Email đã được sử dụng' }, { status: 400 });
+      }
     }
 
     const hashedPassword = await hash(data.matKhau, 12);
@@ -67,9 +73,9 @@ export async function POST(request: NextRequest) {
     const admin = await prisma.nguoiDung.create({
       data: {
         ten: data.ten,
-        email: data.email.toLowerCase(),
+        email: cleanEmail,
         matKhau: hashedPassword,
-        soDienThoai: data.soDienThoai,
+        soDienThoai: cleanPhone,
         vaiTro: 'admin',
         trangThai: 'hoatDong',
       },

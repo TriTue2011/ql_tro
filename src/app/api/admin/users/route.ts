@@ -11,11 +11,13 @@ const createUserSchema = z.object({
   name: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
   email: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').max(128).optional().or(z.literal('')),
-  // Số điện thoại bắt buộc để có thể đăng nhập
-  phone: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ (10-11 chữ số)'),
+  phone: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ (10-11 chữ số)').optional().or(z.literal('')),
   role: z.enum(['admin', 'chuNha', 'dongChuTro', 'quanLy', 'nhanVien']),
   toaNhaId: z.string().optional().nullable(),
-});
+}).refine(
+  data => (data.phone && data.phone.trim() !== '') || (data.email && data.email.trim() !== ''),
+  { message: 'Cần ít nhất số điện thoại hoặc email', path: ['phone'] }
+);
 
 export async function GET() {
   try {
@@ -206,24 +208,29 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanEmail = email?.trim() ? email.toLowerCase() : null;
+    const cleanPhone = phone?.trim() || null;
 
     // Kiểm tra email trùng (nếu có nhập email)
     if (cleanEmail) {
       const byEmail = await prisma.nguoiDung.findUnique({ where: { email: cleanEmail } });
       if (byEmail) return NextResponse.json({ error: 'Email đã được sử dụng' }, { status: 400 });
     }
-    // Kiểm tra SĐT trùng
-    const bySdt = await prisma.nguoiDung.findFirst({ where: { soDienThoai: phone } });
-    if (bySdt) return NextResponse.json({ error: 'Số điện thoại đã được sử dụng' }, { status: 400 });
+    // Kiểm tra SĐT trùng (nếu có nhập SĐT)
+    if (cleanPhone) {
+      const bySdt = await prisma.nguoiDung.findFirst({ where: { soDienThoai: cleanPhone } });
+      if (bySdt) return NextResponse.json({ error: 'Số điện thoại đã được sử dụng' }, { status: 400 });
+    }
 
-    const hashedPassword = password ? await hash(password, 12) : phone;
+    // Mật khẩu: nếu không nhập → dùng SĐT hoặc email làm mật khẩu tạm
+    const rawPw = password || cleanPhone || cleanEmail || 'default123';
+    const hashedPassword = await hash(rawPw, 12);
 
     const newUser = await prisma.nguoiDung.create({
       data: {
         ten: sanitizeText(name),
         email: cleanEmail,
         matKhau: hashedPassword,
-        soDienThoai: phone,
+        soDienThoai: cleanPhone,
         vaiTro: role,
         ...(body.zaloViTri ? { zaloViTri: body.zaloViTri } : {}),
       },

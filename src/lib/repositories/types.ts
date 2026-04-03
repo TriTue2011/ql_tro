@@ -42,9 +42,9 @@ export interface NguoiDungData {
 
 export interface CreateNguoiDungInput {
   ten: string;
-  email: string;
+  email?: string | null;
   matKhau: string;
-  soDienThoai?: string;
+  soDienThoai?: string | null;
   vaiTro?: 'admin' | 'chuNha' | 'nhanVien';
   anhDaiDien?: string;
 }

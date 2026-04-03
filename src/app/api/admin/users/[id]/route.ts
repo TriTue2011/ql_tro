@@ -53,7 +53,7 @@ export async function PUT(
 
       const updateData: Record<string, unknown> = {};
       if (name) updateData.ten = name;
-      if (phone) updateData.soDienThoai = phone;
+      if (phone !== undefined) updateData.soDienThoai = phone || null;
       if (role) updateData.vaiTro = role;
       if (isActive !== undefined) updateData.trangThai = isActive ? 'hoatDong' : 'khoa';
       if (Array.isArray(zaloChatIds)) {
@@ -101,7 +101,7 @@ export async function PUT(
     // Admin: full update
     const updateData: Record<string, unknown> = {
       ten: name,
-      soDienThoai: phone,
+      soDienThoai: phone || null,
       vaiTro: role,
       trangThai: isActive ? 'hoatDong' : 'khoa',
     };

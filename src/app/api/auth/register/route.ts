@@ -9,12 +9,15 @@ import { sanitizeText } from '@/lib/sanitize';
 
 const registerSchema = z.object({
   ten: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
-  email: z.string().email('Email không hợp lệ'),
+  email: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
   matKhau: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').max(128),
-  soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ'),
+  soDienThoai: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ').optional().or(z.literal('')),
   // Chỉ cho phép role an toàn — admin không thể tự đăng ký qua endpoint này
   vaiTro: z.enum(['chuNha', 'nhanVien']),
-});
+}).refine(
+  data => (data.soDienThoai && data.soDienThoai.trim() !== '') || (data.email && data.email.trim() !== ''),
+  { message: 'Cần ít nhất số điện thoại hoặc email', path: ['soDienThoai'] }
+);
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,36 +38,34 @@ export async function POST(request: NextRequest) {
 
     const repo = await getNguoiDungRepo();
 
+    const cleanEmail = validatedData.email?.trim() ? validatedData.email.toLowerCase() : undefined;
+    const cleanPhone = validatedData.soDienThoai?.trim() || undefined;
+
     // Check if user already exists by email
-    const existingByEmail = await repo.findByEmail(validatedData.email.toLowerCase());
-
-    if (existingByEmail) {
-      return NextResponse.json(
-        { message: 'Email hoặc số điện thoại đã được sử dụng' },
-        { status: 400 }
-      );
+    if (cleanEmail) {
+      const existingByEmail = await repo.findByEmail(cleanEmail);
+      if (existingByEmail) {
+        return NextResponse.json({ message: 'Email đã được sử dụng' }, { status: 400 });
+      }
     }
 
-    // Check by phone using findMany search
-    const existingBySdt = await repo.findMany({ search: validatedData.soDienThoai, limit: 10 });
-    const sdtExists = existingBySdt.data.some(u => u.soDienThoai === validatedData.soDienThoai);
-
-    if (sdtExists) {
-      return NextResponse.json(
-        { message: 'Email hoặc số điện thoại đã được sử dụng' },
-        { status: 400 }
-      );
+    // Check by phone
+    if (cleanPhone) {
+      const existingBySdt = await repo.findMany({ search: cleanPhone, limit: 10 });
+      if (existingBySdt.data.some(u => u.soDienThoai === cleanPhone)) {
+        return NextResponse.json({ message: 'Số điện thoại đã được sử dụng' }, { status: 400 });
+      }
     }
 
-    // Hash password before storing (applies to all DB providers)
+    // Hash password before storing
     const hashedPassword = await hash(validatedData.matKhau, 12);
 
     // Create new user
     await repo.create({
       ten: sanitizeText(validatedData.ten),
-      email: validatedData.email.toLowerCase(),
+      email: cleanEmail,
       matKhau: hashedPassword,
-      soDienThoai: validatedData.soDienThoai,
+      soDienThoai: cleanPhone,
       vaiTro: validatedData.vaiTro,
     });
 
