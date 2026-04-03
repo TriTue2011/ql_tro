@@ -231,6 +231,28 @@ export default function KhachThuePage() {
     }
   };
 
+  // Bật/tắt đăng nhập web cho khách thuê cụ thể
+  const handleToggleDangNhapWeb = async (id: string, currentValue: boolean) => {
+    const newValue = !currentValue;
+    setActionLoading(`toggle-web-${id}`);
+    try {
+      const res = await fetch(`/api/khach-thue/${id}/dang-nhap-web`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batDangNhapWeb: newValue }),
+      });
+      if (res.ok) {
+        setKhachThueList(prev => prev.map(k => k.id === id ? { ...k, batDangNhapWeb: newValue } as any : k));
+        cache.clearCache();
+        toast.success(newValue ? 'Đã bật đăng nhập web cho khách thuê' : 'Đã tắt đăng nhập web cho khách thuê');
+      } else {
+        const errData = await res.json().catch(() => null);
+        toast.error(errData?.error || 'Không thể thay đổi trạng thái đăng nhập web');
+      }
+    } catch { toast.error('Có lỗi xảy ra'); }
+    finally { setActionLoading(null); }
+  };
+
   const handleDelete = (id: string) => {
     const kt = khachThueList.find(k => k.id === id);
     if (!kt) return;
@@ -511,6 +533,7 @@ export default function KhachThuePage() {
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
                                     onKichHoatTaiKhoan={handleKichHoatTaiKhoan}
+                        onToggleDangNhapWeb={handleToggleDangNhapWeb}
                                     actionLoading={actionLoading}
                                     canEdit={canEdit}
                                     searchTerm=""
@@ -582,6 +605,7 @@ export default function KhachThuePage() {
                     <div className="hidden md:block">
                       <KhachThueDataTable data={buildingGroups.noRoom} onEdit={handleEdit} onDelete={handleDelete}
                         onKichHoatTaiKhoan={handleKichHoatTaiKhoan}
+                        onToggleDangNhapWeb={handleToggleDangNhapWeb}
                         actionLoading={actionLoading} canEdit={canEdit} searchTerm="" onSearchChange={() => {}} selectedTrangThai="" onTrangThaiChange={() => {}} />
                     </div>
                     <div className="md:hidden space-y-2">

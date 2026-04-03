@@ -44,6 +44,7 @@ import {
   Key,
   Check,
   X,
+  Globe,
 } from "lucide-react"
 import {
   ColumnDef,
@@ -143,6 +144,7 @@ type KhachThueTableProps = {
   onEdit: (khachThue: KhachThue) => void
   onDelete: (id: string) => void
   onKichHoatTaiKhoan?: (id: string, hasAccount: boolean) => void
+  onToggleDangNhapWeb?: (id: string, current: boolean) => void
   actionLoading: string | null
   canEdit?: boolean
 }
@@ -318,6 +320,29 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
     },
   },
   {
+    accessorKey: "batDangNhapWeb",
+    header: "Đăng nhập web",
+    cell: ({ row }) => {
+      const batDangNhapWeb = !!(row.original as any).batDangNhapWeb;
+      return (
+        <div className="flex items-center gap-2">
+          <Globe className={`h-4 w-4 ${batDangNhapWeb ? 'text-green-600' : 'text-muted-foreground'}`} />
+          {batDangNhapWeb ? (
+            <Badge variant="default" className="gap-1 bg-green-600">
+              <Check className="h-3 w-3" />
+              Bật
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="gap-1">
+              <X className="h-3 w-3" />
+              Tắt
+            </Badge>
+          )}
+        </div>
+      );
+    },
+  },
+  {
     accessorKey: "trangThai",
     header: "Trạng thái",
     cell: ({ row }) => getStatusBadge(row.original.trangThai),
@@ -373,6 +398,18 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
                   : (row.original as any).hasMatKhau ? 'Thu hồi đăng nhập' : 'Kích hoạt đăng nhập'}
               </DropdownMenuItem>
             </>
+          )}
+          {props.onToggleDangNhapWeb && (
+            <DropdownMenuItem
+              onClick={() => props.onToggleDangNhapWeb!(row.original.id!, !!(row.original as any).batDangNhapWeb)}
+              disabled={props.actionLoading === `toggle-web-${row.original.id}`}
+              className={(row.original as any).batDangNhapWeb ? 'text-orange-600' : 'text-green-700'}
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              {props.actionLoading === `toggle-web-${row.original.id}`
+                ? 'Đang xử lý...'
+                : (row.original as any).batDangNhapWeb ? 'Tắt đăng nhập web' : 'Bật đăng nhập web'}
+            </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
