@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "CaiDatToaNha" ADD COLUMN "adminBatDangNhapKT" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "CaiDatToaNha" ADD COLUMN "gioiHanDangNhapKT" INTEGER;
+ALTER TABLE "CaiDatToaNha" ADD COLUMN "chuTroBatDangNhapKT" BOOLEAN NOT NULL DEFAULT false;

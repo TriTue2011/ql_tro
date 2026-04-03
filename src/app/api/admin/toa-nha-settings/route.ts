@@ -94,6 +94,19 @@ export async function PUT(req: NextRequest) {
       updateData.uploadMaxSizeMb = isNaN(n) ? 10 : Math.floor(n);
     }
 
+    // Đăng nhập web khách thuê — chỉ admin quản lý
+    if ('adminBatDangNhapKT' in rest) {
+      updateData.adminBatDangNhapKT = Boolean(rest.adminBatDangNhapKT);
+      // Khi admin tắt → tự động tắt luôn phía chủ trọ
+      if (!rest.adminBatDangNhapKT) {
+        updateData.chuTroBatDangNhapKT = false;
+      }
+    }
+    if ('gioiHanDangNhapKT' in rest) {
+      const n = rest.gioiHanDangNhapKT;
+      updateData.gioiHanDangNhapKT = n === null || n === '' ? null : Math.max(0, Math.floor(Number(n)));
+    }
+
     const settings = await prisma.caiDatToaNha.upsert({
       where: { toaNhaId },
       update: updateData,

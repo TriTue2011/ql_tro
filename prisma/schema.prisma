@@ -427,6 +427,14 @@ model CaiDatToaNha {
   // Quyền thực tế = admin[role] AND chuNha[role] (admin là trần, chuNha chỉ hạn chế thêm)
   zaloQuyenTinhNang String?
 
+  // Đăng nhập web cho khách thuê — admin bật/tắt per tòa nhà
+  // adminBatDangNhapKT = true: admin cho phép tính năng đăng nhập KT ở tòa nhà này
+  // Khi admin bật → chủ trọ mới thấy và có quyền bật/tắt (chuTroBatDangNhapKT)
+  // Khi admin tắt → tất cả khách thuê tòa nhà này không thể đăng nhập web
+  adminBatDangNhapKT   Boolean @default(false) // Admin cho phép tính năng đăng nhập KT
+  gioiHanDangNhapKT    Int?                    // Giới hạn số khách thuê được bật đăng nhập (null = không giới hạn)
+  chuTroBatDangNhapKT  Boolean @default(false) // Chủ trọ bật/tắt đăng nhập KT (chỉ có tác dụng khi adminBatDangNhapKT = true)
+
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
 }

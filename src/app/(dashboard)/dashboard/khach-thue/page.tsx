@@ -203,7 +203,8 @@ export default function KhachThuePage() {
           cache.clearCache();
           toast.success('Đã thu hồi quyền đăng nhập');
         } else {
-          toast.error('Không thể thu hồi quyền đăng nhập');
+          const errData = await res.json().catch(() => null);
+          toast.error(errData?.error || 'Không thể thu hồi quyền đăng nhập');
         }
       } catch { toast.error('Có lỗi xảy ra'); }
       finally { setActionLoading(null); }
@@ -220,7 +221,8 @@ export default function KhachThuePage() {
             { duration: 10000 }
           );
         } else {
-          toast.error('Không thể kích hoạt tài khoản');
+          const errData = await res.json().catch(() => null);
+          toast.error(errData?.error || 'Không thể kích hoạt tài khoản');
         }
       } catch { toast.error('Có lỗi xảy ra'); }
       finally { setActionLoading(null); }

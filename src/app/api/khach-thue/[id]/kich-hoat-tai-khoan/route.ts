@@ -25,17 +25,9 @@ function generatePassword(length = 8): string {
 }
 
 /**
- * Kiểm tra quyền: trả về true nếu user có thể kích hoạt/thu hồi tài khoản khachThueId.
- * - admin: luôn true
- * - chuNha: true (không cần kiểm tra building — chuNha tự chịu trách nhiệm)
- * - quanLy: phải có quyenKichHoatTaiKhoan = true trong ToaNhaNguoiQuanLy
- *           cho tòa nhà chứa phòng đang thuê của khách
+ * Tìm toaNhaId của khách thuê qua hợp đồng (ưu tiên hợp đồng đang hoạt động).
  */
-async function hasPermission(userId: string, role: string, khachThueId: string): Promise<boolean> {
-  if (role === 'admin' || role === 'chuNha') return true;
-  if (role !== 'quanLy') return false;
-
-  // Lấy tòa nhà của khách thuê qua hợp đồng đang hoạt động
+async function getToaNhaIdOfKhachThue(khachThueId: string): Promise<string | null> {
   const hopDong = await prisma.hopDong.findFirst({
     where: {
       khachThue: { some: { id: khachThueId } },
@@ -43,29 +35,78 @@ async function hasPermission(userId: string, role: string, khachThueId: string):
     },
     select: { phong: { select: { toaNhaId: true } } },
   });
+  if (hopDong?.phong?.toaNhaId) return hopDong.phong.toaNhaId;
 
-  const toaNhaId = hopDong?.phong?.toaNhaId;
-  if (!toaNhaId) {
-    // Khách chưa có hợp đồng — thử qua bất kỳ hợp đồng nào
-    const anyHopDong = await prisma.hopDong.findFirst({
-      where: { khachThue: { some: { id: khachThueId } } },
-      orderBy: { ngayTao: 'desc' },
-      select: { phong: { select: { toaNhaId: true } } },
-    });
-    const tid = anyHopDong?.phong?.toaNhaId;
-    if (!tid) return false;
-    const perm = await prisma.toaNhaNguoiQuanLy.findUnique({
-      where: { toaNhaId_nguoiDungId: { toaNhaId: tid, nguoiDungId: userId } },
-      select: { quyenKichHoatTaiKhoan: true },
-    });
-    return perm?.quyenKichHoatTaiKhoan === true;
-  }
+  // Fallback: bất kỳ hợp đồng nào
+  const anyHopDong = await prisma.hopDong.findFirst({
+    where: { khachThue: { some: { id: khachThueId } } },
+    orderBy: { ngayTao: 'desc' },
+    select: { phong: { select: { toaNhaId: true } } },
+  });
+  return anyHopDong?.phong?.toaNhaId ?? null;
+}
+
+/**
+ * Kiểm tra quyền: trả về true nếu user có thể kích hoạt/thu hồi tài khoản khachThueId.
+ * - admin: luôn true
+ * - chuNha: chỉ khi admin đã bật adminBatDangNhapKT VÀ chủ trọ đã bật chuTroBatDangNhapKT cho tòa nhà
+ * - quanLy: phải có quyenKichHoatTaiKhoan = true + tòa nhà đã bật đăng nhập KT
+ */
+async function hasPermission(userId: string, role: string, khachThueId: string): Promise<boolean> {
+  if (role === 'admin') return true;
+
+  const toaNhaId = await getToaNhaIdOfKhachThue(khachThueId);
+  if (!toaNhaId) return false;
+
+  // Kiểm tra cài đặt tòa nhà: admin đã bật + chủ trọ đã bật
+  const caiDat = await prisma.caiDatToaNha.findUnique({
+    where: { toaNhaId },
+    select: { adminBatDangNhapKT: true, chuTroBatDangNhapKT: true },
+  });
+  // Phải cả admin lẫn chủ trọ đều bật thì mới cho phép kích hoạt
+  const dangNhapDuocPhep = caiDat?.adminBatDangNhapKT === true && caiDat?.chuTroBatDangNhapKT === true;
+
+  if (role === 'chuNha') return dangNhapDuocPhep;
+
+  if (role !== 'quanLy') return false;
+
+  if (!dangNhapDuocPhep) return false;
 
   const perm = await prisma.toaNhaNguoiQuanLy.findUnique({
     where: { toaNhaId_nguoiDungId: { toaNhaId, nguoiDungId: userId } },
     select: { quyenKichHoatTaiKhoan: true },
   });
   return perm?.quyenKichHoatTaiKhoan === true;
+}
+
+/**
+ * Kiểm tra giới hạn số khách thuê đã được kích hoạt đăng nhập trong tòa nhà.
+ */
+async function kiemTraGioiHan(toaNhaId: string): Promise<{ ok: boolean; message?: string }> {
+  const caiDat = await prisma.caiDatToaNha.findUnique({
+    where: { toaNhaId },
+    select: { gioiHanDangNhapKT: true },
+  });
+  const gioiHan = caiDat?.gioiHanDangNhapKT;
+  if (gioiHan === null || gioiHan === undefined) return { ok: true }; // không giới hạn
+
+  // Đếm số khách thuê đã có matKhau trong tòa nhà này
+  const soLuongDaBat = await prisma.khachThue.count({
+    where: {
+      matKhau: { not: null },
+      hopDong: {
+        some: {
+          phong: { toaNhaId },
+          trangThai: 'hoatDong',
+        },
+      },
+    },
+  });
+
+  if (soLuongDaBat >= gioiHan) {
+    return { ok: false, message: `Đã đạt giới hạn ${gioiHan} khách thuê được đăng nhập web cho tòa nhà này` };
+  }
+  return { ok: true };
 }
 
 export async function POST(
@@ -84,6 +125,15 @@ export async function POST(
 
   const kt = await prisma.khachThue.findUnique({ where: { id }, select: { id: true, soDienThoai: true } });
   if (!kt) return NextResponse.json({ error: 'Không tìm thấy khách thuê' }, { status: 404 });
+
+  // Kiểm tra giới hạn số khách thuê được đăng nhập web
+  const toaNhaId = await getToaNhaIdOfKhachThue(id);
+  if (toaNhaId) {
+    const gioiHan = await kiemTraGioiHan(toaNhaId);
+    if (!gioiHan.ok) {
+      return NextResponse.json({ error: gioiHan.message }, { status: 400 });
+    }
+  }
 
   const plainPassword = generatePassword();
   const hashed = await hash(plainPassword, 12);

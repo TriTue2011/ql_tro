@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getKhachThueRepo } from '@/lib/repositories';
+import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
@@ -28,6 +29,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, message: 'Tài khoản chưa được kích hoạt. Vui lòng liên hệ quản lý để tạo mật khẩu.' },
         { status: 401 }
+      );
+    }
+
+    // Kiểm tra tòa nhà có cho phép khách thuê đăng nhập web không
+    const hopDong = await prisma.hopDong.findFirst({
+      where: {
+        khachThue: { some: { id: khachThue.id } },
+        trangThai: 'hoatDong',
+      },
+      select: { phong: { select: { toaNhaId: true } } },
+    });
+    if (hopDong?.phong?.toaNhaId) {
+      const caiDat = await prisma.caiDatToaNha.findUnique({
+        where: { toaNhaId: hopDong.phong.toaNhaId },
+        select: { adminBatDangNhapKT: true, chuTroBatDangNhapKT: true },
+      });
+      // Mặc định tắt: nếu chưa có caiDat hoặc admin chưa bật hoặc chủ trọ chưa bật → chặn
+      if (!caiDat?.adminBatDangNhapKT || !caiDat?.chuTroBatDangNhapKT) {
+        return NextResponse.json(
+          { success: false, message: 'Tính năng đăng nhập web cho khách thuê chưa được bật tại tòa nhà này. Vui lòng liên hệ quản lý.' },
+          { status: 403 }
+        );
+      }
+    } else {
+      // Không tìm thấy hợp đồng hoạt động → không cho đăng nhập
+      return NextResponse.json(
+        { success: false, message: 'Không tìm thấy hợp đồng đang hoạt động. Vui lòng liên hệ quản lý.' },
+        { status: 403 }
       );
     }
 

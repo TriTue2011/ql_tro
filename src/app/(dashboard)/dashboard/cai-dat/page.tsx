@@ -1397,6 +1397,329 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
   );
 }
 
+// ─── Chủ trọ: Bật/tắt đăng nhập khách thuê per tòa nhà ─────────────────────
+
+function ChuNhaDangNhapKTTab() {
+  const { data: session } = useSession();
+  const [buildings, setBuildings] = useState<{ id: string; tenToaNha: string }[]>([]);
+  const [loadingBuildings, setLoadingBuildings] = useState(true);
+  // Per-building state: { [toaNhaId]: { adminBat, chuTroBat, gioiHan, soLuongDaBat, loading, saving } }
+  const [buildingStates, setBuildingStates] = useState<Record<string, {
+    adminBat: boolean; chuTroBat: boolean; gioiHan: number | null; soLuongDaBat: number;
+    loading: boolean; saving: boolean;
+  }>>({});
+
+  // Chỉ hiện cho chủ trọ có ít nhất 1 tòa nhà admin đã bật
+  const [hasAnyEnabled, setHasAnyEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    // Lấy danh sách tòa nhà của chủ trọ
+    fetch('/api/toa-nha')
+      .then(r => r.json())
+      .then(res => {
+        const list = (res.data || res || [])
+          .filter((b: { id: string }) => b.id)
+          .map((b: { id: string; tenToaNha: string }) => ({ id: b.id, tenToaNha: b.tenToaNha }));
+        setBuildings(list);
+        // Fetch cài đặt cho từng tòa nhà
+        list.forEach((b: { id: string }) => {
+          setBuildingStates(prev => ({
+            ...prev,
+            [b.id]: { adminBat: false, chuTroBat: false, gioiHan: null, soLuongDaBat: 0, loading: true, saving: false },
+          }));
+          fetch(`/api/toa-nha/${b.id}/dang-nhap-khach-thue`)
+            .then(r => r.json())
+            .then(res2 => {
+              if (res2.success && res2.data) {
+                setBuildingStates(prev => ({
+                  ...prev,
+                  [b.id]: {
+                    adminBat: res2.data.adminBatDangNhapKT,
+                    chuTroBat: res2.data.chuTroBatDangNhapKT,
+                    gioiHan: res2.data.gioiHanDangNhapKT,
+                    soLuongDaBat: res2.data.soLuongDaBat ?? 0,
+                    loading: false,
+                    saving: false,
+                  },
+                }));
+                if (res2.data.adminBatDangNhapKT) setHasAnyEnabled(true);
+              } else {
+                setBuildingStates(prev => ({
+                  ...prev,
+                  [b.id]: { ...prev[b.id], loading: false },
+                }));
+              }
+            })
+            .catch(() => {
+              setBuildingStates(prev => ({
+                ...prev,
+                [b.id]: { ...prev[b.id], loading: false },
+              }));
+            });
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoadingBuildings(false));
+  }, [session?.user?.id]);
+
+  async function handleToggle(toaNhaId: string, newVal: boolean) {
+    setBuildingStates(prev => ({
+      ...prev,
+      [toaNhaId]: { ...prev[toaNhaId], saving: true },
+    }));
+    try {
+      const res = await fetch(`/api/toa-nha/${toaNhaId}/dang-nhap-khach-thue`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chuTroBatDangNhapKT: newVal }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setBuildingStates(prev => ({
+          ...prev,
+          [toaNhaId]: { ...prev[toaNhaId], chuTroBat: newVal, saving: false },
+        }));
+        toast.success(newVal ? 'Đã bật đăng nhập khách thuê' : 'Đã tắt đăng nhập khách thuê');
+      } else {
+        toast.error(json.error || 'Thao tác thất bại');
+        setBuildingStates(prev => ({
+          ...prev,
+          [toaNhaId]: { ...prev[toaNhaId], saving: false },
+        }));
+      }
+    } catch {
+      toast.error('Lỗi kết nối');
+      setBuildingStates(prev => ({
+        ...prev,
+        [toaNhaId]: { ...prev[toaNhaId], saving: false },
+      }));
+    }
+  }
+
+  if (loadingBuildings) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
+        <span className="ml-2 text-gray-500 text-sm">Đang tải...</span>
+      </div>
+    );
+  }
+
+  // Ẩn hoàn toàn nếu admin chưa bật cho bất kỳ tòa nhà nào
+  if (!hasAnyEnabled) return null;
+
+  const enabledBuildings = buildings.filter(b => buildingStates[b.id]?.adminBat);
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <Users className="h-4 w-4 md:h-5 md:w-5" />
+          Đăng nhập web khách thuê
+        </CardTitle>
+        <CardDescription className="text-xs md:text-sm">
+          Bật/tắt cho phép khách thuê đăng nhập web xem hóa đơn, báo sự cố... theo từng tòa nhà
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-3">
+        {enabledBuildings.map(b => {
+          const state = buildingStates[b.id];
+          if (!state || state.loading) return (
+            <div key={b.id} className="flex items-center gap-2 py-2">
+              <RefreshCw className="h-4 w-4 animate-spin text-gray-400" />
+              <span className="text-sm text-gray-500">{b.tenToaNha}...</span>
+            </div>
+          );
+          return (
+            <div key={b.id} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">{b.tenToaNha}</Label>
+                <p className="text-xs text-gray-500">
+                  {state.soLuongDaBat} đã kích hoạt
+                  {state.gioiHan !== null && <> / {state.gioiHan} giới hạn</>}
+                </p>
+              </div>
+              <Switch
+                checked={state.chuTroBat}
+                onCheckedChange={val => handleToggle(b.id, val)}
+                disabled={state.saving}
+              />
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Admin: Quản lý đăng nhập khách thuê per tòa nhà ────────────────────────
+
+function AdminDangNhapKTPanel() {
+  const [buildings, setBuildings] = useState<{ id: string; tenToaNha: string }[]>([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [adminBat, setAdminBat] = useState(false);
+  const [gioiHan, setGioiHan] = useState<string>('');
+  const [chuTroBat, setChuTroBat] = useState(false);
+  const [soLuongDaBat, setSoLuongDaBat] = useState(0);
+
+  useEffect(() => {
+    fetch('/api/admin/toa-nha-settings')
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          const list = res.data.map((b: { id: string; tenToaNha: string }) => ({ id: b.id, tenToaNha: b.tenToaNha }));
+          setBuildings(list);
+          if (list.length > 0) setSelectedId(list[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    setLoading(true);
+    fetch(`/api/toa-nha/${selectedId}/dang-nhap-khach-thue`)
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.data) {
+          setAdminBat(res.data.adminBatDangNhapKT);
+          setGioiHan(res.data.gioiHanDangNhapKT !== null ? String(res.data.gioiHanDangNhapKT) : '');
+          setChuTroBat(res.data.chuTroBatDangNhapKT);
+          setSoLuongDaBat(res.data.soLuongDaBat ?? 0);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [selectedId]);
+
+  async function handleSave() {
+    if (!selectedId) { toast.error('Vui lòng chọn tòa nhà'); return; }
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        toaNhaId: selectedId,
+        adminBatDangNhapKT: adminBat,
+        gioiHanDangNhapKT: gioiHan === '' ? null : Number(gioiHan),
+      };
+      const res = await fetch('/api/admin/toa-nha-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Đã lưu cài đặt đăng nhập khách thuê');
+        // Khi admin tắt → chuTroBat cũng bị tắt
+        if (!adminBat) setChuTroBat(false);
+      } else {
+        toast.error(json.error || 'Lưu thất bại');
+      }
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <Users className="h-4 w-4 md:h-5 md:w-5" />
+          Quản lý đăng nhập web khách thuê
+        </CardTitle>
+        <CardDescription className="text-xs md:text-sm">
+          Bật/tắt tính năng đăng nhập web cho khách thuê theo từng tòa nhà. Khi admin bật, chủ trọ mới có quyền bật/tắt cho tòa nhà của mình.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-4">
+        {/* Chọn tòa nhà */}
+        {buildings.length > 1 && (
+          <div>
+            <Label className="text-xs font-medium mb-1.5 block">Chọn tòa nhà</Label>
+            <Select value={selectedId} onValueChange={setSelectedId}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Chọn tòa nhà" /></SelectTrigger>
+              <SelectContent>
+                {buildings.map(b => (
+                  <SelectItem key={b.id} value={b.id}>{b.tenToaNha}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-500 text-sm">Đang tải...</span>
+          </div>
+        ) : (
+          <>
+            {/* Toggle admin bật đăng nhập KT */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Cho phép đăng nhập web khách thuê</Label>
+                <p className="text-xs text-gray-500">
+                  Khi bật, chủ trọ sẽ thấy và có quyền bật/tắt đăng nhập cho khách thuê tại tòa nhà này
+                </p>
+              </div>
+              <Switch checked={adminBat} onCheckedChange={setAdminBat} />
+            </div>
+
+            {/* Giới hạn số lượng */}
+            {adminBat && (
+              <div className="space-y-2 p-3 rounded-lg border">
+                <Label className="text-sm font-medium">Giới hạn số khách thuê được đăng nhập</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Không giới hạn"
+                    value={gioiHan}
+                    onChange={e => setGioiHan(e.target.value)}
+                    className="w-40"
+                  />
+                  <span className="text-xs text-gray-500">
+                    (để trống = không giới hạn)
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Hiện tại: <span className="font-medium">{soLuongDaBat}</span> khách thuê đã kích hoạt
+                  {gioiHan !== '' && <> / <span className="font-medium">{gioiHan}</span> giới hạn</>}
+                </p>
+              </div>
+            )}
+
+            {/* Trạng thái chủ trọ */}
+            {adminBat && (
+              <div className="flex items-center gap-2 p-3 rounded-lg border bg-blue-50">
+                {chuTroBat ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-green-700">Chủ trọ đã bật đăng nhập khách thuê cho tòa nhà này</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-4 w-4 text-amber-600" />
+                    <span className="text-sm text-amber-700">Chủ trọ chưa bật đăng nhập khách thuê (mặc định tắt)</span>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <Button onClick={handleSave} disabled={saving || !selectedId} size="sm">
+                {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Lưu cài đặt
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CaiDatPage() {
@@ -2141,6 +2464,13 @@ export default function CaiDatPage() {
                 <HardDrive className="h-3.5 w-3.5" />
                 Lưu trữ
               </TabsTrigger>
+              <TabsTrigger
+                value="dangNhapKT"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Đăng nhập KT
+              </TabsTrigger>
             </>
           )}
           {/* Chủ trọ: Thanh toán + Cảnh báo + Hệ thống */}
@@ -2166,6 +2496,13 @@ export default function CaiDatPage() {
               >
                 <Shield className="h-3.5 w-3.5" />
                 Hệ thống
+              </TabsTrigger>
+              <TabsTrigger
+                value="dangNhapKT"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Đăng nhập KT
               </TabsTrigger>
             </>
           )}
@@ -2308,10 +2645,24 @@ export default function CaiDatPage() {
           </TabsContent>
         )}
 
+        {/* ── Tab Đăng nhập khách thuê (admin) ───────────────────────────────── */}
+        {isAdmin && (
+          <TabsContent value="dangNhapKT" className="space-y-4 mt-4">
+            <AdminDangNhapKTPanel />
+          </TabsContent>
+        )}
+
         {/* ── Tab Hệ thống — chủ trọ: thông tin công ty riêng ─────────────── */}
         {isChuNha && !loadingSystem && (
           <TabsContent value="heThong" className="space-y-4 mt-4">
             <ChuNhaHeThongTab />
+          </TabsContent>
+        )}
+
+        {/* ── Tab Đăng nhập khách thuê (chủ trọ) ────────────────────────────── */}
+        {isChuNha && (
+          <TabsContent value="dangNhapKT" className="space-y-4 mt-4">
+            <ChuNhaDangNhapKTTab />
           </TabsContent>
         )}
 
