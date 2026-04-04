@@ -72,7 +72,7 @@ export async function GET(
       data: {
         adminBatDangNhapKT: caiDat?.adminBatDangNhapKT ?? false,
         gioiHanDangNhapKT: caiDat?.gioiHanDangNhapKT ?? null,
-        chuTroBatDangNhapKT: caiDat?.chuTroBatDangNhapKT ?? false,
+        chuTroBatDangNhapKT: caiDat?.chuTroBatDangNhapKT ?? true,
         soLuongDaBat,
       },
     });
