@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
         where: { toaNhaId: hopDong.phong.toaNhaId },
         select: { adminBatDangNhapKT: true, chuTroBatDangNhapKT: true },
       });
-      // Admin bật = mặc định cho phép. Chủ trọ chỉ có quyền tắt thêm (chuTroBatDangNhapKT=false).
-      if (!caiDat?.adminBatDangNhapKT) {
+      // Cần cả admin lẫn chủ trọ đều bật thì mới cho phép
+      if (!caiDat?.adminBatDangNhapKT || !caiDat?.chuTroBatDangNhapKT) {
         return NextResponse.json(
           { success: false, message: 'Tính năng đăng nhập web cho khách thuê chưa được bật tại tòa nhà này. Vui lòng liên hệ quản lý.' },
           { status: 403 }
@@ -65,6 +65,14 @@ export async function POST(request: NextRequest) {
       // Không tìm thấy hợp đồng hoạt động → không cho đăng nhập
       return NextResponse.json(
         { success: false, message: 'Không tìm thấy hợp đồng đang hoạt động. Vui lòng liên hệ quản lý.' },
+        { status: 403 }
+      );
+    }
+
+    // Kiểm tra per-tenant: khách thuê có được bật đăng nhập web không
+    if (!khachThue.batDangNhapWeb) {
+      return NextResponse.json(
+        { success: false, message: 'Tài khoản của bạn chưa được bật đăng nhập web. Vui lòng liên hệ quản lý.' },
         { status: 403 }
       );
     }

@@ -83,6 +83,9 @@ export const authOptions: NextAuthOptions = {
             const isPasswordValid = await compare(credentials.matKhau, khachThue.matKhau);
             if (!isPasswordValid) return null;
 
+            // Kiểm tra per-tenant toggle
+            if (!khachThue.batDangNhapWeb) return null;
+
             // Email placeholder nếu KhachThue không có email
             const email = khachThue.email || `kt.${khachThue.soDienThoai || khachThue.id}@phongtro.local`;
 

@@ -162,6 +162,7 @@ model KhachThue {
   zaloChatIds       Json?     // Map { [botAccountId]: chatId } — lưu chatId theo từng tài khoản bot
   pendingZaloChatId String?   // Zalo bot chat_id chờ xác nhận (phát hiện từ getUpdates)
   nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
+  batDangNhapWeb    Boolean  @default(false) // Bật/tắt đăng nhập web per khách thuê (mặc định tắt)
   trangThai         String    @default("chuaThue") // dangThue | daTraPhong | chuaThue
   ngayTao       DateTime  @default(now())
   ngayCapNhat   DateTime  @updatedAt

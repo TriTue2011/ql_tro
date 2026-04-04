@@ -134,7 +134,7 @@ export async function POST(
 
   const plainPassword = generatePassword();
   const hashed = await hash(plainPassword, 12);
-  await prisma.khachThue.update({ where: { id }, data: { matKhau: hashed } });
+  await prisma.khachThue.update({ where: { id }, data: { matKhau: hashed, batDangNhapWeb: true } });
 
   return NextResponse.json({ matKhau: plainPassword, soDienThoai: kt.soDienThoai, email: kt.email });
 }
@@ -153,6 +153,6 @@ export async function DELETE(
     return NextResponse.json({ error: 'Không có quyền thu hồi tài khoản khách thuê' }, { status: 403 });
   }
 
-  await prisma.khachThue.update({ where: { id }, data: { matKhau: null } });
+  await prisma.khachThue.update({ where: { id }, data: { matKhau: null, batDangNhapWeb: false } });
   return NextResponse.json({ ok: true });
 }

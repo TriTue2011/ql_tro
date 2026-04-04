@@ -1426,7 +1426,7 @@ function ChuNhaDangNhapKTTab() {
         list.forEach((b: { id: string }) => {
           setBuildingStates(prev => ({
             ...prev,
-            [b.id]: { adminBat: false, chuTroBat: false, gioiHan: null, soLuongDaBat: 0, loading: true, saving: false },
+            [b.id]: { adminBat: false, chuTroBat: true, gioiHan: null, soLuongDaBat: 0, loading: true, saving: false },
           }));
           fetch(`/api/toa-nha/${b.id}/dang-nhap-khach-thue`)
             .then(r => r.json())
@@ -1506,8 +1506,18 @@ function ChuNhaDangNhapKTTab() {
     );
   }
 
-  // Ẩn hoàn toàn nếu admin chưa bật cho bất kỳ tòa nhà nào
-  if (!hasAnyEnabled) return null;
+  // Hiện thông báo nếu admin chưa bật cho bất kỳ tòa nhà nào
+  if (!hasAnyEnabled) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+          <p className="text-sm text-gray-500">Admin chưa bật tính năng đăng nhập web cho tòa nhà nào.</p>
+          <p className="text-xs text-gray-400 mt-1">Liên hệ admin để bật tính năng này.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const enabledBuildings = buildings.filter(b => buildingStates[b.id]?.adminBat);
 

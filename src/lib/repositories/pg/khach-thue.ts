@@ -24,6 +24,7 @@ function normalize(raw: any): KhachThueData {
     zaloChatId: raw.zaloChatId ?? undefined,
     pendingZaloChatId: raw.pendingZaloChatId ?? undefined,
     nhanThongBaoZalo: raw.nhanThongBaoZalo ?? false,
+    batDangNhapWeb: raw.batDangNhapWeb ?? false,
     hasMatKhau: !!raw.matKhau,
     trangThai: raw.trangThai as TrangThaiKhachThue,
     ngayTao: raw.ngayTao,
@@ -40,18 +41,18 @@ export default class KhachThueRepository {
 
   async findBySoDienThoai(
     sdt: string
-  ): Promise<(KhachThueData & { matKhau?: string }) | null> {
+  ): Promise<(KhachThueData & { matKhau?: string; batDangNhapWeb: boolean }) | null> {
     const raw = await prisma.khachThue.findUnique({ where: { soDienThoai: sdt } });
     if (!raw) return null;
-    return { ...normalize(raw), matKhau: raw.matKhau ?? undefined };
+    return { ...normalize(raw), matKhau: raw.matKhau ?? undefined, batDangNhapWeb: raw.batDangNhapWeb };
   }
 
   async findByEmail(
     email: string
-  ): Promise<(KhachThueData & { matKhau?: string }) | null> {
+  ): Promise<(KhachThueData & { matKhau?: string; batDangNhapWeb: boolean }) | null> {
     const raw = await prisma.khachThue.findUnique({ where: { email } });
     if (!raw) return null;
-    return { ...normalize(raw), matKhau: raw.matKhau ?? undefined };
+    return { ...normalize(raw), matKhau: raw.matKhau ?? undefined, batDangNhapWeb: raw.batDangNhapWeb };
   }
 
   async findMany(opts: QueryOptions & { toaNhaIds?: string[] }): Promise<PaginatedResult<KhachThueData>> {
