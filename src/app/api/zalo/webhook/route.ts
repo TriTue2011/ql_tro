@@ -169,11 +169,13 @@ async function detectAndStorePending(update: any): Promise<void> {
   if (!chatId || !displayName) return;
 
   try {
-    const repo = await getKhachThueRepo();
-    const allTenants = await repo.findMany({ limit: 1000 });
     const normalizedSender = normalizeName(displayName);
 
-    const matched = allTenants.data.find(kt => {
+    // 1. Tìm trong KhachThue
+    const repo = await getKhachThueRepo();
+    const allTenants = await repo.findMany({ limit: 1000 });
+
+    const matchedKT = allTenants.data.find(kt => {
       const normalizedKt = normalizeName(kt.hoTen);
       const lastWordKt = normalizedKt.split(' ').pop() ?? '';
       return normalizedKt === normalizedSender ||
@@ -181,11 +183,35 @@ async function detectAndStorePending(update: any): Promise<void> {
         normalizedKt.includes(normalizedSender);
     });
 
-    if (!matched) return;
-    if (matched.zaloChatId === chatId) return;
-    if (matched.pendingZaloChatId === chatId) return;
+    if (matchedKT) {
+      if (matchedKT.zaloChatId !== chatId && matchedKT.pendingZaloChatId !== chatId) {
+        await repo.update(matchedKT.id, { pendingZaloChatId: chatId });
+      }
+      return;
+    }
 
-    await repo.update(matched.id, { pendingZaloChatId: chatId });
+    // 2. Tìm trong NguoiDung (quản lý, nhân viên, chủ trọ...)
+    const allUsers = await prisma.nguoiDung.findMany({
+      where: { trangThai: 'hoatDong' },
+      select: { id: true, ten: true, zaloChatId: true, pendingZaloChatId: true },
+    });
+
+    const matchedND = allUsers.find(nd => {
+      const normalizedNd = normalizeName(nd.ten);
+      const lastWordNd = normalizedNd.split(' ').pop() ?? '';
+      return normalizedNd === normalizedSender ||
+        normalizedSender.includes(lastWordNd) ||
+        normalizedNd.includes(normalizedSender);
+    });
+
+    if (matchedND) {
+      if (matchedND.zaloChatId !== chatId && matchedND.pendingZaloChatId !== chatId) {
+        await prisma.nguoiDung.update({
+          where: { id: matchedND.id },
+          data: { pendingZaloChatId: chatId },
+        });
+      }
+    }
   } catch (err) {
     console.error('[zalo/webhook] detectAndStorePending error:', err);
   }
