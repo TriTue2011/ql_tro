@@ -241,6 +241,7 @@ export default async function middleware(req: NextRequest) {
     '/api/admin/zalo',
     '/api/admin/zalo-direct',
     '/api/admin/storage',
+    '/api/admin/role-limits',
   ];
   if (pathname.startsWith('/api/admin') && token?.role !== 'admin') {
     const isChuNhaRole = role === 'chuNha' || role === 'dongChuTro' || role === 'quanLy' || role === 'nhanVien';
