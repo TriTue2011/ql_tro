@@ -1451,7 +1451,8 @@ function ChuNhaDangNhapKTTab() {
                 }));
               }
             })
-            .catch(() => {
+            .catch((err) => {
+              console.error(`[ChuNhaDangNhapKTTab] Lỗi fetch cài đặt tòa nhà ${b.id}:`, err);
               setBuildingStates(prev => ({
                 ...prev,
                 [b.id]: { ...prev[b.id], loading: false },

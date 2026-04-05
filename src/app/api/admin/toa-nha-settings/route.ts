@@ -97,8 +97,11 @@ export async function PUT(req: NextRequest) {
     // Đăng nhập web khách thuê — chỉ admin quản lý
     if ('adminBatDangNhapKT' in rest) {
       updateData.adminBatDangNhapKT = Boolean(rest.adminBatDangNhapKT);
-      // Khi admin tắt → tự động tắt luôn phía chủ trọ
-      if (!rest.adminBatDangNhapKT) {
+      if (rest.adminBatDangNhapKT) {
+        // Khi admin bật → reset chủ trọ về cho phép (mặc định)
+        updateData.chuTroBatDangNhapKT = true;
+      } else {
+        // Khi admin tắt → tự động tắt luôn phía chủ trọ
         updateData.chuTroBatDangNhapKT = false;
       }
     }

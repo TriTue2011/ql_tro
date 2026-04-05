@@ -27,8 +27,15 @@ export async function GET(
 
     // Kiểm tra quyền truy cập tòa nhà
     if (role === 'chuNha') {
+      // Chủ trọ: xem được nếu sở hữu HOẶC được gán quản lý
       const toaNha = await prisma.toaNha.findFirst({
-        where: { id: toaNhaId, chuSoHuuId: session.user.id },
+        where: {
+          id: toaNhaId,
+          OR: [
+            { chuSoHuuId: session.user.id },
+            { nguoiQuanLy: { some: { nguoiDungId: session.user.id } } },
+          ],
+        },
         select: { id: true },
       });
       if (!toaNha) {
@@ -95,10 +102,16 @@ export async function PUT(
     const { id: toaNhaId } = await params;
     const role = session.user.role;
 
-    // Chỉ chủ trọ (chủ sở hữu tòa nhà) mới được bật/tắt
+    // Chủ trọ sở hữu hoặc được gán quản lý đều có quyền bật/tắt
     if (role === 'chuNha') {
       const toaNha = await prisma.toaNha.findFirst({
-        where: { id: toaNhaId, chuSoHuuId: session.user.id },
+        where: {
+          id: toaNhaId,
+          OR: [
+            { chuSoHuuId: session.user.id },
+            { nguoiQuanLy: { some: { nguoiDungId: session.user.id } } },
+          ],
+        },
         select: { id: true },
       });
       if (!toaNha) {
