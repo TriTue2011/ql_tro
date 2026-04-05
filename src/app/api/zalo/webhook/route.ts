@@ -13,6 +13,7 @@ import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
 import { storeChatIdForAccount } from '@/lib/zalo-auto-link';
 import { handlePendingConfirmation } from '@/lib/zalo-pending-confirm';
+import { getUserInfoViaBotServer } from '@/lib/zalo-bot-client';
 
 function normalizeName(name: string): string {
   return name
@@ -165,23 +166,42 @@ async function captureThreadIdForBotAccount(update: any, chatId: string): Promis
 }
 
 async function detectAndStorePending(update: any): Promise<void> {
-  const { chatId, displayName } = normalizeWebhookPayload(update);
-  if (!chatId || !displayName) return;
+  const { chatId, displayName, ownId } = normalizeWebhookPayload(update);
+  if (!chatId) return;
 
   try {
-    const normalizedSender = normalizeName(displayName);
+    // ── Bước 1: Thử lấy SĐT từ bot server (chính xác nhất) ──
+    let senderPhone: string | undefined;
+    try {
+      const info = await getUserInfoViaBotServer(chatId, ownId || undefined);
+      if (info.ok && info.data) {
+        const d = info.data as any;
+        senderPhone = d.phone || d.phoneNumber || d.zaloPhone || undefined;
+        // Chuẩn hóa SĐT (bỏ +84, thêm 0)
+        if (senderPhone) {
+          senderPhone = senderPhone.replace(/^\+84/, '0').replace(/^84/, '0').replace(/\D/g, '');
+        }
+      }
+    } catch { /* bot server có thể không trả phone */ }
 
-    // 1. Tìm trong KhachThue
+    // ── Bước 2: Match KhachThue (theo SĐT trước, tên sau) ──
     const repo = await getKhachThueRepo();
     const allTenants = await repo.findMany({ limit: 1000 });
 
-    const matchedKT = allTenants.data.find(kt => {
-      const normalizedKt = normalizeName(kt.hoTen);
-      const lastWordKt = normalizedKt.split(' ').pop() ?? '';
-      return normalizedKt === normalizedSender ||
-        normalizedSender.includes(lastWordKt) ||
-        normalizedKt.includes(normalizedSender);
-    });
+    let matchedKT = senderPhone
+      ? allTenants.data.find(kt => kt.soDienThoai === senderPhone)
+      : undefined;
+
+    if (!matchedKT && displayName) {
+      const normalizedSender = normalizeName(displayName);
+      matchedKT = allTenants.data.find(kt => {
+        const normalizedKt = normalizeName(kt.hoTen);
+        const lastWordKt = normalizedKt.split(' ').pop() ?? '';
+        return normalizedKt === normalizedSender ||
+          normalizedSender.includes(lastWordKt) ||
+          normalizedKt.includes(normalizedSender);
+      });
+    }
 
     if (matchedKT) {
       if (matchedKT.zaloChatId !== chatId && matchedKT.pendingZaloChatId !== chatId) {
@@ -190,19 +210,26 @@ async function detectAndStorePending(update: any): Promise<void> {
       return;
     }
 
-    // 2. Tìm trong NguoiDung (quản lý, nhân viên, chủ trọ...)
+    // ── Bước 3: Match NguoiDung (theo SĐT trước, tên sau) ──
     const allUsers = await prisma.nguoiDung.findMany({
       where: { trangThai: 'hoatDong' },
-      select: { id: true, ten: true, zaloChatId: true, pendingZaloChatId: true },
+      select: { id: true, ten: true, soDienThoai: true, zaloChatId: true, pendingZaloChatId: true },
     });
 
-    const matchedND = allUsers.find(nd => {
-      const normalizedNd = normalizeName(nd.ten);
-      const lastWordNd = normalizedNd.split(' ').pop() ?? '';
-      return normalizedNd === normalizedSender ||
-        normalizedSender.includes(lastWordNd) ||
-        normalizedNd.includes(normalizedSender);
-    });
+    let matchedND = senderPhone
+      ? allUsers.find(nd => nd.soDienThoai === senderPhone)
+      : undefined;
+
+    if (!matchedND && displayName) {
+      const normalizedSender = normalizeName(displayName);
+      matchedND = allUsers.find(nd => {
+        const normalizedNd = normalizeName(nd.ten);
+        const lastWordNd = normalizedNd.split(' ').pop() ?? '';
+        return normalizedNd === normalizedSender ||
+          normalizedSender.includes(lastWordNd) ||
+          normalizedNd.includes(normalizedSender);
+      });
+    }
 
     if (matchedND) {
       if (matchedND.zaloChatId !== chatId && matchedND.pendingZaloChatId !== chatId) {
