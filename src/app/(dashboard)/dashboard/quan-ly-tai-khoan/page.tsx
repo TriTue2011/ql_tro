@@ -656,7 +656,7 @@ export default function AccountManagementPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {(isAdmin || isChuNha) && (
+          {isAdmin && (
             <Button
               variant="outline"
               size="sm"
