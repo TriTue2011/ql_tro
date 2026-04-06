@@ -200,7 +200,13 @@ export async function DELETE(
       );
     }
 
-    await repo.delete(id);
+    const deleted = await repo.delete(id);
+    if (!deleted) {
+      return NextResponse.json(
+        { message: 'Không thể xóa khách thuê. Có thể đang có hợp đồng, hóa đơn hoặc dữ liệu liên quan.' },
+        { status: 400 }
+      );
+    }
     sseEmit('khach-thue', { action: 'deleted' });
     return NextResponse.json({
       success: true,

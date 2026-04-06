@@ -162,7 +162,8 @@ export default class KhachThueRepository {
     try {
       await prisma.khachThue.delete({ where: { id } });
       return true;
-    } catch {
+    } catch (err) {
+      console.error('[khach-thue] Delete failed:', err);
       return false;
     }
   }
