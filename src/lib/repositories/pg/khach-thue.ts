@@ -191,12 +191,12 @@ export default class KhachThueRepository {
         };
       }
 
-      // Cascade delete
+      // Cascade delete — giữ lại hóa đơn (gỡ liên kết khachThueId = null)
       await prisma.$transaction(async (tx) => {
         await tx.yeuCauThayDoi.deleteMany({ where: { khachThueId: id } });
         await tx.suCo.deleteMany({ where: { khachThueId: id } });
-        // Chỉ xóa hóa đơn đã thanh toán
-        await tx.hoaDon.deleteMany({ where: { khachThueId: id } });
+        // Giữ hóa đơn, chỉ gỡ liên kết khách thuê
+        await tx.hoaDon.updateMany({ where: { khachThueId: id }, data: { khachThueId: null } });
         // Gỡ khách thuê khỏi hợp đồng
         const hopDongs = await tx.hopDong.findMany({
           where: { khachThue: { some: { id } } },

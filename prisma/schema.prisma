@@ -234,8 +234,8 @@ model HoaDon {
   hopDong           HopDong   @relation(fields: [hopDongId], references: [id])
   phongId           String
   phong             Phong     @relation(fields: [phongId], references: [id])
-  khachThueId       String
-  khachThue         KhachThue @relation(fields: [khachThueId], references: [id])
+  khachThueId       String?
+  khachThue         KhachThue? @relation(fields: [khachThueId], references: [id], onDelete: SetNull)
   thang             Int
   nam               Int
   tienPhong         Float
