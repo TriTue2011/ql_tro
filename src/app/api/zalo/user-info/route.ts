@@ -1,9 +1,8 @@
 /**
- * GET /api/admin/zalo/user-info?chatId=XXX&account=YYY
- *
- * CLI test: curl "http://localhost:3000/api/admin/zalo/user-info?chatId=6643404425553198601&account=%2B84947762285"
+ * GET /api/zalo/user-info?chatId=XXX&account=YYY
  *
  * Trả về thông tin user từ getUserInfo + SĐT đã chuẩn hóa.
+ * Cho phép admin, chủ trọ, quản lý sử dụng.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -12,7 +11,7 @@ import { getUserInfoViaBotServer } from '@/lib/zalo-bot-client';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.vaiTro !== 'admin') {
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
