@@ -13,11 +13,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getKhachThueRepo } from '@/lib/repositories';
 import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
 import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
 import { storeChatIdForAccount } from '@/lib/zalo-auto-link';
 import { handlePendingConfirmation } from '@/lib/zalo-pending-confirm';
+import { getUserInfoViaBotServer } from '@/lib/zalo-bot-client';
 
 // ─── Chuẩn hóa payload ────────────────────────────────────────────────────────
 
@@ -150,6 +152,86 @@ async function captureThreadId(update: any, chatId: string, botAccountId: string
   } catch { /* fire-and-forget */ }
 }
 
+// ─── Phát hiện và lưu pending (match SĐT + tên) ─────────────────────────────
+
+function normalizeName(name: string): string {
+  return name.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+async function detectAndStorePending(update: any, accountId?: string): Promise<void> {
+  const { chatId, displayName, ownId } = normalizeWebhookPayload(update);
+  if (!chatId) return;
+
+  try {
+    // Lấy SĐT người gửi từ bot server
+    let senderPhone: string | undefined;
+    try {
+      const info = await getUserInfoViaBotServer(chatId, accountId || ownId || undefined);
+      if (info.ok && info.data) {
+        const d = info.data as any;
+        senderPhone = d.phone || d.phoneNumber || d.zaloPhone || undefined;
+        if (senderPhone) {
+          senderPhone = senderPhone.replace(/^\+84/, '0').replace(/^84/, '0').replace(/\D/g, '');
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Match KhachThue
+    const repo = await getKhachThueRepo();
+    const allTenants = await repo.findMany({ limit: 1000 });
+
+    let matchedKT = senderPhone
+      ? allTenants.data.find(kt => kt.soDienThoai === senderPhone)
+      : undefined;
+
+    if (!matchedKT && displayName) {
+      const normalizedSender = normalizeName(displayName);
+      matchedKT = allTenants.data.find(kt => {
+        const n = normalizeName(kt.hoTen);
+        const last = n.split(' ').pop() ?? '';
+        return n === normalizedSender || normalizedSender.includes(last) || n.includes(normalizedSender);
+      });
+    }
+
+    if (matchedKT) {
+      if (matchedKT.zaloChatId !== chatId && matchedKT.pendingZaloChatId !== chatId) {
+        await repo.update(matchedKT.id, { pendingZaloChatId: chatId });
+      }
+      return;
+    }
+
+    // Match NguoiDung
+    const allUsers = await prisma.nguoiDung.findMany({
+      where: { trangThai: 'hoatDong' },
+      select: { id: true, ten: true, soDienThoai: true, zaloChatId: true, pendingZaloChatId: true },
+    });
+
+    let matchedND = senderPhone
+      ? allUsers.find(nd => nd.soDienThoai === senderPhone)
+      : undefined;
+
+    if (!matchedND && displayName) {
+      const normalizedSender = normalizeName(displayName);
+      matchedND = allUsers.find(nd => {
+        const n = normalizeName(nd.ten);
+        const last = n.split(' ').pop() ?? '';
+        return n === normalizedSender || normalizedSender.includes(last) || n.includes(normalizedSender);
+      });
+    }
+
+    if (matchedND) {
+      if (matchedND.zaloChatId !== chatId && matchedND.pendingZaloChatId !== chatId) {
+        await prisma.nguoiDung.update({
+          where: { id: matchedND.id },
+          data: { pendingZaloChatId: chatId },
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[webhook/nguoiDung] detectAndStorePending error:', err);
+  }
+}
+
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
 export async function GET(
@@ -217,6 +299,7 @@ export async function POST(
       cleanupOldMessages(),
       notifyHomeAssistant(update),
       captureThreadId(update, chatId, accountId ?? nguoiDungId),
+      detectAndStorePending(update, accountId),
     ]);
 
     // Xử lý xác nhận pending trước (ưu tiên cao nhất)
