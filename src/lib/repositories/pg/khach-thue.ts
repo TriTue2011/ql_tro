@@ -72,10 +72,30 @@ export default class KhachThueRepository {
       : {};
 
     // Lọc khách thuê theo tòa nhà của user
+    // Bao gồm cả khách thuê chưa có hợp đồng (mới tạo, chưa thuộc tòa nhà nào)
     if (opts.toaNhaIds?.length) {
-      where.hopDong = {
-        some: { phong: { toaNhaId: { in: opts.toaNhaIds } } },
+      where.OR = [
+        ...(where.OR ?? []),
+        { hopDong: { some: { phong: { toaNhaId: { in: opts.toaNhaIds } } } } },
+        { hopDong: { none: {} } },
+      ].length ? undefined : undefined; // placeholder
+
+      // Merge search OR với toaNha OR
+      const toaNhaFilter = {
+        OR: [
+          { hopDong: { some: { phong: { toaNhaId: { in: opts.toaNhaIds } } } } },
+          { hopDong: { none: {} } },
+        ],
       };
+
+      if (where.OR) {
+        // Đã có search OR → wrap lại bằng AND
+        const searchFilter = { OR: where.OR };
+        delete where.OR;
+        where.AND = [searchFilter, toaNhaFilter];
+      } else {
+        Object.assign(where, toaNhaFilter);
+      }
     }
 
     const [total, rows] = await Promise.all([
