@@ -210,6 +210,7 @@ export interface CreateKhachThueInput {
   anhCCCD?: AnhCCCD;
   ngheNghiep?: string;
   matKhau?: string;
+  nguoiTaoId?: string;
 }
 
 export interface UpdateKhachThueInput {

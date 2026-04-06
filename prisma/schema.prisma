@@ -46,6 +46,7 @@ model NguoiDung {
   zaloThongBaoCaiDat    ZaloThongBaoCaiDat[]
   zaloDongChuTroThreads ZaloDongChuTroThread[]
   danhBaNgoai           DanhBaNgoai[]
+  khachThueTao          KhachThue[]     @relation("KhachThueNguoiTao")
 }
 
 model ToaNha {
@@ -164,6 +165,8 @@ model KhachThue {
   nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
   batDangNhapWeb    Boolean  @default(false) // Bật/tắt đăng nhập web per khách thuê (mặc định tắt)
   trangThai         String    @default("chuaThue") // dangThue | daTraPhong | chuaThue
+  nguoiTaoId        String?   // ID của NguoiDung tạo khách thuê này
+  nguoiTao          NguoiDung? @relation("KhachThueNguoiTao", fields: [nguoiTaoId], references: [id], onDelete: SetNull)
   ngayTao       DateTime  @default(now())
   ngayCapNhat   DateTime  @updatedAt
 

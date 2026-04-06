@@ -55,7 +55,7 @@ export default class KhachThueRepository {
     return { ...normalize(raw), matKhau: raw.matKhau ?? undefined, batDangNhapWeb: raw.batDangNhapWeb };
   }
 
-  async findMany(opts: QueryOptions & { toaNhaIds?: string[] }): Promise<PaginatedResult<KhachThueData>> {
+  async findMany(opts: QueryOptions & { toaNhaIds?: string[]; userId?: string }): Promise<PaginatedResult<KhachThueData>> {
     const page = opts.page ?? 1;
     const limit = opts.limit ?? 20;
     const skip = (page - 1) * limit;
@@ -72,24 +72,28 @@ export default class KhachThueRepository {
       : {};
 
     // Lọc khách thuê theo tòa nhà của user
-    // Bao gồm cả khách thuê chưa có hợp đồng (mới tạo, chưa thuộc tòa nhà nào)
+    // + khách thuê mồ côi (chưa có hợp đồng) do chính user hoặc đồng nghiệp cùng tòa nhà tạo
     if (opts.toaNhaIds?.length) {
-      where.OR = [
-        ...(where.OR ?? []),
-        { hopDong: { some: { phong: { toaNhaId: { in: opts.toaNhaIds } } } } },
-        { hopDong: { none: {} } },
-      ].length ? undefined : undefined; // placeholder
+      // Tìm tất cả NguoiDung thuộc cùng tòa nhà (chủ trọ + quản lý)
+      const coWorkerIds = opts.userId ? await prisma.nguoiDung.findMany({
+        where: {
+          OR: [
+            { toaNha: { some: { id: { in: opts.toaNhaIds } } } },
+            { toaNhaQuanLy: { some: { toaNhaId: { in: opts.toaNhaIds } } } },
+          ],
+        },
+        select: { id: true },
+      }).then(list => list.map(u => u.id)) : [];
 
-      // Merge search OR với toaNha OR
       const toaNhaFilter = {
         OR: [
           { hopDong: { some: { phong: { toaNhaId: { in: opts.toaNhaIds } } } } },
-          { hopDong: { none: {} } },
+          // Khách thuê mồ côi do người cùng tòa nhà tạo
+          { hopDong: { none: {} }, nguoiTaoId: { in: coWorkerIds } },
         ],
       };
 
       if (where.OR) {
-        // Đã có search OR → wrap lại bằng AND
         const searchFilter = { OR: where.OR };
         delete where.OR;
         where.AND = [searchFilter, toaNhaFilter];
@@ -122,6 +126,7 @@ export default class KhachThueRepository {
         anhCCCD: data.anhCCCD ? (data.anhCCCD as object) : undefined,
         ngheNghiep: data.ngheNghiep,
         matKhau: data.matKhau,
+        nguoiTaoId: data.nguoiTaoId,
       },
     });
     return normalize(raw);

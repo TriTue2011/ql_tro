@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
       limit,
       search: search || undefined,
       toaNhaIds,
+      userId: session.user.id,
     });
 
     // Batch-fetch hợp đồng đang hoạt động (tránh N+1)
@@ -180,18 +181,8 @@ export async function POST(request: NextRequest) {
       anhCCCD: validatedData.anhCCCD || { matTruoc: '', matSau: '' },
       ngheNghiep: validatedData.ngheNghiep ? sanitizeText(validatedData.ngheNghiep) : undefined,
       matKhau: hashedPassword,
+      nguoiTaoId: session.user.id,
     });
-
-    // Lưu người tạo via raw SQL (column not in Prisma schema)
-    if (session.user.id && newKhachThue.id) {
-      prisma.$executeRawUnsafe(
-        `UPDATE "KhachThue" SET "nguoiTaoId" = $1 WHERE id = $2`,
-        session.user.id,
-        newKhachThue.id,
-      ).catch((err) => {
-        console.error('[khach-thue] Failed to save nguoiTaoId:', err);
-      });
-    }
 
     // Tự động tra cứu và liên kết zaloChatId qua bot server (fire-and-forget)
     if (sdt) {
