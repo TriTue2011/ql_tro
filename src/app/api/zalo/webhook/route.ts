@@ -176,7 +176,9 @@ async function detectAndStorePending(update: any): Promise<void> {
       const info = await getUserInfoViaBotServer(chatId, ownId || undefined);
       if (info.ok && info.data) {
         const d = info.data as any;
-        senderPhone = d.phone || d.phoneNumber || d.zaloPhone || undefined;
+        // getUserInfo trả về changed_profiles[userId] chứa phoneNumber
+        const profile = d.changed_profiles?.[chatId] ?? d;
+        senderPhone = profile.phone || profile.phoneNumber || profile.zaloPhone || undefined;
         // Chuẩn hóa SĐT (bỏ +84, thêm 0)
         if (senderPhone) {
           senderPhone = senderPhone.replace(/^\+84/, '0').replace(/^84/, '0').replace(/\D/g, '');
