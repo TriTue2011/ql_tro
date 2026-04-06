@@ -160,7 +160,35 @@ export default class KhachThueRepository {
 
   async delete(id: string): Promise<boolean> {
     try {
-      await prisma.khachThue.delete({ where: { id } });
+      // Xóa dữ liệu liên quan trước (cascade thủ công)
+      await prisma.$transaction(async (tx) => {
+        // Xóa yêu cầu thay đổi
+        await tx.yeuCauThayDoi.deleteMany({ where: { khachThueId: id } });
+        // Xóa sự cố
+        await tx.suCo.deleteMany({ where: { khachThueId: id } });
+        // Xóa hóa đơn
+        await tx.hoaDon.deleteMany({ where: { khachThueId: id } });
+        // Gỡ khỏi hợp đồng (many-to-many) và xóa hợp đồng nếu là người đại diện
+        await tx.hopDong.updateMany({
+          where: { nguoiDaiDienId: id },
+          data: { nguoiDaiDienId: id }, // sẽ bị xóa cùng KhachThue
+        });
+        // Gỡ khách thuê khỏi hợp đồng (implicit many-to-many)
+        const hopDongs = await tx.hopDong.findMany({
+          where: { khachThue: { some: { id } } },
+          select: { id: true },
+        });
+        for (const hd of hopDongs) {
+          await tx.hopDong.update({
+            where: { id: hd.id },
+            data: { khachThue: { disconnect: { id } } },
+          });
+        }
+        // Xóa hợp đồng mà KhachThue là người đại diện
+        await tx.hopDong.deleteMany({ where: { nguoiDaiDienId: id } });
+        // Cuối cùng xóa khách thuê
+        await tx.khachThue.delete({ where: { id } });
+      });
       return true;
     } catch (err) {
       console.error('[khach-thue] Delete failed:', err);
