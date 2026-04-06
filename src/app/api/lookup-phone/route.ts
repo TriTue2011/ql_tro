@@ -18,3 +18,31 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ khachThue: kt, nguoiDung: nd });
 }
+
+/**
+ * DELETE /api/lookup-phone?id=xxx&type=khachThue|nguoiDung
+ * Xóa hẳn record theo ID. Chỉ dùng từ localhost.
+ */
+export async function DELETE(req: NextRequest) {
+  const host = req.headers.get('host') || '';
+  if (!host.startsWith('localhost') && !host.startsWith('127.0.0.1')) {
+    return NextResponse.json({ error: 'Chỉ dùng từ localhost' }, { status: 403 });
+  }
+
+  const id = req.nextUrl.searchParams.get('id');
+  const type = req.nextUrl.searchParams.get('type');
+  if (!id || !type) return NextResponse.json({ error: 'Thiếu ?id=&type=' }, { status: 400 });
+
+  try {
+    if (type === 'khachThue') {
+      await prisma.khachThue.delete({ where: { id } });
+    } else if (type === 'nguoiDung') {
+      await prisma.nguoiDung.delete({ where: { id } });
+    } else {
+      return NextResponse.json({ error: 'type phải là khachThue hoặc nguoiDung' }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true, deleted: { id, type } });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
