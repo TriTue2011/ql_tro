@@ -88,8 +88,11 @@ export default class KhachThueRepository {
       const toaNhaFilter = {
         OR: [
           { hopDong: { some: { phong: { toaNhaId: { in: opts.toaNhaIds } } } } },
-          // Khách thuê mồ côi do người cùng tòa nhà tạo
-          { hopDong: { none: {} }, nguoiTaoId: { in: coWorkerIds } },
+          // Khách thuê mồ côi do người cùng tòa nhà tạo hoặc chưa rõ người tạo
+          { hopDong: { none: {} }, OR: [
+            { nguoiTaoId: { in: coWorkerIds } },
+            { nguoiTaoId: null },
+          ]},
         ],
       };
 
