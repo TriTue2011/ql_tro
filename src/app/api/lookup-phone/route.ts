@@ -12,7 +12,10 @@ export async function GET(req: NextRequest) {
     }),
     prisma.nguoiDung.findMany({
       where: { soDienThoai: phone },
-      select: { id: true, ten: true, soDienThoai: true, vaiTro: true, trangThai: true },
+      select: {
+        id: true, ten: true, soDienThoai: true, vaiTro: true, trangThai: true,
+        toaNhaQuanLy: { select: { toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
+      },
     }),
   ]);
 
