@@ -19,7 +19,7 @@ import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
 import { storeChatIdForAccount } from '@/lib/zalo-auto-link';
 import { handlePendingConfirmation } from '@/lib/zalo-pending-confirm';
-import { getUserInfoViaBotServer } from '@/lib/zalo-bot-client';
+import { getUserInfoViaBotServer, sendMessageViaBotServer } from '@/lib/zalo-bot-client';
 
 // ─── Chuẩn hóa payload ────────────────────────────────────────────────────────
 
@@ -161,12 +161,13 @@ function normalizeName(name: string): string {
 async function detectAndStorePending(update: any, accountId?: string): Promise<void> {
   const { chatId, displayName, ownId } = normalizeWebhookPayload(update);
   if (!chatId) return;
+  const botAccount = accountId || ownId || undefined;
 
   try {
     // Lấy SĐT người gửi từ bot server
     let senderPhone: string | undefined;
     try {
-      const info = await getUserInfoViaBotServer(chatId, accountId || ownId || undefined);
+      const info = await getUserInfoViaBotServer(chatId, botAccount);
       if (info.ok && info.data) {
         const d = info.data as any;
         senderPhone = d.phone || d.phoneNumber || d.zaloPhone || undefined;
@@ -180,9 +181,12 @@ async function detectAndStorePending(update: any, accountId?: string): Promise<v
     const repo = await getKhachThueRepo();
     const allTenants = await repo.findMany({ limit: 1000 });
 
+    let matchedByPhone = false;
+
     let matchedKT = senderPhone
       ? allTenants.data.find(kt => kt.soDienThoai === senderPhone)
       : undefined;
+    if (matchedKT) matchedByPhone = true;
 
     if (!matchedKT && displayName) {
       const normalizedSender = normalizeName(displayName);
@@ -194,8 +198,24 @@ async function detectAndStorePending(update: any, accountId?: string): Promise<v
     }
 
     if (matchedKT) {
-      if (matchedKT.zaloChatId !== chatId && matchedKT.pendingZaloChatId !== chatId) {
-        await repo.update(matchedKT.id, { pendingZaloChatId: chatId });
+      if (matchedKT.zaloChatId !== chatId) {
+        if (matchedByPhone) {
+          // Match bằng SĐT = tin cậy cao → auto-confirm luôn
+          await prisma.khachThue.update({
+            where: { id: matchedKT.id },
+            data: { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true },
+          });
+          console.log(`[webhook/nguoiDung] Auto-confirmed KT ${matchedKT.id} by phone match`);
+        } else if (matchedKT.pendingZaloChatId !== chatId) {
+          // Match bằng tên = cần xác nhận
+          await repo.update(matchedKT.id, { pendingZaloChatId: chatId });
+          sendMessageViaBotServer(
+            chatId,
+            `Chào bạn, bạn có phải là ${matchedKT.hoTen} không? Vui lòng trả lời "Đúng" hoặc "Không".`,
+            0,
+            botAccount,
+          ).catch(() => {});
+        }
       }
       return;
     }
@@ -206,9 +226,12 @@ async function detectAndStorePending(update: any, accountId?: string): Promise<v
       select: { id: true, ten: true, soDienThoai: true, zaloChatId: true, pendingZaloChatId: true },
     });
 
+    matchedByPhone = false;
+
     let matchedND = senderPhone
       ? allUsers.find(nd => nd.soDienThoai === senderPhone)
       : undefined;
+    if (matchedND) matchedByPhone = true;
 
     if (!matchedND && displayName) {
       const normalizedSender = normalizeName(displayName);
@@ -220,11 +243,27 @@ async function detectAndStorePending(update: any, accountId?: string): Promise<v
     }
 
     if (matchedND) {
-      if (matchedND.zaloChatId !== chatId && matchedND.pendingZaloChatId !== chatId) {
-        await prisma.nguoiDung.update({
-          where: { id: matchedND.id },
-          data: { pendingZaloChatId: chatId },
-        });
+      if (matchedND.zaloChatId !== chatId) {
+        if (matchedByPhone) {
+          // Match bằng SĐT = tin cậy cao → auto-confirm luôn
+          await prisma.nguoiDung.update({
+            where: { id: matchedND.id },
+            data: { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true },
+          });
+          console.log(`[webhook/nguoiDung] Auto-confirmed ND ${matchedND.id} by phone match`);
+        } else if (matchedND.pendingZaloChatId !== chatId) {
+          // Match bằng tên = cần xác nhận
+          await prisma.nguoiDung.update({
+            where: { id: matchedND.id },
+            data: { pendingZaloChatId: chatId },
+          });
+          sendMessageViaBotServer(
+            chatId,
+            `Chào bạn, bạn có phải là ${matchedND.ten} không? Vui lòng trả lời "Đúng" hoặc "Không".`,
+            0,
+            botAccount,
+          ).catch(() => {});
+        }
       }
     }
   } catch (err) {
