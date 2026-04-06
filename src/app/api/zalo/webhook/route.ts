@@ -6,23 +6,13 @@
  * - Phát hiện chat_id và lưu pendingZaloChatId
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getKhachThueRepo } from '@/lib/repositories';
 import prisma from '@/lib/prisma';
 import { emitNewMessage, cleanupOldMessages } from '@/lib/zalo-message-events';
 import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
 import { storeChatIdForAccount } from '@/lib/zalo-auto-link';
 import { handlePendingConfirmation } from '@/lib/zalo-pending-confirm';
-import { getUserInfoViaBotServer, sendMessageViaBotServer } from '@/lib/zalo-bot-client';
-
-function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+import { getUserInfoViaBotServer } from '@/lib/zalo-bot-client';
 
 function extractAttachmentUrl(msg: any): string | null {
   const attachments: any[] = msg?.attachments ?? [];
@@ -165,124 +155,61 @@ async function captureThreadIdForBotAccount(update: any, chatId: string): Promis
   } catch { /* fire-and-forget */ }
 }
 
-async function detectAndStorePending(update: any): Promise<void> {
-  const { chatId, displayName, ownId } = normalizeWebhookPayload(update);
+/**
+ * Tự động gán threadID theo SĐT.
+ * getUserInfo(chatId) → lấy SĐT → tìm KhachThue/NguoiDung → gán zaloChatId.
+ * Không có SĐT hoặc không match → bỏ qua.
+ */
+async function autoLinkThreadId(update: any): Promise<void> {
+  const { chatId, ownId } = normalizeWebhookPayload(update);
   if (!chatId) return;
 
   try {
-    // ── Bước 1: Thử lấy SĐT từ bot server (chính xác nhất) ──
-    let senderPhone: string | undefined;
-    try {
-      const info = await getUserInfoViaBotServer(chatId, ownId || undefined);
-      if (info.ok && info.data) {
-        const d = info.data as any;
-        // getUserInfo trả về changed_profiles[userId] chứa phoneNumber
-        const profile = d.changed_profiles?.[chatId] ?? d;
-        senderPhone = profile.phone || profile.phoneNumber || profile.zaloPhone || undefined;
-        // Chuẩn hóa SĐT (bỏ +84, thêm 0)
-        if (senderPhone) {
-          senderPhone = senderPhone.replace(/^\+84/, '0').replace(/^84/, '0').replace(/\D/g, '');
-        }
-      }
-    } catch { /* bot server có thể không trả phone */ }
-
-    // ── Bước 2: Match KhachThue (theo SĐT trước, tên sau) ──
-    const repo = await getKhachThueRepo();
-    const allTenants = await repo.findMany({ limit: 1000 });
-
-    let matchedByPhone = false;
-
-    let matchedKT = senderPhone
-      ? allTenants.data.find(kt => kt.soDienThoai === senderPhone)
-      : undefined;
-    if (matchedKT) matchedByPhone = true;
-
-    if (!matchedKT && displayName) {
-      const normalizedSender = normalizeName(displayName);
-      matchedKT = allTenants.data.find(kt => {
-        const normalizedKt = normalizeName(kt.hoTen);
-        const lastWordKt = normalizedKt.split(' ').pop() ?? '';
-        return normalizedKt === normalizedSender ||
-          normalizedSender.includes(lastWordKt) ||
-          normalizedKt.includes(normalizedSender);
-      });
-    }
-
-    if (matchedKT) {
-      if (matchedKT.zaloChatId !== chatId) {
-        if (matchedByPhone) {
-          // Match bằng SĐT = tin cậy cao → auto-confirm luôn
-          await prisma.khachThue.update({
-            where: { id: matchedKT.id },
-            data: { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true },
-          });
-          console.log(`[zalo/webhook] Auto-confirmed KT ${matchedKT.id} by phone match`);
-        } else if (matchedKT.pendingZaloChatId !== chatId) {
-          // Match bằng tên = cần xác nhận
-          await repo.update(matchedKT.id, { pendingZaloChatId: chatId });
-          // Gửi tin nhắn yêu cầu xác nhận
-          sendMessageViaBotServer(
-            chatId,
-            `Chào bạn, bạn có phải là ${matchedKT.hoTen} không? Vui lòng trả lời "Đúng" hoặc "Không".`,
-            0,
-            ownId || undefined,
-          ).catch(() => {});
-        }
-      }
+    const info = await getUserInfoViaBotServer(chatId, ownId || undefined);
+    if (!info.ok || !info.data) {
+      console.log(`[zalo/webhook] getUserInfo failed for chatId=${chatId}:`, info.error);
       return;
     }
 
-    // ── Bước 3: Match NguoiDung (theo SĐT trước, tên sau) ──
-    const allUsers = await prisma.nguoiDung.findMany({
-      where: { trangThai: 'hoatDong' },
-      select: { id: true, ten: true, soDienThoai: true, zaloChatId: true, pendingZaloChatId: true },
-    });
-
-    matchedByPhone = false;
-
-    let matchedND = senderPhone
-      ? allUsers.find(nd => nd.soDienThoai === senderPhone)
-      : undefined;
-    if (matchedND) matchedByPhone = true;
-
-    if (!matchedND && displayName) {
-      const normalizedSender = normalizeName(displayName);
-      matchedND = allUsers.find(nd => {
-        const normalizedNd = normalizeName(nd.ten);
-        const lastWordNd = normalizedNd.split(' ').pop() ?? '';
-        return normalizedNd === normalizedSender ||
-          normalizedSender.includes(lastWordNd) ||
-          normalizedNd.includes(normalizedSender);
-      });
+    const d = info.data as any;
+    const profile = d.changed_profiles?.[chatId] ?? d;
+    const rawPhone = profile.phoneNumber || profile.phone || '';
+    if (!rawPhone) {
+      console.log(`[zalo/webhook] Không lấy được SĐT cho chatId=${chatId}`);
+      return;
     }
 
-    if (matchedND) {
-      if (matchedND.zaloChatId !== chatId) {
-        if (matchedByPhone) {
-          // Match bằng SĐT = tin cậy cao → auto-confirm luôn
-          await prisma.nguoiDung.update({
-            where: { id: matchedND.id },
-            data: { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true },
-          });
-          console.log(`[zalo/webhook] Auto-confirmed ND ${matchedND.id} by phone match`);
-        } else if (matchedND.pendingZaloChatId !== chatId) {
-          // Match bằng tên = cần xác nhận
-          await prisma.nguoiDung.update({
-            where: { id: matchedND.id },
-            data: { pendingZaloChatId: chatId },
-          });
-          // Gửi tin nhắn yêu cầu xác nhận
-          sendMessageViaBotServer(
-            chatId,
-            `Chào bạn, bạn có phải là ${matchedND.ten} không? Vui lòng trả lời "Đúng" hoặc "Không".`,
-            0,
-            ownId || undefined,
-          ).catch(() => {});
-        }
-      }
+    const phone = rawPhone.replace(/^\+84/, '0').replace(/^84/, '0').replace(/\D/g, '');
+    console.log(`[zalo/webhook] chatId=${chatId} → SĐT=${phone}`);
+
+    // Tìm KhachThue theo SĐT
+    const kt = await prisma.khachThue.findFirst({
+      where: { soDienThoai: phone },
+      select: { id: true, zaloChatId: true },
+    });
+    if (kt && kt.zaloChatId !== chatId) {
+      await prisma.khachThue.update({
+        where: { id: kt.id },
+        data: { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true },
+      });
+      console.log(`[zalo/webhook] Gán threadID cho KhachThue ${kt.id}: ${chatId}`);
+      return;
+    }
+
+    // Tìm NguoiDung theo SĐT
+    const nd = await prisma.nguoiDung.findFirst({
+      where: { soDienThoai: phone, trangThai: 'hoatDong' },
+      select: { id: true, zaloChatId: true },
+    });
+    if (nd && nd.zaloChatId !== chatId) {
+      await prisma.nguoiDung.update({
+        where: { id: nd.id },
+        data: { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true },
+      });
+      console.log(`[zalo/webhook] Gán threadID cho NguoiDung ${nd.id}: ${chatId}`);
     }
   } catch (err) {
-    console.error('[zalo/webhook] detectAndStorePending error:', err);
+    console.error('[zalo/webhook] autoLinkThreadId error:', err);
   }
 }
 
@@ -317,7 +244,7 @@ export async function POST(request: NextRequest) {
 
     await Promise.all([
       saveMessage(update),
-      detectAndStorePending(update),
+      autoLinkThreadId(update),
       cleanupOldMessages(),
       notifyHomeAssistant(update),
       wChatId ? captureThreadIdForBotAccount(update, wChatId) : Promise.resolve(),
