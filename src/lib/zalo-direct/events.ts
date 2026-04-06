@@ -13,6 +13,7 @@ import { sseEmit } from "@/lib/sse-emitter";
 import { handleZaloAutoReply } from "@/lib/zalo-message-handler";
 import { storeChatIdForAccount } from "@/lib/zalo-auto-link";
 import { handlePendingConfirmation } from "@/lib/zalo-pending-confirm";
+import { getUserInfoViaBotServer } from "@/lib/zalo-bot-client";
 
 /**
  * Xử lý tin nhắn nhận được từ zca-js listener.
@@ -22,6 +23,60 @@ import { handlePendingConfirmation } from "@/lib/zalo-pending-confirm";
  *   { type: ThreadType, data: TMessage, threadId: string, isSelf: boolean }
  *   TMessage: { uidFrom, dName, content, idTo, msgId, cliMsgId, ... }
  */
+/**
+ * Tự động gán zaloChatId theo SĐT.
+ * getUserInfo(chatId) → lấy phoneNumber → tìm KhachThue/NguoiDung → gán zaloChatId.
+ */
+async function autoLinkThreadId(chatId: string, ownId: string): Promise<void> {
+  try {
+    const info = await getUserInfoViaBotServer(chatId, ownId);
+    if (!info.ok || !info.data) {
+      console.log(`[ZaloDirect] getUserInfo failed for chatId=${chatId}:`, info.error);
+      return;
+    }
+
+    const d = info.data as any;
+    const profile = d.changed_profiles?.[chatId] ?? d;
+    const rawPhone = profile.phoneNumber || profile.phone || '';
+    if (!rawPhone) {
+      console.log(`[ZaloDirect] Không lấy được SĐT cho chatId=${chatId}`);
+      return;
+    }
+
+    const phone = rawPhone.replace(/^\+84/, '0').replace(/^84/, '0').replace(/\D/g, '');
+    console.log(`[ZaloDirect] chatId=${chatId} → SĐT=${phone}`);
+
+    // Tìm KhachThue theo SĐT
+    const kt = await prisma.khachThue.findFirst({
+      where: { soDienThoai: phone },
+      select: { id: true, zaloChatId: true },
+    });
+    if (kt && kt.zaloChatId !== chatId) {
+      await prisma.khachThue.update({
+        where: { id: kt.id },
+        data: { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true },
+      });
+      console.log(`[ZaloDirect] Gán threadID cho KhachThue ${kt.id}: ${chatId}`);
+      return;
+    }
+
+    // Tìm NguoiDung theo SĐT
+    const nd = await prisma.nguoiDung.findFirst({
+      where: { soDienThoai: phone, trangThai: 'hoatDong' },
+      select: { id: true, zaloChatId: true },
+    });
+    if (nd && nd.zaloChatId !== chatId) {
+      await prisma.nguoiDung.update({
+        where: { id: nd.id },
+        data: { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true },
+      });
+      console.log(`[ZaloDirect] Gán threadID cho NguoiDung ${nd.id}: ${chatId}`);
+    }
+  } catch (err) {
+    console.error('[ZaloDirect] autoLinkThreadId error:', err);
+  }
+}
+
 export async function handleIncomingMessage(
   ownId: string,
   msg: any
@@ -84,6 +139,9 @@ export async function handleIncomingMessage(
 
     // Lưu threadId cho bot account
     captureThreadId(ownId, chatId).catch(() => {});
+
+    // Tự động gán threadID theo SĐT
+    autoLinkThreadId(chatId, ownId).catch(() => {});
 
     // Xử lý pending confirmation
     if (content) {
