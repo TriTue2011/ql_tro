@@ -158,22 +158,46 @@ export default class KhachThueRepository {
     }
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string): Promise<{ ok: true } | { ok: false; message: string }> {
     try {
-      // Xóa dữ liệu liên quan trước (cascade thủ công)
-      await prisma.$transaction(async (tx) => {
-        // Xóa yêu cầu thay đổi
-        await tx.yeuCauThayDoi.deleteMany({ where: { khachThueId: id } });
-        // Xóa sự cố
-        await tx.suCo.deleteMany({ where: { khachThueId: id } });
-        // Xóa hóa đơn
-        await tx.hoaDon.deleteMany({ where: { khachThueId: id } });
-        // Gỡ khỏi hợp đồng (many-to-many) và xóa hợp đồng nếu là người đại diện
-        await tx.hopDong.updateMany({
-          where: { nguoiDaiDienId: id },
-          data: { nguoiDaiDienId: id }, // sẽ bị xóa cùng KhachThue
+      // Check hóa đơn chưa thanh toán
+      const unpaidInvoices = await prisma.hoaDon.findMany({
+        where: {
+          khachThueId: id,
+          trangThai: { in: ['chuaThanhToan', 'daThanhToanMotPhan', 'quaHan'] },
+        },
+        select: {
+          maHoaDon: true,
+          tongTien: true,
+          trangThai: true,
+          phong: {
+            select: {
+              maPhong: true,
+              toaNha: { select: { tenToaNha: true } },
+            },
+          },
+        },
+      });
+
+      if (unpaidInvoices.length > 0) {
+        const details = unpaidInvoices.map(inv => {
+          const toa = inv.phong?.toaNha?.tenToaNha || 'Không rõ';
+          const phong = inv.phong?.maPhong || '';
+          return `${inv.maHoaDon} (${toa}${phong ? ' - ' + phong : ''})`;
         });
-        // Gỡ khách thuê khỏi hợp đồng (implicit many-to-many)
+        return {
+          ok: false,
+          message: `Khách thuê đang có ${unpaidInvoices.length} hóa đơn chưa thanh toán: ${details.join(', ')}`,
+        };
+      }
+
+      // Cascade delete
+      await prisma.$transaction(async (tx) => {
+        await tx.yeuCauThayDoi.deleteMany({ where: { khachThueId: id } });
+        await tx.suCo.deleteMany({ where: { khachThueId: id } });
+        // Chỉ xóa hóa đơn đã thanh toán
+        await tx.hoaDon.deleteMany({ where: { khachThueId: id } });
+        // Gỡ khách thuê khỏi hợp đồng
         const hopDongs = await tx.hopDong.findMany({
           where: { khachThue: { some: { id } } },
           select: { id: true },
@@ -186,13 +210,12 @@ export default class KhachThueRepository {
         }
         // Xóa hợp đồng mà KhachThue là người đại diện
         await tx.hopDong.deleteMany({ where: { nguoiDaiDienId: id } });
-        // Cuối cùng xóa khách thuê
         await tx.khachThue.delete({ where: { id } });
       });
-      return true;
+      return { ok: true };
     } catch (err) {
       console.error('[khach-thue] Delete failed:', err);
-      return false;
+      return { ok: false, message: 'Lỗi hệ thống khi xóa khách thuê' };
     }
   }
 }

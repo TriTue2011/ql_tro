@@ -200,10 +200,10 @@ export async function DELETE(
       );
     }
 
-    const deleted = await repo.delete(id);
-    if (!deleted) {
+    const result = await repo.delete(id);
+    if (!result.ok) {
       return NextResponse.json(
-        { message: 'Không thể xóa khách thuê. Có thể đang có hợp đồng, hóa đơn hoặc dữ liệu liên quan.' },
+        { message: result.message },
         { status: 400 }
       );
     }
