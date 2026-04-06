@@ -1,8 +1,10 @@
 /**
  * GET /api/zalo/user-info?chatId=XXX&account=YYY
  *
+ * curl "http://localhost:3000/api/zalo/user-info?chatId=6643404425553198601&account=%2B84947762285"
+ *
  * Trả về thông tin user từ getUserInfo + SĐT đã chuẩn hóa.
- * Cho phép admin, chủ trọ, quản lý sử dụng.
+ * Cho phép admin, chủ trọ, quản lý, hoặc gọi từ server (localhost/IP nội bộ).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -10,9 +12,14 @@ import { authOptions } from '@/lib/auth';
 import { getUserInfoViaBotServer } from '@/lib/zalo-bot-client';
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Cho phép gọi từ server (CLI curl) không cần session
+  const host = req.headers.get('host') || '';
+  const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1') || /^(10|172\.(1[6-9]|2\d|3[01])|192\.168)\./.test(host);
+  if (!isLocal) {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
   }
 
   const chatId = req.nextUrl.searchParams.get('chatId');
