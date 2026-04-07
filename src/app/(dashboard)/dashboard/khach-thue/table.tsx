@@ -97,7 +97,7 @@ const getStatusBadge = (status: string) => {
   switch (status) {
     case 'dangThue':
       return (
-        <Badge className="gap-1 bg-green-600 text-white border-transparent">
+        <Badge className="gap-1 border-transparent bg-green-600 text-white hover:bg-green-600/90">
           <User className="h-3 w-3" />
           Đang thuê
         </Badge>
@@ -110,7 +110,7 @@ const getStatusBadge = (status: string) => {
       )
     case 'chuaThue':
       return (
-        <Badge variant="outline" className="gap-1 text-amber-600 border-amber-400">
+        <Badge className="gap-1 border-amber-400 bg-transparent text-amber-600">
           Chưa thuê
         </Badge>
       )

@@ -103,6 +103,23 @@ export async function GET(request: NextRequest) {
       : [];
     const creatorMap = new Map(creators.map(c => [c.id, c.ten]));
 
+    // Auto-sync: cập nhật trạng thái khách thuê có hợp đồng hoạt động nhưng chưa đúng status
+    const outOfSyncIds = result.data
+      .filter(kt => kt.id && hopDongByKT.has(kt.id) && kt.trangThai !== 'dangThue')
+      .map(kt => kt.id as string);
+    if (outOfSyncIds.length > 0) {
+      prisma.khachThue.updateMany({
+        where: { id: { in: outOfSyncIds } },
+        data: { trangThai: 'dangThue' },
+      }).catch(() => {});
+      // Cập nhật luôn trong response
+      for (const kt of result.data) {
+        if (kt.id && outOfSyncIds.includes(kt.id)) {
+          (kt as any).trangThai = 'dangThue';
+        }
+      }
+    }
+
     const khachThueListWithContracts = result.data.map(kt => {
       const nguoiTaoId = nguoiTaoIdByKT.get(kt.id ?? '') ?? null;
       return {
