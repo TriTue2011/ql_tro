@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getHopDongRepo, getPhongRepo, getKhachThueRepo } from '@/lib/repositories';
+import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { sseEmit } from '@/lib/sse-emitter';
 import { checkQuyen, getToaNhaIdFromHopDong } from '@/lib/server/check-quyen';
@@ -179,6 +180,19 @@ export async function PUT(
     if (validatedData.trangThai && validatedData.trangThai !== 'hoatDong') {
       const phongId = hopDong.phongId;
       await phongRepo.update(phongId, { trangThai: 'trong' });
+
+      // Cập nhật khách thuê thành 'daTraPhong'
+      const hopDongFull = await prisma.hopDong.findUnique({
+        where: { id },
+        select: { khachThue: { select: { id: true } } },
+      });
+      if (hopDongFull?.khachThue?.length) {
+        await prisma.khachThue.updateMany({
+          where: { id: { in: hopDongFull.khachThue.map(k => k.id) } },
+          data: { trangThai: 'daTraPhong' },
+        });
+        sseEmit('khach-thue', { action: 'updated' });
+      }
     }
 
     sseEmit('hop-dong', { action: 'updated' });
@@ -245,16 +259,35 @@ export async function DELETE(
       }
     }
 
-    // Lưu thông tin phòng trước khi xóa
+    // Lưu thông tin phòng + khách thuê trước khi xóa
     const phongId = hopDong.phongId;
+    const hopDongFull = await prisma.hopDong.findUnique({
+      where: { id },
+      select: { khachThue: { select: { id: true } } },
+    });
+    const ktIdsToUpdate = hopDongFull?.khachThue?.map(k => k.id) || [];
 
     await hopDongRepo.delete(id);
 
     // Cập nhật trạng thái phòng sau khi xóa hợp đồng
     await phongRepo.update(phongId, { trangThai: 'trong' });
 
+    // Cập nhật khách thuê thành 'daTraPhong' (nếu không còn hợp đồng hoạt động nào)
+    for (const ktId of ktIdsToUpdate) {
+      const activeContracts = await prisma.hopDong.count({
+        where: { khachThue: { some: { id: ktId } }, trangThai: 'hoatDong' },
+      });
+      if (activeContracts === 0) {
+        await prisma.khachThue.update({
+          where: { id: ktId },
+          data: { trangThai: 'daTraPhong' },
+        });
+      }
+    }
+
     sseEmit('hop-dong', { action: 'deleted' });
     sseEmit('phong', { action: 'updated' });
+    if (ktIdsToUpdate.length) sseEmit('khach-thue', { action: 'updated' });
     return NextResponse.json({
       success: true,
       message: 'Hợp đồng đã được xóa thành công',
