@@ -172,8 +172,12 @@ export async function POST(request: NextRequest) {
       fileHopDong: validatedData.fileHopDong,
     });
 
-    // Cập nhật trạng thái phòng thành 'dangThue'
-    await phongRepo.update(validatedData.phong, { trangThai: 'dangThue' });
+    // Cập nhật trạng thái phòng thành 'dangThue' + đồng bộ giá thuê, tiền cọc từ hợp đồng
+    await phongRepo.update(validatedData.phong, {
+      trangThai: 'dangThue',
+      giaThue: validatedData.giaThue,
+      tienCoc: validatedData.tienCoc,
+    });
 
     // Cập nhật trạng thái khách thuê thành 'dangThue'
     const ktIds = validatedData.khachThueId as string[];

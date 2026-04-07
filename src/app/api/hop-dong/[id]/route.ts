@@ -176,6 +176,14 @@ export async function PUT(
       );
     }
 
+    // Đồng bộ giá thuê, tiền cọc từ hợp đồng sang phòng (nếu có thay đổi)
+    if (validatedData.giaThue !== undefined || validatedData.tienCoc !== undefined) {
+      const phongUpdate: Record<string, number> = {};
+      if (validatedData.giaThue !== undefined) phongUpdate.giaThue = validatedData.giaThue;
+      if (validatedData.tienCoc !== undefined) phongUpdate.tienCoc = validatedData.tienCoc;
+      await phongRepo.update(hopDong.phongId, phongUpdate);
+    }
+
     // Cập nhật trạng thái phòng nếu hợp đồng bị hủy hoặc hết hạn
     if (validatedData.trangThai && validatedData.trangThai !== 'hoatDong') {
       const phongId = hopDong.phongId;

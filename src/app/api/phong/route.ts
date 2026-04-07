@@ -73,7 +73,38 @@ export async function GET(request: NextRequest) {
         khachThue: { select: { id: true, hoTen: true, soDienThoai: true } },
       },
     });
+    // Batch-fetch giá thuê, tiền cọc từ hợp đồng hoạt động để đồng bộ phòng
+    const hopDongFull = await prisma.hopDong.findMany({
+      where: { phongId: { in: phongIds }, trangThai: 'hoatDong' },
+      select: { phongId: true, giaThue: true, tienCoc: true },
+    });
+    const hdPriceByPhong = new Map(hopDongFull.map(hd => [hd.phongId, hd]));
+
     const hopDongByPhong = new Map(hopDongBatch.map(hd => [hd.phongId, hd]));
+
+    // Auto-sync: đồng bộ trạng thái + giá thuê + tiền cọc từ hợp đồng sang phòng
+    const syncPromises: Promise<unknown>[] = [];
+    for (const phong of result.data) {
+      if (!phong.id) continue;
+      const hd = hdPriceByPhong.get(phong.id);
+      if (hd) {
+        const updates: Record<string, unknown> = {};
+        if (phong.trangThai !== 'dangThue') updates.trangThai = 'dangThue';
+        if (phong.giaThue !== hd.giaThue) updates.giaThue = hd.giaThue;
+        if (phong.tienCoc !== hd.tienCoc) updates.tienCoc = hd.tienCoc;
+        if (Object.keys(updates).length > 0) {
+          syncPromises.push(
+            prisma.phong.update({ where: { id: phong.id }, data: updates })
+          );
+          // Cập nhật luôn trong response
+          Object.assign(phong, updates);
+        }
+      }
+    }
+    if (syncPromises.length > 0) {
+      Promise.all(syncPromises).catch(() => {});
+    }
+
     const phongListWithContracts = result.data.map(phong => ({
       ...phong,
       hopDongHienTai: hopDongByPhong.get(phong.id ?? '') ?? null,
