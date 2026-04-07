@@ -129,13 +129,13 @@ export const columns = (
     cell: ({ row }) => {
       const trangThai = row.getValue("trangThai") as string
       const variants = {
-        dangThue: { variant: 'default' as const, label: 'Đang thuê' },
-        daTraPhong: { variant: 'secondary' as const, label: 'Đã trả phòng' },
-        chuaThue: { variant: 'outline' as const, label: 'Chưa thuê' },
+        dangThue: { variant: 'default' as const, label: 'Đang thuê', className: 'bg-green-600 text-white border-transparent' },
+        daTraPhong: { variant: 'secondary' as const, label: 'Đã trả phòng', className: '' },
+        chuaThue: { variant: 'outline' as const, label: 'Chưa thuê', className: 'text-amber-600 border-amber-400' },
       }
-      
+
       const config = variants[trangThai as keyof typeof variants] || variants.chuaThue
-      return <Badge variant={config.variant}>{config.label}</Badge>
+      return <Badge variant={config.variant} className={config.className}>{config.label}</Badge>
     },
   },
   {

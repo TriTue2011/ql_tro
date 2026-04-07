@@ -175,8 +175,16 @@ export async function POST(request: NextRequest) {
     // Cập nhật trạng thái phòng thành 'dangThue'
     await phongRepo.update(validatedData.phong, { trangThai: 'dangThue' });
 
-    // Tự động liên kết zaloChatId cho các KhachThue trong hợp đồng (fire-and-forget)
+    // Cập nhật trạng thái khách thuê thành 'dangThue'
     const ktIds = validatedData.khachThueId as string[];
+    if (ktIds?.length) {
+      await prisma.khachThue.updateMany({
+        where: { id: { in: ktIds } },
+        data: { trangThai: 'dangThue' },
+      });
+    }
+
+    // Tự động liên kết zaloChatId cho các KhachThue trong hợp đồng (fire-and-forget)
     const toaNhaId: string = phong.toaNhaId;
     if (ktIds?.length) {
       prisma.khachThue.findMany({
@@ -191,6 +199,7 @@ export async function POST(request: NextRequest) {
 
     sseEmit('hop-dong', { action: 'created' });
     sseEmit('phong', { action: 'updated' }); // phòng đổi sang dangThue
+    sseEmit('khach-thue', { action: 'updated' }); // khách thuê đổi sang dangThue
     return NextResponse.json({
       success: true,
       data: newHopDong,
