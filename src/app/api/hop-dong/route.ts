@@ -185,7 +185,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Tự động liên kết zaloChatId cho các KhachThue trong hợp đồng (fire-and-forget)
-    const ktIds = validatedData.khachThueId as string[];
     const toaNhaId: string = phong.toaNhaId;
     if (ktIds?.length) {
       prisma.khachThue.findMany({

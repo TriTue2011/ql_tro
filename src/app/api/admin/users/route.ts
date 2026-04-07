@@ -82,10 +82,18 @@ export async function GET() {
         ? ['nhanVien']
         : ['dongChuTro', 'quanLy', 'nhanVien'];
 
+      // Lấy danh sách người dùng được tạo bởi user hiện tại (qua raw SQL vì nguoiTaoId chưa có trong Prisma schema)
+      const createdByMe = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "NguoiDung" WHERE "nguoiTaoId" = ${session.user.id}`;
+      const createdByMeIds = createdByMe.map(r => r.id);
+
       users = await prisma.nguoiDung.findMany({
         where: {
           vaiTro: { in: visibleRoles },
-          toaNhaQuanLy: { some: { toaNhaId: { in: myBuildingIds } } },
+          OR: [
+            { toaNhaQuanLy: { some: { toaNhaId: { in: myBuildingIds } } } },
+            ...(createdByMeIds.length > 0 ? [{ id: { in: createdByMeIds } }] : []),
+          ],
         },
         take: 1000,
         orderBy: { ngayTao: 'desc' },
