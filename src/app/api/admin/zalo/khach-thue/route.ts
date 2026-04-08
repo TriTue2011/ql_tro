@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
         maPhong: true,
         tang: true,
         hopDongs: {
-          where: { trangThai: 'dangThue' },
+          where: { trangThai: 'hoatDong' },
           select: {
             khachThues: {
               select: {
