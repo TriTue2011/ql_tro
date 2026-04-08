@@ -46,10 +46,10 @@ export async function GET(req: NextRequest) {
       select: {
         maPhong: true,
         tang: true,
-        hopDongs: {
+        hopDong: {
           where: { trangThai: 'hoatDong' },
           select: {
-            khachThues: {
+            khachThue: {
               select: {
                 id: true,
                 hoTen: true,
@@ -83,8 +83,8 @@ export async function GET(req: NextRequest) {
     }[] = [];
 
     for (const phong of phongs) {
-      for (const hd of phong.hopDongs) {
-        for (const kt of hd.khachThues) {
+      for (const hd of phong.hopDong) {
+        for (const kt of hd.khachThue) {
           if (!khachThues.find(k => k.id === kt.id)) {
             khachThues.push({
               id: kt.id,
