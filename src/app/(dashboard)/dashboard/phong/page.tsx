@@ -455,7 +455,7 @@ export default function PhongPage() {
                                 <Badge className={`text-xs ${{
                                   trong: 'bg-green-100 text-green-800',
                                   daDat: 'bg-yellow-100 text-yellow-800',
-                                  dangThue: 'bg-blue-100 text-blue-800',
+                                  dangThue: 'bg-green-600 text-white',
                                   baoTri: 'bg-red-100 text-red-800',
                                 }[phong.trangThai] ?? 'bg-gray-100 text-gray-800'}`}>
                                   {{ trong:'Trống', daDat:'Đã đặt', dangThue:'Đang thuê', baoTri:'Bảo trì' }[phong.trangThai] ?? phong.trangThai}

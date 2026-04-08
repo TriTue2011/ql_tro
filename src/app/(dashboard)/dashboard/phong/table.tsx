@@ -107,7 +107,7 @@ const getStatusBadge = (status: string) => {
       )
     case 'dangThue':
       return (
-        <Badge variant="secondary" className="gap-1">
+        <Badge className="gap-1 border-transparent bg-green-600 text-white">
           <Home className="h-3 w-3" />
           Đang thuê
         </Badge>
