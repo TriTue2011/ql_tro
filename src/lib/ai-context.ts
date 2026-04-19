@@ -306,6 +306,73 @@ async function buildManagerPermissionsContext(userId: string): Promise<string> {
   return `\nQUYỀN HẠN ĐƯỢC TRAO:\n${lines.join('\n')}`;
 }
 
+// ── Public room context (cho người lạ hỏi thuê) ─────────────────────────────
+
+/**
+ * Trả về danh sách phòng đang còn trống — chỉ thông tin công khai.
+ * Dùng cho AI tư vấn người lạ có nhu cầu thuê.
+ */
+export async function buildPublicRoomContext(): Promise<string> {
+  const rooms = await prisma.phong.findMany({
+    where: { trangThai: 'trong' },
+    take: 20,
+    orderBy: [{ toaNhaId: 'asc' }, { tang: 'asc' }],
+    select: {
+      maPhong: true,
+      tang: true,
+      dienTich: true,
+      giaThue: true,
+      tienCoc: true,
+      moTa: true,
+      tienNghi: true,
+      soNguoiToiDa: true,
+      toaNha: {
+        select: {
+          tenToaNha: true,
+          diaChi: true,
+          lienHePhuTrach: true,
+        },
+      },
+    },
+  });
+
+  if (rooms.length === 0) return '';
+
+  const lines: string[] = [`Tổng số phòng trống: ${rooms.length}`];
+  rooms.forEach((r, i) => {
+    const addr = r.toaNha.diaChi as {
+      soNha?: string; duong?: string; phuong?: string; quan?: string; thanhPho?: string;
+    } | null;
+    const addrShort = addr
+      ? [addr.soNha, addr.duong, addr.phuong, addr.quan].filter(Boolean).join(', ')
+      : '';
+    lines.push('');
+    lines.push(`[${i + 1}] Phòng ${r.maPhong} — ${r.toaNha.tenToaNha}${addrShort ? ` (${addrShort})` : ''}`);
+    lines.push(`    Tầng ${r.tang} | ${r.dienTich}m² | Tối đa ${r.soNguoiToiDa} người`);
+    lines.push(`    Giá thuê: ${fmtMoney(r.giaThue)}/tháng | Tiền cọc: ${fmtMoney(r.tienCoc)}`);
+    if ((r.tienNghi as string[]).length > 0)
+      lines.push(`    Tiện nghi: ${(r.tienNghi as string[]).join(', ')}`);
+    if (r.moTa) lines.push(`    Mô tả: ${r.moTa.slice(0, 120)}`);
+  });
+
+  // Thêm liên hệ phụ trách (lấy từ tòa nhà đầu tiên có liên hệ)
+  for (const r of rooms) {
+    const contacts = r.toaNha.lienHePhuTrach as
+      | { ten: string; soDienThoai: string; vaiTro?: string }[]
+      | null;
+    if (contacts?.length) {
+      lines.push('');
+      lines.push('LIÊN HỆ TƯ VẤN:');
+      contacts.slice(0, 2).forEach(c => {
+        lines.push(`- ${c.ten}${c.vaiTro ? ` (${c.vaiTro})` : ''}: ${c.soDienThoai}`);
+      });
+      break;
+    }
+  }
+
+  return lines.join('\n');
+}
+
 // ── Main builder ─────────────────────────────────────────────────────────────
 
 export async function buildContextForRole(
