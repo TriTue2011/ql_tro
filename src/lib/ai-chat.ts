@@ -2,11 +2,12 @@
  * ai-chat.ts
  *
  * Unified AI chat interface — hỗ trợ OpenAI (gpt-4o-mini) và Google Gemini.
- * Provider và API key lấy từ CaiDat: ai_provider, ai_api_key, ai_model.
+ * Provider và API key lấy từ CaiDat: ai_provider, ai_api_key, ai_model, ai_base_url.
  *
  * Dùng để:
  *  - Phân loại ý định tin nhắn (intent classification)
  *  - Tạo phản hồi tự nhiên cho chatbot Zalo
+ *  - Chat AI trong dashboard (route /api/ai/chat)
  */
 
 import prisma from '@/lib/prisma';
@@ -20,11 +21,13 @@ interface AiConfig {
   provider: 'openai' | 'gemini' | 'none';
   apiKey: string;
   model: string;
+  /** Custom base URL cho OpenAI-compatible APIs (bỏ trailing slash và /v1) */
+  baseUrl: string;
 }
 
 async function getAiConfig(): Promise<AiConfig> {
   const rows = await prisma.caiDat.findMany({
-    where: { khoa: { in: ['ai_provider', 'ai_api_key', 'ai_model'] } },
+    where: { khoa: { in: ['ai_provider', 'ai_api_key', 'ai_model', 'ai_base_url'] } },
   });
   const map: Record<string, string> = {};
   for (const r of rows) map[r.khoa] = r.giaTri ?? '';
@@ -32,13 +35,23 @@ async function getAiConfig(): Promise<AiConfig> {
   const provider = (map['ai_provider'] ?? 'none') as AiConfig['provider'];
   const apiKey = map['ai_api_key'] ?? '';
   const model = map['ai_model'] ?? '';
+  const baseUrl = (map['ai_base_url'] ?? '').replace(/\/$/, '');
 
-  return { provider, apiKey, model };
+  return { provider, apiKey, model, baseUrl };
 }
 
-/** Gọi OpenAI Chat Completion */
-async function callOpenAI(messages: AiMessage[], model: string, apiKey: string): Promise<string> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+/** Gọi OpenAI Chat Completion (hỗ trợ custom base URL) */
+async function callOpenAI(
+  messages: AiMessage[],
+  model: string,
+  apiKey: string,
+  baseUrl?: string,
+  maxTokens = 600,
+): Promise<string> {
+  const endpoint = baseUrl
+    ? `${baseUrl.replace(/\/v1$/, '')}/v1/chat/completions`
+    : 'https://api.openai.com/v1/chat/completions';
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -47,10 +60,10 @@ async function callOpenAI(messages: AiMessage[], model: string, apiKey: string):
     body: JSON.stringify({
       model: model || 'gpt-4o-mini',
       messages,
-      max_tokens: 500,
+      max_tokens: maxTokens,
       temperature: 0.5,
     }),
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`OpenAI HTTP ${res.status}: ${await res.text()}`);
   const data = await res.json();
@@ -92,13 +105,15 @@ async function callGemini(messages: AiMessage[], model: string, apiKey: string):
  * @param messages  Danh sách tin nhắn (system + lịch sử + user)
  * @returns         Văn bản phản hồi, hoặc null nếu AI chưa cấu hình / lỗi
  */
-export async function askAI(messages: AiMessage[]): Promise<string | null> {
+export async function askAI(messages: AiMessage[], maxTokens = 600): Promise<string | null> {
   try {
     const cfg = await getAiConfig();
     if (cfg.provider === 'none' || !cfg.apiKey) return null;
 
-    if (cfg.provider === 'openai') return await callOpenAI(messages, cfg.model, cfg.apiKey);
-    if (cfg.provider === 'gemini') return await callGemini(messages, cfg.model, cfg.apiKey);
+    if (cfg.provider === 'openai')
+      return await callOpenAI(messages, cfg.model, cfg.apiKey, cfg.baseUrl || undefined, maxTokens);
+    if (cfg.provider === 'gemini')
+      return await callGemini(messages, cfg.model, cfg.apiKey);
     return null;
   } catch (e) {
     console.error('[ai-chat] error:', e);

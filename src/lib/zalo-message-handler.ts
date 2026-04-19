@@ -354,7 +354,7 @@ async function getTenantContext(chatId: string): Promise<string> {
           select: {
             ngayBatDau: true,
             ngayKetThuc: true,
-            tienThue: true,
+            giaThue: true,
             phong: {
               select: {
                 maPhong: true,
@@ -373,7 +373,7 @@ async function getTenantContext(chatId: string): Promise<string> {
     return [
       `Khách thuê: ${kt.hoTen}`,
       `Phòng: ${phong.maPhong} - ${phong.toaNha.tenToaNha}`,
-      `Tiền thuê: ${hd.tienThue?.toLocaleString('vi-VN')}đ/tháng`,
+      `Tiền thuê: ${hd.giaThue?.toLocaleString('vi-VN')}đ/tháng`,
       `Hợp đồng: ${new Date(hd.ngayBatDau).toLocaleDateString('vi-VN')} – ${new Date(hd.ngayKetThuc).toLocaleDateString('vi-VN')}`,
     ].join('\n');
   } catch {

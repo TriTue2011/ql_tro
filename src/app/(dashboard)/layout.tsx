@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { BsSidebar } from '@/components/bs-sidebar';
+import AiAssistant from '@/components/ai-assistant';
 import '@/styles/bs-admin.css';
 
 // Bootstrap 5 + Bootstrap Icons — CDN
@@ -531,6 +532,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           <main className="bs-page">{children}</main>
         </div>
       </div>
+      <AiAssistant />
     </>
   );
 }

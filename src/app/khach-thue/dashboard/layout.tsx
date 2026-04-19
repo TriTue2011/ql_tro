@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import AiAssistant from '@/components/ai-assistant';
 import '@/styles/bs-admin.css';
 
 function BootstrapCDN() {
@@ -169,6 +170,7 @@ export default function KhachThueDashboardLayout({ children }: { children: React
           <main className="bs-page">{children}</main>
         </div>
       </div>
+      <AiAssistant />
     </>
   );
 }
