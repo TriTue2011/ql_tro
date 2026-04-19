@@ -22,7 +22,7 @@ import NguoiDungRepository from '@/lib/repositories/pg/nguoi-dung';
 import { sendMessageViaBotServer, getAllFriendsFromBotServer, getAllGroupsFromBotServer, getGroupMembersFromBotServer, findUserViaBotServer, getUserInfoViaBotServer } from '@/lib/zalo-bot-client';
 import { isFriendInDb, refreshAndCheckFriend } from '@/lib/zalo-friends';
 import { emitNewMessage } from '@/lib/zalo-message-events';
-import { askAI, askAIWithImage, classifyIntent, AiMessage } from '@/lib/ai-chat';
+import { askAI, askAIWithImage, AiMessage } from '@/lib/ai-chat';
 import { buildContextForRole, buildPublicRoomContext } from '@/lib/ai-context';
 
 // ─── Cache bạn bè + thành viên nhóm ─────────────────────────────────────────
@@ -444,9 +444,34 @@ async function handleRegisteredTenant(
 }
 
 /**
- * Xử lý người lạ hỏi thuê phòng.
- * - Classify intent → nếu 'rental' → AI giới thiệu phòng trống từ DB
- * - Không tiết lộ thông tin khách thuê đang ở
+ * Kiểm tra tin nhắn của người lạ có liên quan đến lĩnh vực phòng trọ không.
+ * Dùng AI phân tích — chỉ trả lời "yes" / "no".
+ * Liên quan: thuê phòng, giá cả, tiện nghi, vị trí, xem phòng, điều kiện thuê, đặt cọc.
+ * Không liên quan: mọi chủ đề khác hoàn toàn không dính đến nhà trọ.
+ */
+async function isRentalDomainQuery(text: string): Promise<boolean> {
+  const result = await askAI([
+    {
+      role: 'system',
+      content:
+        'Bạn là bộ kiểm tra nội dung cho hệ thống quản lý nhà trọ. ' +
+        'Xác định xem tin nhắn sau có liên quan đến lĩnh vực phòng trọ/nhà cho thuê không. ' +
+        '"Liên quan" bao gồm: hỏi thuê phòng, giá thuê, diện tích, tiện nghi, vị trí/địa chỉ, ' +
+        'xem phòng, đặt cọc, điều kiện thuê, hợp đồng thuê, phòng trống, dịch vụ đi kèm. ' +
+        '"Không liên quan" là mọi chủ đề khác không dính đến nhà trọ. ' +
+        'Chỉ trả về đúng 1 từ: "yes" hoặc "no".',
+    },
+    { role: 'user', content: text },
+  ], 10).catch(() => null);
+  return result?.toLowerCase().trim() === 'yes';
+}
+
+/**
+ * Xử lý người lạ gửi tin nhắn liên quan đến phòng trọ.
+ * - AI phân tích xem nội dung có thuộc lĩnh vực phòng trọ không
+ * - Nếu có → AI tư vấn dựa trên danh sách phòng trống từ DB
+ * - Nếu không liên quan → bỏ qua (để handleStranger chạy)
+ * - Không tiết lộ thông tin cá nhân của bất kỳ khách thuê nào
  * Trả về true nếu đã xử lý.
  */
 async function handleStrangerRentalInquiry(
@@ -458,8 +483,10 @@ async function handleStrangerRentalInquiry(
 ): Promise<boolean> {
   if (!text && !attachmentUrl) return false;
 
-  const intent = await classifyIntent(text || 'thuê phòng').catch(() => null);
-  if (intent !== 'rental') return false;
+  // Bỏ qua ngay nếu AI chưa cấu hình (isRentalDomainQuery sẽ luôn null)
+  // hoặc nội dung không liên quan đến phòng trọ
+  const relevant = await isRentalDomainQuery(text || '').catch(() => false);
+  if (!relevant) return false;
 
   const [publicCtx, history] = await Promise.all([
     buildPublicRoomContext().catch(() => ''),
