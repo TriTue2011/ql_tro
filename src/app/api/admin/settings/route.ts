@@ -7,8 +7,8 @@ import { z } from 'zod';
 // Vai trò được phép quản lý cài đặt hệ thống
 const ALLOWED_ROLES = ['admin', 'chuNha'];
 
-// Nhóm chỉ admin được xem/sửa (liên quan server/DB/hạ tầng)
-const ADMIN_ONLY_NHOM = new Set(['luuTru', 'heThong', 'baoMat']);
+// Nhóm chỉ admin được xem/sửa (liên quan server/DB/hạ tầng + cấu hình AI)
+const ADMIN_ONLY_NHOM = new Set(['luuTru', 'heThong', 'baoMat', 'ai']);
 
 // Danh sách cài đặt mặc định — admin và chuNha đọc/ghi
 const DEFAULT_SETTINGS = [
@@ -55,10 +55,11 @@ const DEFAULT_SETTINGS = [
   { khoa: 'bot_forward_unknown', giaTri: 'true', moTa: 'Chuyển tiếp tin nhắn người lạ đến quản lý (true/false)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'bot_forward_thread_id', giaTri: '', moTa: 'Thread ID nhóm Zalo mặc định nhận tin chuyển tiếp người lạ (ghi đè bởi cài đặt tòa nhà)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'bot_greeting_stranger', giaTri: 'Xin chào! Tôi là trợ lý tự động của nhà trọ. Bạn cần hỗ trợ gì? Nếu bạn đang tìm phòng, hãy cho tôi biết số người ở và diện tích mong muốn.', moTa: 'Tin chào tự động gửi cho người lạ nhắn tin lần đầu', nhom: 'thongBao', laBiMat: false },
-  // AI
-  { khoa: 'ai_provider', giaTri: 'none', moTa: 'Nhà cung cấp AI: none | openai | gemini', nhom: 'thongBao', laBiMat: false },
-  { khoa: 'ai_api_key', giaTri: '', moTa: 'API Key của nhà cung cấp AI (OpenAI hoặc Gemini)', nhom: 'thongBao', laBiMat: true },
-  { khoa: 'ai_model', giaTri: '', moTa: 'Tên model AI (để trống = dùng mặc định: gpt-4o-mini / gemini-1.5-flash)', nhom: 'thongBao', laBiMat: false },
+  // AI — chỉ admin mới được xem/sửa
+  { khoa: 'ai_provider', giaTri: 'none', moTa: 'Nhà cung cấp AI: none | openai | gemini', nhom: 'ai', laBiMat: false },
+  { khoa: 'ai_api_key', giaTri: '', moTa: 'API Key của nhà cung cấp AI (OpenAI hoặc Gemini)', nhom: 'ai', laBiMat: true },
+  { khoa: 'ai_model', giaTri: '', moTa: 'Tên model AI (để trống = dùng mặc định: gpt-4o-mini / gemini-1.5-flash)', nhom: 'ai', laBiMat: false },
+  { khoa: 'ai_base_url', giaTri: '', moTa: 'Base URL tùy chỉnh cho OpenAI-compatible API (bỏ trống = dùng api.openai.com)', nhom: 'ai', laBiMat: false },
   // Hệ thống
   { khoa: 'app_local_url', giaTri: '', moTa: 'URL ứng dụng qua IP LAN (vd: http://172.16.10.200:3000) — dùng cho webhook nội bộ', nhom: 'heThong', laBiMat: false },
   { khoa: 'app_domain_url', giaTri: '', moTa: 'URL ứng dụng qua domain (vd: https://qlpt.vhtatn.io.vn) — dùng cho webhook qua internet', nhom: 'heThong', laBiMat: false },

@@ -57,6 +57,7 @@ import {
   AlertTriangle,
   Zap,
   Cloud,
+  Bot,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -79,6 +80,7 @@ const NHOM_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
   thanhToan: { label: "Thanh toán", icon: <CreditCard className="h-4 w-4" /> },
   heThong: { label: "Hệ thống", icon: <Building2 className="h-4 w-4" /> },
   baoMat: { label: "Bảo mật", icon: <Lock className="h-4 w-4" /> },
+  ai: { label: "AI", icon: <Bot className="h-4 w-4" /> },
 };
 
 // ─── Component: Ô nhập cài đặt ────────────────────────────────────────────────
@@ -2432,7 +2434,7 @@ export default function CaiDatPage() {
     {},
   );
 
-  const groupOrder = ["luuTru", "thongBao", "thanhToan", "heThong", "baoMat"];
+  const groupOrder = ["luuTru", "thongBao", "thanhToan", "heThong", "baoMat", "ai"];
 
   const alertItems = (settingsByGroup["thongBao"] ?? []).filter((s) =>
     ALERT_KEYS.has(s.khoa),
@@ -2467,6 +2469,13 @@ export default function CaiDatPage() {
               >
                 <HardDrive className="h-3.5 w-3.5" />
                 Lưu trữ
+              </TabsTrigger>
+              <TabsTrigger
+                value="ai"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <Bot className="h-3.5 w-3.5" />
+                AI
               </TabsTrigger>
               <TabsTrigger
                 value="dangNhapKT"
@@ -2646,6 +2655,26 @@ export default function CaiDatPage() {
         {isAdmin && !loadingSystem && !errorSystem && (
           <TabsContent value="luuTru" className="space-y-4 mt-4">
             <AdminToaNhaSettingsPanel tab="storage" />
+          </TabsContent>
+        )}
+
+        {/* ── Tab AI (chỉ admin) ─────────────────────────────────────────────── */}
+        {isAdmin && !loadingSystem && !errorSystem && (
+          <TabsContent value="ai" className="space-y-4 mt-4">
+            {settingsByGroup["ai"]?.length ? (
+              <SettingGroupCard
+                nhom="ai"
+                items={settingsByGroup["ai"]}
+                values={settingValues}
+                onChange={handleSettingChange}
+                onSave={handleSaveGroup}
+                saving={savingGroup === "ai"}
+              />
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-8">
+                Chưa có cài đặt AI nào.
+              </p>
+            )}
           </TabsContent>
         )}
 
