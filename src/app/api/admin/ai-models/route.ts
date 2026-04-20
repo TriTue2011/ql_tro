@@ -1,12 +1,14 @@
 /**
  * /api/admin/ai-models
  *
- * Lấy danh sách model từ provider AI đã cấu hình — chỉ admin.
+ * Lấy danh sách model từ provider AI — chỉ admin.
  * POST { provider, apiKey, baseUrl } → { models: string[] }
  *
  * Hỗ trợ:
  *  - OpenAI-compatible: GET {baseUrl}/v1/models  (Bearer auth)
  *  - Google Gemini:     GET https://generativelanguage.googleapis.com/v1beta/models?key=...
+ *
+ * Lưu ý: nếu apiKey từ body chứa '••••' (bị mask) thì đọc key thật từ CaiDat DB.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,6 +18,9 @@ import prisma from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
+// Model Gemini thực sự dùng được cho chat/vision (loại bỏ embedding, aqa, legacy)
+const GEMINI_SKIP = /embedding|aqa|vision(?!-pro)|imagen|tts|audio|whisper/i;
+
 async function fetchOpenAIModels(apiKey: string, baseUrl: string): Promise<string[]> {
   const base = baseUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
   const url = `${base || 'https://api.openai.com'}/v1/models`;
@@ -23,22 +28,42 @@ async function fetchOpenAIModels(apiKey: string, baseUrl: string): Promise<strin
     headers: { Authorization: `Bearer ${apiKey}` },
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text().catch(() => '')}`);
   const data = await res.json();
   const items: { id: string }[] = data.data ?? data.models ?? [];
   return items.map(m => m.id).sort();
 }
 
 async function fetchGeminiModels(apiKey: string): Promise<string[]> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=100`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=200`;
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    // Trả lỗi rõ ràng hơn cho API key sai
+    if (res.status === 400 || res.status === 403) throw new Error(`API key không hợp lệ (${res.status})`);
+    throw new Error(`HTTP ${res.status}: ${body}`);
+  }
   const data = await res.json();
-  const items: { name: string; supportedGenerationMethods?: string[] }[] = data.models ?? [];
+  const items: { name: string; supportedGenerationMethods?: string[]; displayName?: string }[] = data.models ?? [];
   return items
-    .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+    .filter(m =>
+      m.supportedGenerationMethods?.includes('generateContent') &&
+      !GEMINI_SKIP.test(m.name),
+    )
     .map(m => m.name.replace('models/', ''))
-    .sort();
+    // Ưu tiên hiện các model gemini-* trước, rồi các model khác
+    .sort((a, b) => {
+      const aG = a.startsWith('gemini') ? 0 : 1;
+      const bG = b.startsWith('gemini') ? 0 : 1;
+      return aG - bG || a.localeCompare(b);
+    });
+}
+
+/** Đọc API key thật từ DB (bỏ qua nếu frontend gửi lên key đã bị mask) */
+async function resolveApiKey(fromBody: string | undefined): Promise<string> {
+  if (fromBody && !fromBody.includes('•')) return fromBody;
+  const row = await prisma.caiDat.findFirst({ where: { khoa: 'ai_api_key' } });
+  return row?.giaTri ?? '';
 }
 
 export async function POST(req: NextRequest) {
@@ -47,35 +72,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Ưu tiên dùng giá trị từ body (admin đang nhập nhưng chưa lưu)
-  // Fallback: đọc từ CaiDat
   const body = await req.json().catch(() => ({}));
-  let { provider, apiKey, baseUrl } = body as {
+  const { provider: bodyProvider, apiKey: bodyKey, baseUrl: bodyBase } = body as {
     provider?: string; apiKey?: string; baseUrl?: string;
   };
 
-  if (!provider || !apiKey) {
-    const rows = await prisma.caiDat.findMany({
-      where: { khoa: { in: ['ai_provider', 'ai_api_key', 'ai_base_url'] } },
-    });
-    const map: Record<string, string> = {};
-    for (const r of rows) map[r.khoa] = r.giaTri ?? '';
-    provider  = provider  || map['ai_provider']  || 'none';
-    apiKey    = apiKey    || map['ai_api_key']   || '';
-    baseUrl   = baseUrl   || map['ai_base_url']  || '';
-  }
+  // Đọc từ DB làm fallback cho mọi field chưa có / bị mask
+  const rows = await prisma.caiDat.findMany({
+    where: { khoa: { in: ['ai_provider', 'ai_api_key', 'ai_base_url'] } },
+  });
+  const db: Record<string, string> = {};
+  for (const r of rows) db[r.khoa] = r.giaTri ?? '';
 
-  if (!apiKey || provider === 'none') {
-    return NextResponse.json({ error: 'Chưa có API key hoặc provider' }, { status: 400 });
+  const provider = bodyProvider || db['ai_provider'] || 'none';
+  const baseUrl  = bodyBase    || db['ai_base_url']  || '';
+  // Key: body có priority nhưng nếu bị mask thì lấy từ DB
+  const apiKey   = await resolveApiKey(bodyKey || db['ai_api_key']);
+
+  if (provider === 'none' || !apiKey) {
+    return NextResponse.json({ error: 'Chưa có API key hoặc chưa chọn provider' }, { status: 400 });
   }
 
   try {
-    let models: string[];
-    if (provider === 'gemini') {
-      models = await fetchGeminiModels(apiKey);
-    } else {
-      models = await fetchOpenAIModels(apiKey, baseUrl ?? '');
-    }
+    const models = provider === 'gemini'
+      ? await fetchGeminiModels(apiKey)
+      : await fetchOpenAIModels(apiKey, baseUrl);
     return NextResponse.json({ success: true, models });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
