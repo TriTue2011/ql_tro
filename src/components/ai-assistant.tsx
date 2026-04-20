@@ -11,6 +11,7 @@ const WELCOME =
   'Xin chào! Tôi là trợ lý AI của hệ thống. Tôi có thể giúp bạn tra cứu thông tin phòng, hóa đơn, hợp đồng và các vấn đề liên quan. Bạn cần hỗ trợ gì?';
 
 export default function AiAssistant() {
+  const [aiStatus, setAiStatus] = useState<'loading' | 'enabled' | 'disabled'>('loading');
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: WELCOME },
@@ -20,6 +21,19 @@ export default function AiAssistant() {
   const [error, setError] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Kiểm tra tài khoản có được kích hoạt AI không
+  useEffect(() => {
+    fetch('/api/ai/status')
+      .then(r => r.json())
+      .then((d: { enabled?: boolean; configured?: boolean }) => {
+        setAiStatus(d.enabled && d.configured ? 'enabled' : 'disabled');
+      })
+      .catch(() => setAiStatus('disabled'));
+  }, []);
+
+  // Ẩn hoàn toàn nếu chưa kích hoạt
+  if (aiStatus === 'loading' || aiStatus === 'disabled') return null;
 
   useEffect(() => {
     if (open) {

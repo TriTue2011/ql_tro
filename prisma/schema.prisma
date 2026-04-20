@@ -23,6 +23,7 @@ model NguoiDung {
   zaloChatIds       Json?     // Map { [botAccountId]: chatId } — lưu chatId theo từng tài khoản bot
   pendingZaloChatId String?  // Zalo bot chat_id chờ xác nhận (từ getUpdates)
   nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
+  aiEnabled         Boolean  @default(false) // Admin kích hoạt trợ lý AI cho tài khoản này
   zaloAccountId     String?  // Account ID (own_id) trên bot server dùng gửi tin
   zaloBotServerUrl  String?  // URL bot server riêng (ghi đè CaiDat nếu có)
   zaloBotUsername   String?  // Username bot server riêng

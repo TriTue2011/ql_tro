@@ -1726,6 +1726,120 @@ function AdminDangNhapKTPanel() {
   );
 }
 
+// ─── AdminAiAccountsPanel ──────────────────────────────────────────────────────
+
+interface AiAccount {
+  id: string;
+  ten: string;
+  email: string | null;
+  soDienThoai: string | null;
+  vaiTro: string;
+  vaiTroLabel: string;
+  trangThai: string;
+  aiEnabled: boolean;
+}
+
+function AdminAiAccountsPanel() {
+  const [accounts, setAccounts] = useState<AiAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/ai-accounts')
+      .then(r => r.json())
+      .then(res => { if (res.success) setAccounts(res.data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function toggleAi(userId: string, current: boolean) {
+    setSaving(userId);
+    try {
+      const res = await fetch('/api/admin/ai-accounts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, aiEnabled: !current }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setAccounts(prev => prev.map(a => a.id === userId ? { ...a, aiEnabled: !current } : a));
+        toast.success(!current ? 'Đã kích hoạt AI' : 'Đã tắt AI');
+      } else {
+        toast.error('Lưu thất bại');
+      }
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setSaving(null); }
+  }
+
+  const grouped = accounts.reduce<Record<string, AiAccount[]>>((acc, a) => {
+    if (!acc[a.vaiTroLabel]) acc[a.vaiTroLabel] = [];
+    acc[a.vaiTroLabel].push(a);
+    return acc;
+  }, {});
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <Bot className="h-4 w-4 md:h-5 md:w-5" />
+          Kích hoạt AI theo tài khoản
+        </CardTitle>
+        <CardDescription className="text-xs md:text-sm">
+          Bật/tắt tính năng trợ lý AI cho từng tài khoản trong hệ thống. Admin luôn có quyền dùng AI.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-500 text-sm">Đang tải...</span>
+          </div>
+        ) : accounts.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-8">Chưa có tài khoản nào.</p>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(grouped).map(([label, list]) => (
+              <div key={label}>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{label}</p>
+                <div className="space-y-2">
+                  {list.map(account => (
+                    <div
+                      key={account.id}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${account.trangThai === 'hoatDong' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{account.ten}</p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {account.email ?? account.soDienThoai ?? '—'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {account.aiEnabled && (
+                          <Badge variant="outline" className="text-xs text-green-600 border-green-300 bg-green-50">
+                            AI bật
+                          </Badge>
+                        )}
+                        <Switch
+                          checked={account.aiEnabled}
+                          disabled={saving === account.id}
+                          onCheckedChange={() => toggleAi(account.id, account.aiEnabled)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CaiDatPage() {
@@ -2675,6 +2789,7 @@ export default function CaiDatPage() {
                 Chưa có cài đặt AI nào.
               </p>
             )}
+            <AdminAiAccountsPanel />
           </TabsContent>
         )}
 

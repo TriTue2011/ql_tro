@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { askAI, AiMessage } from '@/lib/ai-chat';
 import { buildContextForRole, UserRole } from '@/lib/ai-context';
+import prisma from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 export const maxDuration = 40;
@@ -25,6 +26,21 @@ export async function POST(req: NextRequest) {
 
   const userId = session.user.id;
   const role = (session.user.role ?? 'nhanVien') as UserRole;
+
+  // ── Kiểm tra quyền dùng AI ────────────────────────────────────────────────
+  // Admin luôn có quyền; các vai trò khác cần được admin kích hoạt
+  if (role !== 'admin') {
+    const user = await prisma.nguoiDung.findUnique({
+      where: { id: userId },
+      select: { aiEnabled: true },
+    });
+    if (!user?.aiEnabled) {
+      return NextResponse.json(
+        { error: 'Tính năng AI chưa được kích hoạt cho tài khoản của bạn. Liên hệ admin để được cấp quyền.' },
+        { status: 403 },
+      );
+    }
+  }
 
   // ── Parse body ────────────────────────────────────────────────────────────
   let body: { messages?: unknown };
