@@ -1726,6 +1726,174 @@ function AdminDangNhapKTPanel() {
   );
 }
 
+// ─── AdminAiSettingsPanel ──────────────────────────────────────────────────────
+
+function AdminAiSettingsPanel({
+  items,
+  values,
+  onChange,
+  onSave,
+  saving,
+}: {
+  items: CaiDatItem[];
+  values: Record<string, string>;
+  onChange: (khoa: string, val: string) => void;
+  onSave: (nhom: string) => void;
+  saving: boolean;
+}) {
+  const [showKey, setShowKey] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelError, setModelError] = useState('');
+
+  const provider = values['ai_provider'] ?? 'none';
+  const apiKey   = values['ai_api_key']  ?? '';
+  const baseUrl  = values['ai_base_url'] ?? '';
+  const model    = values['ai_model']    ?? '';
+
+  async function handleFetchModels() {
+    setLoadingModels(true);
+    setModelError('');
+    setModels([]);
+    try {
+      const res = await fetch('/api/admin/ai-models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, apiKey, baseUrl }),
+      });
+      const data = await res.json();
+      if (data.models?.length) {
+        setModels(data.models);
+        toast.success(`Tìm thấy ${data.models.length} model`);
+      } else {
+        setModelError(data.error ?? 'Không tìm thấy model nào');
+      }
+    } catch {
+      setModelError('Lỗi kết nối');
+    }
+    setLoadingModels(false);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <Bot className="h-4 w-4 md:h-5 md:w-5" />
+          Cấu hình AI
+        </CardTitle>
+        <CardDescription className="text-xs md:text-sm">
+          Thiết lập nhà cung cấp AI, API key và model. Hỗ trợ OpenAI, Gemini và các API tương thích OpenAI.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 pt-0 space-y-5">
+
+        {/* Provider */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Nhà cung cấp AI</Label>
+          <Select value={provider} onValueChange={v => onChange('ai_provider', v)}>
+            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Tắt AI</SelectItem>
+              <SelectItem value="openai">OpenAI / OpenAI-compatible</SelectItem>
+              <SelectItem value="gemini">Google Gemini</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* API Key */}
+        {provider !== 'none' && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">API Key</Label>
+            <div className="relative">
+              <Input
+                type={showKey ? 'text' : 'password'}
+                value={apiKey}
+                onChange={e => onChange('ai_api_key', e.target.value)}
+                placeholder={provider === 'gemini' ? 'AIza...' : 'sk-...'}
+                className="pr-9 text-sm font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(p => !p)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showKey
+                  ? <Eye className="h-4 w-4" />
+                  : <EyeOff className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Base URL — chỉ OpenAI */}
+        {provider === 'openai' && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">
+              Base URL <span className="text-gray-400 font-normal">(để trống = dùng api.openai.com)</span>
+            </Label>
+            <Input
+              value={baseUrl}
+              onChange={e => onChange('ai_base_url', e.target.value)}
+              placeholder="http://localhost:5001"
+              className="text-sm font-mono"
+            />
+          </div>
+        )}
+
+        {/* Model */}
+        {provider !== 'none' && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Model</Label>
+            <div className="flex gap-2">
+              {models.length > 0 ? (
+                <Select value={model} onValueChange={v => onChange('ai_model', v)}>
+                  <SelectTrigger className="text-sm flex-1"><SelectValue placeholder="Chọn model" /></SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {models.map(m => (
+                      <SelectItem key={m} value={m} className="font-mono text-xs">{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={model}
+                  onChange={e => onChange('ai_model', e.target.value)}
+                  placeholder={provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini'}
+                  className="text-sm font-mono flex-1"
+                />
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFetchModels}
+                disabled={loadingModels || !apiKey || provider === 'none'}
+                className="shrink-0"
+                title="Tải danh sách model từ API"
+              >
+                {loadingModels
+                  ? <RefreshCw className="h-4 w-4 animate-spin" />
+                  : <RefreshCw className="h-4 w-4" />}
+                <span className="ml-1.5 hidden sm:inline">Tải model</span>
+              </Button>
+            </div>
+            {modelError && <p className="text-xs text-red-500">{modelError}</p>}
+            {models.length > 0 && (
+              <p className="text-xs text-gray-500">{models.length} model khả dụng — nhập tay hoặc chọn từ danh sách.</p>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end pt-2">
+          <Button onClick={() => onSave('ai')} disabled={saving} size="sm">
+            {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            Lưu cài đặt AI
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── AdminAiAccountsPanel ──────────────────────────────────────────────────────
 
 interface AiAccount {
@@ -2775,20 +2943,13 @@ export default function CaiDatPage() {
         {/* ── Tab AI (chỉ admin) ─────────────────────────────────────────────── */}
         {isAdmin && !loadingSystem && !errorSystem && (
           <TabsContent value="ai" className="space-y-4 mt-4">
-            {settingsByGroup["ai"]?.length ? (
-              <SettingGroupCard
-                nhom="ai"
-                items={settingsByGroup["ai"]}
-                values={settingValues}
-                onChange={handleSettingChange}
-                onSave={handleSaveGroup}
-                saving={savingGroup === "ai"}
-              />
-            ) : (
-              <p className="text-sm text-gray-500 text-center py-8">
-                Chưa có cài đặt AI nào.
-              </p>
-            )}
+            <AdminAiSettingsPanel
+              items={settingsByGroup["ai"] ?? []}
+              values={settingValues}
+              onChange={handleSettingChange}
+              onSave={handleSaveGroup}
+              saving={savingGroup === "ai"}
+            />
             <AdminAiAccountsPanel />
           </TabsContent>
         )}
