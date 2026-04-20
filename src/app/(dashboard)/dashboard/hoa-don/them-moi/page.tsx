@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -99,6 +99,9 @@ export default function ThemMoiHoaDonPage() {
     
     return `HD${year}${month}${day}${randomNum}`;
   };
+
+  const hanThanhToanEdited = useRef(false);
+  const prevHopDongRef = useRef('');
 
   const [newPhiDichVu, setNewPhiDichVu] = useState({ ten: '', gia: 0 });
   const [readingSource, setReadingSource] = useState<{
@@ -242,11 +245,25 @@ export default function ThemMoiHoaDonPage() {
     }
   };
 
-  // Auto-fill form data when contract is selected
+  // Auto-fill form data when contract is selected or month/year changes
   useEffect(() => {
     if (formData.hopDong) {
+      const hopDongChanged = formData.hopDong !== prevHopDongRef.current;
+      prevHopDongRef.current = formData.hopDong;
+
+      // Reset manual-edit flag when user picks a different contract
+      if (hopDongChanged) {
+        hanThanhToanEdited.current = false;
+      }
+
       const selectedHopDong = hopDongList.find(hd => hd.id === formData.hopDong);
       if (selectedHopDong) {
+        const calcDate = (() => {
+          const lastDay = new Date(formData.nam, formData.thang, 0).getDate();
+          const day = Math.min(selectedHopDong.ngayThanhToan, lastDay);
+          return `${formData.nam}-${String(formData.thang).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        })();
+
         setFormData(prev => ({
           ...prev,
           phong: selectedHopDong.phong as string,
@@ -255,12 +272,8 @@ export default function ThemMoiHoaDonPage() {
           phiDichVu: selectedHopDong.phiDichVu || [],
           chiSoDienBanDau: 0,
           chiSoNuocBanDau: 0,
-          // Đặt hạn thanh toán tự động theo ngayThanhToan trong hợp đồng
-          hanThanhToan: (() => {
-            const lastDay = new Date(formData.nam, formData.thang, 0).getDate();
-            const day = Math.min(selectedHopDong.ngayThanhToan, lastDay);
-            return `${formData.nam}-${String(formData.thang).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-          })(),
+          // Only auto-calc date when contract changes or user hasn't manually edited it
+          hanThanhToan: (hopDongChanged || !hanThanhToanEdited.current) ? calcDate : prev.hanThanhToan,
         }));
         setProRataInfo(null);
         fetchLatestElectricityReading(formData.hopDong, formData.thang, formData.nam);
@@ -607,7 +620,10 @@ export default function ThemMoiHoaDonPage() {
                       id="hanThanhToan"
                       type="date"
                       value={formData.hanThanhToan}
-                      onChange={(e) => setFormData(prev => ({ ...prev, hanThanhToan: e.target.value }))}
+                      onChange={(e) => {
+                        hanThanhToanEdited.current = true;
+                        setFormData(prev => ({ ...prev, hanThanhToan: e.target.value }));
+                      }}
                       required
                       className="h-10"
                     />

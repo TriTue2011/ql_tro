@@ -181,7 +181,7 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
 
   if (buildingIds.length === 0) return '(Chưa được gán tòa nhà nào)';
 
-  const [buildings, roomStats, overdueCount, expiringCount, openIncidents] = await Promise.all([
+  const [buildings, roomStats, unpaidCount, overdueCount, expiringCount, openIncidents] = await Promise.all([
     prisma.toaNha.findMany({
       where: { id: { in: buildingIds } },
       select: {
@@ -196,6 +196,13 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
       by: ['trangThai'],
       where: { toaNhaId: { in: buildingIds } },
       _count: { _all: true },
+    }),
+
+    prisma.hoaDon.count({
+      where: {
+        phong: { toaNhaId: { in: buildingIds } },
+        trangThai: { in: ['chuaThanhToan', 'daThanhToanMotPhan', 'quaHan'] },
+      },
     }),
 
     prisma.hoaDon.count({
@@ -255,8 +262,11 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
   if (countByStatus('baoTri') > 0) lines.push(`- Bảo trì: ${countByStatus('baoTri')} phòng`);
   if (countByStatus('daDat') > 0) lines.push(`- Đã đặt: ${countByStatus('daDat')} phòng`);
 
-  if (overdueCount > 0)
-    lines.push(`\nHÓA ĐƠN QUÁ HẠN CHƯA THANH TOÁN: ${overdueCount} hóa đơn`);
+  if (unpaidCount > 0) {
+    lines.push(`\nHÓA ĐƠN CHƯA THANH TOÁN: ${unpaidCount} hóa đơn`);
+    if (overdueCount > 0)
+      lines.push(`  Trong đó quá hạn: ${overdueCount} hóa đơn`);
+  }
 
   if (expiringCount > 0)
     lines.push(`HỢP ĐỒNG SẮP HẾT HẠN (30 ngày): ${expiringCount} hợp đồng`);
