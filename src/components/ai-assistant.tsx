@@ -32,9 +32,6 @@ export default function AiAssistant() {
       .catch(() => setAiStatus('disabled'));
   }, []);
 
-  // Ẩn hoàn toàn nếu chưa kích hoạt
-  if (aiStatus === 'loading' || aiStatus === 'disabled') return null;
-
   useEffect(() => {
     if (open) {
       endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -86,6 +83,9 @@ export default function AiAssistant() {
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 100) + 'px';
   };
+
+  // Ẩn hoàn toàn nếu AI chưa kích hoạt — phải sau tất cả hooks
+  if (aiStatus === 'loading' || aiStatus === 'disabled') return null;
 
   return (
     <>
