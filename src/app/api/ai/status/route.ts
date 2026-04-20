@@ -3,7 +3,7 @@
  *
  * Kiểm tra trạng thái AI cho tài khoản hiện tại.
  * GET → { enabled: boolean, configured: boolean }
- *   enabled    = admin luôn true; các vai trò khác cần aiEnabled = true trong DB
+ *   enabled    = admin luôn true; các vai trò khác cần ID có trong ai_enabled_user_ids
  *   configured = ai_provider != 'none' && ai_api_key != ''
  */
 
@@ -21,16 +21,19 @@ export async function GET() {
   }
 
   const role = session.user.role ?? '';
+  const userId = session.user.id;
 
-  // Admin luôn có quyền dùng AI
+  // Admin luôn có quyền
   let enabled = role === 'admin';
 
   if (!enabled) {
-    const user = await prisma.nguoiDung.findUnique({
-      where: { id: session.user.id },
-      select: { aiEnabled: true },
-    });
-    enabled = user?.aiEnabled === true;
+    const row = await prisma.caiDat.findFirst({ where: { khoa: 'ai_enabled_user_ids' } });
+    try {
+      const arr: string[] = JSON.parse(row?.giaTri ?? '[]');
+      enabled = Array.isArray(arr) && arr.includes(userId);
+    } catch {
+      enabled = false;
+    }
   }
 
   // Kiểm tra AI đã cấu hình chưa
@@ -39,7 +42,10 @@ export async function GET() {
   });
   const map: Record<string, string> = {};
   for (const r of rows) map[r.khoa] = r.giaTri ?? '';
-  const configured = map['ai_provider'] !== 'none' && Boolean(map['ai_provider']) && Boolean(map['ai_api_key']);
+  const configured =
+    Boolean(map['ai_provider']) &&
+    map['ai_provider'] !== 'none' &&
+    Boolean(map['ai_api_key']);
 
   return NextResponse.json({ enabled, configured });
 }

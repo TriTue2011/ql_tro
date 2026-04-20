@@ -2,7 +2,8 @@
  * /api/ai/chat
  *
  * AI chat endpoint với phân quyền theo vai trò.
- * - Xác thực qua NextAuth session (NguoiDung) hoặc khachThue session
+ * - Xác thực qua NextAuth session (NguoiDung)
+ * - Admin luôn được dùng; các vai trò khác cần ID có trong ai_enabled_user_ids (CaiDat)
  * - Xây dựng context DB theo vai trò người dùng
  * - Trả lời chỉ trong phạm vi quyền của người hỏi
  */
@@ -28,13 +29,15 @@ export async function POST(req: NextRequest) {
   const role = (session.user.role ?? 'nhanVien') as UserRole;
 
   // ── Kiểm tra quyền dùng AI ────────────────────────────────────────────────
-  // Admin luôn có quyền; các vai trò khác cần được admin kích hoạt
   if (role !== 'admin') {
-    const user = await prisma.nguoiDung.findUnique({
-      where: { id: userId },
-      select: { aiEnabled: true },
-    });
-    if (!user?.aiEnabled) {
+    const row = await prisma.caiDat.findFirst({ where: { khoa: 'ai_enabled_user_ids' } });
+    let allowed = false;
+    try {
+      const arr: string[] = JSON.parse(row?.giaTri ?? '[]');
+      allowed = Array.isArray(arr) && arr.includes(userId);
+    } catch { allowed = false; }
+
+    if (!allowed) {
       return NextResponse.json(
         { error: 'Tính năng AI chưa được kích hoạt cho tài khoản của bạn. Liên hệ admin để được cấp quyền.' },
         { status: 403 },
@@ -54,14 +57,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Thiếu messages' }, { status: 400 });
   }
 
-  // Validate message format — chỉ nhận role user/assistant, nội dung là string
   const messages = body.messages as { role: string; content: string }[];
   const validRoles = new Set(['user', 'assistant']);
-  if (
-    messages.some(
-      m => !validRoles.has(m.role) || typeof m.content !== 'string' || m.content.length > 2000,
-    )
-  ) {
+  if (messages.some(m => !validRoles.has(m.role) || typeof m.content !== 'string' || m.content.length > 2000)) {
     return NextResponse.json({ error: 'Messages không hợp lệ' }, { status: 400 });
   }
 
@@ -76,7 +74,6 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Call AI ───────────────────────────────────────────────────────────────
-  // Giữ tối đa 12 tin nhắn gần nhất để tránh vượt context limit
   const history = messages.slice(-12) as AiMessage[];
   const aiMessages: AiMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -93,10 +90,7 @@ export async function POST(req: NextRequest) {
 
   if (!reply) {
     return NextResponse.json(
-      {
-        error:
-          'AI chưa được cấu hình. Vào Cài đặt → Hệ thống để thiết lập API key và nhà cung cấp AI.',
-      },
+      { error: 'AI chưa được cấu hình. Vào Cài đặt → AI để thiết lập API key và nhà cung cấp AI.' },
       { status: 503 },
     );
   }
