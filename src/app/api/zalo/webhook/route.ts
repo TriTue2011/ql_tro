@@ -43,13 +43,17 @@ function normalizeWebhookPayload(update: any): {
 } {
   const msg = update?.message;
   const data = update?.data; // bot server (zca-js) wraps in .data
+  const isGroup = update?.type === 1;
 
-  // chatId
-  const chatId: string | null =
-    msg?.from?.id ? String(msg.from.id) :
-    update?.sender?.id ? String(update.sender.id) :
-    data?.uidFrom ? String(data.uidFrom) :
-    update?.uidFrom ? String(update.uidFrom) : null;
+  // For group messages, chatId = group thread ID (not the sender's ID)
+  const chatId: string | null = isGroup
+    ? (update?.threadId ? String(update.threadId) :
+       data?.idTo ? String(data.idTo) :
+       data?.toId ? String(data.toId) : null)
+    : (msg?.from?.id ? String(msg.from.id) :
+       update?.sender?.id ? String(update.sender.id) :
+       data?.uidFrom ? String(data.uidFrom) :
+       update?.uidFrom ? String(update.uidFrom) : null);
 
   // displayName
   const displayName: string =
@@ -70,11 +74,11 @@ function normalizeWebhookPayload(update: any): {
     (attachmentUrl ? '[hình ảnh]' : '[đính kèm]');
 
   // eventName
-  const eventName: string =
-    update?.event_name || update?.event || update?.type || 'message';
+  const eventName: string = isGroup ? 'group_message'
+    : (update?.event_name || update?.event || String(update?.type || 'message'));
 
-  // ownId = ID tài khoản Zalo nhận tin nhắn (bot account)
-  const ownId: string | null =
+  // ownId = bot account ID (only meaningful for DMs; groups don't have a separate bot account field)
+  const ownId: string | null = isGroup ? null : (
     update?.ownId ? String(update.ownId) :
     update?.toId ? String(update.toId) :
     data?.ownId ? String(data.ownId) :
@@ -82,7 +86,8 @@ function normalizeWebhookPayload(update: any): {
     data?.toId ? String(data.toId) :
     update?.idTo ? String(update.idTo) :
     update?.own_id ? String(update.own_id) :
-    null;
+    null
+  );
 
   return { chatId, ownId, displayName, content, eventName, attachmentUrl };
 }
