@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getHoaDonRepo, getHopDongRepo } from '@/lib/repositories';
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
-import { notifyKhachThue } from '@/lib/send-zalo';
+import { notifyNewInvoice } from '@/lib/zalo-notify';
 import { PhiDichVu } from '@/types';
 import { sseEmit } from '@/lib/sse-emitter';
 import { checkQuyen, getToaNhaIdFromHopDong, getToaNhaIdFromHoaDon } from '@/lib/server/check-quyen';
@@ -284,12 +284,8 @@ export async function POST(request: NextRequest) {
       anhChiSoNuoc: anhChiSoNuoc || undefined,
     });
 
-    // Thông báo Zalo cho khách thuê về hóa đơn mới
-    if (hopDongData.nguoiDaiDienId) {
-      const fmt = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
-      const msg = `📄 Hóa đơn tháng ${thang}/${nam} đã được tạo!\nTổng tiền: ${fmt(tongTien)}\nHạn thanh toán: ${new Date(hoaDon.hanThanhToan).toLocaleDateString('vi-VN')}\nVui lòng đăng nhập để xem chi tiết.`;
-      notifyKhachThue(hopDongData.nguoiDaiDienId, msg).catch(() => {});
-    }
+    // Thông báo Zalo đầy đủ (kèm QR thanh toán) cho khách thuê về hóa đơn mới
+    notifyNewInvoice(hoaDon.id).catch(() => {});
 
     sseEmit('hoa-don', { action: 'created' });
     return NextResponse.json({
