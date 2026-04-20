@@ -23,6 +23,18 @@ export interface RoleContext {
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN') + 'đ';
 const fmtDate = (d: Date | string) => new Date(d).toLocaleDateString('vi-VN');
 
+async function buildVietQrUrl(hoaDon: { maHoaDon: string; conLai: number; thang: number; nam: number }): Promise<string | null> {
+  const rows = await prisma.caiDat.findMany({
+    where: { khoa: { in: ['ngan_hang_ten', 'ngan_hang_so_tai_khoan', 'ngan_hang_chu_tai_khoan'] } },
+  });
+  const cfg: Record<string, string> = {};
+  for (const r of rows) cfg[r.khoa] = r.giaTri?.trim() ?? '';
+  if (!cfg['ngan_hang_ten'] || !cfg['ngan_hang_so_tai_khoan']) return null;
+  const addInfo = encodeURIComponent(`Thanh toan ${hoaDon.maHoaDon} T${hoaDon.thang}/${hoaDon.nam}`);
+  const accName = encodeURIComponent(cfg['ngan_hang_chu_tai_khoan'] || '');
+  return `https://img.vietqr.io/image/${cfg['ngan_hang_ten']}-${cfg['ngan_hang_so_tai_khoan']}-compact2.png?amount=${Math.round(hoaDon.conLai)}&addInfo=${addInfo}&accountName=${accName}`;
+}
+
 // ── KhachThue context ────────────────────────────────────────────────────────
 
 async function buildKhachThueContext(userId: string): Promise<string> {
@@ -127,7 +139,12 @@ async function buildKhachThueContext(userId: string): Promise<string> {
 
   if (kt.hoaDon.length > 0) {
     lines.push(`\nHÓA ĐƠN GẦN ĐÂY:`);
-    kt.hoaDon.forEach(inv => {
+    const qrUrls = await Promise.all(
+      kt.hoaDon.map(inv =>
+        inv.conLai > 0 ? buildVietQrUrl(inv) : Promise.resolve(null),
+      ),
+    );
+    kt.hoaDon.forEach((inv, i) => {
       const tt =
         {
           chuaThanhToan: 'Chưa thanh toán',
@@ -139,6 +156,7 @@ async function buildKhachThueContext(userId: string): Promise<string> {
       lines.push(
         `- T${inv.thang}/${inv.nam}: ${fmtMoney(inv.tongTien)} (điện ${inv.soDien}kWh, nước ${inv.soNuoc}m³) | ${tt}${no} | Hạn: ${fmtDate(inv.hanThanhToan)}`,
       );
+      if (qrUrls[i]) lines.push(`  QR thanh toán: ${qrUrls[i]}`);
     });
   } else {
     lines.push(`\nChưa có hóa đơn nào.`);
@@ -410,6 +428,8 @@ export async function buildContextForRole(
         'Không thực hiện thao tác sửa/xóa dữ liệu — chỉ tra cứu và giải thích.',
         'Nếu không có dữ liệu cụ thể, nói thật và hướng dẫn liên hệ quản lý.',
         'Không bịa số tiền, ngày tháng hay trạng thái.',
+        'Khi khách yêu cầu "gửi hóa đơn", "xem chi tiết hóa đơn", "gửi pdf" hoặc tương tự: trình bày ĐẦY ĐỦ chi tiết hóa đơn từ dữ liệu thực tế (tháng, tổng tiền, từng khoản điện/nước/phòng, hạn thanh toán, trạng thái, mã hóa đơn) và kèm link QR thanh toán nếu có. KHÔNG nói không thể gửi file PDF — đây là tin nhắn văn bản thay thế cho PDF.',
+        'Khi khách báo sự cố hoặc yêu cầu sửa chữa: ghi nhận thông tin đầy đủ và hướng dẫn cách báo cáo chính thức qua hệ thống hoặc liên hệ quản lý.',
       ];
       break;
     }

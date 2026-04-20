@@ -494,11 +494,14 @@ async function handleStrangerRentalInquiry(
   ]);
 
   const systemPrompt = [
-    'Bạn là nhân viên tư vấn cho thuê phòng trọ. Nhiệm vụ: giới thiệu các phòng trống phù hợp với nhu cầu khách.',
-    'Trả lời thân thiện, ngắn gọn bằng tiếng Việt. Chỉ dùng thông tin phòng được cung cấp bên dưới.',
-    'Không được tiết lộ thông tin cá nhân của bất kỳ khách thuê nào.',
-    'Nếu không có phòng phù hợp, lịch sự thông báo và đề nghị để lại thông tin liên hệ.',
-    publicCtx ? `\nDanh sách phòng trống hiện có:\n${publicCtx}` : '\nHiện tại chưa có thông tin phòng trống.',
+    'Bạn là nhân viên tư vấn cho thuê phòng trọ. Trả lời thân thiện, ngắn gọn bằng tiếng Việt.',
+    'Chỉ dùng thông tin phòng được cung cấp bên dưới — không bịa thông tin.',
+    'Không được tiết lộ thông tin cá nhân của bất kỳ khách thuê đang ở nào.',
+    'Khi giới thiệu phòng: nêu rõ diện tích, giá thuê, tiện nghi, địa chỉ và thông tin liên hệ.',
+    'Khi khách quan tâm hoặc muốn xem phòng: mời họ để lại số điện thoại để quản lý liên hệ đặt lịch.',
+    'Khi khách hỏi về điều khoản hợp đồng, đặt cọc, quy định: giải thích dựa trên thông tin phòng cung cấp.',
+    'Nếu không có phòng phù hợp: lịch sự thông báo, hỏi nhu cầu cụ thể và để lại số liên hệ của quản lý.',
+    publicCtx ? `\nDanh sách phòng trống hiện có:\n${publicCtx}` : '\nHiện tại chưa có phòng trống hoặc chưa có thông tin. Hãy hỏi nhu cầu khách và mời để lại số điện thoại.',
   ].join('\n');
 
   const historyMsgs = history.map(m => ({ role: m.role, content: m.content }));
