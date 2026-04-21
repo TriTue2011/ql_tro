@@ -450,18 +450,27 @@ async function handleRegisteredTenant(
  * Không liên quan: mọi chủ đề khác hoàn toàn không dính đến nhà trọ.
  */
 async function isRentalDomainQuery(text: string): Promise<boolean> {
+  const cleaned = text.trim();
+  // Tin nhắn quá ngắn hoặc rỗng → không thể là hỏi thuê phòng
+  if (cleaned.length < 5) return false;
+
   const result = await askAI([
     {
       role: 'system',
       content:
-        'Bạn là bộ kiểm tra nội dung cho hệ thống quản lý nhà trọ. ' +
-        'Xác định xem tin nhắn sau có liên quan đến lĩnh vực phòng trọ/nhà cho thuê không. ' +
-        '"Liên quan" bao gồm: hỏi thuê phòng, giá thuê, diện tích, tiện nghi, vị trí/địa chỉ, ' +
-        'xem phòng, đặt cọc, điều kiện thuê, hợp đồng thuê, phòng trống, dịch vụ đi kèm. ' +
-        '"Không liên quan" là mọi chủ đề khác không dính đến nhà trọ. ' +
+        'Bạn là bộ lọc tin nhắn cho hệ thống cho thuê phòng trọ. ' +
+        'Chỉ trả về "yes" nếu tin nhắn RÕ RÀNG, CỤ THỂ hỏi về: ' +
+        'thuê phòng, giá thuê phòng, còn phòng trống không, muốn xem phòng, đặt cọc thuê nhà, ' +
+        'diện tích phòng, tiện nghi phòng cho thuê, vị trí/địa chỉ nhà trọ. ' +
+        'Trả về "no" với: tin nhắn 1-2 từ mơ hồ, chào hỏi xã giao, nhận xét giá chung chung ' +
+        'không rõ đang hỏi thuê phòng, trò chuyện thông thường không liên quan nhà trọ. ' +
+        'Ví dụ "yes": "Còn phòng không ạ?", "Giá thuê bao nhiêu?", "Tôi muốn xem phòng", ' +
+        '"Phòng có wifi không", "Đặt cọc bao nhiêu tiền", "Cho hỏi phòng trọ ở đây". ' +
+        'Ví dụ "no": "Thế quá rẻ", "Để em xem", "Lấy con nào a", "Đúng rồi", ' +
+        '"OK", "Hello", "Thế à", "Hehe", "Oke bạn". ' +
         'Chỉ trả về đúng 1 từ: "yes" hoặc "no".',
     },
-    { role: 'user', content: text },
+    { role: 'user', content: cleaned },
   ], 10).catch(() => null);
   return result?.toLowerCase().trim() === 'yes';
 }
@@ -483,8 +492,11 @@ async function handleStrangerRentalInquiry(
 ): Promise<boolean> {
   if (!text && !attachmentUrl) return false;
 
-  // Bỏ qua ngay nếu AI chưa cấu hình (isRentalDomainQuery sẽ luôn null)
-  // hoặc nội dung không liên quan đến phòng trọ
+  // Bạn bè đã kết nối → không gửi tin nhắn tư vấn tự động
+  const alreadyFriend = await isFriend(chatId, undefined, accountSelection).catch(() => false);
+  if (alreadyFriend) return false;
+
+  // Nội dung không liên quan đến hỏi thuê phòng → bỏ qua
   const relevant = await isRentalDomainQuery(text || '').catch(() => false);
   if (!relevant) return false;
 
