@@ -14,6 +14,7 @@ import { handleZaloAutoReply } from "@/lib/zalo-message-handler";
 import { storeChatIdForAccount } from "@/lib/zalo-auto-link";
 import { handlePendingConfirmation } from "@/lib/zalo-pending-confirm";
 import { getUserInfoViaBotServer } from "@/lib/zalo-bot-client";
+import { getGroupInfo } from "@/lib/zalo-direct/service";
 
 /**
  * Xử lý tin nhắn nhận được từ zca-js listener.
@@ -77,35 +78,71 @@ async function autoLinkThreadId(chatId: string, ownId: string): Promise<void> {
   }
 }
 
+// ─── Group name cache (in-memory, TTL 6h) ────────────────────────────────────
+const _groupNameCache = new Map<string, { name: string; ts: number }>();
+const GROUP_CACHE_TTL = 6 * 60 * 60 * 1000;
+const groupCaiDatKey = (gid: string) => `zalo_group_name_${gid}`;
+
+async function resolveGroupName(threadId: string, accountSelection?: string): Promise<string | null> {
+  const cached = _groupNameCache.get(threadId);
+  if (cached && Date.now() - cached.ts < GROUP_CACHE_TTL) return cached.name;
+
+  // CaiDat
+  try {
+    const row = await prisma.caiDat.findUnique({ where: { khoa: groupCaiDatKey(threadId) } });
+    if (row?.giaTri) {
+      _groupNameCache.set(threadId, { name: row.giaTri, ts: Date.now() });
+      return row.giaTri;
+    }
+  } catch { /* ignore */ }
+
+  // zca-js API
+  try {
+    const r = await getGroupInfo(threadId, accountSelection);
+    if (!r.ok || !r.data) return null;
+    const info = (r.data.gridInfoMap ?? r.data)?.[threadId];
+    const name: string | null = info?.name || null;
+    if (name) {
+      _groupNameCache.set(threadId, { name, ts: Date.now() });
+      prisma.caiDat.upsert({
+        where: { khoa: groupCaiDatKey(threadId) },
+        create: { khoa: groupCaiDatKey(threadId), giaTri: name, nhom: 'zalo' },
+        update: { giaTri: name },
+      }).catch(() => {});
+    }
+    return name;
+  } catch { return null; }
+}
+
 export async function handleIncomingMessage(
   ownId: string,
   msg: any
 ): Promise<void> {
   // zca-js v2: msg = { type, data: TMessage, threadId, isSelf }
-  // Unwrap .data nếu có, fallback cho raw data (tương thích cũ)
   const raw = msg?.data ?? msg;
-  const chatId = String(raw?.uidFrom || msg?.uidFrom || "");
-  if (!chatId) return;
+  const senderUid = String(raw?.uidFrom || msg?.uidFrom || "");
+  if (!senderUid) return;
 
-  // Bỏ qua tin nhắn do chính mình gửi
   if (msg?.isSelf) return;
 
   const displayName = raw.dName || raw.fromD || "";
   const contentRaw = raw.content || raw.msg || "";
-  // content có thể là string hoặc object (attachment)
   const content = typeof contentRaw === "string" ? contentRaw : (contentRaw?.title || contentRaw?.description || JSON.stringify(contentRaw));
   const isGroupMessage = msg?.type === 1 || (raw.idTo && raw.idTo !== ownId);
 
-  // Trích xuất attachment URL từ content object (ảnh, file, video)
   const attachmentUrl = typeof contentRaw !== "string"
     ? (contentRaw?.href || contentRaw?.thumb || contentRaw?.normalUrl || contentRaw?.hdUrl || contentRaw?.url || null)
     : null;
 
-  // threadId từ zca-js v2 hoặc tính toán
-  const threadId = msg?.threadId || (isGroupMessage ? String(raw.idTo || chatId) : chatId);
+  // threadId: group thread ID cho nhóm, hoặc sender ID cho DM
+  const threadId = msg?.threadId || (isGroupMessage ? String(raw.idTo || senderUid) : senderUid);
+
+  // chatId: dùng threadId cho nhóm (1 nhóm = 1 hội thoại), dùng senderUid cho DM
+  const chatId = isGroupMessage ? threadId : senderUid;
+
   const update = {
     data: raw,
-    uidFrom: chatId,
+    uidFrom: senderUid,
     dName: displayName,
     content,
     ownId,
@@ -115,26 +152,33 @@ export async function handleIncomingMessage(
   };
 
   try {
-    // Lưu tin nhắn vào DB
+    let saveDisplayName: string | null = displayName || null;
+
+    if (isGroupMessage) {
+      // Lấy tên nhóm (cache → CaiDat → API)
+      const groupName = await resolveGroupName(threadId, ownId);
+      saveDisplayName = groupName || null;
+    }
+
+    // Lưu tin nhắn vào DB (chatId = threadId cho nhóm)
     const saved = await prisma.zaloMessage.create({
       data: {
         chatId,
         ownId,
-        displayName: displayName || null,
+        displayName: saveDisplayName,
         content,
         attachmentUrl: attachmentUrl || null,
         role: "user",
-        eventName: "message",
+        eventName: isGroupMessage ? "group_message" : "message",
         rawPayload: update as any,
       },
     });
     emitNewMessage({ ...saved, eventName: saved.eventName ?? "message" });
     sseEmit("zalo-message", { chatId: saved.chatId });
 
-    // Cleanup cũ (throttled)
     cleanupOldMessages().catch(() => {});
 
-    // Bỏ qua tin nhắn nhóm
+    // Bỏ qua tin nhắn nhóm (không auto-reply)
     if (isGroupMessage) return;
 
     // Lưu threadId cho bot account
@@ -181,11 +225,24 @@ export async function handleGroupEvent(
       threadId: event?.threadId || chatId,
     };
 
+    // Nếu payload có groupName → persist vào CaiDat
+    const groupName: string | null = raw.groupName || null;
+    if (groupName) {
+      _groupNameCache.set(chatId, { name: groupName, ts: Date.now() });
+      prisma.caiDat.upsert({
+        where: { khoa: groupCaiDatKey(chatId) },
+        create: { khoa: groupCaiDatKey(chatId), giaTri: groupName, nhom: 'zalo' },
+        update: { giaTri: groupName },
+      }).catch(() => {});
+    }
+
+    const displayName = groupName || (await resolveGroupName(chatId, ownId)) || raw.dName || null;
+
     await prisma.zaloMessage.create({
       data: {
         chatId,
         ownId,
-        displayName: raw.dName || raw.fromD || raw.groupName || null,
+        displayName,
         content: raw.content || raw.msg || `[sự kiện nhóm: ${event?.type || "unknown"}]`,
         attachmentUrl: null,
         role: "system",
