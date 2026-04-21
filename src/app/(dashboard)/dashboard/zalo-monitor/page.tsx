@@ -7,7 +7,7 @@ import {
   Copy, Trash2, Users, User, RefreshCw, Wifi, WifiOff,
   MessageSquare, Building2, DoorOpen, ChevronLeft, Bot,
   Send, Paperclip, Image as ImageIcon, X, FileText, Film, Loader2, HardDrive,
-  ChevronDown, ChevronRight, Phone, BookUser,
+  ChevronDown, ChevronRight, Phone, BookUser, Pencil, Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -602,6 +602,9 @@ function MessageThread({
   const [msgs, setMsgs] = useState<ZaloMsg[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameVal, setRenameVal] = useState('');
+  const [customGroupName, setCustomGroupName] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -645,11 +648,29 @@ function MessageThread({
     toast.success('Đã xóa');
   }
 
+  async function handleRename() {
+    const trimmed = renameVal.trim();
+    if (!trimmed) return;
+    const res = await fetch('/api/zalo/group-name', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId: chatId, name: trimmed }),
+    });
+    if (res.ok) {
+      setCustomGroupName(trimmed);
+      setMsgs(prev => prev.map(m => ({ ...m, displayName: trimmed })));
+      toast.success('Đã đặt tên nhóm');
+    } else {
+      toast.error('Lỗi đặt tên nhóm');
+    }
+    setRenaming(false);
+  }
+
   const info = msgs.find(m => m.roomInfo)?.roomInfo;
   const firstMsg = msgs.length ? msgs[0] : null;
-  const name = firstMsg ? senderName(firstMsg) : chatId;
-  const tid = firstMsg ? getThreadId(firstMsg) : chatId;
   const group = firstMsg ? isGroup(firstMsg) : false;
+  const resolvedName = customGroupName || (firstMsg ? senderName(firstMsg) : chatId);
+  const tid = firstMsg ? getThreadId(firstMsg) : chatId;
   const threadType: 0 | 1 = group ? 1 : 0;
 
   return (
@@ -660,24 +681,50 @@ function MessageThread({
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-800 truncate">{name}</span>
-            {group && (
-              <Badge variant="outline" className="text-[10px] px-1.5 border-purple-300 text-purple-700 bg-purple-50 shrink-0">
-                <Users className="h-2.5 w-2.5 mr-0.5" />Nhóm
-              </Badge>
-            )}
-            {info && (
-              <Badge variant="outline" className="text-[10px] px-1.5 border-green-300 text-green-700 bg-green-50 shrink-0">
-                <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{info.maPhong}
-              </Badge>
-            )}
-            {info && (
-              <Badge variant="outline" className="text-[10px] px-1.5 border-orange-300 text-orange-700 bg-orange-50 shrink-0">
-                <Building2 className="h-2.5 w-2.5 mr-0.5" />{info.tenToaNha}
-              </Badge>
-            )}
-          </div>
+          {/* Group rename input */}
+          {renaming ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                autoFocus
+                value={renameVal}
+                onChange={e => setRenameVal(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(false); }}
+                className="text-sm border rounded-lg px-2 py-0.5 flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                placeholder="Tên nhóm..."
+              />
+              <button onClick={handleRename} className="text-green-500 hover:text-green-600 shrink-0">
+                <Check className="h-4 w-4" />
+              </button>
+              <button onClick={() => setRenaming(false)} className="text-gray-400 hover:text-gray-600 shrink-0">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-800 truncate">{resolvedName}</span>
+              {group && (
+                <Badge variant="outline" className="text-[10px] px-1.5 border-purple-300 text-purple-700 bg-purple-50 shrink-0">
+                  <Users className="h-2.5 w-2.5 mr-0.5" />Nhóm
+                </Badge>
+              )}
+              {group && (
+                <button onClick={() => { setRenameVal(resolvedName); setRenaming(true); }}
+                  className="text-gray-300 hover:text-purple-500 shrink-0" title="Đặt tên nhóm">
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+              {info && (
+                <Badge variant="outline" className="text-[10px] px-1.5 border-green-300 text-green-700 bg-green-50 shrink-0">
+                  <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{info.maPhong}
+                </Badge>
+              )}
+              {info && (
+                <Badge variant="outline" className="text-[10px] px-1.5 border-orange-300 text-orange-700 bg-orange-50 shrink-0">
+                  <Building2 className="h-2.5 w-2.5 mr-0.5" />{info.tenToaNha}
+                </Badge>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-1 mt-0.5">
             <span className="text-[10px] text-gray-400 font-mono">ID: {tid}</span>
             <button onClick={() => { navigator.clipboard.writeText(tid); toast.success('Đã sao chép'); }}

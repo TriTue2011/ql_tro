@@ -14,19 +14,55 @@ import { storeChatIdForAccount } from '@/lib/zalo-auto-link';
 import { handlePendingConfirmation } from '@/lib/zalo-pending-confirm';
 import { getUserInfoViaBotServer, getGroupInfoFromBotServer } from '@/lib/zalo-bot-client';
 
-// ─── Group name cache (in-memory, TTL 6h) ────────────────────────────────────
+// ─── Group name — in-memory cache + CaiDat persistence ───────────────────────
 const _groupNameCache = new Map<string, { name: string; ts: number }>();
 const GROUP_CACHE_TTL = 6 * 60 * 60 * 1000;
+const groupCaiDatKey = (gid: string) => `zalo_group_name_${gid}`;
 
+/** Lưu tên nhóm vào CaiDat và cập nhật displayName cho tất cả tin nhắn cũ của nhóm */
+async function persistGroupName(groupId: string, name: string): Promise<void> {
+  await Promise.all([
+    prisma.caiDat.upsert({
+      where: { khoa: groupCaiDatKey(groupId) },
+      create: { khoa: groupCaiDatKey(groupId), giaTri: name },
+      update: { giaTri: name },
+    }),
+    prisma.zaloMessage.updateMany({
+      where: { chatId: groupId, OR: [{ displayName: null }, { displayName: '' }] },
+      data: { displayName: name },
+    }),
+  ]);
+}
+
+/**
+ * Lấy tên nhóm theo thứ tự ưu tiên:
+ * 1. In-memory cache (TTL 6h)
+ * 2. CaiDat (persistent, không mất khi restart)
+ * 3. Bot server API → lưu vào CaiDat + backfill
+ */
 async function fetchGroupName(groupId: string, accountId?: string): Promise<string | null> {
   const cached = _groupNameCache.get(groupId);
   if (cached && Date.now() - cached.ts < GROUP_CACHE_TTL) return cached.name;
+
+  // CaiDat
+  try {
+    const row = await prisma.caiDat.findUnique({ where: { khoa: groupCaiDatKey(groupId) } });
+    if (row?.giaTri) {
+      _groupNameCache.set(groupId, { name: row.giaTri, ts: Date.now() });
+      return row.giaTri;
+    }
+  } catch { /* continue */ }
+
+  // Bot server API
   try {
     const r = await getGroupInfoFromBotServer(groupId, accountId);
     if (!r.ok || !r.data) return null;
     const info = (r.data.gridInfoMap ?? r.data)?.[groupId];
     const name: string | null = info?.name || null;
-    if (name) _groupNameCache.set(groupId, { name, ts: Date.now() });
+    if (name) {
+      _groupNameCache.set(groupId, { name, ts: Date.now() });
+      persistGroupName(groupId, name).catch(() => {});
+    }
     return name;
   } catch { return null; }
 }
@@ -60,7 +96,8 @@ function normalizeWebhookPayload(update: any): {
 } {
   const msg = update?.message;
   const data = update?.data; // bot server (zca-js) wraps in .data
-  const isGroup = update?.type === 1;
+  // type có thể là number 1 hoặc string "1" tùy bot server
+  const isGroup = Number(update?.type) === 1 || Number(data?.type) === 1;
 
   // For group messages, chatId = group thread ID (not the sender's ID)
   const chatId: string | null = isGroup
@@ -260,8 +297,8 @@ export async function POST(request: NextRequest) {
     const { chatId: wChatId, content, ownId: webhookOwnId } = normalizeWebhookPayload(update);
 
     // Tin nhắn nhóm (type = 1): lưu với tên nhóm, không auto-reply
-    if (update?.type === 1) {
-      const groupId = String(update.threadId || update.data?.idTo || '');
+    if (Number(update?.type) === 1 || Number(update?.data?.type) === 1) {
+      const groupId = String(update.threadId || update.data?.idTo || update.data?.threadId || '');
       const accountId = String(update._accountId || update.data?.idTo || '');
       if (groupId) {
         const groupName = await fetchGroupName(groupId, accountId);
