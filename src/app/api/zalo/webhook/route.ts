@@ -12,7 +12,24 @@ import { sseEmit } from '@/lib/sse-emitter';
 import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-handler';
 import { storeChatIdForAccount } from '@/lib/zalo-auto-link';
 import { handlePendingConfirmation } from '@/lib/zalo-pending-confirm';
-import { getUserInfoViaBotServer } from '@/lib/zalo-bot-client';
+import { getUserInfoViaBotServer, getGroupInfoFromBotServer } from '@/lib/zalo-bot-client';
+
+// ─── Group name cache (in-memory, TTL 6h) ────────────────────────────────────
+const _groupNameCache = new Map<string, { name: string; ts: number }>();
+const GROUP_CACHE_TTL = 6 * 60 * 60 * 1000;
+
+async function fetchGroupName(groupId: string, accountId?: string): Promise<string | null> {
+  const cached = _groupNameCache.get(groupId);
+  if (cached && Date.now() - cached.ts < GROUP_CACHE_TTL) return cached.name;
+  try {
+    const r = await getGroupInfoFromBotServer(groupId, accountId);
+    if (!r.ok || !r.data) return null;
+    const info = (r.data.gridInfoMap ?? r.data)?.[groupId];
+    const name: string | null = info?.name || null;
+    if (name) _groupNameCache.set(groupId, { name, ts: Date.now() });
+    return name;
+  } catch { return null; }
+}
 
 function extractAttachmentUrl(msg: any): string | null {
   const attachments: any[] = msg?.attachments ?? [];
@@ -55,13 +72,14 @@ function normalizeWebhookPayload(update: any): {
        data?.uidFrom ? String(data.uidFrom) :
        update?.uidFrom ? String(update.uidFrom) : null);
 
-  // displayName
-  const displayName: string =
-    msg?.from?.display_name ||
-    update?.sender?.display_name ||
-    update?.sender?.name ||
-    data?.dName || data?.fromD || data?.displayName ||
-    update?.dName || update?.fromD || '';
+  // displayName: for groups = group name (injected as _groupName); for DMs = sender name
+  const displayName: string = isGroup
+    ? (update?._groupName || '')
+    : (msg?.from?.display_name ||
+       update?.sender?.display_name ||
+       update?.sender?.name ||
+       data?.dName || data?.fromD || data?.displayName ||
+       update?.dName || update?.fromD || '');
 
   // content
   const attachmentUrl = extractAttachmentUrl(msg ?? update);
@@ -241,10 +259,16 @@ export async function POST(request: NextRequest) {
 
     const { chatId: wChatId, content, ownId: webhookOwnId } = normalizeWebhookPayload(update);
 
-    // Bỏ qua tin nhắn nhóm (type = 1)
+    // Tin nhắn nhóm (type = 1): lưu với tên nhóm, không auto-reply
     if (update?.type === 1) {
+      const groupId = String(update.threadId || update.data?.idTo || '');
+      const accountId = String(update._accountId || update.data?.idTo || '');
+      if (groupId) {
+        const groupName = await fetchGroupName(groupId, accountId);
+        if (groupName) update._groupName = groupName;
+      }
       await Promise.all([saveMessage(update), notifyHomeAssistant(update)]);
-      return NextResponse.json({ message: 'Group message skipped' });
+      return NextResponse.json({ message: 'Group message saved' });
     }
 
     await Promise.all([
