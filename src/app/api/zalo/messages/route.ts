@@ -53,8 +53,16 @@ export async function GET(request: NextRequest) {
           SELECT DISTINCT ON (COALESCE("rawPayload"->>'threadId', "chatId"))
             "id",
             COALESCE("rawPayload"->>'threadId', "chatId") AS "chatId",
-            "ownId", "displayName", "content", "attachmentUrl",
-            "role", "createdAt", "rawPayload", "eventName"
+            "ownId",
+            COALESCE(
+              CASE WHEN "rawPayload"->>'threadId' IS NOT NULL THEN
+                (SELECT "giaTri" FROM "CaiDat"
+                 WHERE "khoa" = 'zalo_group_name_' || ("rawPayload"->>'threadId')
+                 LIMIT 1)
+              END,
+              "displayName"
+            ) AS "displayName",
+            "content", "attachmentUrl", "role", "createdAt", "rawPayload", "eventName"
           FROM "ZaloMessage"
           WHERE "role" = 'user'
           ORDER BY COALESCE("rawPayload"->>'threadId', "chatId"), "createdAt" DESC
@@ -86,8 +94,16 @@ export async function GET(request: NextRequest) {
         SELECT DISTINCT ON (COALESCE("rawPayload"->>'threadId', "chatId"))
           "id",
           COALESCE("rawPayload"->>'threadId', "chatId") AS "chatId",
-          "ownId", "displayName", "content", "attachmentUrl",
-          "role", "createdAt", "rawPayload", "eventName"
+          "ownId",
+          COALESCE(
+            CASE WHEN "rawPayload"->>'threadId' IS NOT NULL THEN
+              (SELECT "giaTri" FROM "CaiDat"
+               WHERE "khoa" = 'zalo_group_name_' || ("rawPayload"->>'threadId')
+               LIMIT 1)
+            END,
+            "displayName"
+          ) AS "displayName",
+          "content", "attachmentUrl", "role", "createdAt", "rawPayload", "eventName"
         FROM "ZaloMessage"
         WHERE "role" = 'user' AND ("ownId" = ${filterOwnId} OR "ownId" IS NULL)
         ORDER BY COALESCE("rawPayload"->>'threadId', "chatId"), "createdAt" DESC

@@ -1109,6 +1109,24 @@ export default function ZaloMonitorPage() {
       .catch(() => {});
   }, [loadConvs, checkConnection]);
   useRealtimeEvents(['zalo-message'], () => { void loadConvs(); });
+
+  // Auto-fetch tên nhóm cho các nhóm chưa có tên trong CaiDat
+  useEffect(() => {
+    const groups = convs.filter(m => isGroup(m) && (!m.displayName || m.displayName === getThreadId(m)));
+    for (const g of groups) {
+      const tid = getThreadId(g);
+      fetch(`/api/zalo/group-name?groupId=${tid}`)
+        .then(r => r.json())
+        .then(d => {
+          if (!d.name) {
+            // Chưa có tên → trigger fetch từ bot server qua webhook route (fire-and-forget)
+            fetch(`/api/zalo/fetch-group-name?groupId=${tid}`).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
+  }, [convs]);
+
   // Safety net: poll mỗi 30s phòng SSE mất kết nối
   useEffect(() => {
     const timer = setInterval(() => { void loadConvs(); }, 30_000);
