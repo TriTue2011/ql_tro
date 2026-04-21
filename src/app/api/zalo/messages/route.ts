@@ -44,24 +44,29 @@ export async function GET(request: NextRequest) {
     const requestedOwnId = searchParams.get("ownId");
     const adminFilterOwnId = canViewAll ? requestedOwnId : null;
 
+    // Helper expression: dùng rawPayload.threadId làm grouping key cho tin nhắn nhóm,
+    // ngược lại dùng chatId. Đảm bảo tất cả tin nhắn cùng nhóm gộp thành 1 hội thoại
+    // dù chatId cũ có thể là senderId thay vì threadId.
     if (canViewAll && !adminFilterOwnId) {
       const rows = await prisma.$queryRaw<any[]>`
         WITH latest_user AS (
-          SELECT DISTINCT ON ("chatId")
-            "id", "chatId", "ownId", "displayName", "content", "attachmentUrl",
+          SELECT DISTINCT ON (COALESCE("rawPayload"->>'threadId', "chatId"))
+            "id",
+            COALESCE("rawPayload"->>'threadId', "chatId") AS "chatId",
+            "ownId", "displayName", "content", "attachmentUrl",
             "role", "createdAt", "rawPayload", "eventName"
           FROM "ZaloMessage"
           WHERE "role" = 'user'
-          ORDER BY "chatId", "createdAt" DESC
+          ORDER BY COALESCE("rawPayload"->>'threadId', "chatId"), "createdAt" DESC
         ),
         latest_bot AS (
-          SELECT DISTINCT ON ("chatId")
-            "chatId",
+          SELECT DISTINCT ON (COALESCE("rawPayload"->>'threadId', "chatId"))
+            COALESCE("rawPayload"->>'threadId', "chatId") AS "chatId",
             "content" AS "botContent",
             "createdAt" AS "botCreatedAt"
           FROM "ZaloMessage"
           WHERE "role" = 'bot'
-          ORDER BY "chatId", "createdAt" DESC
+          ORDER BY COALESCE("rawPayload"->>'threadId', "chatId"), "createdAt" DESC
         )
         SELECT u.*, b."botContent", b."botCreatedAt"
         FROM latest_user u
@@ -72,29 +77,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: rowsWithRoomInfo });
     }
 
-    // Filter theo ownId: admin filter theo param, non-admin filter theo tài khoản Zalo
-    // Non-admin cũng có thể dùng ownId param nếu trùng với zaloAccountId của mình
     const filterOwnId = adminFilterOwnId
       || (requestedOwnId && requestedOwnId === userZaloAccountId ? requestedOwnId : null)
       || userOwnId;
 
     const rows = await prisma.$queryRaw<any[]>`
       WITH latest_user AS (
-        SELECT DISTINCT ON ("chatId")
-          "id", "chatId", "ownId", "displayName", "content", "attachmentUrl",
+        SELECT DISTINCT ON (COALESCE("rawPayload"->>'threadId', "chatId"))
+          "id",
+          COALESCE("rawPayload"->>'threadId', "chatId") AS "chatId",
+          "ownId", "displayName", "content", "attachmentUrl",
           "role", "createdAt", "rawPayload", "eventName"
         FROM "ZaloMessage"
         WHERE "role" = 'user' AND ("ownId" = ${filterOwnId} OR "ownId" IS NULL)
-        ORDER BY "chatId", "createdAt" DESC
+        ORDER BY COALESCE("rawPayload"->>'threadId', "chatId"), "createdAt" DESC
       ),
       latest_bot AS (
-        SELECT DISTINCT ON ("chatId")
-          "chatId",
+        SELECT DISTINCT ON (COALESCE("rawPayload"->>'threadId', "chatId"))
+          COALESCE("rawPayload"->>'threadId', "chatId") AS "chatId",
           "content" AS "botContent",
           "createdAt" AS "botCreatedAt"
         FROM "ZaloMessage"
         WHERE "role" = 'bot' AND ("ownId" = ${filterOwnId} OR "ownId" IS NULL)
-        ORDER BY "chatId", "createdAt" DESC
+        ORDER BY COALESCE("rawPayload"->>'threadId', "chatId"), "createdAt" DESC
       )
       SELECT u.*, b."botContent", b."botCreatedAt"
       FROM latest_user u
@@ -111,29 +116,37 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "chatId required" }, { status: 400 });
 
   if (!canViewAll) {
-    // Kiểm tra: có tin nhắn thuộc tài khoản của user
-    const hasAccess = await prisma.zaloMessage.findFirst({
-      where: { chatId, OR: [{ ownId: userOwnId }, { ownId: null }] },
-      select: { id: true },
-    });
-    if (!hasAccess) {
+    const hasAccess = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "ZaloMessage"
+      WHERE ("chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId})
+        AND ("ownId" = ${userOwnId} OR "ownId" IS NULL)
+      LIMIT 1
+    `;
+    if (!hasAccess.length) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
 
   const limit = Math.min(Number(searchParams.get("limit") ?? 50), 100);
-  const before = searchParams.get("before"); // cursor: createdAt ISO
+  const before = searchParams.get("before");
 
-  const messages = await prisma.zaloMessage.findMany({
-    where: {
-      chatId,
-      ...(before ? { createdAt: { lt: new Date(before) } } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-  });
+  // Tìm theo chatId HOẶC rawPayload.threadId để lấy cả tin nhắn cũ (chatId=senderId) lẫn mới
+  const messages = before
+    ? await prisma.$queryRaw<any[]>`
+        SELECT * FROM "ZaloMessage"
+        WHERE ("chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId})
+          AND "createdAt" < ${new Date(before)}::timestamptz
+        ORDER BY "createdAt" DESC
+        LIMIT ${limit}
+      `
+    : await prisma.$queryRaw<any[]>`
+        SELECT * FROM "ZaloMessage"
+        WHERE ("chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId})
+        ORDER BY "createdAt" DESC
+        LIMIT ${limit}
+      `;
 
-  return NextResponse.json({ data: messages.reverse() });
+  return NextResponse.json({ data: [...messages].reverse() });
 }
 
 export async function DELETE(request: NextRequest) {
@@ -151,11 +164,14 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
-  // Xóa theo chatId
+  // Xóa theo chatId (hoặc threadId trong rawPayload)
   const chatId = new URL(request.url).searchParams.get("chatId");
   if (chatId) {
-    const { count } = await prisma.zaloMessage.deleteMany({ where: { chatId } });
-    return NextResponse.json({ success: true, deleted: count });
+    const deleted = await prisma.$executeRaw`
+      DELETE FROM "ZaloMessage"
+      WHERE "chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId}
+    `;
+    return NextResponse.json({ success: true, deleted: Number(deleted) });
   }
 
   // Xóa tất cả
