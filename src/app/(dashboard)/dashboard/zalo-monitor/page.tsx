@@ -233,10 +233,16 @@ function ConversationList({
 
 // ─── MessageBubble ──────────────────────────────────────────────────────────
 
+function msgSenderUid(msg: ZaloMsg): string {
+  const d = (msg.rawPayload as any)?.data;
+  return d?.uidFrom ? String(d.uidFrom) : '';
+}
+
 function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string) => void }) {
   const isBot = msg.role === 'bot';
   const group = isGroup(msg);
   const groupSender = group && !isBot ? msgSenderInGroup(msg) : '';
+  const groupSenderUid = group && !isBot ? msgSenderUid(msg) : '';
   const mediaUrl = getMediaUrl(msg);
   const image = isImageMsg(msg);
   const video = isVideoMsg(msg);
@@ -254,7 +260,12 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
       {/* bubble wrapper — includes optional sender name for group messages */}
       <div className={`flex flex-col max-w-[72%] ${isBot ? 'items-start' : 'items-end'}`}>
         {groupSender && (
-          <span className="text-[10px] text-purple-600 font-medium mb-0.5 px-1">{groupSender}</span>
+          <div className={`flex flex-col mb-0.5 px-1 ${isBot ? 'items-start' : 'items-end'}`}>
+            <span className="text-[10px] text-purple-600 font-medium">{groupSender}</span>
+            {groupSenderUid && (
+              <span className="text-[9px] text-gray-400 font-mono">{groupSenderUid}</span>
+            )}
+          </div>
         )}
         <div className={`rounded-2xl px-3 py-2 text-sm relative ${
           isBot ? 'bg-gray-100 text-gray-800 rounded-bl-sm' : 'bg-blue-500 text-white rounded-br-sm'
