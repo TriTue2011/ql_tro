@@ -1613,6 +1613,8 @@ function msgFileUrl(m: ZaloMsgItem): string | null {
 }
 
 function msgSenderName(m: ZaloMsgItem): string {
+  // Groups: displayName = group name; DMs: rawPayload.data.dName = sender name
+  if (msgIsGroup(m)) return m.displayName || m.rawPayload?.threadId || m.chatId;
   return m.rawPayload?.data?.dName || m.displayName || m.chatId;
 }
 
@@ -2600,7 +2602,9 @@ function MonitorCard({ account }: { account?: AccountData }) {
                           )}
                           {msgType === 'share.file' && <FileText className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
                           <p className="text-xs text-gray-500 truncate">
-                            {m.content === '[hình ảnh]' ? '📷 Ảnh' : m.content}
+                            {isGroup && m.rawPayload?.data?.dName
+                              ? <><span className="font-medium">{m.rawPayload.data.dName}:</span> {m.content === '[hình ảnh]' ? '📷 Ảnh' : m.content}</>
+                              : (m.content === '[hình ảnh]' ? '📷 Ảnh' : m.content)}
                           </p>
                         </div>
 

@@ -50,8 +50,15 @@ function isGroup(msg: ZaloMsg): boolean {
 }
 
 function senderName(msg: ZaloMsg): string {
+  // Groups: displayName = group name; DMs: rawPayload.data.dName = sender name
+  if (isGroup(msg)) return msg.displayName || getThreadId(msg);
   const d = (msg.rawPayload as any)?.data;
   return d?.dName || d?.fromD || msg.displayName || 'Ẩn danh';
+}
+
+function msgSenderInGroup(msg: ZaloMsg): string {
+  const d = (msg.rawPayload as any)?.data;
+  return d?.dName || d?.fromD || '';
 }
 
 function formatTime(s: string) {
@@ -185,7 +192,8 @@ function ConversationList({
           const group = isGroup(msg);
           const name = senderName(msg);
           const selected = selectedId === msg.chatId;
-          const preview = isImageMsg(msg) ? '📷 Hình ảnh' : isFileMsg(msg) ? '📎 File' : isVideoMsg(msg) ? '🎥 Video' : msg.content;
+          const previewText = isImageMsg(msg) ? '📷 Hình ảnh' : isFileMsg(msg) ? '📎 File' : isVideoMsg(msg) ? '🎥 Video' : msg.content;
+          const groupSender = group ? msgSenderInGroup(msg) : '';
           return (
             <button key={msg.chatId} type="button"
               className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors ${selected ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}
@@ -196,11 +204,14 @@ function ConversationList({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-sm font-medium text-gray-800 truncate">{name}</span>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="text-sm font-medium text-gray-800 truncate">{name}</span>
+                      {group && <span className="text-[10px] text-purple-500 shrink-0 bg-purple-50 px-1 rounded">Nhóm</span>}
+                    </div>
                     <span className="text-[10px] text-gray-400 shrink-0">{formatTime(msg.createdAt)}</span>
                   </div>
                   <p className="text-xs text-gray-500 truncate mt-0.5">
-                    {msg.role === 'bot' ? '🤖 ' : ''}{preview}
+                    {msg.role === 'bot' ? '🤖 ' : groupSender ? <><span className="font-medium">{groupSender}:</span> </> : ''}{previewText}
                   </p>
                   {msg.roomInfo && (
                     <div className="flex gap-1 mt-1">
@@ -222,8 +233,16 @@ function ConversationList({
 
 // ─── MessageBubble ──────────────────────────────────────────────────────────
 
+function msgSenderUid(msg: ZaloMsg): string {
+  const d = (msg.rawPayload as any)?.data;
+  return d?.uidFrom ? String(d.uidFrom) : '';
+}
+
 function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string) => void }) {
   const isBot = msg.role === 'bot';
+  const group = isGroup(msg);
+  const groupSender = group && !isBot ? msgSenderInGroup(msg) : '';
+  const groupSenderUid = group && !isBot ? msgSenderUid(msg) : '';
   const mediaUrl = getMediaUrl(msg);
   const image = isImageMsg(msg);
   const video = isVideoMsg(msg);
@@ -234,65 +253,75 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
   return (
     <div className={`flex items-end gap-1.5 group ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
       {/* avatar */}
-      <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mb-0.5 ${isBot ? 'bg-gray-200' : 'bg-blue-100'}`}>
-        {isBot ? <Bot className="h-3.5 w-3.5 text-gray-500" /> : <User className="h-3.5 w-3.5 text-blue-600" />}
+      <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mb-0.5 ${isBot ? 'bg-gray-200' : group ? 'bg-purple-100' : 'bg-blue-100'}`}>
+        {isBot ? <Bot className="h-3.5 w-3.5 text-gray-500" /> : group ? <Users className="h-3.5 w-3.5 text-purple-600" /> : <User className="h-3.5 w-3.5 text-blue-600" />}
       </div>
 
-      {/* bubble */}
-      <div className={`max-w-[72%] rounded-2xl px-3 py-2 text-sm relative ${
-        isBot ? 'bg-gray-100 text-gray-800 rounded-bl-sm' : 'bg-blue-500 text-white rounded-br-sm'
-      }`}>
-        {/* Ảnh */}
-        {image && mediaUrl && (
-          <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="block mb-1">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={mediaUrl} alt="" className="rounded-lg max-h-64 max-w-full object-contain cursor-pointer hover:opacity-90 transition"
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          </a>
+      {/* bubble wrapper — includes optional sender name for group messages */}
+      <div className={`flex flex-col max-w-[72%] ${isBot ? 'items-start' : 'items-end'}`}>
+        {groupSender && (
+          <div className={`flex flex-col mb-0.5 px-1 ${isBot ? 'items-start' : 'items-end'}`}>
+            <span className="text-[10px] text-purple-600 font-medium">{groupSender}</span>
+            {groupSenderUid && (
+              <span className="text-[9px] text-gray-400 font-mono">{groupSenderUid}</span>
+            )}
+          </div>
         )}
+        <div className={`rounded-2xl px-3 py-2 text-sm relative ${
+          isBot ? 'bg-gray-100 text-gray-800 rounded-bl-sm' : 'bg-blue-500 text-white rounded-br-sm'
+        }`}>
+          {/* Ảnh */}
+          {image && mediaUrl && (
+            <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="block mb-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={mediaUrl} alt="" className="rounded-lg max-h-64 max-w-full object-contain cursor-pointer hover:opacity-90 transition"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            </a>
+          )}
 
-        {/* Video */}
-        {video && mediaUrl && (
-          <a href={mediaUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 mb-1 p-2 bg-black/10 rounded-lg hover:bg-black/20 transition">
-            <Film className="h-5 w-5 shrink-0" />
-            <span className="text-xs truncate">{fileName || 'Video'}</span>
-          </a>
-        )}
+          {/* Video */}
+          {video && mediaUrl && (
+            <a href={mediaUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 mb-1 p-2 bg-black/10 rounded-lg hover:bg-black/20 transition">
+              <Film className="h-5 w-5 shrink-0" />
+              <span className="text-xs truncate">{fileName || 'Video'}</span>
+            </a>
+          )}
 
-        {/* File */}
-        {file && mediaUrl && (
-          <a href={mediaUrl} target="_blank" rel="noopener noreferrer"
-            className={`flex items-center gap-2 mb-1 p-2 rounded-lg transition ${
-              isBot ? 'bg-white/60 hover:bg-white/80' : 'bg-white/20 hover:bg-white/30'
-            }`}>
-            <FileText className="h-5 w-5 shrink-0" />
-            <div className="min-w-0">
-              <span className="text-xs font-medium truncate block">{fileName || 'File'}</span>
-              <span className="text-[10px] opacity-70">Nhấn để tải</span>
-            </div>
-          </a>
-        )}
+          {/* File */}
+          {file && mediaUrl && (
+            <a href={mediaUrl} target="_blank" rel="noopener noreferrer"
+              className={`flex items-center gap-2 mb-1 p-2 rounded-lg transition ${
+                isBot ? 'bg-white/60 hover:bg-white/80' : 'bg-white/20 hover:bg-white/30'
+              }`}>
+              <FileText className="h-5 w-5 shrink-0" />
+              <div className="min-w-0">
+                <span className="text-xs font-medium truncate block">{fileName || 'File'}</span>
+                <span className="text-[10px] opacity-70">Nhấn để tải</span>
+              </div>
+            </a>
+          )}
 
-        {/* Đính kèm không xác định loại */}
-        {!image && !video && !file && mediaUrl && (
-          <a href={mediaUrl} target="_blank" rel="noopener noreferrer"
-            className={`flex items-center gap-2 mb-1 p-2 rounded-lg transition ${
-              isBot ? 'bg-white/60 hover:bg-white/80' : 'bg-white/20 hover:bg-white/30'
-            }`}>
-            <Paperclip className="h-4 w-4 shrink-0" />
-            <span className="text-xs truncate">{fileName || 'Đính kèm'}</span>
-          </a>
-        )}
+          {/* Đính kèm không xác định loại */}
+          {!image && !video && !file && mediaUrl && (
+            <a href={mediaUrl} target="_blank" rel="noopener noreferrer"
+              className={`flex items-center gap-2 mb-1 p-2 rounded-lg transition ${
+                isBot ? 'bg-white/60 hover:bg-white/80' : 'bg-white/20 hover:bg-white/30'
+              }`}>
+              <Paperclip className="h-4 w-4 shrink-0" />
+              <span className="text-xs truncate">{fileName || 'Đính kèm'}</span>
+            </a>
+          )}
 
-        {/* Text */}
-        {hasTextContent && (
-          <span className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</span>
-        )}
+          {/* Text */}
+          {hasTextContent && (
+            <span className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</span>
+          )}
 
-        <span className={`block text-[10px] mt-0.5 ${isBot ? 'text-gray-400' : 'text-blue-100'}`}>
-          {formatTime(msg.createdAt)}
-        </span>
+          <span className={`block text-[10px] mt-0.5 ${isBot ? 'text-gray-400' : 'text-blue-100'}`}>
+            {formatTime(msg.createdAt)}
+          </span>
+        </div>
       </div>
 
       {/* delete */}
@@ -617,9 +646,11 @@ function MessageThread({
   }
 
   const info = msgs.find(m => m.roomInfo)?.roomInfo;
-  const name = msgs.length ? senderName(msgs[0]) : chatId;
-  const tid = msgs.length ? getThreadId(msgs[0]) : chatId;
-  const threadType: 0 | 1 = msgs.length && isGroup(msgs[0]) ? 1 : 0;
+  const firstMsg = msgs.length ? msgs[0] : null;
+  const name = firstMsg ? senderName(firstMsg) : chatId;
+  const tid = firstMsg ? getThreadId(firstMsg) : chatId;
+  const group = firstMsg ? isGroup(firstMsg) : false;
+  const threadType: 0 | 1 = group ? 1 : 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -631,6 +662,11 @@ function MessageThread({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-gray-800 truncate">{name}</span>
+            {group && (
+              <Badge variant="outline" className="text-[10px] px-1.5 border-purple-300 text-purple-700 bg-purple-50 shrink-0">
+                <Users className="h-2.5 w-2.5 mr-0.5" />Nhóm
+              </Badge>
+            )}
             {info && (
               <Badge variant="outline" className="text-[10px] px-1.5 border-green-300 text-green-700 bg-green-50 shrink-0">
                 <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{info.maPhong}
