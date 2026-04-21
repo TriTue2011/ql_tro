@@ -303,6 +303,13 @@ export async function POST(request: NextRequest) {
       if (groupId) {
         const groupName = await fetchGroupName(groupId, accountId);
         if (groupName) update._groupName = groupName;
+        // Tự động gộp tin nhắn cũ của nhóm này (chatId sai = senderId)
+        prisma.$executeRaw`
+          UPDATE "ZaloMessage"
+          SET "chatId" = ${groupId}
+          WHERE "rawPayload"->>'threadId' = ${groupId}
+          AND "chatId" != ${groupId}
+        `.catch(() => {});
       }
       await Promise.all([saveMessage(update), notifyHomeAssistant(update)]);
       return NextResponse.json({ message: 'Group message saved' });

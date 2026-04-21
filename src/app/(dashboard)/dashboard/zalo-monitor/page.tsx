@@ -167,37 +167,10 @@ function ConversationList({
   loading: boolean;
   onRefresh: () => void;
 }) {
-  const [migrating, setMigrating] = useState(false);
-
-  async function handleMigrateGroups() {
-    setMigrating(true);
-    try {
-      const res = await fetch('/api/zalo/migrate-groups', { method: 'POST' });
-      const d = await res.json();
-      if (res.ok) {
-        toast.success(`Đã gộp ${d.updatedMessages} tin nhắn, ${d.groupsFound} nhóm`);
-        onRefresh();
-      } else {
-        toast.error('Lỗi gộp nhóm');
-      }
-    } finally {
-      setMigrating(false);
-    }
-  }
-
-  const hasOldGroupMsgs = convs.some(m => isGroup(m) && getThreadId(m) !== m.chatId);
-
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-3 py-2 border-b bg-white shrink-0">
         <span className="flex-1 text-sm font-semibold text-gray-700">Hội thoại</span>
-        {hasOldGroupMsgs && (
-          <Button size="sm" variant="outline" className="h-7 text-[11px] px-2 text-purple-600 border-purple-300 hover:bg-purple-50"
-            onClick={handleMigrateGroups} disabled={migrating} title="Gộp tin nhắn nhóm về đúng hội thoại">
-            {migrating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Users className="h-3 w-3 mr-1" />}
-            Gộp nhóm
-          </Button>
-        )}
         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onRefresh} disabled={loading}>
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
         </Button>
@@ -1126,7 +1099,15 @@ export default function ZaloMonitorPage() {
     } catch { setConnected(false); }
   }, []);
 
-  useEffect(() => { loadConvs(); checkConnection(); }, [loadConvs, checkConnection]);
+  useEffect(() => {
+    loadConvs();
+    checkConnection();
+    // Tự động gộp tin nhắn nhóm cũ (chatId sai = senderId) khi trang mở
+    fetch('/api/zalo/migrate-groups', { method: 'POST' })
+      .then(r => r.json())
+      .then(d => { if (d.updatedMessages > 0) loadConvs(); })
+      .catch(() => {});
+  }, [loadConvs, checkConnection]);
   useRealtimeEvents(['zalo-message'], () => { void loadConvs(); });
   // Safety net: poll mỗi 30s phòng SSE mất kết nối
   useEffect(() => {
