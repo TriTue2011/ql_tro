@@ -157,6 +157,8 @@ export default function HoaDonPage() {
   const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
   const [isSendingZalo, setIsSendingZalo] = useState(false);
   const [bankSettings, setBankSettings] = useState({ tenNganHang: '', soTaiKhoan: '', chuTaiKhoan: '' });
+  const [sendBankInfo, setSendBankInfo] = useState<{ soTaiKhoan: string; nganHang: string; chuTaiKhoan: string } | null>(null);
+  const [isSendingZaloPdf, setIsSendingZaloPdf] = useState(false);
 
   useEffect(() => {
     document.title = 'Quản lý Hóa đơn';
@@ -380,7 +382,7 @@ export default function HoaDonPage() {
     });
   };
 
-  const generateBillingMessage = (hoaDon: HoaDon) => {
+  const generateBillingMessage = (hoaDon: HoaDon, bankOverride?: typeof sendBankInfo) => {
     const phongName = getPhongName(hoaDon.phong, phongList);
     const khachThueName = getKhachThueName(hoaDon.khachThue, khachThueList);
     const hanTT = new Date(hoaDon.hanThanhToan).toLocaleDateString('vi-VN');
@@ -388,8 +390,10 @@ export default function HoaDonPage() {
       ? hoaDon.phiDichVu.map(p => `  - ${p.ten}: ${formatCurrency(p.gia)}`).join('\n')
       : '  (không có)';
 
-    const bankBlock = hoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang
-      ? `\n━━━━━━━━━━━━━━━━━━━━\n🏦 CHUYỂN KHOẢN\nNgân hàng: ${bankSettings.tenNganHang}\nSố TK: ${bankSettings.soTaiKhoan}${bankSettings.chuTaiKhoan ? `\nChủ TK: ${bankSettings.chuTaiKhoan}` : ''}\nSố tiền: ${formatCurrency(hoaDon.conLai)}\nNội dung: ${buildTransferDesc(hoaDon, phongList)}`
+    // Ưu tiên per-invoice bank (theo người tạo), fallback global CaiDat
+    const bank = bankOverride ?? (bankSettings.soTaiKhoan ? { soTaiKhoan: bankSettings.soTaiKhoan, nganHang: bankSettings.tenNganHang, chuTaiKhoan: bankSettings.chuTaiKhoan } : null);
+    const bankBlock = hoaDon.conLai > 0 && bank?.soTaiKhoan && bank?.nganHang
+      ? `\n━━━━━━━━━━━━━━━━━━━━\n🏦 CHUYỂN KHOẢN\nNgân hàng: ${bank.nganHang}\nSố TK: ${bank.soTaiKhoan}${bank.chuTaiKhoan ? `\nChủ TK: ${bank.chuTaiKhoan}` : ''}\nSố tiền: ${formatCurrency(hoaDon.conLai)}\nNội dung: ${buildTransferDesc(hoaDon, phongList)}`
       : '';
 
     return `THÔNG BÁO TIỀN PHÒNG THÁNG ${hoaDon.thang}/${hoaDon.nam}
@@ -411,20 +415,39 @@ Hạn thanh toán: ${hanTT}
 Vui lòng thanh toán đúng hạn.`;
   };
 
-  const getKhachThuePhone = (hoaDon: HoaDon): string => {
-    if (typeof hoaDon.khachThue === 'object' && (hoaDon.khachThue as any)?.soDienThoai) {
-      return (hoaDon.khachThue as any).soDienThoai;
+  const getKhachThueContact = (hoaDon: HoaDon): { phone: string; zaloChatId: string } => {
+    let phone = '';
+    let zaloChatId = '';
+    if (typeof hoaDon.khachThue === 'object' && hoaDon.khachThue !== null) {
+      phone = (hoaDon.khachThue as any)?.soDienThoai || '';
+      zaloChatId = (hoaDon.khachThue as any)?.zaloChatId || '';
     }
-    if (typeof hoaDon.khachThue === 'string') {
-      const kt = khachThueList.find(k => k.id === hoaDon.khachThue);
-      return kt?.soDienThoai || '';
+    const ktId = typeof hoaDon.khachThue === 'string' ? hoaDon.khachThue
+      : (hoaDon.khachThue as any)?.id || (hoaDon as any).khachThueId || '';
+    if (ktId) {
+      const kt = khachThueList.find(k => k.id === ktId);
+      if (kt) {
+        if (!phone) phone = kt.soDienThoai || '';
+        if (!zaloChatId) zaloChatId = (kt as any).zaloChatId || '';
+      }
     }
-    return '';
+    return { phone, zaloChatId };
   };
 
   const handleSend = (hoaDon: HoaDon) => {
     setSendingHoaDon(hoaDon);
+    setSendBankInfo(null);
     setIsSendDialogOpen(true);
+    // Fetch per-invoice bank info (respects per-creator bank when flag is on)
+    fetch(`/api/hoa-don-public/${hoaDon.id}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.data?.cauHinh) {
+          const c = d.data.cauHinh;
+          setSendBankInfo({ soTaiKhoan: c.soTaiKhoan || '', nganHang: c.nganHang || '', chuTaiKhoan: c.chuTaiKhoan || '' });
+        }
+      })
+      .catch(() => {});
   };
 
   const handleDownload = async (hoaDon: HoaDon) => {
@@ -973,13 +996,20 @@ Vui lòng thanh toán đúng hạn.`;
           </DialogHeader>
 
           {sendingHoaDon && (() => {
-            const phone = getKhachThuePhone(sendingHoaDon);
-            const message = generateBillingMessage(sendingHoaDon);
+            const { phone, zaloChatId } = getKhachThueContact(sendingHoaDon);
+            const canZalo = !!(phone || zaloChatId);
+            const message = generateBillingMessage(sendingHoaDon, sendBankInfo);
             const encodedMessage = encodeURIComponent(message);
 
+            const buildZaloBody = (extra?: Record<string, string>) => ({
+              ...(zaloChatId ? { chatId: zaloChatId } : { phone }),
+              message,
+              ...extra,
+            });
+
             const handleSendViaZaloBot = async () => {
-              if (!phone) {
-                toast.error('Không tìm thấy số điện thoại khách thuê');
+              if (!canZalo) {
+                toast.error('Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo');
                 return;
               }
               setIsSendingZalo(true);
@@ -987,19 +1017,57 @@ Vui lòng thanh toán đúng hạn.`;
                 const res = await fetch('/api/gui-zalo', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ phone, message }),
+                  body: JSON.stringify(buildZaloBody()),
                 });
                 const data = await res.json();
                 if (data.success) {
                   toast.success('Đã gửi tin nhắn Zalo thành công!');
                   setIsSendDialogOpen(false);
                 } else {
-                  toast.error(data.message || 'Gửi Zalo thất bại');
+                  toast.error(data.message || data.error || 'Gửi Zalo thất bại');
                 }
               } catch {
                 toast.error('Không kết nối được Zalo Bot server');
               } finally {
                 setIsSendingZalo(false);
+              }
+            };
+
+            const handleSendWithPdf = async () => {
+              if (!canZalo) {
+                toast.error('Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo');
+                return;
+              }
+              setIsSendingZaloPdf(true);
+              try {
+                // Gửi tin nhắn text trước
+                const r1 = await fetch('/api/gui-zalo', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(buildZaloBody()),
+                });
+                const d1 = await r1.json();
+                if (!d1.success) {
+                  toast.error(d1.message || d1.error || 'Gửi tin nhắn thất bại');
+                  return;
+                }
+                // Gửi PDF kèm theo
+                const r2 = await fetch('/api/gui-zalo', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(buildZaloBody({ fileUrl: `/api/hoa-don/${sendingHoaDon.id}/pdf`, message: `Hóa đơn tháng ${sendingHoaDon.thang}/${sendingHoaDon.nam}` })),
+                });
+                const d2 = await r2.json();
+                if (d2.success) {
+                  toast.success('Đã gửi tin nhắn + PDF Zalo thành công!');
+                  setIsSendDialogOpen(false);
+                } else {
+                  toast.warning('Tin nhắn đã gửi nhưng PDF thất bại: ' + (d2.message || d2.error || ''));
+                }
+              } catch {
+                toast.error('Không kết nối được Zalo Bot server');
+              } finally {
+                setIsSendingZaloPdf(false);
               }
             };
 
@@ -1013,24 +1081,39 @@ Vui lòng thanh toán đúng hạn.`;
                   </pre>
                 </div>
 
-                {phone ? (
+                {canZalo ? (
                   <div className="text-sm text-gray-600">
-                    Gửi đến: <span className="font-semibold text-gray-900">{phone}</span>
+                    Gửi đến:{' '}
+                    <span className="font-semibold text-gray-900">
+                      {phone || `Chat ID: ${zaloChatId}`}
+                    </span>
+                    {zaloChatId && <span className="ml-1 text-xs text-green-600">(đã liên kết Zalo)</span>}
                   </div>
                 ) : (
                   <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded">
-                    Không tìm thấy số điện thoại khách thuê
+                    Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo Chat ID
                   </div>
                 )}
 
                 {/* Zalo Bot auto send - nổi bật nhất */}
                 <Button
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  disabled={!phone || isSendingZalo}
+                  disabled={!canZalo || isSendingZalo || isSendingZaloPdf}
                   onClick={handleSendViaZaloBot}
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
                   {isSendingZalo ? 'Đang gửi...' : 'Gửi Zalo tự động (Zalo Bot)'}
+                </Button>
+
+                {/* Gửi kèm PDF */}
+                <Button
+                  variant="outline"
+                  className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                  disabled={!canZalo || isSendingZalo || isSendingZaloPdf}
+                  onClick={handleSendWithPdf}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {isSendingZaloPdf ? 'Đang gửi...' : 'Gửi Zalo kèm PDF hóa đơn'}
                 </Button>
 
                 <div className="relative">
