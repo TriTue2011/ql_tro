@@ -134,6 +134,8 @@ export async function POST(request: NextRequest) {
       anhChiSoDien,
       anhChiSoNuoc,
       hanThanhToan,
+      daThanhToan: daThanhToanRaw,
+      trangThai: trangThaiRaw,
     } = body;
 
     // Validate required fields
@@ -268,6 +270,14 @@ export async function POST(request: NextRequest) {
     const tienNuocTinh = nuocCalc.total;
 
     const tongTien = tienPhong + tienDienTinh + tienNuocTinh + (phiDichVu?.reduce((sum: number, phi: PhiDichVu) => sum + phi.gia, 0) || 0);
+    const daThanhToan = Math.max(0, Number(daThanhToanRaw) || 0);
+    const conLai = tongTien - daThanhToan;
+    // Tự động xác định trạng thái nếu form không gửi
+    const trangThaiInput = trangThaiRaw as string | undefined;
+    const trangThai: import('@/lib/repositories/types').TrangThaiHoaDon =
+      trangThaiInput && ['chuaThanhToan','daThanhToanMotPhan','daThanhToan','quaHan'].includes(trangThaiInput)
+        ? trangThaiInput as import('@/lib/repositories/types').TrangThaiHoaDon
+        : conLai <= 0 ? 'daThanhToan' : daThanhToan > 0 ? 'daThanhToanMotPhan' : 'chuaThanhToan';
 
     const hoaDon = await hoaDonRepo.create({
       maHoaDon: finalMaHoaDon,
@@ -287,6 +297,9 @@ export async function POST(request: NextRequest) {
       chiTietNuoc: nuocCalc.breakdown,
       phiDichVu: phiDichVu || [],
       tongTien,
+      daThanhToan,
+      conLai,
+      trangThai,
       hanThanhToan: (() => {
         // Ưu tiên giá trị user đã chỉnh trên form; fallback về ngayThanhToan của hợp đồng.
         if (hanThanhToan) {

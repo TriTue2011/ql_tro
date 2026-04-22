@@ -411,6 +411,9 @@ export interface CreateHoaDonInput {
   chiTietNuoc?: any;
   phiDichVu?: PhiDichVu[];
   tongTien: number;
+  daThanhToan?: number;
+  conLai?: number;
+  trangThai?: TrangThaiHoaDon;
   hanThanhToan: Date | string;
   ghiChu?: string;
   anhChiSoDien?: string;

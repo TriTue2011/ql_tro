@@ -110,10 +110,10 @@ export default class HoaDonRepository {
   async create(data: CreateHoaDonInput): Promise<HoaDonData> {
     const soDien = data.chiSoDienCuoiKy - data.chiSoDienBanDau;
     const soNuoc = data.chiSoNuocCuoiKy - data.chiSoNuocBanDau;
-    const conLai = data.tongTien;
-    const daThanhToan = 0;
+    const daThanhToan = data.daThanhToan ?? 0;
+    const conLai = data.conLai ?? (data.tongTien - daThanhToan);
     const hanThanhToan = new Date(data.hanThanhToan);
-    const trangThai = computeTrangThai(conLai, daThanhToan, hanThanhToan);
+    const trangThai = data.trangThai ?? computeTrangThai(conLai, daThanhToan, hanThanhToan);
 
     const raw = await prisma.hoaDon.create({
       data: {
