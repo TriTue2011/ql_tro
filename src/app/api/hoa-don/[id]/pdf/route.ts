@@ -38,11 +38,28 @@ export async function GET(
         select: { hoTen: true, soDienThoai: true },
       }) : null,
       prisma.caiDat.findMany({
-        where: { khoa: { in: ['tenChuNha', 'soTaiKhoan', 'nganHang', 'chuTaiKhoan', 'logoUrl'] } },
+        where: {
+          khoa: {
+            in: [
+              'ten_cong_ty',
+              'ngan_hang_so_tai_khoan',
+              'ngan_hang_ten',
+              'ngan_hang_chu_tai_khoan',
+              'logo_url',
+            ],
+          },
+        },
         select: { khoa: true, giaTri: true },
       }),
     ]);
-    const cauHinh = Object.fromEntries(cauHinhRows.map(r => [r.khoa, r.giaTri ?? '']));
+    const rawCfg = Object.fromEntries(cauHinhRows.map(r => [r.khoa, r.giaTri ?? '']));
+    const cauHinh = {
+      tenChuNha: rawCfg['ten_cong_ty'] ?? '',
+      soTaiKhoan: rawCfg['ngan_hang_so_tai_khoan'] ?? '',
+      nganHang: rawCfg['ngan_hang_ten'] ?? '',
+      chuTaiKhoan: rawCfg['ngan_hang_chu_tai_khoan'] ?? '',
+      logoUrl: rawCfg['logo_url'] ?? '',
+    };
 
     const html = buildInvoiceHTML({
       hoaDon: hoaDon as any,
