@@ -15,6 +15,29 @@ import { storeChatIdForAccount } from "@/lib/zalo-auto-link";
 import { handlePendingConfirmation } from "@/lib/zalo-pending-confirm";
 import { getUserInfoViaBotServer } from "@/lib/zalo-bot-client";
 import { getGroupInfo } from "@/lib/zalo-direct/service";
+import { uploadFile } from "@/lib/storage";
+
+/** Tải ảnh từ Zalo CDN và lưu vào storage vĩnh viễn. Fire-and-forget — không ném lỗi. */
+async function persistAttachmentUrl(cdnUrl: string, ext = '.jpg'): Promise<string | null> {
+  try {
+    const res = await fetch(cdnUrl, { signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    // Detect extension từ magic bytes
+    let detectedExt = ext;
+    if (buf[0] === 0xFF && buf[1] === 0xD8) detectedExt = '.jpg';
+    else if (buf[0] === 0x89 && buf[1] === 0x50) detectedExt = '.png';
+    else if (buf[0] === 0x47 && buf[1] === 0x49) detectedExt = '.gif';
+    else if (buf[0] === 0x52 && buf[1] === 0x49) detectedExt = '.webp';
+    const file = new File([buf], `zalo_${Date.now()}${detectedExt}`, {
+      type: detectedExt === '.jpg' ? 'image/jpeg' : detectedExt === '.png' ? 'image/png' : 'image/jpeg',
+    });
+    const result = await uploadFile(file, 'zalo/images');
+    return result.secure_url;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Xử lý tin nhắn nhận được từ zca-js listener.
@@ -138,11 +161,21 @@ export async function handleIncomingMessage(
   let content: string;
 
   if (typeof contentRaw === 'object' && contentRaw !== null) {
-    attachmentUrl =
+    const cdnUrl: string | null =
       contentRaw.href || contentRaw.hdUrl || contentRaw.normalUrl ||
       contentRaw.thumb || contentRaw.url || contentRaw.fileUrl || null;
 
-    if (msgType === 'chat.photo' || msgType === 'chat.gif' || contentRaw.href || contentRaw.hdUrl) {
+    const isImageMsg = msgType === 'chat.photo' || msgType === 'chat.gif' || !!(contentRaw.href || contentRaw.hdUrl);
+
+    if (isImageMsg && cdnUrl) {
+      // Lưu ảnh vĩnh viễn vào storage ngay khi nhận để tránh CDN hết hạn
+      const permanent = await persistAttachmentUrl(cdnUrl).catch(() => null);
+      attachmentUrl = permanent || cdnUrl;
+    } else {
+      attachmentUrl = cdnUrl;
+    }
+
+    if (isImageMsg) {
       content = '[hình ảnh]';
     } else if (msgType === 'chat.sticker') {
       content = '[sticker]';

@@ -1051,11 +1051,14 @@ Vui lòng thanh toán đúng hạn.`;
                   toast.error(d1.message || d1.error || 'Gửi tin nhắn thất bại');
                   return;
                 }
-                // Gửi PDF kèm theo
-                const r2 = await fetch('/api/gui-zalo', {
+                // Generate PDF server-side rồi gửi qua Zalo (tránh self-fetch issue)
+                const r2 = await fetch(`/api/hoa-don/${sendingHoaDon.id}/send-zalo-pdf`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(buildZaloBody({ fileUrl: `/api/hoa-don/${sendingHoaDon.id}/pdf`, message: `Hóa đơn tháng ${sendingHoaDon.thang}/${sendingHoaDon.nam}` })),
+                  body: JSON.stringify({
+                    ...(zaloChatId ? { chatId: zaloChatId } : { phone }),
+                    message: `Hóa đơn tháng ${sendingHoaDon.thang}/${sendingHoaDon.nam} - ${sendingHoaDon.maHoaDon}`,
+                  }),
                 });
                 const d2 = await r2.json();
                 if (d2.success) {
