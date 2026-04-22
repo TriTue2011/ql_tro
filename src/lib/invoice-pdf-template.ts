@@ -466,14 +466,23 @@ export function buildInvoiceHTML(input: InvoiceTemplateInput): string {
         <div style="margin-top: 4px;">* Thanh toán chuyển khoản/ <i>Bank transfer</i>:</div>
         <table class="bank-table">
           <tr>
-            <td>
-              <div><b>Tài khoản/</b> <i>Account</i>: ${chuTaiKhoan}</div>
-              <div><b>Số TK/</b> <i>Account No.</i>: ${soTaiKhoan || '—'}${nganHang ? ` - ${nganHang}` : ''}</div>
+            <td style="width: ${soTaiKhoan && nganHang && hoaDon.conLai > 0 ? '65%' : '100%'};">
+              <div><b>Chủ tài khoản/</b> <i>Account holder</i>: ${chuTaiKhoan}</div>
+              <div><b>Số TK/</b> <i>Account No.</i>: ${soTaiKhoan || '—'}</div>
+              <div><b>Ngân hàng/</b> <i>Bank</i>: ${nganHang || '—'}</div>
+              <div style="margin-top: 4px;"><b>Số tiền/</b> <i>Amount</i>: ${fmtVND(hoaDon.conLai)} VND</div>
+              <div><b>Nội dung/</b> <i>Content</i>: ${maPhong} ${thangStr}.${namStr}</div>
             </td>
+            ${soTaiKhoan && nganHang && hoaDon.conLai > 0 ? `
+            <td style="width: 35%; text-align: center; padding: 8px;">
+              <img src="https://qr.sepay.vn/img?acc=${encodeURIComponent(soTaiKhoan)}&bank=${encodeURIComponent(nganHang)}&amount=${Math.round(hoaDon.conLai)}&des=${encodeURIComponent(`${maPhong} ${thangStr}.${namStr}`)}&template=compact"
+                   style="max-width: 160px; max-height: 160px;" alt="QR chuyển khoản" />
+              <div style="font-size: 10px; color: #555; margin-top: 4px; font-style: italic;">Quét mã để chuyển khoản nhanh<br/><i>Scan to pay</i></div>
+            </td>` : ''}
           </tr>
         </table>
-        <div style="margin-top: 6px;">
-          * <b>Nội dung/</b> <i>Content</i>: ${maPhong} ${thangStr}.${namStr} — <i>Payment for room ${maPhong}, month ${thangStr}.${namStr}</i>
+        <div style="margin-top: 6px; font-size: 11px; color: #444;">
+          <i>Payment for room ${maPhong}, month ${thangStr}.${namStr}</i>
         </div>
         <div style="margin-top: 6px;">
           Hạn thanh toán/ <i>Due date</i>: <b>${new Date(hoaDon.hanThanhToan).toLocaleDateString('vi-VN')}</b>.
