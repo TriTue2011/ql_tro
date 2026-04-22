@@ -73,6 +73,7 @@ const DEFAULT_SETTINGS = [
   { khoa: 'ngan_hang_ten', giaTri: '', moTa: 'Ngân hàng nhận tiền (mã ngân hàng, vd: Vietcombank)', nhom: 'thanhToan', laBiMat: false },
   { khoa: 'ngan_hang_so_tai_khoan', giaTri: '', moTa: 'Số tài khoản ngân hàng', nhom: 'thanhToan', laBiMat: false },
   { khoa: 'ngan_hang_chu_tai_khoan', giaTri: '', moTa: 'Tên chủ tài khoản', nhom: 'thanhToan', laBiMat: false },
+  { khoa: 'cho_phep_quan_ly_tai_khoan', giaTri: 'false', moTa: 'Cho phép quản lý tự cấu hình tài khoản nhận tiền riêng (true/false)', nhom: 'thanhToan', laBiMat: false },
   // Bảo mật
   { khoa: 'session_max_age_days', giaTri: '30', moTa: 'Thời gian hết hạn phiên đăng nhập (ngày)', nhom: 'baoMat', laBiMat: false },
   { khoa: 'rate_limit_login', giaTri: '10', moTa: 'Số lần đăng nhập tối đa / phút', nhom: 'baoMat', laBiMat: false },

@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getHoaDonRepo, getThanhToanRepo } from '@/lib/repositories';
+import { resolveInvoiceBankInfo } from '@/lib/invoice-bank-resolver';
 
 export async function GET(
   request: NextRequest,
@@ -43,25 +44,11 @@ export async function GET(
         where: { id: hoaDon.khachThueId },
         select: { hoTen: true, soDienThoai: true, email: true, cccd: true },
       }) : null,
-      prisma.caiDat.findMany({
-        where: {
-          khoa: {
-            in: [
-              'ten_cong_ty',
-              'ngan_hang_so_tai_khoan',
-              'ngan_hang_ten',
-              'ngan_hang_chu_tai_khoan',
-              'logo_url',
-            ],
-          },
-        },
-        select: { khoa: true, giaTri: true },
-      }),
+      resolveInvoiceBankInfo(hoaDon.nguoiTaoId),
     ]);
 
     const thanhToanList = await thanhToanRepo.findByHoaDon(hoaDonId);
 
-    const rawCfg = Object.fromEntries(cauHinh.map(r => [r.khoa, r.giaTri ?? '']));
     return NextResponse.json({
       success: true,
       data: {
@@ -69,13 +56,7 @@ export async function GET(
         thanhToanList,
         phong,
         khachThue,
-        cauHinh: {
-          tenChuNha: rawCfg['ten_cong_ty'] ?? '',
-          soTaiKhoan: rawCfg['ngan_hang_so_tai_khoan'] ?? '',
-          nganHang: rawCfg['ngan_hang_ten'] ?? '',
-          chuTaiKhoan: rawCfg['ngan_hang_chu_tai_khoan'] ?? '',
-          logoUrl: rawCfg['logo_url'] ?? '',
-        },
+        cauHinh,
       }
     });
 

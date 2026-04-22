@@ -295,6 +295,7 @@ export async function POST(request: NextRequest) {
       ghiChu,
       anhChiSoDien: anhChiSoDien || undefined,
       anhChiSoNuoc: anhChiSoNuoc || undefined,
+      nguoiTaoId: session.user.id,
     });
 
     // Thông báo Zalo đầy đủ (kèm QR thanh toán) cho khách thuê về hóa đơn mới

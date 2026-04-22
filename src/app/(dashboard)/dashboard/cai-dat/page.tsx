@@ -201,6 +201,27 @@ function SettingInput({
     );
   }
 
+  if (item.khoa === "cho_phep_quan_ly_tai_khoan") {
+    const isOn = value === "true";
+    return (
+      <div className="flex items-center gap-3 py-1">
+        <Switch
+          checked={isOn}
+          onCheckedChange={(checked) => onChange(checked ? "true" : "false")}
+          id="cho_phep_ql_switch"
+        />
+        <label
+          htmlFor="cho_phep_ql_switch"
+          className={`text-sm cursor-pointer select-none ${isOn ? "text-green-700 font-medium" : "text-gray-500"}`}
+        >
+          {isOn
+            ? "Đang bật — quản lý được tự cấu hình TK, hóa đơn họ tạo dùng TK riêng"
+            : "Đang tắt — toàn hệ thống dùng TK chung của chủ trọ"}
+        </label>
+      </div>
+    );
+  }
+
   if (item.laBiMat) {
     return (
       <div className="relative">

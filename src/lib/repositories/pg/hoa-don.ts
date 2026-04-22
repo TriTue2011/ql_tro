@@ -51,6 +51,7 @@ function normalize(raw: any): HoaDonData {
     ghiChu: raw.ghiChu ?? undefined,
     anhChiSoDien: (raw as any).anhChiSoDien ?? undefined,
     anhChiSoNuoc: (raw as any).anhChiSoNuoc ?? undefined,
+    nguoiTaoId: (raw as any).nguoiTaoId ?? null,
     ngayTao: raw.ngayTao,
     ngayCapNhat: raw.ngayCapNhat,
   };
@@ -142,6 +143,7 @@ export default class HoaDonRepository {
         ghiChu: data.ghiChu,
         ...(data.anhChiSoDien !== undefined && { anhChiSoDien: data.anhChiSoDien }),
         ...(data.anhChiSoNuoc !== undefined && { anhChiSoNuoc: data.anhChiSoNuoc }),
+        ...(data.nguoiTaoId !== undefined && { nguoiTaoId: data.nguoiTaoId }),
       },
       include: includeRelations,
     });

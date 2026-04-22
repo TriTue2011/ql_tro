@@ -47,6 +47,7 @@ model NguoiDung {
   zaloDongChuTroThreads ZaloDongChuTroThread[]
   danhBaNgoai           DanhBaNgoai[]
   khachThueTao          KhachThue[]     @relation("KhachThueNguoiTao")
+  hoaDonTao             HoaDon[]        @relation("HoaDonNguoiTao")
 }
 
 model ToaNha {
@@ -260,10 +261,14 @@ model HoaDon {
   ghiChu            String?
   anhChiSoDien      String?
   anhChiSoNuoc      String?
+  nguoiTaoId        String?
+  nguoiTao          NguoiDung? @relation("HoaDonNguoiTao", fields: [nguoiTaoId], references: [id], onDelete: SetNull)
   ngayTao           DateTime  @default(now())
   ngayCapNhat       DateTime  @updatedAt
 
   thanhToan         ThanhToan[]
+
+  @@index([nguoiTaoId])
 }
 
 model ThanhToan {

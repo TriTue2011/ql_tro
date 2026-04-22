@@ -9,6 +9,7 @@ import prisma from '@/lib/prisma';
 import { getHoaDonRepo } from '@/lib/repositories';
 import { buildInvoiceHTML } from '@/lib/invoice-pdf-template';
 import { renderPdf } from '@/lib/puppeteer-browser';
+import { resolveInvoiceBankInfo } from '@/lib/invoice-bank-resolver';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -25,7 +26,7 @@ export async function GET(
     const hoaDon = await hoaDonRepo.findById(id);
     if (!hoaDon) return NextResponse.json({ error: 'Không tìm thấy hóa đơn' }, { status: 404 });
 
-    const [phong, khachThue, cauHinhRows] = await Promise.all([
+    const [phong, khachThue, cauHinh] = await Promise.all([
       hoaDon.phongId ? prisma.phong.findUnique({
         where: { id: hoaDon.phongId },
         select: {
@@ -37,29 +38,8 @@ export async function GET(
         where: { id: hoaDon.khachThueId },
         select: { hoTen: true, soDienThoai: true },
       }) : null,
-      prisma.caiDat.findMany({
-        where: {
-          khoa: {
-            in: [
-              'ten_cong_ty',
-              'ngan_hang_so_tai_khoan',
-              'ngan_hang_ten',
-              'ngan_hang_chu_tai_khoan',
-              'logo_url',
-            ],
-          },
-        },
-        select: { khoa: true, giaTri: true },
-      }),
+      resolveInvoiceBankInfo(hoaDon.nguoiTaoId),
     ]);
-    const rawCfg = Object.fromEntries(cauHinhRows.map(r => [r.khoa, r.giaTri ?? '']));
-    const cauHinh = {
-      tenChuNha: rawCfg['ten_cong_ty'] ?? '',
-      soTaiKhoan: rawCfg['ngan_hang_so_tai_khoan'] ?? '',
-      nganHang: rawCfg['ngan_hang_ten'] ?? '',
-      chuTaiKhoan: rawCfg['ngan_hang_chu_tai_khoan'] ?? '',
-      logoUrl: rawCfg['logo_url'] ?? '',
-    };
 
     const html = buildInvoiceHTML({
       hoaDon: hoaDon as any,

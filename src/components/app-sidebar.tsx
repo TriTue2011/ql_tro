@@ -37,7 +37,17 @@ import {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session } = useSession()
-  
+
+  // Chủ trọ có bật cho phép quản lý tự cấu hình TK nhận tiền hay không
+  const [quanLyCanBank, setQuanLyCanBank] = React.useState(false)
+  React.useEffect(() => {
+    if (session?.user?.role !== 'quanLy') return
+    fetch('/api/cai-dat/cho-phep-quan-ly-tai-khoan')
+      .then(r => r.json())
+      .then(d => setQuanLyCanBank(!!d?.enabled))
+      .catch(() => {})
+  }, [session?.user?.role])
+
   // Tạo navigation items dựa trên role
   const navMain = React.useMemo(() => {
     const role = session?.user?.role
@@ -202,11 +212,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
 
     if (role === 'quanLy') {
+      const taiKhoanItems = [{ title: "Hồ sơ", url: "/dashboard/ho-so" }]
+      if (quanLyCanBank) {
+        taiKhoanItems.push({ title: "Tài khoản nhận tiền", url: "/dashboard/cai-dat-thanh-toan" })
+      }
       items.push({
         title: "Tài khoản",
         url: "#",
         icon: Users,
-        items: [{ title: "Hồ sơ", url: "/dashboard/ho-so" }],
+        items: taiKhoanItems,
       })
     } else {
       items.push({
@@ -221,7 +235,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
 
     return items
-  }, [session?.user?.role])
+  }, [session?.user?.role, quanLyCanBank])
 
   const userData = React.useMemo(() => ({
     name: session?.user?.name || "User",
