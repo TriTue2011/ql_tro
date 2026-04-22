@@ -311,8 +311,18 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
             <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="block mb-1">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={mediaUrl} alt="" className="rounded-lg max-h-64 max-w-full object-contain cursor-pointer hover:opacity-90 transition"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                onError={e => {
+                  const img = e.target as HTMLImageElement;
+                  img.style.display = 'none';
+                  const fallback = img.parentElement?.parentElement?.querySelector('.img-fallback');
+                  if (fallback) (fallback as HTMLElement).style.display = 'inline-block';
+                }} />
             </a>
+          )}
+          {image && mediaUrl && (
+            <span className={`img-fallback text-xs italic ${isBot ? 'text-gray-500' : 'text-blue-100'}`} style={{ display: 'none' }}>
+              📷 Hình ảnh (đã hết hạn, click để mở)
+            </span>
           )}
 
           {/* Video */}
@@ -352,6 +362,18 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
           {/* Text */}
           {hasTextContent && (
             <span className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</span>
+          )}
+
+          {/* Fallback: không có ảnh/file/text → hiện placeholder để bubble không trống */}
+          {!hasTextContent && !image && !video && !file && !mediaUrl && (
+            <span className={`text-xs italic ${isBot ? 'text-gray-500' : 'text-blue-100'}`}>
+              {msg.content === '[hình ảnh]' || (typeof msg.content === 'string' && msg.content.startsWith('{'))
+                ? '📷 Hình ảnh (không tải được)'
+                : msg.content === '[sticker]' ? '🎨 Sticker'
+                : msg.content === '[đính kèm]' ? '📎 Đính kèm'
+                : msg.content === '[video]' ? '🎥 Video'
+                : '(nội dung không hiển thị được)'}
+            </span>
           )}
 
           <span className={`block text-[10px] mt-0.5 ${isBot ? 'text-gray-400' : 'text-blue-100'}`}>

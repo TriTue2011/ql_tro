@@ -194,10 +194,10 @@ export async function askAIWithImage(
   history: { role: 'user' | 'assistant'; content: string }[] = [],
   maxTokens = 500,
 ): Promise<string | null> {
-  try {
-    const cfg = await getAiConfig();
-    if (cfg.provider === 'none' || !cfg.apiKey) return null;
+  const cfg = await getAiConfig();
+  if (cfg.provider === 'none' || !cfg.apiKey) return null;
 
+  const call = async (): Promise<string> => {
     if (cfg.provider === 'openai') {
       return await callOpenAIVision(
         systemPrompt, userText, imageUrl, history,
@@ -210,10 +210,27 @@ export async function askAIWithImage(
         cfg.model, cfg.apiKey,
       );
     }
-    return null;
-  } catch (e) {
-    console.error('[ai-chat] askAIWithImage error:', e);
-    return null;
+    return '';
+  };
+
+  // Retry 1 lần với delay 1.5s nếu lỗi 5xx hoặc DNS (Gemini hay 500 tạm thời)
+  try {
+    return await call();
+  } catch (e: any) {
+    const msg = String(e?.message ?? e);
+    const transient = /HTTP 5\d\d|EAI_AGAIN|fetch failed|ECONNRESET|ETIMEDOUT/i.test(msg);
+    if (!transient) {
+      console.error('[ai-chat] askAIWithImage error:', e);
+      return null;
+    }
+    console.warn('[ai-chat] askAIWithImage transient error, retrying in 1.5s:', msg);
+    await new Promise(r => setTimeout(r, 1500));
+    try {
+      return await call();
+    } catch (e2) {
+      console.error('[ai-chat] askAIWithImage retry failed:', e2);
+      return null;
+    }
   }
 }
 
