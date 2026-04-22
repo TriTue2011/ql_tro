@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
           ) AS "displayName",
           "content", "attachmentUrl", "role", "createdAt", "rawPayload", "eventName"
         FROM "ZaloMessage"
-        WHERE "role" = 'user' AND ("ownId" = ${filterOwnId} OR "ownId" IS NULL)
+        WHERE "role" = 'user' AND "ownId" = ${filterOwnId}
         ORDER BY COALESCE("rawPayload"->>'threadId', "chatId"), "createdAt" DESC
       ),
       latest_bot AS (
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
           "content" AS "botContent",
           "createdAt" AS "botCreatedAt"
         FROM "ZaloMessage"
-        WHERE "role" = 'bot' AND ("ownId" = ${filterOwnId} OR "ownId" IS NULL)
+        WHERE "role" = 'bot' AND "ownId" = ${filterOwnId}
         ORDER BY COALESCE("rawPayload"->>'threadId', "chatId"), "createdAt" DESC
       )
       SELECT u.*, b."botContent", b."botCreatedAt"
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
     const hasAccess = await prisma.$queryRaw<{ id: string }[]>`
       SELECT "id" FROM "ZaloMessage"
       WHERE ("chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId})
-        AND ("ownId" = ${userOwnId} OR "ownId" IS NULL)
+        AND "ownId" = ${userOwnId}
       LIMIT 1
     `;
     if (!hasAccess.length) {
@@ -147,20 +147,34 @@ export async function GET(request: NextRequest) {
   const before = searchParams.get("before");
 
   // Tìm theo chatId HOẶC rawPayload.threadId để lấy cả tin nhắn cũ (chatId=senderId) lẫn mới
-  const messages = before
-    ? await prisma.$queryRaw<any[]>`
-        SELECT * FROM "ZaloMessage"
-        WHERE ("chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId})
-          AND "createdAt" < ${new Date(before)}::timestamptz
-        ORDER BY "createdAt" DESC
-        LIMIT ${limit}
-      `
-    : await prisma.$queryRaw<any[]>`
-        SELECT * FROM "ZaloMessage"
-        WHERE ("chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId})
-        ORDER BY "createdAt" DESC
-        LIMIT ${limit}
-      `;
+  // Admin xem tất cả; non-admin chỉ xem tin nhắn của tài khoản mình
+  const messages = canViewAll
+    ? before
+      ? await prisma.$queryRaw<any[]>`
+          SELECT * FROM "ZaloMessage"
+          WHERE ("chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId})
+            AND "createdAt" < ${new Date(before)}::timestamptz
+          ORDER BY "createdAt" DESC LIMIT ${limit}
+        `
+      : await prisma.$queryRaw<any[]>`
+          SELECT * FROM "ZaloMessage"
+          WHERE ("chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId})
+          ORDER BY "createdAt" DESC LIMIT ${limit}
+        `
+    : before
+      ? await prisma.$queryRaw<any[]>`
+          SELECT * FROM "ZaloMessage"
+          WHERE ("chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId})
+            AND "ownId" = ${userOwnId}
+            AND "createdAt" < ${new Date(before)}::timestamptz
+          ORDER BY "createdAt" DESC LIMIT ${limit}
+        `
+      : await prisma.$queryRaw<any[]>`
+          SELECT * FROM "ZaloMessage"
+          WHERE ("chatId" = ${chatId} OR "rawPayload"->>'threadId' = ${chatId})
+            AND "ownId" = ${userOwnId}
+          ORDER BY "createdAt" DESC LIMIT ${limit}
+        `;
 
   return NextResponse.json({ data: [...messages].reverse() });
 }

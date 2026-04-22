@@ -2958,6 +2958,47 @@ export default function CaiDatPage() {
         {isAdmin && !loadingSystem && !errorSystem && (
           <TabsContent value="luuTru" className="space-y-4 mt-4">
             <AdminToaNhaSettingsPanel tab="storage" />
+            <Card>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <HardDrive className="h-4 w-4" />
+                  Tự động xóa file cũ
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Sau bao nhiêu ngày thì xóa file/ảnh khỏi lưu trữ để tránh đầy bộ nhớ.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 space-y-4">
+                {(settingsByGroup["luuTru"] ?? [])
+                  .filter(s => s.khoa === 'storage_cleanup_days_zalo' || s.khoa === 'storage_cleanup_days_invoice')
+                  .map(item => (
+                    <div key={item.khoa} className="space-y-1">
+                      <Label className="text-xs md:text-sm font-medium">{item.moTa}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={settingValues[item.khoa] ?? ''}
+                        onChange={(e) => handleSettingChange(item.khoa, e.target.value)}
+                        className="text-sm"
+                        placeholder="0 = không xóa"
+                      />
+                    </div>
+                  ))}
+                <Button
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => handleSaveGroup("luuTru")}
+                  disabled={savingGroup === "luuTru"}
+                >
+                  {savingGroup === "luuTru" ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Lưu cài đặt xóa tự động
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
         )}
 
