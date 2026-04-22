@@ -86,13 +86,22 @@ function toDisplayUrl(url: string): string {
   return url;
 }
 
+/** Parse content nếu là JSON string (tin nhắn cũ lưu raw JSON thay vì object) */
+function parseContentObj(msg: ZaloMsg): any | null {
+  const raw = (msg.rawPayload as any)?.data;
+  if (raw && typeof raw.content === 'object' && raw.content) return raw.content;
+  const s = msg.content;
+  if (typeof s === 'string' && s.trim().startsWith('{') && s.trim().endsWith('}')) {
+    try { return JSON.parse(s); } catch { /* ignore */ }
+  }
+  return null;
+}
+
 /** Trích xuất URL ảnh/file/video từ rawPayload hoặc attachmentUrl */
 function getMediaUrl(msg: ZaloMsg): string | null {
   if (msg.attachmentUrl) return toDisplayUrl(msg.attachmentUrl);
-  const raw = (msg.rawPayload as any)?.data;
-  if (!raw) return null;
-  const c = raw.content;
-  if (typeof c === 'object' && c) {
+  const c = parseContentObj(msg);
+  if (c) {
     const url = c.href || c.hdUrl || c.normalUrl || c.thumb || c.url || c.fileUrl || null;
     return url ? toDisplayUrl(url) : null;
   }
@@ -101,21 +110,14 @@ function getMediaUrl(msg: ZaloMsg): string | null {
 
 /** Trích xuất tên file từ rawPayload hoặc URL */
 function getFileName(msg: ZaloMsg): string | null {
-  const raw = (msg.rawPayload as any)?.data;
-  if (raw) {
-    const c = raw.content;
-    if (typeof c === 'object' && c) {
-      return c.title || c.fileName || null;
-    }
-  }
-  // Fallback: extract filename from attachmentUrl
+  const c = parseContentObj(msg);
+  if (c) return c.title || c.fileName || null;
   const url = msg.attachmentUrl;
   if (url) {
     try {
       const pathname = new URL(url, 'http://x').pathname;
       const name = pathname.split('/').pop();
       if (name && name.includes('.')) {
-        // Remove timestamp prefix (e.g., "1711234567890-abc123.txt" → "abc123.txt")
         return name.replace(/^\d{13,}-[a-f0-9]+-/, '').replace(/^\d{13,}-/, '') || name;
       }
     } catch { /* ignore */ }
@@ -136,7 +138,28 @@ function isImageMsg(msg: ZaloMsg): boolean {
   }
   const url = getMediaUrl(msg);
   if (url && IMAGE_EXT_RE.test(url)) return true;
+  // Tin nhắn cũ: content là JSON string có trường ảnh
+  const c = parseContentObj(msg);
+  if (c && (c.href || c.hdUrl || c.normalUrl || c.thumb)) {
+    const mediaUrl = c.href || c.hdUrl || c.normalUrl || c.thumb;
+    if (typeof mediaUrl === 'string' && (IMAGE_EXT_RE.test(mediaUrl) || c.jxl || c.hd)) return true;
+  }
   return false;
+}
+
+/** Check nếu tin nhắn là reaction (emoji phản ứng) */
+function isReactionMsg(msg: ZaloMsg): boolean {
+  const mt = getMsgType(msg);
+  if (mt === 'reaction') return true;
+  return typeof msg.content === 'string' && msg.content.startsWith('[reaction:');
+}
+
+/** Check nếu content là raw JSON (không nên hiển thị dạng text) */
+function isRawJsonContent(content: string): boolean {
+  if (typeof content !== 'string') return false;
+  const t = content.trim();
+  if (!t.startsWith('{') || !t.endsWith('}')) return false;
+  try { JSON.parse(t); return true; } catch { return false; }
 }
 
 function isVideoMsg(msg: ZaloMsg): boolean {
@@ -196,7 +219,12 @@ function ConversationList({
           const group = isGroup(msg);
           const name = senderName(msg);
           const selected = selectedId === msg.chatId;
-          const previewText = isImageMsg(msg) ? '📷 Hình ảnh' : isFileMsg(msg) ? '📎 File' : isVideoMsg(msg) ? '🎥 Video' : msg.content;
+          const previewText = isImageMsg(msg) ? '📷 Hình ảnh'
+            : isFileMsg(msg) ? '📎 File'
+            : isVideoMsg(msg) ? '🎥 Video'
+            : isReactionMsg(msg) ? '😊 Reaction'
+            : isRawJsonContent(msg.content) ? '📷 Hình ảnh'
+            : msg.content;
           const groupSender = group ? msgSenderInGroup(msg) : '';
           return (
             <button key={msg.chatId} type="button"
@@ -252,7 +280,11 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
   const video = isVideoMsg(msg);
   const file = isFileMsg(msg);
   const fileName = getFileName(msg);
-  const hasTextContent = msg.content && msg.content !== '[hình ảnh]' && msg.content !== '[đính kèm]' && msg.content !== '[media]';
+  const hasTextContent = msg.content
+    && msg.content !== '[hình ảnh]' && msg.content !== '[đính kèm]' && msg.content !== '[media]'
+    && msg.content !== '[sticker]' && msg.content !== '[video]'
+    && !isRawJsonContent(msg.content)
+    && !(typeof msg.content === 'string' && msg.content.startsWith('[reaction:'));
 
   return (
     <div className={`flex items-end gap-1.5 group ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
@@ -360,7 +392,7 @@ function MinioPickerModal({ onPick, onClose }: { onPick: (url: string, name: str
   const isImage = (n: string) => /\.(jpg|jpeg|png|gif|webp|bmp|avif)$/i.test(n);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[1050] flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-[480px] max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h3 className="text-sm font-semibold">Chọn file từ MinIO</h3>
@@ -752,8 +784,8 @@ function MessageThread({
           </div>
         )}
 
-        {msgs.map((msg, i) => {
-          const showDateSep = i === 0 || new Date(msg.createdAt).toDateString() !== new Date(msgs[i - 1].createdAt).toDateString();
+        {msgs.filter(m => !isReactionMsg(m)).map((msg, i, arr) => {
+          const showDateSep = i === 0 || new Date(msg.createdAt).toDateString() !== new Date(arr[i - 1].createdAt).toDateString();
           return (
             <div key={msg.id}>
               {showDateSep && (
