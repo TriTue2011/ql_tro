@@ -1,6 +1,7 @@
 // Endpoint công khai — dùng cho link chia sẻ hóa đơn gửi khách thuê.
 // ID hóa đơn (cuid) đóng vai trò access token ngầm; không cần session.
 import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 import { getHoaDonRepo, getThanhToanRepo } from '@/lib/repositories';
 
 export async function GET(
@@ -20,7 +21,6 @@ export async function GET(
     const hoaDonRepo = await getHoaDonRepo();
     const thanhToanRepo = await getThanhToanRepo();
 
-    // Lấy thông tin hóa đơn
     const hoaDon = await hoaDonRepo.findById(hoaDonId);
 
     if (!hoaDon) {
@@ -30,14 +30,35 @@ export async function GET(
       );
     }
 
-    // Lấy lịch sử thanh toán của hóa đơn này
+    // Phụ trợ cho template PDF: lấy thêm thông tin phòng, tòa nhà, khách thuê
+    const [phong, khachThue, cauHinh] = await Promise.all([
+      hoaDon.phongId ? prisma.phong.findUnique({
+        where: { id: hoaDon.phongId },
+        select: {
+          id: true, maPhong: true, tang: true, dienTich: true, giaThue: true,
+          toaNha: { select: { tenToaNha: true, diaChi: true, lienHePhuTrach: true } },
+        },
+      }) : null,
+      hoaDon.khachThueId ? prisma.khachThue.findUnique({
+        where: { id: hoaDon.khachThueId },
+        select: { hoTen: true, soDienThoai: true, email: true, cccd: true },
+      }) : null,
+      prisma.caiDat.findMany({
+        where: { khoa: { in: ['tenChuNha', 'soTaiKhoan', 'nganHang', 'chuTaiKhoan', 'logoUrl'] } },
+        select: { khoa: true, giaTri: true },
+      }),
+    ]);
+
     const thanhToanList = await thanhToanRepo.findByHoaDon(hoaDonId);
 
     return NextResponse.json({
       success: true,
       data: {
         hoaDon,
-        thanhToanList
+        thanhToanList,
+        phong,
+        khachThue,
+        cauHinh: Object.fromEntries(cauHinh.map(r => [r.khoa, r.giaTri])),
       }
     });
 

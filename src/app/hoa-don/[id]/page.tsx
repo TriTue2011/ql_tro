@@ -19,6 +19,7 @@ import { HoaDon, ThanhToan, HopDong, Phong, KhachThue } from '@/types';
 import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { buildInvoiceHTML } from '@/lib/invoice-pdf-template';
 
 // Helper functions
 const getPhongName = (phongId: string | Phong) => {
@@ -78,6 +79,9 @@ export default function PublicInvoicePage() {
   
   const [hoaDon, setHoaDon] = useState<HoaDon | null>(null);
   const [thanhToanList, setThanhToanList] = useState<ThanhToan[]>([]);
+  const [phongInfo, setPhongInfo] = useState<any>(null);
+  const [khachThueInfo, setKhachThueInfo] = useState<any>(null);
+  const [cauHinh, setCauHinh] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,6 +101,9 @@ export default function PublicInvoicePage() {
         if (result.success) {
           setHoaDon(result.data.hoaDon);
           setThanhToanList(result.data.thanhToanList || []);
+          setPhongInfo(result.data.phong || null);
+          setKhachThueInfo(result.data.khachThue || null);
+          setCauHinh(result.data.cauHinh || {});
         } else {
           setError(result.message || 'Không thể tải thông tin hóa đơn');
         }
@@ -113,150 +120,43 @@ export default function PublicInvoicePage() {
 
   const handleScreenshot = async () => {
     if (!hoaDon) return;
-    
+
     try {
-      // Tạo element tạm thời để chụp ảnh
       const tempElement = document.createElement('div');
-      tempElement.innerHTML = `
-        <div style="
-          width: 800px; 
-          padding: 40px; 
-          background: #ffffff; 
-          font-family: Arial, sans-serif;
-          border: 1px solid #dddddd;
-          margin: 20px;
-          color: #000000;
-        ">
-          <!-- Header -->
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="font-size: 28px; font-weight: bold; margin: 0; color: #000;">HÓA ĐƠN THUÊ PHÒNG</h1>
-            <p style="font-size: 18px; margin: 10px 0 0 0; color: #333;">${hoaDon.maHoaDon}</p>
-          </div>
-          
-          <!-- Main Info Sections -->
-          <div style="display: flex; gap: 30px; margin-bottom: 30px;">
-            <div style="flex: 1;">
-              <h3 style="font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #333;">Thông tin phòng</h3>
-              <p style="margin: 5px 0; font-size: 14px;"><strong>Phòng:</strong> ${getPhongName(hoaDon.phong)}</p>
-              <p style="margin: 5px 0; font-size: 14px;"><strong>Khách thuê:</strong> ${getKhachThueName(hoaDon.khachThue)}</p>
-              <p style="margin: 5px 0; font-size: 14px;"><strong>Hợp đồng:</strong> N/A</p>
-            </div>
-            <div style="flex: 1;">
-              <h3 style="font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #333;">Thông tin thanh toán</h3>
-              <p style="margin: 5px 0; font-size: 14px;"><strong>Tháng/Năm:</strong> ${hoaDon.thang}/${hoaDon.nam}</p>
-              <p style="margin: 5px 0; font-size: 14px;"><strong>Hạn thanh toán:</strong> ${new Date(hoaDon.hanThanhToan).toLocaleDateString('vi-VN')}</p>
-              <div style="margin: 10px 0;">
-                <span style="
-                  background: #000000; 
-                  color: #ffffff; 
-                  padding: 4px 12px; 
-                  border-radius: 4px; 
-                  font-size: 12px; 
-                  font-weight: bold;
-                ">
-                  ${hoaDon.trangThai === 'daThanhToan' ? 'Đã thanh toán' : 
-                    hoaDon.trangThai === 'daThanhToanMotPhan' ? 'Thanh toán một phần' : 
-                    hoaDon.trangThai === 'quaHan' ? 'Quá hạn' : 'Chưa thanh toán'}
-                </span>
-              </div>
-            </div>
-          </div>
+      tempElement.innerHTML = buildInvoiceHTML({
+        hoaDon: hoaDon as any,
+        phong: phongInfo,
+        khachThue: khachThueInfo,
+        cauHinh,
+      });
 
-          <!-- Electricity and Water Readings -->
-          <div style="margin-bottom: 30px;">
-            <h3 style="font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #333;">Chỉ số điện nước</h3>
-            <div style="display: flex; gap: 20px;">
-              <div style="flex: 1;">
-                <h4 style="font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #555;">Điện</h4>
-                <div style="font-size: 13px; line-height: 1.6;">
-                  <div style="display: flex; justify-content: space-between;"><span>Chỉ số ban đầu:</span><span>${hoaDon.chiSoDienBanDau || 0} kWh</span></div>
-                  <div style="display: flex; justify-content: space-between;"><span>Chỉ số cuối kỳ:</span><span>${hoaDon.chiSoDienCuoiKy || 0} kWh</span></div>
-                  <div style="display: flex; justify-content: space-between; font-weight: bold;"><span>Số điện sử dụng:</span><span>${hoaDon.soDien || 0} kWh</span></div>
-                </div>
-              </div>
-              <div style="flex: 1;">
-                <h4 style="font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #555;">Nước</h4>
-                <div style="font-size: 13px; line-height: 1.6;">
-                  <div style="display: flex; justify-content: space-between;"><span>Chỉ số ban đầu:</span><span>${hoaDon.chiSoNuocBanDau || 0} m³</span></div>
-                  <div style="display: flex; justify-content: space-between;"><span>Chỉ số cuối kỳ:</span><span>${hoaDon.chiSoNuocCuoiKy || 0} m³</span></div>
-                  <div style="display: flex; justify-content: space-between; font-weight: bold;"><span>Số nước sử dụng:</span><span>${hoaDon.soNuoc || 0} m³</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Invoice Details -->
-          <div style="margin-bottom: 30px;">
-            <h3 style="font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #333;">Chi tiết hóa đơn</h3>
-            <div style="font-size: 14px; line-height: 1.8;">
-              <div style="display: flex; justify-content: space-between;"><span>Tiền phòng</span><span>${formatCurrency(hoaDon.tienPhong)}</span></div>
-              <div style="display: flex; justify-content: space-between;"><span>Tiền điện (${hoaDon.soDien} kWh)</span><span>${formatCurrency(hoaDon.tienDien)}</span></div>
-              <div style="display: flex; justify-content: space-between;"><span>Tiền nước (${hoaDon.soNuoc} m³)</span><span>${formatCurrency(hoaDon.tienNuoc)}</span></div>
-              ${hoaDon.phiDichVu.map(phi => `
-                <div style="display: flex; justify-content: space-between;"><span>${phi.ten}</span><span>${formatCurrency(phi.gia)}</span></div>
-              `).join('')}
-            </div>
-          </div>
-
-          <!-- Summary Section -->
-          <div style="border-top: 1px solid #000; padding-top: 20px;">
-            <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-bottom: 10px;">
-              <span>Tổng tiền:</span>
-              <span>${formatCurrency(hoaDon.tongTien)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px;">
-              <span>Đã thanh toán:</span>
-              <span style="color: #10b981;">${formatCurrency(hoaDon.daThanhToan)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 14px;">
-              <span>Còn lại:</span>
-              <span style="color: #10b981; font-weight: bold;">
-                ${formatCurrency(hoaDon.conLai)}
-              </span>
-            </div>
-          </div>
-        </div>
-      `;
-      
       tempElement.style.position = 'absolute';
       tempElement.style.left = '-9999px';
       tempElement.style.top = '-9999px';
       document.body.appendChild(tempElement);
 
-      // Chụp ảnh
-      const canvas = await html2canvas(tempElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
+      const canvas = await html2canvas(tempElement.firstElementChild as HTMLElement, {
+        scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff',
       });
-
-      // Xóa element tạm thời
       document.body.removeChild(tempElement);
 
-      // Tạo PDF
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const imgWidth = 210;
       const pageHeight = 295;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       let heightLeft = imgHeight;
-
       let position = 0;
-
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
-
       while (heightLeft >= 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
       }
-
-      // Tải xuống PDF
       pdf.save(`hoa-don-${hoaDon.maHoaDon}.pdf`);
-      toast.success('Đã xuất hóa đơn thành PDF thành công!');
+      toast.success('Đã xuất PDF!');
     } catch (error) {
       console.error('Error generating PDF:', error);
       toast.error('Có lỗi xảy ra khi xuất PDF');
