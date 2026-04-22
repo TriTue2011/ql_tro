@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
       ghiChu,
       anhChiSoDien,
       anhChiSoNuoc,
+      hanThanhToan,
     } = body;
 
     // Validate required fields
@@ -287,6 +288,11 @@ export async function POST(request: NextRequest) {
       phiDichVu: phiDichVu || [],
       tongTien,
       hanThanhToan: (() => {
+        // Ưu tiên giá trị user đã chỉnh trên form; fallback về ngayThanhToan của hợp đồng.
+        if (hanThanhToan) {
+          const parsed = new Date(hanThanhToan);
+          if (!isNaN(parsed.getTime())) return parsed;
+        }
         // Clamp ngayThanhToan to the last valid day of the month
         // (e.g. day 31 in Feb → Feb 28/29)
         const lastDay = new Date(nam, thang, 0).getDate();
