@@ -129,7 +129,11 @@ const FILE_EXT_RE = /\.(pdf|docx?|xlsx?|csv|txt|zip|rar|pptx?|odt|ods|7z|gz|tar)
 
 function isImageMsg(msg: ZaloMsg): boolean {
   const mt = getMsgType(msg);
-  if (mt === 'chat.photo' || mt === 'chat.sticker') return true;
+  if (mt === 'chat.photo' || mt === 'chat.sticker' || mt === 'chat.gif') return true;
+  if (msg.content === '[hình ảnh]' || msg.content === '[sticker]') {
+    const url = getMediaUrl(msg);
+    if (url) return true;
+  }
   const url = getMediaUrl(msg);
   if (url && IMAGE_EXT_RE.test(url)) return true;
   return false;
@@ -137,7 +141,7 @@ function isImageMsg(msg: ZaloMsg): boolean {
 
 function isVideoMsg(msg: ZaloMsg): boolean {
   const mt = getMsgType(msg);
-  if (mt === 'chat.video.msg' || mt === 'chat.gif') return true;
+  if (mt === 'chat.video.msg') return true;
   const url = getMediaUrl(msg);
   if (url && VIDEO_EXT_RE.test(url)) return true;
   return false;

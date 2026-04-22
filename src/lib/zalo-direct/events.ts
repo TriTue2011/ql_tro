@@ -127,12 +127,40 @@ export async function handleIncomingMessage(
 
   const displayName = raw.dName || raw.fromD || "";
   const contentRaw = raw.content || raw.msg || "";
-  const content = typeof contentRaw === "string" ? contentRaw : (contentRaw?.title || contentRaw?.description || JSON.stringify(contentRaw));
+  const msgType: string = raw.msgType || raw.type_msg || "";
   const isGroupMessage = msg?.type === 1 || (raw.idTo && raw.idTo !== ownId);
 
-  const attachmentUrl = typeof contentRaw !== "string"
-    ? (contentRaw?.href || contentRaw?.thumb || contentRaw?.normalUrl || contentRaw?.hdUrl || contentRaw?.url || null)
-    : null;
+  // Bỏ qua reaction events (không lưu vào ZaloMessage)
+  if (msgType === 'reaction' || (typeof contentRaw === 'string' && contentRaw.startsWith('[reaction:'))) return;
+
+  // Trích xuất URL và content từ attachment object
+  let attachmentUrl: string | null = null;
+  let content: string;
+
+  if (typeof contentRaw === 'object' && contentRaw !== null) {
+    attachmentUrl =
+      contentRaw.href || contentRaw.hdUrl || contentRaw.normalUrl ||
+      contentRaw.thumb || contentRaw.url || contentRaw.fileUrl || null;
+
+    if (msgType === 'chat.photo' || msgType === 'chat.gif' || contentRaw.href || contentRaw.hdUrl) {
+      content = '[hình ảnh]';
+    } else if (msgType === 'chat.sticker') {
+      content = '[sticker]';
+    } else if (msgType === 'share.file') {
+      content = `[file: ${contentRaw.title || contentRaw.fileName || ''}]`.trim();
+    } else if (msgType === 'chat.video.msg') {
+      content = '[video]';
+    } else if (msgType === 'chat.voice') {
+      content = '[tin nhắn thoại]';
+    } else {
+      content = contentRaw.title || contentRaw.description || contentRaw.name || '[đính kèm]';
+    }
+  } else {
+    content = (contentRaw as string) || '';
+    // Sticker JSON dạng string: {"id":...,"catId":...}
+    if (!content && msgType === 'chat.sticker') content = '[sticker]';
+    if (content.startsWith('{') && content.includes('"catId"')) content = '[sticker]';
+  }
 
   // threadId: group thread ID cho nhóm, hoặc sender ID cho DM
   const threadId = msg?.threadId || (isGroupMessage ? String(raw.idTo || senderUid) : senderUid);
