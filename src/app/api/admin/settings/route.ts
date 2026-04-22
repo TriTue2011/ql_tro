@@ -23,6 +23,8 @@ const DEFAULT_SETTINGS = [
   { khoa: 'minio_secret_key', giaTri: '', moTa: 'MinIO Password', nhom: 'luuTru', laBiMat: true },
   { khoa: 'minio_bucket', giaTri: 'ql-tro', moTa: 'MinIO Bucket Name', nhom: 'luuTru', laBiMat: false },
   { khoa: 'upload_max_size_mb', giaTri: '10', moTa: 'Kích thước tối đa file upload (MB)', nhom: 'luuTru', laBiMat: false },
+  { khoa: 'storage_cleanup_days_zalo', giaTri: '7', moTa: 'Số ngày giữ ảnh/file Zalo trên lưu trữ trước khi xóa (0 = không xóa)', nhom: 'luuTru', laBiMat: false },
+  { khoa: 'storage_cleanup_days_invoice', giaTri: '365', moTa: 'Số ngày giữ ảnh hóa đơn (chỉ số điện/nước) trên lưu trữ trước khi xóa (0 = không xóa)', nhom: 'luuTru', laBiMat: false },
   // Thông báo — Zalo Bot Server
   { khoa: 'zalo_bot_server_url', giaTri: '', moTa: 'URL Zalo Bot Server (vd: http://192.168.1.100:3000)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'zalo_bot_username', giaTri: 'admin', moTa: 'Username đăng nhập bot server (mặc định: admin)', nhom: 'thongBao', laBiMat: false },

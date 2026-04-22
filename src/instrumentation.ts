@@ -74,5 +74,18 @@ export async function register() {
     } catch (err: any) {
       console.warn('[ZaloDirect] Failed to init auto-login:', err.message);
     }
+
+    // Lên lịch dọn dẹp storage hàng ngày
+    try {
+      const { runStorageCleanup } = await import('@/lib/storage-cleanup');
+      runStorageCleanup().then(r => {
+        console.log(`[cleanup] Khởi động: xóa ${r.zaloDeleted} tin nhắn Zalo, ${r.invoiceCleared} ảnh hóa đơn`);
+      }).catch(() => {});
+      setInterval(() => {
+        runStorageCleanup().catch(() => {});
+      }, 24 * 60 * 60 * 1000);
+    } catch (err: any) {
+      console.warn('[cleanup] Failed to init storage cleanup:', err.message);
+    }
   }
 }
