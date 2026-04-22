@@ -446,6 +446,8 @@ Vui lòng thanh toán đúng hạn.`;
     }
   };
 
+  const handleScreenshot = handleDownload;
+
   const handleAutoCreateInvoices = async () => {
     if (!confirm('Bạn có chắc chắn muốn tạo hóa đơn tự động cho tất cả hợp đồng đang hoạt động?')) {
       return;
