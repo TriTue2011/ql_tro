@@ -403,11 +403,15 @@ async function handleRegisteredTenant(
 
     if (!aiReply && (text || attachmentUrl)) {
       // Chỉ văn bản (hoặc fallback nếu vision thất bại)
-      const userContent = text || (attachmentUrl ? '[gửi ảnh]' : '');
+      const fallbackUserContent = attachmentUrl
+        ? (text
+            ? `${text}\n\n[Khách gửi kèm 1 hình ảnh — hệ thống nhận diện ảnh tạm thời không khả dụng. Hãy phản hồi dựa trên văn bản và ngữ cảnh hội thoại; nếu cần, lịch sự đề nghị khách mô tả bằng lời hoặc gửi lại ảnh sau.]`
+            : `[Khách gửi 1 hình ảnh mà không kèm văn bản. Hệ thống nhận diện ảnh tạm thời không khả dụng. Dựa vào ngữ cảnh hội thoại gần nhất (ví dụ: báo sự cố, hỏi hóa đơn, hỏi hợp đồng), hãy phản hồi giúp khách và hỏi thêm: "Ảnh bạn gửi là về vấn đề gì cụ thể?". Nếu context là báo sự cố thì hỏi rõ: phòng nào, tình trạng hỏng hóc gì, đã xảy ra từ khi nào.]`)
+        : text;
       const messages: AiMessage[] = [
         { role: 'system', content: systemPrompt },
         ...historyMsgs,
-        { role: 'user', content: userContent },
+        { role: 'user', content: fallbackUserContent },
       ];
       aiReply = await askAI(messages).catch(() => null);
     }
@@ -523,10 +527,15 @@ async function handleStrangerRentalInquiry(
     aiReply = await askAIWithImage(systemPrompt, text, attachmentUrl, historyMsgs).catch(() => null);
   }
   if (!aiReply) {
+    const fallbackUserContent = attachmentUrl
+      ? (text
+          ? `${text}\n\n[Khách gửi kèm ảnh phòng/căn hộ — hệ thống nhận diện ảnh tạm chưa khả dụng. Hãy phản hồi dựa trên văn bản và lịch sự đề nghị khách mô tả bằng lời nếu cần.]`
+          : `[Khách gửi ảnh không kèm văn bản. Có thể khách muốn tìm phòng giống ảnh hoặc hỏi về phòng trống. Hãy chào hỏi, giới thiệu danh sách phòng trống và mời khách để lại SĐT/yêu cầu cụ thể.]`)
+      : text;
     const messages: AiMessage[] = [
       { role: 'system', content: systemPrompt },
       ...historyMsgs,
-      { role: 'user', content: text || '[gửi ảnh]' },
+      { role: 'user', content: fallbackUserContent },
     ];
     aiReply = await askAI(messages).catch(() => null);
   }
