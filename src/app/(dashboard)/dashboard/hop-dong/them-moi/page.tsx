@@ -15,6 +15,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { TierPriceEditor, type TierRow } from '@/components/tier-price-editor';
 import { 
   ArrowLeft,
   Save,
@@ -102,6 +103,8 @@ export default function ThemMoiHopDongPage() {
 - Hợp đồng có hiệu lực kể từ ngày ký`,
     giaDien: 3500,
     giaNuoc: 25000,
+    bangGiaDienLuyTien: null as TierRow[] | null,
+    bangGiaNuocLuyTien: null as TierRow[] | null,
     chiSoDienBanDau: 0,
     chiSoNuocBanDau: 0,
     phiDichVu: [] as Array<{ten: string, gia: number}>,
@@ -621,6 +624,21 @@ export default function ThemMoiHopDongPage() {
                 <span className="text-xs text-muted-foreground">
                   {formatCurrency(formData.giaNuoc)}
                 </span>
+              </div>
+
+              <div className="md:col-span-2 space-y-3 pt-2">
+                <TierPriceEditor
+                  label="Bảng giá điện lũy tiến (tùy chọn)"
+                  unit="kWh"
+                  tiers={formData.bangGiaDienLuyTien}
+                  onChange={(t) => setFormData(prev => ({ ...prev, bangGiaDienLuyTien: t }))}
+                />
+                <TierPriceEditor
+                  label="Bảng giá nước lũy tiến (tùy chọn)"
+                  unit="m³"
+                  tiers={formData.bangGiaNuocLuyTien}
+                  onChange={(t) => setFormData(prev => ({ ...prev, bangGiaNuocLuyTien: t }))}
+                />
               </div>
               
               <div className="space-y-2">

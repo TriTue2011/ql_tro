@@ -121,6 +121,28 @@ export default function PublicInvoicePage() {
   const handleScreenshot = async () => {
     if (!hoaDon) return;
 
+    // Ưu tiên Puppeteer server-side (text crisp, tìm kiếm được)
+    try {
+      const res = await fetch(`/api/hoa-don/${hoaDon.id}/pdf`);
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `hoa-don-${hoaDon.maHoaDon}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast.success('Đã xuất PDF!');
+        return;
+      }
+      throw new Error(`HTTP ${res.status}`);
+    } catch (serverErr) {
+      console.warn('Server PDF failed, fallback to client-side:', serverErr);
+    }
+
+    // Fallback: html2canvas + jsPDF (client-side, PDF dạng ảnh)
     try {
       const tempElement = document.createElement('div');
       tempElement.innerHTML = buildInvoiceHTML({

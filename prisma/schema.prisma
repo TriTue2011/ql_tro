@@ -193,6 +193,8 @@ model HopDong {
   dieuKhoan         String
   giaDien           Float
   giaNuoc           Float
+  bangGiaDienLuyTien Json?    // [{ tu, den, gia }] — null = giá phẳng theo giaDien
+  bangGiaNuocLuyTien Json?    // [{ tu, den, gia }] — null = giá phẳng theo giaNuoc
   chiSoDienBanDau   Float     @default(0)
   chiSoNuocBanDau   Float     @default(0)
   phiDichVu         Json      @default("[]") // [{ ten, gia }]
@@ -243,10 +245,12 @@ model HoaDon {
   soDien            Float     @default(0)
   chiSoDienBanDau   Float     @default(0)
   chiSoDienCuoiKy   Float     @default(0)
+  chiTietDien       Json?     // [{ bac, tu, den, soLuong, donGia, thanhTien }] — null = giá phẳng
   tienNuoc          Float
   soNuoc            Float     @default(0)
   chiSoNuocBanDau   Float     @default(0)
   chiSoNuocCuoiKy   Float     @default(0)
+  chiTietNuoc       Json?     // [{ bac, tu, den, soLuong, donGia, thanhTien }] — null = giá phẳng
   phiDichVu         Json      @default("[]")
   tongTien          Float
   daThanhToan       Float     @default(0)

@@ -15,6 +15,12 @@ const phiDichVuSchema = z.object({
   gia: z.number().min(0, 'Giá dịch vụ phải lớn hơn hoặc bằng 0'),
 });
 
+const tierSchema = z.object({
+  tu: z.number().min(0),
+  den: z.number().nullable(),
+  gia: z.number().min(0),
+});
+
 const hopDongSchema = z.object({
   maHopDong: z.string().min(1, 'Mã hợp đồng là bắt buộc'),
   phong: z.string().min(1, 'Phòng là bắt buộc'),
@@ -29,6 +35,8 @@ const hopDongSchema = z.object({
   dieuKhoan: z.string().min(1, 'Điều khoản là bắt buộc'),
   giaDien: z.number().min(0, 'Giá điện phải lớn hơn hoặc bằng 0'),
   giaNuoc: z.number().min(0, 'Giá nước phải lớn hơn hoặc bằng 0'),
+  bangGiaDienLuyTien: z.array(tierSchema).nullable().optional(),
+  bangGiaNuocLuyTien: z.array(tierSchema).nullable().optional(),
   chiSoDienBanDau: z.number().min(0, 'Chỉ số điện ban đầu phải lớn hơn hoặc bằng 0'),
   chiSoNuocBanDau: z.number().min(0, 'Chỉ số nước ban đầu phải lớn hơn hoặc bằng 0'),
   phiDichVu: z.array(phiDichVuSchema).optional(),
@@ -166,11 +174,13 @@ export async function POST(request: NextRequest) {
       dieuKhoan: validatedData.dieuKhoan,
       giaDien: validatedData.giaDien,
       giaNuoc: validatedData.giaNuoc,
+      bangGiaDienLuyTien: validatedData.bangGiaDienLuyTien ?? null,
+      bangGiaNuocLuyTien: validatedData.bangGiaNuocLuyTien ?? null,
       chiSoDienBanDau: validatedData.chiSoDienBanDau,
       chiSoNuocBanDau: validatedData.chiSoNuocBanDau,
       phiDichVu: validatedData.phiDichVu || [],
       fileHopDong: validatedData.fileHopDong,
-    });
+    } as any);
 
     // Cập nhật trạng thái phòng thành 'dangThue' + đồng bộ giá thuê, tiền cọc từ hợp đồng
     await phongRepo.update(validatedData.phong, {

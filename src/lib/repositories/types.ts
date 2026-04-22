@@ -253,6 +253,8 @@ export interface HopDongData {
   dieuKhoan: string;
   giaDien: number;
   giaNuoc: number;
+  bangGiaDienLuyTien?: any;
+  bangGiaNuocLuyTien?: any;
   chiSoDienBanDau: number;
   chiSoNuocBanDau: number;
   phiDichVu: PhiDichVu[];
@@ -276,6 +278,8 @@ export interface CreateHopDongInput {
   dieuKhoan: string;
   giaDien: number;
   giaNuoc: number;
+  bangGiaDienLuyTien?: any;
+  bangGiaNuocLuyTien?: any;
   chiSoDienBanDau?: number;
   chiSoNuocBanDau?: number;
   phiDichVu?: PhiDichVu[];
@@ -369,10 +373,12 @@ export interface HoaDonData {
   soDien: number;
   chiSoDienBanDau: number;
   chiSoDienCuoiKy: number;
+  chiTietDien?: any;
   tienNuoc: number;
   soNuoc: number;
   chiSoNuocBanDau: number;
   chiSoNuocCuoiKy: number;
+  chiTietNuoc?: any;
   phiDichVu: PhiDichVu[];
   tongTien: number;
   daThanhToan: number;
@@ -397,9 +403,11 @@ export interface CreateHoaDonInput {
   tienDien: number;
   chiSoDienBanDau: number;
   chiSoDienCuoiKy: number;
+  chiTietDien?: any;
   tienNuoc: number;
   chiSoNuocBanDau: number;
   chiSoNuocCuoiKy: number;
+  chiTietNuoc?: any;
   phiDichVu?: PhiDichVu[];
   tongTien: number;
   hanThanhToan: Date | string;

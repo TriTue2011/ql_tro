@@ -104,6 +104,15 @@ export function numToEnglishWords(n: number): string {
   return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
+export interface TierBreakdownItem {
+  bac: number;
+  tu: number;
+  den: number | null;
+  soLuong: number;
+  donGia: number;
+  thanhTien: number;
+}
+
 export interface InvoiceTemplateInput {
   hoaDon: {
     maHoaDon: string;
@@ -114,10 +123,12 @@ export interface InvoiceTemplateInput {
     soDien: number;
     chiSoDienBanDau: number;
     chiSoDienCuoiKy: number;
+    chiTietDien?: TierBreakdownItem[] | null;
     tienNuoc: number;
     soNuoc: number;
     chiSoNuocBanDau: number;
     chiSoNuocCuoiKy: number;
+    chiTietNuoc?: TierBreakdownItem[] | null;
     phiDichVu: Array<{ ten: string; gia: number }>;
     tongTien: number;
     daThanhToan: number;
@@ -196,10 +207,84 @@ export function buildInvoiceHTML(input: InvoiceTemplateInput): string {
       </tr>`);
   }
 
+  // Helper render inner table cho điện/nước
+  const renderUsageTable = (
+    chiSoCu: number,
+    chiSoMoi: number,
+    soLuong: number,
+    donGiaPhang: number,
+    tongTien: number,
+    breakdown: TierBreakdownItem[] | null | undefined,
+    unit: 'kWh' | 'm³',
+  ): string => {
+    // Lũy tiến: mỗi bậc 1 dòng
+    if (breakdown && breakdown.length > 0) {
+      const tierRows = breakdown.map(t => {
+        const mucLabel = t.den === null ? `>${t.tu}` : `${t.tu}-${t.den}`;
+        return `
+          <tr>
+            <td>Bậc ${t.bac}</td>
+            <td>${mucLabel}</td>
+            <td>${t.soLuong}</td>
+            <td>${fmtVND(t.donGia)}</td>
+            <td>${fmtVND(t.thanhTien)}</td>
+          </tr>`;
+      }).join('');
+      return `
+        <table class="inner">
+          <thead>
+            <tr>
+              <th colspan="5">Chỉ số cũ/<i>Old</i>: ${chiSoCu} → Chỉ số mới/<i>New</i>: ${chiSoMoi} · Tiêu thụ/<i>Consumption</i>: ${soLuong} ${unit}</th>
+            </tr>
+            <tr>
+              <th>Bậc/<i>Tier</i></th>
+              <th>Mức (${unit})</th>
+              <th>Số lượng/<i>Qty</i></th>
+              <th>Đơn giá/<i>Unit Price</i></th>
+              <th>Thành tiền/<i>Amount</i></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tierRows}
+            <tr style="background:#f5f5f5;">
+              <td colspan="4" style="text-align:right;"><b>Tổng/<i>Total</i>:</b></td>
+              <td><b>${fmtVND(tongTien)}</b></td>
+            </tr>
+          </tbody>
+        </table>`;
+    }
+    // Giá phẳng
+    return `
+      <table class="inner">
+        <thead>
+          <tr>
+            <th>Chỉ số cũ/<i>Old Index</i></th>
+            <th>Chỉ số mới/<i>New Index</i></th>
+            <th>Tiêu thụ/<i>Consumption</i> (${unit})</th>
+            <th>Đơn giá/<i>Unit Price</i></th>
+            <th>Thành tiền/<i>Amount</i></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${chiSoCu}</td>
+            <td>${chiSoMoi}</td>
+            <td>${soLuong}</td>
+            <td>${fmtVND(donGiaPhang)}</td>
+            <td>${fmtVND(tongTien)}</td>
+          </tr>
+        </tbody>
+      </table>`;
+  };
+
   // 2. Điện
   if (hoaDon.tienDien > 0 || hoaDon.soDien > 0) {
     stt++;
     const donGiaDien = hoaDon.soDien > 0 ? hoaDon.tienDien / hoaDon.soDien : 0;
+    const innerDien = renderUsageTable(
+      hoaDon.chiSoDienBanDau, hoaDon.chiSoDienCuoiKy, hoaDon.soDien,
+      donGiaDien, hoaDon.tienDien, hoaDon.chiTietDien, 'kWh',
+    );
     soRows.push(`
       <tr class="row-section">
         <td>${stt}</td>
@@ -209,27 +294,8 @@ export function buildInvoiceHTML(input: InvoiceTemplateInput): string {
       <tr>
         <td>${stt}.1</td>
         <td>
-          <div>Điện tiêu thụ tháng ${thangStr}.${namStr} / <i>Electricity consumption ${thangStr}.${namStr}</i></div>
-          <table class="inner">
-            <thead>
-              <tr>
-                <th>Chỉ số cũ/<i>Old Index</i></th>
-                <th>Chỉ số mới/<i>New Index</i></th>
-                <th>Tiêu thụ/<i>Consumption</i> (kWh)</th>
-                <th>Đơn giá/<i>Unit Price</i></th>
-                <th>Thành tiền/<i>Amount</i></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${hoaDon.chiSoDienBanDau}</td>
-                <td>${hoaDon.chiSoDienCuoiKy}</td>
-                <td>${hoaDon.soDien}</td>
-                <td>${fmtVND(donGiaDien)}</td>
-                <td>${fmtVND(hoaDon.tienDien)}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div>Điện tiêu thụ tháng ${thangStr}.${namStr} / <i>Electricity consumption ${thangStr}.${namStr}</i>${hoaDon.chiTietDien && hoaDon.chiTietDien.length > 0 ? ' <span style="color:#666;font-style:italic;">(giá lũy tiến / <i>tiered</i>)</span>' : ''}</div>
+          ${innerDien}
         </td>
         <td class="amt">${fmtVND(hoaDon.tienDien)}</td>
       </tr>`);
@@ -239,6 +305,10 @@ export function buildInvoiceHTML(input: InvoiceTemplateInput): string {
   if (hoaDon.tienNuoc > 0 || hoaDon.soNuoc > 0) {
     stt++;
     const donGiaNuoc = hoaDon.soNuoc > 0 ? hoaDon.tienNuoc / hoaDon.soNuoc : 0;
+    const innerNuoc = renderUsageTable(
+      hoaDon.chiSoNuocBanDau, hoaDon.chiSoNuocCuoiKy, hoaDon.soNuoc,
+      donGiaNuoc, hoaDon.tienNuoc, hoaDon.chiTietNuoc, 'm³',
+    );
     soRows.push(`
       <tr class="row-section">
         <td>${stt}</td>
@@ -248,27 +318,8 @@ export function buildInvoiceHTML(input: InvoiceTemplateInput): string {
       <tr>
         <td>${stt}.1</td>
         <td>
-          <div>Nước tiêu thụ tháng ${thangStr}.${namStr} / <i>Water consumption ${thangStr}.${namStr}</i></div>
-          <table class="inner">
-            <thead>
-              <tr>
-                <th>Chỉ số cũ/<i>Old Index</i></th>
-                <th>Chỉ số mới/<i>New Index</i></th>
-                <th>Tiêu thụ/<i>Consumption</i> (m³)</th>
-                <th>Đơn giá/<i>Unit Price</i></th>
-                <th>Thành tiền/<i>Amount</i></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${hoaDon.chiSoNuocBanDau}</td>
-                <td>${hoaDon.chiSoNuocCuoiKy}</td>
-                <td>${hoaDon.soNuoc}</td>
-                <td>${fmtVND(donGiaNuoc)}</td>
-                <td>${fmtVND(hoaDon.tienNuoc)}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div>Nước tiêu thụ tháng ${thangStr}.${namStr} / <i>Water consumption ${thangStr}.${namStr}</i>${hoaDon.chiTietNuoc && hoaDon.chiTietNuoc.length > 0 ? ' <span style="color:#666;font-style:italic;">(giá lũy tiến / <i>tiered</i>)</span>' : ''}</div>
+          ${innerNuoc}
         </td>
         <td class="amt">${fmtVND(hoaDon.tienNuoc)}</td>
       </tr>`);

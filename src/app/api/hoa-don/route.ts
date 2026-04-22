@@ -8,6 +8,7 @@ import { notifyNewInvoice } from '@/lib/zalo-notify';
 import { PhiDichVu } from '@/types';
 import { sseEmit } from '@/lib/sse-emitter';
 import { checkQuyen, getToaNhaIdFromHopDong, getToaNhaIdFromHoaDon } from '@/lib/server/check-quyen';
+import { calcTieredPrice, parseTierConfig } from '@/lib/tier-pricing';
 
 // GET - Lấy danh sách hóa đơn
 export async function GET(request: NextRequest) {
@@ -251,9 +252,19 @@ export async function POST(request: NextRequest) {
     const soDien = chiSoDienCuoiKyValue - chiSoDienBanDauValue;
     const soNuoc = chiSoNuocCuoiKyValue - chiSoNuocBanDauValue;
 
-    // Tính tiền điện nước
-    const tienDienTinh = soDien * hopDongData.giaDien;
-    const tienNuocTinh = soNuoc * hopDongData.giaNuoc;
+    // Tính tiền điện nước (lũy tiến nếu có, phẳng nếu không)
+    const bacDien = parseTierConfig((hopDongData as any).bangGiaDienLuyTien);
+    const bacNuoc = parseTierConfig((hopDongData as any).bangGiaNuocLuyTien);
+
+    const dienCalc = bacDien
+      ? calcTieredPrice(soDien, bacDien)
+      : { total: soDien * hopDongData.giaDien, breakdown: null };
+    const nuocCalc = bacNuoc
+      ? calcTieredPrice(soNuoc, bacNuoc)
+      : { total: soNuoc * hopDongData.giaNuoc, breakdown: null };
+
+    const tienDienTinh = dienCalc.total;
+    const tienNuocTinh = nuocCalc.total;
 
     const tongTien = tienPhong + tienDienTinh + tienNuocTinh + (phiDichVu?.reduce((sum: number, phi: PhiDichVu) => sum + phi.gia, 0) || 0);
 
@@ -268,9 +279,11 @@ export async function POST(request: NextRequest) {
       tienDien: tienDienTinh,
       chiSoDienBanDau: chiSoDienBanDauValue,
       chiSoDienCuoiKy: chiSoDienCuoiKyValue,
+      chiTietDien: dienCalc.breakdown,
       tienNuoc: tienNuocTinh,
       chiSoNuocBanDau: chiSoNuocBanDauValue,
       chiSoNuocCuoiKy: chiSoNuocCuoiKyValue,
+      chiTietNuoc: nuocCalc.breakdown,
       phiDichVu: phiDichVu || [],
       tongTien,
       hanThanhToan: (() => {
@@ -379,9 +392,18 @@ export async function PUT(request: NextRequest) {
     const soDien = chiSoDienCuoiKy - chiSoDienBanDau;
     const soNuoc = chiSoNuocCuoiKy - chiSoNuocBanDau;
 
-    // Tính tiền điện nước
-    const tienDienTinh = soDien * hopDongData.giaDien;
-    const tienNuocTinh = soNuoc * hopDongData.giaNuoc;
+    // Tính tiền điện nước (lũy tiến nếu có)
+    const bacDienU = parseTierConfig((hopDongData as any).bangGiaDienLuyTien);
+    const bacNuocU = parseTierConfig((hopDongData as any).bangGiaNuocLuyTien);
+    const dienCalcU = bacDienU
+      ? calcTieredPrice(soDien, bacDienU)
+      : { total: soDien * hopDongData.giaDien, breakdown: null };
+    const nuocCalcU = bacNuocU
+      ? calcTieredPrice(soNuoc, bacNuocU)
+      : { total: soNuoc * hopDongData.giaNuoc, breakdown: null };
+
+    const tienDienTinh = dienCalcU.total;
+    const tienNuocTinh = nuocCalcU.total;
 
     const tongTien = tienPhong + tienDienTinh + tienNuocTinh + (phiDichVu?.reduce((sum: number, phi: PhiDichVu) => sum + phi.gia, 0) || 0);
     const conLai = tongTien - daThanhToan;
@@ -398,7 +420,9 @@ export async function PUT(request: NextRequest) {
     const updatedHoaDon = await hoaDonRepo.update(id, {
       tienPhong,
       tienDien: tienDienTinh,
+      chiTietDien: dienCalcU.breakdown,
       tienNuoc: tienNuocTinh,
+      chiTietNuoc: nuocCalcU.breakdown,
       phiDichVu: phiDichVu || [],
       tongTien,
       daThanhToan,
