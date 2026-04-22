@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
 import {
@@ -8,6 +8,7 @@ import {
   MessageSquare, Building2, DoorOpen, ChevronLeft, Bot,
   Send, Paperclip, Image as ImageIcon, X, FileText, Film, Loader2, HardDrive,
   ChevronDown, ChevronRight, Phone, BookUser, Pencil, Check,
+  Settings, Plus, Shield, ShieldOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1103,6 +1104,14 @@ export default function ZaloMonitorPage() {
   const [leftTab, setLeftTab] = useState<'conv' | 'contacts'>('conv');
   const [zaloMonitorAllowed, setZaloMonitorAllowed] = useState<boolean | null>(null);
 
+  // Bộ lọc Zalo Monitor
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [dmFilter, setDmFilter] = useState<'none' | 'system_only'>('none');
+  const [groupWhitelist, setGroupWhitelist] = useState<string[]>([]);
+  const [systemChatIds, setSystemChatIds] = useState<Set<string>>(new Set());
+  const [newGroupName, setNewGroupName] = useState('');
+  const [savingFilter, setSavingFilter] = useState(false);
+
   // Check zaloMonitor permission for non-admin users
   useEffect(() => {
     if (isAdmin) { setZaloMonitorAllowed(true); return; }
@@ -1135,6 +1144,45 @@ export default function ZaloMonitorPage() {
       } catch { setZaloMonitorAllowed(true); }
     })();
   }, [isAdmin, session?.user?.role]);
+
+  // Load cài đặt bộ lọc + system chatIds
+  useEffect(() => {
+    fetch('/api/cai-dat/zalo-filter').then(r => r.json()).then(d => {
+      setDmFilter(d.dmFilter || 'none');
+      setGroupWhitelist(d.groupWhitelist || []);
+    }).catch(() => {});
+    fetch('/api/cai-dat/zalo-filter/system-contacts').then(r => r.json()).then(d => {
+      if (Array.isArray(d.chatIds)) setSystemChatIds(new Set(d.chatIds));
+    }).catch(() => {});
+  }, []);
+
+  // Hội thoại đã lọc: DM theo dmFilter, Group theo groupWhitelist
+  const filteredConvs = useMemo(() => convs.filter(m => {
+    if (isGroup(m)) {
+      if (groupWhitelist.length === 0) return true;
+      const name = (m.displayName || '').trim().toLowerCase();
+      return groupWhitelist.some(w => name === w.toLowerCase() || name.includes(w.toLowerCase()));
+    } else {
+      if (dmFilter === 'system_only') return systemChatIds.has(m.chatId);
+      return true;
+    }
+  }), [convs, dmFilter, systemChatIds, groupWhitelist]);
+
+  const saveFilter = async (patch: { dmFilter?: 'none' | 'system_only'; groupWhitelist?: string[] }) => {
+    setSavingFilter(true);
+    try {
+      const res = await fetch('/api/cai-dat/zalo-filter', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+      });
+      const d = await res.json();
+      if (d.success) {
+        if (patch.dmFilter !== undefined) setDmFilter(patch.dmFilter);
+        if (patch.groupWhitelist !== undefined) setGroupWhitelist(patch.groupWhitelist);
+        toast.success('Đã lưu cài đặt lọc');
+      } else { toast.error(d.error || 'Lưu thất bại'); }
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setSavingFilter(false); }
+  };
 
   const loadConvs = useCallback(async () => {
     setLoadingConvs(true);
@@ -1222,20 +1270,134 @@ export default function ZaloMonitorPage() {
             {isAdmin ? 'Xem và trả lời tin nhắn của tất cả tài khoản' : 'Xem và trả lời tin nhắn Zalo của bạn'}
           </p>
         </div>
-        {connected === null ? (
-          <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-gray-50 border-gray-200 text-gray-500">
-            <RefreshCw className="h-3 w-3 animate-spin" /> Đang kiểm tra...
-          </div>
-        ) : connected ? (
-          <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-green-50 border-green-200 text-green-700">
-            <Wifi className="h-3 w-3" /> Đang kết nối
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-red-50 border-red-200 text-red-600">
-            <WifiOff className="h-3 w-3" /> Mất kết nối
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Nút cài đặt bộ lọc — admin + chủ trọ */}
+          {(isAdmin || ['chuNha', 'dongChuTro'].includes(session?.user?.role || '')) && (
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setShowFilterPanel(p => !p)}>
+              <Settings className="h-3.5 w-3.5" />
+              Bộ lọc
+              {(dmFilter === 'system_only' || groupWhitelist.length > 0) && (
+                <Badge className="ml-1 h-4 px-1 text-[10px] bg-blue-500">ON</Badge>
+              )}
+            </Button>
+          )}
+          {connected === null ? (
+            <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-gray-50 border-gray-200 text-gray-500">
+              <RefreshCw className="h-3 w-3 animate-spin" /> Đang kiểm tra...
+            </div>
+          ) : connected ? (
+            <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-green-50 border-green-200 text-green-700">
+              <Wifi className="h-3 w-3" /> Đang kết nối
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border bg-red-50 border-red-200 text-red-600">
+              <WifiOff className="h-3 w-3" /> Mất kết nối
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Filter panel */}
+      {showFilterPanel && (
+        <div className="mb-3 rounded-xl border bg-white shadow-sm p-4 shrink-0 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-800">Cài đặt bộ lọc Zalo Monitor</span>
+            <button type="button" onClick={() => setShowFilterPanel(false)} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+          </div>
+
+          {/* DM filter — admin only */}
+          {isAdmin && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Lọc tin nhắn cá nhân (DM)</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => saveFilter({ dmFilter: 'none' })}
+                  disabled={savingFilter}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-2 px-3 rounded-lg border transition-colors ${dmFilter === 'none' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}
+                >
+                  <Users className="h-3.5 w-3.5" /> Xem tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={() => saveFilter({ dmFilter: 'system_only' })}
+                  disabled={savingFilter}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-2 px-3 rounded-lg border transition-colors ${dmFilter === 'system_only' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}
+                >
+                  <Shield className="h-3.5 w-3.5" /> Chỉ số trong hệ thống
+                </button>
+              </div>
+              {dmFilter === 'system_only' && (
+                <p className="text-[11px] text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                  Chỉ hiện DM từ khách thuê / tài khoản đã liên kết Zalo trong hệ thống. Tổng: {systemChatIds.size} liên kết.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Group whitelist — chuNha + dongChuTro + admin */}
+          {(isAdmin || ['chuNha', 'dongChuTro'].includes(session?.user?.role || '')) && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Lọc nhóm theo tên</p>
+              <p className="text-[11px] text-gray-400">
+                {groupWhitelist.length === 0
+                  ? 'Hiện tất cả nhóm (chưa giới hạn). Thêm tên nhóm để chỉ hiện các nhóm khớp tên.'
+                  : `Chỉ hiện ${groupWhitelist.length} nhóm được phép.`}
+              </p>
+              {/* Danh sách whitelist */}
+              {groupWhitelist.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {groupWhitelist.map(name => (
+                    <span key={name} className="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-full px-2 py-0.5">
+                      {name}
+                      <button
+                        type="button"
+                        onClick={() => saveFilter({ groupWhitelist: groupWhitelist.filter(g => g !== name) })}
+                        disabled={savingFilter}
+                        className="hover:text-red-500 transition-colors"
+                      ><X className="h-3 w-3" /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {/* Thêm tên nhóm */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newGroupName}
+                  onChange={e => setNewGroupName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newGroupName.trim()) {
+                      const name = newGroupName.trim();
+                      if (!groupWhitelist.includes(name)) {
+                        saveFilter({ groupWhitelist: [...groupWhitelist, name] });
+                      }
+                      setNewGroupName('');
+                    }
+                  }}
+                  placeholder="Nhập tên nhóm rồi Enter..."
+                  className="flex-1 text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!newGroupName.trim() || savingFilter}
+                  onClick={() => {
+                    const name = newGroupName.trim();
+                    if (name && !groupWhitelist.includes(name)) {
+                      saveFilter({ groupWhitelist: [...groupWhitelist, name] });
+                    }
+                    setNewGroupName('');
+                  }}
+                  className="text-xs gap-1"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Thêm
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 2-column layout */}
       <div className="flex flex-1 overflow-hidden rounded-xl border bg-white shadow-sm">
@@ -1261,7 +1423,7 @@ export default function ZaloMonitorPage() {
           <div className="flex-1 overflow-hidden">
             {leftTab === 'conv' ? (
               <ConversationList
-                convs={convs}
+                convs={filteredConvs}
                 selectedId={selectedChatId}
                 onSelect={setSelectedChatId}
                 onDeleteAll={handleDeleteAll}
