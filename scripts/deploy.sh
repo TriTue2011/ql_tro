@@ -66,6 +66,9 @@ if git diff "$LOCAL" "$REMOTE" --name-only | grep -q "package.json\|package-lock
   npm ci --production=false --quiet
 fi
 
+# 5b. Đảm bảo system deps cho Puppeteer (xuất PDF) — idempotent
+bash "$APP_DIR/scripts/install-puppeteer-deps.sh" 2>&1 | sed "s/^/$LOG_PREFIX   /"
+
 # 6. Build
 echo "$LOG_PREFIX Build..."
 npm run build
