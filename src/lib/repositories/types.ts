@@ -388,6 +388,7 @@ export interface HoaDonData {
   ghiChu?: string;
   anhChiSoDien?: string;
   anhChiSoNuoc?: string;
+  nguoiTaoId?: string | null;
   ngayTao: Date;
   ngayCapNhat: Date;
 }
@@ -414,6 +415,7 @@ export interface CreateHoaDonInput {
   ghiChu?: string;
   anhChiSoDien?: string;
   anhChiSoNuoc?: string;
+  nguoiTaoId?: string | null;
 }
 
 export interface HoaDonQueryOptions extends QueryOptions {
