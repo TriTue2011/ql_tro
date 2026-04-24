@@ -80,6 +80,60 @@ async function buildQrUrl(hoaDon: {
   return `https://img.vietqr.io/image/${bank}-${soTk}-compact2.png?amount=${Math.round(hoaDon.conLai)}&addInfo=${addInfo}&accountName=${accName}`;
 }
 
+/** Format tiền tệ VN (vd: 2.500.000 ₫) */
+function fmtVND(v: number | null | undefined): string {
+  return `${Number(v ?? 0).toLocaleString('vi-VN')} ₫`;
+}
+
+interface InvoiceForMessage {
+  maHoaDon: string;
+  thang: number;
+  nam: number;
+  tienPhong: number;
+  tienDien: number;
+  tienNuoc: number;
+  soDien: number;
+  soNuoc: number;
+  phiDichVu: unknown;
+  tongTien: number;
+  daThanhToan: number;
+  conLai: number;
+  hanThanhToan: Date;
+  phong: { maPhong: string };
+  khachThue?: { hoTen: string } | null;
+}
+
+/** Build tin nhắn hóa đơn đầy đủ (tiền phòng, điện, nước, phí DV, tổng, đã TT, còn lại, hạn TT). */
+function buildInvoiceMessage(hd: InvoiceForMessage, fallbackKhachThueName?: string): string {
+  const hanTT = new Date(hd.hanThanhToan).toLocaleDateString('vi-VN');
+  const phiDV = Array.isArray(hd.phiDichVu) ? hd.phiDichVu as { ten?: string; gia?: number }[] : [];
+  const phiDVText = phiDV.length > 0
+    ? phiDV.map(p => `  - ${p.ten ?? ''}: ${fmtVND(p.gia)}`).join('\n')
+    : '  (không có)';
+
+  const isPaid = Number(hd.conLai) <= 0;
+  const footer = isPaid
+    ? `Hạn thanh toán: ${hanTT}\n✅ Đã thanh toán đầy đủ. Cảm ơn bạn!`
+    : `Hạn thanh toán: ${hanTT}\nVui lòng thanh toán đúng hạn.`;
+
+  return `THÔNG BÁO TIỀN PHÒNG THÁNG ${hd.thang}/${hd.nam}
+━━━━━━━━━━━━━━━━━━━━
+Phòng: ${hd.phong.maPhong}
+Khách thuê: ${hd.khachThue?.hoTen ?? fallbackKhachThueName ?? ''}
+━━━━━━━━━━━━━━━━━━━━
+Tiền phòng: ${fmtVND(hd.tienPhong)}
+Tiền điện (${hd.soDien} kWh): ${fmtVND(hd.tienDien)}
+Tiền nước (${hd.soNuoc} m³): ${fmtVND(hd.tienNuoc)}
+Phí dịch vụ:
+${phiDVText}
+━━━━━━━━━━━━━━━━━━━━
+TỔNG TIỀN: ${fmtVND(hd.tongTien)}
+Đã thanh toán: ${fmtVND(hd.daThanhToan)}
+CÒN LẠI: ${fmtVND(hd.conLai)}
+━━━━━━━━━━━━━━━━━━━━
+${footer}`;
+}
+
 /** Gửi tin nhắn đến nhóm chat của tòa nhà (chỉ dùng cho nhắc nhở, không dùng cho sự cố/hóa đơn) */
 async function sendToGroup(toaNhaId: string, text: string, tang?: number): Promise<void> {
   const toaNha = await prisma.toaNha.findUnique({ where: { id: toaNhaId }, select: { zaloNhomChat: true } });
@@ -165,6 +219,7 @@ export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
       where: { id: hoaDonId },
       select: {
         id: true, maHoaDon: true, thang: true, nam: true,
+        tienPhong: true, tienDien: true, tienNuoc: true, soDien: true, soNuoc: true, phiDichVu: true,
         tongTien: true, conLai: true, daThanhToan: true, hanThanhToan: true, nguoiTaoId: true,
         phong: { select: { id: true, maPhong: true, tang: true, dienTich: true, giaThue: true, toaNhaId: true, toaNha: { select: { tenToaNha: true, diaChi: true } } } },
         khachThue: { select: { hoTen: true, soDienThoai: true, zaloChatId: true, nhanThongBaoZalo: true } },
@@ -176,33 +231,22 @@ export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
     const nguoiNhan = hd.hopDong?.nguoiDaiDien;
     if (!nguoiNhan?.nhanThongBaoZalo || !nguoiNhan.zaloChatId) return;
 
-    const han = new Date(hd.hanThanhToan).toLocaleDateString('vi-VN');
     const qrUrl = await buildQrUrl(hd);
     const chatId = nguoiNhan.zaloChatId;
     const toaNhaId = hd.phong.toaNhaId;
 
-    const summary = [
-      `📄 Hóa đơn tháng ${hd.thang}/${hd.nam}`,
-      `━━━━━━━━━━━━━━━━━━━━━━`,
-      `👤 Khách thuê: ${hd.khachThue?.hoTen ?? nguoiNhan.hoTen}`,
-      `🏠 Phòng: ${hd.phong.maPhong} — ${hd.phong.toaNha.tenToaNha}`,
-      `💰 Tổng tiền: ${hd.tongTien.toLocaleString('vi-VN')}đ`,
-      hd.daThanhToan > 0 ? `✅ Đã thanh toán: ${hd.daThanhToan.toLocaleString('vi-VN')}đ` : '',
-      `💳 Còn lại: ${hd.conLai.toLocaleString('vi-VN')}đ`,
-      `📅 Hạn thanh toán: ${han}`,
-      `🔖 Mã hóa đơn: ${hd.maHoaDon}`,
-    ].filter(Boolean).join('\n');
+    const message = buildInvoiceMessage(hd, nguoiNhan.hoTen);
 
     if (qrUrl && hd.conLai > 0) {
-      // 1. Còn nợ → gửi QR trước kèm caption tóm tắt các khoản tiền (nhanh, đảm bảo tới khách)
-      await sendQrImage(chatId, qrUrl, toaNhaId, `${summary}\n\n📲 Quét QR để thanh toán`)
+      // Còn nợ → gửi QR kèm caption là toàn bộ thông báo tiền phòng
+      await sendQrImage(chatId, qrUrl, toaNhaId, `${message}\n\n📲 Quét QR để thanh toán`)
         .catch(e => console.error('[zalo-notify] sendQrImage error:', e));
     } else {
-      // Đã thanh toán đầy đủ → gửi text tóm tắt
-      await sendZalo(chatId, summary, toaNhaId);
+      // Đã thanh toán đầy đủ → gửi text
+      await sendZalo(chatId, message, toaNhaId);
     }
 
-    // 2. Gửi PDF sau (Puppeteer sinh file cần thời gian) — fire-and-forget
+    // Gửi PDF sau (Puppeteer sinh file cần thời gian) — fire-and-forget
     sendInvoicePdf(hd, chatId, toaNhaId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
   } catch (e) {
     console.error('[zalo-notify] notifyNewInvoice error:', e);
@@ -354,13 +398,15 @@ export async function notifyInvoiceOverdue(hoaDonId: string): Promise<void> {
  * Xác nhận thanh toán — gửi cho khách thuê nếu cài đặt auto_zalo_hoa_don_thanh_toan = true.
  * Kèm PDF hóa đơn đã đánh dấu "ĐÃ THANH TOÁN" để khách có chứng từ.
  */
-export async function notifyPaymentConfirmed(hoaDonId: string, soTienVừaThanhToan?: number): Promise<void> {
+export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanhToan?: number): Promise<void> {
   if (!await isAutoEnabled('auto_zalo_hoa_don_thanh_toan')) return;
   try {
     const hd = await prisma.hoaDon.findUnique({
       where: { id: hoaDonId },
       select: {
-        id: true, maHoaDon: true, thang: true, nam: true, tongTien: true, daThanhToan: true, conLai: true,
+        id: true, maHoaDon: true, thang: true, nam: true,
+        tienPhong: true, tienDien: true, tienNuoc: true, soDien: true, soNuoc: true, phiDichVu: true,
+        tongTien: true, daThanhToan: true, conLai: true,
         hanThanhToan: true, ngayCapNhat: true, nguoiTaoId: true,
         phong: {
           select: {
@@ -378,23 +424,16 @@ export async function notifyPaymentConfirmed(hoaDonId: string, soTienVừaThanhT
       : hd.khachThue?.nhanThongBaoZalo ? hd.khachThue : null;
     if (!nguoiNhan?.zaloChatId) return;
 
-    const soTien = soTienVừaThanhToan ?? hd.daThanhToan;
-    const msg = [
-      `✅ Xác nhận thanh toán`,
-      `━━━━━━━━━━━━━━━━━━━━━━`,
-      `🏠 Phòng: ${hd.phong.maPhong} — ${hd.phong.toaNha.tenToaNha}`,
-      `👤 Khách thuê: ${hd.khachThue?.hoTen ?? nguoiNhan.hoTen}`,
-      `💰 Đã thanh toán: ${soTien.toLocaleString('vi-VN')}đ`,
-      hd.conLai > 0 ? `💳 Còn lại: ${hd.conLai.toLocaleString('vi-VN')}đ` : `🎉 Đã thanh toán đầy đủ!`,
-      `🔖 Mã hóa đơn: ${hd.maHoaDon} T${hd.thang}/${hd.nam}`,
-    ].filter(Boolean).join('\n');
-
     const chatId = nguoiNhan.zaloChatId;
     const toaNhaId = hd.phong.toaNhaId;
 
-    await sendZalo(chatId, msg, toaNhaId);
-    // Gửi kèm PDF hóa đơn (đã cập nhật trạng thái đã thanh toán)
-    await sendInvoicePdf(hd, chatId, toaNhaId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
+    // Dùng cùng format THÔNG BÁO TIỀN PHÒNG như khi tạo hóa đơn, footer tự đổi thành
+    // "✅ Đã thanh toán đầy đủ" khi conLai <= 0
+    const message = buildInvoiceMessage(hd, nguoiNhan.hoTen);
+    await sendZalo(chatId, message, toaNhaId);
+
+    // Gửi kèm PDF hóa đơn (đã cập nhật trạng thái đã thanh toán) — fire-and-forget
+    sendInvoicePdf(hd, chatId, toaNhaId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
   } catch (e) {
     console.error('[zalo-notify] notifyPaymentConfirmed error:', e);
   }
