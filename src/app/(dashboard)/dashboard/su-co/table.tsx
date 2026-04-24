@@ -299,16 +299,17 @@ const createColumns = (props: SuCoTableProps): ColumnDef<SuCo>[] => [
     header: "Trạng thái",
     cell: ({ row }) => {
       const suCo = row.original
+      // Select dùng làm dropdown hành động: không bind value (chỉ cần placeholder),
+      // vì value 'moi'/'dangXuLy' không nằm trong danh sách lựa chọn tiếp theo.
       return (
         <div className="flex items-center gap-2">
           {getStatusBadge(suCo.trangThai)}
-          {suCo.trangThai === 'moi' && (
+          {suCo.trangThai === 'moi' && props.canEdit !== false && (
             <Select
-              value={suCo.trangThai}
               onValueChange={(value) => props.onStatusChange(suCo.id!, value)}
             >
-              <SelectTrigger className="w-32 h-8">
-                <SelectValue />
+              <SelectTrigger className="w-28 h-8">
+                <SelectValue placeholder="Cập nhật" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="dangXuLy">Xử lý</SelectItem>
@@ -316,13 +317,12 @@ const createColumns = (props: SuCoTableProps): ColumnDef<SuCo>[] => [
               </SelectContent>
             </Select>
           )}
-          {suCo.trangThai === 'dangXuLy' && (
+          {suCo.trangThai === 'dangXuLy' && props.canEdit !== false && (
             <Select
-              value={suCo.trangThai}
               onValueChange={(value) => props.onStatusChange(suCo.id!, value)}
             >
-              <SelectTrigger className="w-32 h-8">
-                <SelectValue />
+              <SelectTrigger className="w-28 h-8">
+                <SelectValue placeholder="Cập nhật" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="daXong">Hoàn thành</SelectItem>

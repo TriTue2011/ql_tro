@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { notifyDaiDienHopDong, notifyAdminsOfToaNha, getToaNhaIdOfKhachThue } from '@/lib/send-zalo';
+import { notifyIncidentGhiNhan, notifyNewIncident } from '@/lib/zalo-notify';
 
 export async function GET(_request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -75,11 +76,10 @@ export async function POST(request: NextRequest) {
     hopDong.nguoiDaiDienId !== session.user.id
       ? notifyDaiDienHopDong(hopDong.id, notifMsg)
       : Promise.resolve(),
-    // Thông báo quản lý/chủ trọ
-    (async () => {
-      const toaNhaId = await getToaNhaIdOfKhachThue(session.user.id);
-      if (toaNhaId) await notifyAdminsOfToaNha(toaNhaId, notifMsg);
-    })(),
+    // Thông báo quản lý/chủ trọ (routing theo ZaloThongBaoCaiDat)
+    notifyNewIncident(suCo.id),
+    // Thông báo khách thuê "đã ghi nhận" nếu cài đặt auto bật
+    notifyIncidentGhiNhan(suCo.id),
   ]).catch(() => {});
 
   return NextResponse.json(

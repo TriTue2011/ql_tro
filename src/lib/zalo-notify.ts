@@ -153,6 +153,10 @@ async function getTargets(toaNhaId: string, category: NotifCategory): Promise<No
 /**
  * Thông báo hóa đơn mới cho đúng khách thuê (kèm QR thanh toán).
  * Chỉ gửi nếu cài đặt auto_zalo_hoa_don_tao = true.
+ *
+ * Thứ tự gửi:
+ *   - Nếu còn nợ (conLai > 0): gửi PDF hóa đơn + ảnh QR kèm caption là tóm tắt các khoản tiền.
+ *   - Nếu đã thanh toán đầy đủ: gửi text tóm tắt + PDF (không cần QR).
  */
 export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
   if (!await isAutoEnabled('auto_zalo_hoa_don_tao')) return;
@@ -177,11 +181,10 @@ export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
     const chatId = nguoiNhan.zaloChatId;
     const toaNhaId = hd.phong.toaNhaId;
 
-    // 1. Gửi text summary (không kèm QR link nữa — QR gửi bằng ảnh)
-    const msg = [
+    const summary = [
       `📄 Hóa đơn tháng ${hd.thang}/${hd.nam}`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
-      `👤 Khách thuê: ${hd.khachThue.hoTen}`,
+      `👤 Khách thuê: ${hd.khachThue?.hoTen ?? nguoiNhan.hoTen}`,
       `🏠 Phòng: ${hd.phong.maPhong} — ${hd.phong.toaNha.tenToaNha}`,
       `💰 Tổng tiền: ${hd.tongTien.toLocaleString('vi-VN')}đ`,
       hd.daThanhToan > 0 ? `✅ Đã thanh toán: ${hd.daThanhToan.toLocaleString('vi-VN')}đ` : '',
@@ -190,14 +193,16 @@ export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
       `🔖 Mã hóa đơn: ${hd.maHoaDon}`,
     ].filter(Boolean).join('\n');
 
-    await sendZalo(chatId, msg, toaNhaId);
+    // 1. Gửi PDF hóa đơn (đính kèm trước để khách có file xem chi tiết)
+    await sendInvoicePdf(hd, chatId, toaNhaId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
 
-    // 2. Gửi PDF hóa đơn
-    sendInvoicePdf(hd, chatId, toaNhaId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
-
-    // 3. Gửi ảnh QR (còn nợ) — dùng sendImageViaBotServer với URL trực tiếp
     if (qrUrl && hd.conLai > 0) {
-      sendQrImage(chatId, qrUrl, toaNhaId).catch(e => console.error('[zalo-notify] sendQrImage error:', e));
+      // 2. Còn nợ → gửi QR kèm caption là tóm tắt các khoản tiền (gộp, không gửi text riêng)
+      await sendQrImage(chatId, qrUrl, toaNhaId, `${summary}\n\n📲 Quét QR để thanh toán`)
+        .catch(e => console.error('[zalo-notify] sendQrImage error:', e));
+    } else {
+      // 3. Đã thanh toán đầy đủ → chỉ cần gửi tóm tắt text
+      await sendZalo(chatId, summary, toaNhaId);
     }
   } catch (e) {
     console.error('[zalo-notify] notifyNewInvoice error:', e);
@@ -243,7 +248,7 @@ async function sendInvoicePdf(hd: any, chatId: string, toaNhaId: string): Promis
 }
 
 /** Tải ảnh QR về rồi gửi kèm qua Zalo (vì URL vietqr.io có thể không ổn định với bot server) */
-async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string): Promise<void> {
+async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string, caption = '📲 Quét QR để thanh toán'): Promise<void> {
   const fs = await import('fs');
   const path = await import('path');
   const { sendImageViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
@@ -262,12 +267,53 @@ async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string): Pro
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
-      await directSendImage(chatId, tempPath, '📲 Quét QR để thanh toán', 0, 0);
+      await directSendImage(chatId, tempPath, caption, 0, 0);
     } else {
-      await sendImageViaBotServer(chatId, tempPath, '📲 Quét QR để thanh toán', 0, undefined, botConfig);
+      await sendImageViaBotServer(chatId, tempPath, caption, 0, undefined, botConfig);
     }
   } finally {
     try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
+  }
+}
+
+/**
+ * Tải ảnh từ URL về rồi gửi kèm (dùng cho ảnh sự cố đã xử lý xong).
+ * Bot server có thể không gửi được qua URL trực tiếp (CDN yêu cầu auth/redirect),
+ * nên tải về file tạm sẽ ổn định hơn.
+ */
+async function sendLocalImage(chatId: string, imageUrl: string, toaNhaId: string, caption = ''): Promise<void> {
+  const fs = await import('fs');
+  const path = await import('path');
+  const { sendImageViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
+
+  let tempPath: string | null = null;
+  try {
+    // Nếu là URL http(s) → tải về; nếu là path cục bộ thì dùng trực tiếp
+    if (/^https?:\/\//i.test(imageUrl)) {
+      const res = await fetch(imageUrl);
+      if (!res.ok) throw new Error(`Image fetch failed: ${res.status}`);
+      const buf = Buffer.from(await res.arrayBuffer());
+      const TEMP_DIR = path.join(process.cwd(), 'tmp', 'zalo');
+      if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
+      const ext = (imageUrl.split('.').pop() || 'jpg').split('?')[0].slice(0, 5);
+      tempPath = path.join(TEMP_DIR, `suco_${Date.now()}.${ext}`);
+      fs.writeFileSync(tempPath, buf);
+    } else {
+      tempPath = imageUrl;
+    }
+
+    const botConfig = await getBotConfigForToaNha(toaNhaId);
+    const activeMode = await getActiveMode();
+    if (activeMode === 'direct') {
+      const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
+      await directSendImage(chatId, tempPath, caption, 0, 0);
+    } else {
+      await sendImageViaBotServer(chatId, tempPath, caption, 0, undefined, botConfig);
+    }
+  } finally {
+    if (tempPath && /^https?:\/\//i.test(imageUrl)) {
+      try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
+    }
   }
 }
 
@@ -290,7 +336,7 @@ export async function notifyInvoiceOverdue(hoaDonId: string): Promise<void> {
       `⚠️ Hóa đơn QUÁ HẠN`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
       `🏠 Phòng: ${hd.phong.maPhong} — ${hd.phong.toaNha.tenToaNha}`,
-      `👤 Khách thuê: ${hd.khachThue.hoTen} (${hd.khachThue.soDienThoai})`,
+      `👤 Khách thuê: ${hd.khachThue?.hoTen ?? '—'} (${hd.khachThue?.soDienThoai ?? ''})`,
       `💳 Còn lại: ${hd.conLai.toLocaleString('vi-VN')}đ`,
       `🔖 Mã HD: ${hd.maHoaDon} T${hd.thang}/${hd.nam}`,
       ``,
@@ -306,6 +352,7 @@ export async function notifyInvoiceOverdue(hoaDonId: string): Promise<void> {
 
 /**
  * Xác nhận thanh toán — gửi cho khách thuê nếu cài đặt auto_zalo_hoa_don_thanh_toan = true.
+ * Kèm PDF hóa đơn đã đánh dấu "ĐÃ THANH TOÁN" để khách có chứng từ.
  */
 export async function notifyPaymentConfirmed(hoaDonId: string, soTienVừaThanhToan?: number): Promise<void> {
   if (!await isAutoEnabled('auto_zalo_hoa_don_thanh_toan')) return;
@@ -313,9 +360,15 @@ export async function notifyPaymentConfirmed(hoaDonId: string, soTienVừaThanhT
     const hd = await prisma.hoaDon.findUnique({
       where: { id: hoaDonId },
       select: {
-        maHoaDon: true, thang: true, nam: true, tongTien: true, daThanhToan: true, conLai: true,
-        phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
-        khachThue: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } },
+        id: true, maHoaDon: true, thang: true, nam: true, tongTien: true, daThanhToan: true, conLai: true,
+        hanThanhToan: true, ngayCapNhat: true, nguoiTaoId: true,
+        phong: {
+          select: {
+            id: true, maPhong: true, tang: true, dienTich: true, giaThue: true, toaNhaId: true,
+            toaNha: { select: { tenToaNha: true, diaChi: true } },
+          },
+        },
+        khachThue: { select: { hoTen: true, soDienThoai: true, zaloChatId: true, nhanThongBaoZalo: true } },
         hopDong: { select: { nguoiDaiDien: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } } } },
       },
     });
@@ -330,13 +383,18 @@ export async function notifyPaymentConfirmed(hoaDonId: string, soTienVừaThanhT
       `✅ Xác nhận thanh toán`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
       `🏠 Phòng: ${hd.phong.maPhong} — ${hd.phong.toaNha.tenToaNha}`,
-      `👤 Khách thuê: ${hd.khachThue.hoTen}`,
+      `👤 Khách thuê: ${hd.khachThue?.hoTen ?? nguoiNhan.hoTen}`,
       `💰 Đã thanh toán: ${soTien.toLocaleString('vi-VN')}đ`,
       hd.conLai > 0 ? `💳 Còn lại: ${hd.conLai.toLocaleString('vi-VN')}đ` : `🎉 Đã thanh toán đầy đủ!`,
       `🔖 Mã hóa đơn: ${hd.maHoaDon} T${hd.thang}/${hd.nam}`,
     ].filter(Boolean).join('\n');
 
-    await sendZalo(nguoiNhan.zaloChatId, msg, hd.phong.toaNhaId);
+    const chatId = nguoiNhan.zaloChatId;
+    const toaNhaId = hd.phong.toaNhaId;
+
+    await sendZalo(chatId, msg, toaNhaId);
+    // Gửi kèm PDF hóa đơn (đã cập nhật trạng thái đã thanh toán)
+    await sendInvoicePdf(hd, chatId, toaNhaId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
   } catch (e) {
     console.error('[zalo-notify] notifyPaymentConfirmed error:', e);
   }
@@ -392,14 +450,14 @@ export async function notifyNewIncident(suCoId: string): Promise<void> {
     });
     if (!sc) return;
 
-    const mucDo: Record<string, string> = { thapUuTien: '🟢 Thấp', trungBinh: '🟡 Trung bình', caoUuTien: '🔴 Cao', khancap: '🆘 Khẩn cấp' };
+    const mucDo: Record<string, string> = { thap: '🟢 Thấp', trungBinh: '🟡 Trung bình', cao: '🔴 Cao', khancap: '🆘 Khẩn cấp' };
     const loai: Record<string, string> = { dienNuoc: '💡 Điện/Nước', noiThat: '🪑 Nội thất', vesinh: '🚿 Vệ sinh', anNinh: '🔒 An ninh', khac: '📋 Khác' };
 
     const msg = [
       `🚨 SỰ CỐ MỚI`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
       `🏠 Phòng: ${sc.phong.maPhong} — ${sc.phong.toaNha.tenToaNha}`,
-      `👤 Khách thuê: ${sc.khachThue.hoTen} (${sc.khachThue.soDienThoai})`,
+      `👤 Khách thuê: ${sc.khachThue?.hoTen ?? '—'} (${sc.khachThue?.soDienThoai ?? ''})`,
       `📌 Tiêu đề: ${sc.tieuDe}`,
       `📝 Mô tả: ${sc.moTa}`,
       `🏷️ Loại: ${loai[sc.loaiSuCo] ?? sc.loaiSuCo}`,
@@ -493,15 +551,15 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string, gh
     ].filter(Boolean);
 
     const msg = lines.join('\n');
-    const botConfig = await getBotConfigForToaNha(toaNhaId);
 
     await sendZalo(chatId, msg, toaNhaId);
 
-    // Gửi kèm ảnh khi daXong
+    // Gửi kèm ảnh khi daXong (tải ảnh về file tạm trước khi gửi — bot server/zca-js ổn định hơn so với URL trực tiếp)
     if (newStatus === 'daXong' && sc.anhSuCo?.length) {
-      const { sendImageViaBotServer } = await import('@/lib/zalo-bot-client');
       for (const imgUrl of sc.anhSuCo.slice(0, 5)) {
-        await sendImageViaBotServer(chatId, imgUrl, '', 0, undefined, botConfig).catch(() => {});
+        await sendLocalImage(chatId, imgUrl, toaNhaId, '').catch(e => {
+          console.error('[zalo-notify] send incident image error:', e);
+        });
       }
     }
   } catch (e) {
