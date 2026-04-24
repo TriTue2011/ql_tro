@@ -453,10 +453,15 @@ export async function notifyIncidentGhiNhan(suCoId: string): Promise<void> {
       select: {
         tieuDe: true, moTa: true,
         phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
-        khachThue: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } },
+        khachThue: { select: { hoTen: true, zaloChatId: true } },
       },
     });
-    if (!sc || !sc.khachThue.nhanThongBaoZalo || !sc.khachThue.zaloChatId) return;
+    // Admin đã bật cờ auto toàn cục → chỉ cần khách có zaloChatId là gửi,
+    // không gate thêm cờ cá nhân nhanThongBaoZalo (mặc định false gây tắt ngầm).
+    if (!sc || !sc.khachThue?.zaloChatId) {
+      console.warn('[zalo-notify] notifyIncidentGhiNhan skipped: no zaloChatId', { suCoId });
+      return;
+    }
 
     const msg = [
       `📋 ĐÃ GHI NHẬN SỰ CỐ`,
@@ -564,11 +569,15 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string, gh
       select: {
         tieuDe: true, ghiChuXuLy: true, anhSuCo: true,
         phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
-        khachThue: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } },
+        khachThue: { select: { hoTen: true, zaloChatId: true } },
         nguoiXuLy: { select: { ten: true } },
       },
     });
-    if (!sc || !sc.khachThue.nhanThongBaoZalo || !sc.khachThue.zaloChatId) return;
+    // Admin đã bật cờ auto cho trạng thái này → chỉ cần khách có zaloChatId là gửi.
+    if (!sc || !sc.khachThue?.zaloChatId) {
+      console.warn('[zalo-notify] notifyIncidentUpdate skipped: no zaloChatId', { suCoId, newStatus });
+      return;
+    }
 
     const ghiChu = ghiChuXuLy ?? sc.ghiChuXuLy ?? '';
     const toaNhaId = sc.phong.toaNhaId;
