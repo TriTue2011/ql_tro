@@ -193,17 +193,17 @@ export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
       `🔖 Mã hóa đơn: ${hd.maHoaDon}`,
     ].filter(Boolean).join('\n');
 
-    // 1. Gửi PDF hóa đơn (đính kèm trước để khách có file xem chi tiết)
-    await sendInvoicePdf(hd, chatId, toaNhaId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
-
     if (qrUrl && hd.conLai > 0) {
-      // 2. Còn nợ → gửi QR kèm caption là tóm tắt các khoản tiền (gộp, không gửi text riêng)
+      // 1. Còn nợ → gửi QR trước kèm caption tóm tắt các khoản tiền (nhanh, đảm bảo tới khách)
       await sendQrImage(chatId, qrUrl, toaNhaId, `${summary}\n\n📲 Quét QR để thanh toán`)
         .catch(e => console.error('[zalo-notify] sendQrImage error:', e));
     } else {
-      // 3. Đã thanh toán đầy đủ → chỉ cần gửi tóm tắt text
+      // Đã thanh toán đầy đủ → gửi text tóm tắt
       await sendZalo(chatId, summary, toaNhaId);
     }
+
+    // 2. Gửi PDF sau (Puppeteer sinh file cần thời gian) — fire-and-forget
+    sendInvoicePdf(hd, chatId, toaNhaId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
   } catch (e) {
     console.error('[zalo-notify] notifyNewInvoice error:', e);
   }
