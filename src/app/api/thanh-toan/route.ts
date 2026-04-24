@@ -129,9 +129,11 @@ export async function POST(request: NextRequest) {
     if (role === 'quanLy' || role === 'nhanVien') {
       const toaNhaId = await getToaNhaIdFromHoaDon(hoaDonId);
       if (toaNhaId) {
-        const perm = await checkQuyen(session.user.id, role, toaNhaId, 'quyenThanhToan');
-        if (!perm.allowed) {
-          return NextResponse.json({ message: perm.message }, { status: 403 });
+        // Cho phép nếu có quyền thanh toán HOẶC quyền hóa đơn (xác nhận TT từ màn hình hóa đơn)
+        const permTT = await checkQuyen(session.user.id, role, toaNhaId, 'quyenThanhToan');
+        const permHD = await checkQuyen(session.user.id, role, toaNhaId, 'quyenHoaDon');
+        if (!permTT.allowed && !permHD.allowed) {
+          return NextResponse.json({ message: permTT.message }, { status: 403 });
         }
       }
     }
