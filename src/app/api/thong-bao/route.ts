@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { getThongBaoRepo } from '@/lib/repositories';
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
+import prisma from '@/lib/prisma';
+import { broadcastThongBao } from '@/lib/zalo-notify';
 import { z } from 'zod';
 
 const thongBaoSchema = z.object({
@@ -13,6 +15,8 @@ const thongBaoSchema = z.object({
   nguoiNhan: z.array(z.string()).min(1, 'Phải có ít nhất 1 người nhận'),
   phong: z.array(z.string()).optional(),
   toaNha: z.string().optional(),
+  nhomChatIds: z.array(z.string()).optional(),
+  fileDinhKem: z.array(z.string()).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -79,6 +83,8 @@ export async function POST(request: NextRequest) {
 
     const repo = await getThongBaoRepo();
 
+    const toaNhaId = validatedData.toaNha === 'all' ? undefined : validatedData.toaNha;
+
     const newThongBao = await repo.create({
       tieuDe: validatedData.tieuDe,
       noiDung: validatedData.noiDung,
@@ -86,8 +92,34 @@ export async function POST(request: NextRequest) {
       nguoiGuiId: session.user.id,
       nguoiNhan: validatedData.nguoiNhan,
       phongIds: validatedData.phong || [],
-      toaNhaId: validatedData.toaNha,
+      toaNhaId,
+      nhomChatIds: validatedData.nhomChatIds || [],
+      fileDinhKem: validatedData.fileDinhKem || [],
     });
+
+    // Gửi Zalo tới khách thuê có zaloChatId + các nhóm được chọn (fire-and-forget)
+    (async () => {
+      try {
+        const khachThues = await prisma.khachThue.findMany({
+          where: { id: { in: validatedData.nguoiNhan }, zaloChatId: { not: null } },
+          select: { zaloChatId: true },
+        });
+        const chatIds = khachThues.map(k => k.zaloChatId!).filter(Boolean);
+
+        if (chatIds.length === 0 && (validatedData.nhomChatIds?.length ?? 0) === 0) return;
+
+        const text = `📢 ${validatedData.tieuDe}\n━━━━━━━━━━━━━━━━━━━━\n${validatedData.noiDung}`;
+        await broadcastThongBao({
+          text,
+          chatIds,
+          groupThreadIds: validatedData.nhomChatIds || [],
+          fileUrls: validatedData.fileDinhKem || [],
+          toaNhaId,
+        });
+      } catch (e) {
+        console.error('[thong-bao POST broadcast] error:', e);
+      }
+    })();
 
     return NextResponse.json({
       success: true,
@@ -147,8 +179,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Use prisma for full update since repo doesn't expose generic update
-    const { default: prisma } = await import('@/lib/prisma');
+    const toaNhaId = validatedData.toaNha === 'all' ? undefined : validatedData.toaNha;
     const updatedThongBao = await prisma.thongBao.update({
       where: { id },
       data: {
@@ -156,7 +187,9 @@ export async function PUT(request: NextRequest) {
         noiDung: validatedData.noiDung,
         loai: validatedData.loai || 'chung',
         nguoiNhan: validatedData.nguoiNhan,
-        toaNhaId: validatedData.toaNha,
+        toaNhaId,
+        nhomChatIds: validatedData.nhomChatIds || [],
+        fileDinhKem: validatedData.fileDinhKem || [],
       },
     });
 

@@ -321,6 +321,8 @@ model ThongBao {
   ngayGui         DateTime  @default(now())
   ngayTao         DateTime  @default(now())
   toaNhaId        String?
+  nhomChatIds     String[]  @default([]) // threadId nhóm Zalo gửi kèm
+  fileDinhKem     String[]  @default([]) // URL file/ảnh đính kèm
   phong           ThongBaoPhong[]
 }
 

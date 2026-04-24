@@ -26,6 +26,8 @@ function normalize(raw: any): ThongBaoData {
     nguoiNhan: raw.nguoiNhan,
     phongIds: raw.phong ? raw.phong.map((p: any) => p.phongId) : undefined,
     toaNhaId: raw.toaNhaId ?? undefined,
+    nhomChatIds: raw.nhomChatIds ?? [],
+    fileDinhKem: raw.fileDinhKem ?? [],
     daDoc: raw.daDoc,
     trangThaiXuLy: (raw.trangThaiXuLy ?? 'chuaXuLy') as ThongBaoData['trangThaiXuLy'],
     ngayGui: raw.ngayGui,
@@ -116,6 +118,8 @@ export default class ThongBaoRepository {
         nguoiGuiId: data.nguoiGuiId,
         nguoiNhan: data.nguoiNhan,
         toaNhaId: data.toaNhaId,
+        nhomChatIds: data.nhomChatIds ?? [],
+        fileDinhKem: data.fileDinhKem ?? [],
         daDoc: [],
         trangThaiXuLy: data.trangThaiXuLy ?? 'chuaXuLy',
         ...(data.phongIds && data.phongIds.length > 0

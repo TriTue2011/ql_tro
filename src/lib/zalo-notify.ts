@@ -148,6 +148,73 @@ async function sendToGroup(toaNhaId: string, text: string, tang?: number): Promi
   if (threadId) await sendZalo(threadId, text, toaNhaId);
 }
 
+/**
+ * Gửi kèm file đính kèm (ảnh hoặc tài liệu) cho một chatId.
+ * Tự phát hiện ảnh/khác bằng đuôi file để chọn sendImage vs sendFile.
+ */
+async function sendAttachmentToChat(
+  chatId: string,
+  fileUrl: string,
+  toaNhaId: string | undefined,
+  threadType: 0 | 1 = 0,
+): Promise<void> {
+  const { sendImageViaBotServer, sendFileViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
+  const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
+  const lower = fileUrl.toLowerCase().split('?')[0];
+  const isImage = /\.(jpe?g|png|gif|webp|bmp|avif|heic)$/.test(lower);
+  const activeMode = await getActiveMode();
+
+  if (isImage) {
+    if (activeMode === 'direct') {
+      const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
+      await directSendImage(chatId, fileUrl, '', threadType, 0);
+    } else {
+      await sendImageViaBotServer(chatId, fileUrl, '', threadType, undefined, botConfig);
+    }
+  } else {
+    if (activeMode === 'direct') {
+      const { sendFile: directSendFile } = await import('@/lib/zalo-direct/service');
+      await directSendFile(chatId, fileUrl, '', threadType, 0);
+    } else {
+      await sendFileViaBotServer(chatId, fileUrl, '', threadType, undefined, botConfig);
+    }
+  }
+}
+
+/**
+ * Broadcast nội dung thông báo: gửi text + file đính kèm cho
+ *  - danh sách chatId cá nhân (khách thuê/người dùng)
+ *  - danh sách nhóm Zalo (threadType = 1)
+ * Fire-and-forget mỗi đích để một đích lỗi không block các đích khác.
+ */
+export async function broadcastThongBao(opts: {
+  text: string;
+  chatIds?: string[];
+  groupThreadIds?: string[];
+  fileUrls?: string[];
+  toaNhaId?: string;
+}): Promise<void> {
+  const { text, chatIds = [], groupThreadIds = [], fileUrls = [], toaNhaId } = opts;
+
+  const sendAllTo = async (chatId: string, threadType: 0 | 1) => {
+    try {
+      if (text) await sendZalo(chatId, text, toaNhaId);
+      for (const url of fileUrls) {
+        await sendAttachmentToChat(chatId, url, toaNhaId, threadType).catch(e =>
+          console.error('[broadcastThongBao] attachment error:', e),
+        );
+      }
+    } catch (e) {
+      console.error('[broadcastThongBao] chat error:', e);
+    }
+  };
+
+  // Cá nhân
+  for (const chatId of chatIds) if (chatId) await sendAllTo(chatId, 0);
+  // Nhóm
+  for (const tid of groupThreadIds) if (tid) await sendAllTo(tid, 1);
+}
+
 // ─── Notification Router ──────────────────────────────────────────────────────
 
 type NotifCategory = 'SuCo' | 'HoaDon' | 'TinKhach' | 'NguoiLa' | 'NhacNho';

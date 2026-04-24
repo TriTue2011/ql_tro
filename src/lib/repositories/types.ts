@@ -534,6 +534,8 @@ export interface ThongBaoData {
   nguoiNhan: string[];
   phongIds?: string[];
   toaNhaId?: string;
+  nhomChatIds?: string[];
+  fileDinhKem?: string[];
   daDoc: string[];
   trangThaiXuLy: TrangThaiXuLy;
   ngayGui: Date;
@@ -548,6 +550,8 @@ export interface CreateThongBaoInput {
   nguoiNhan: string[];
   phongIds?: string[];
   toaNhaId?: string;
+  nhomChatIds?: string[];
+  fileDinhKem?: string[];
   trangThaiXuLy?: TrangThaiXuLy;
 }
 

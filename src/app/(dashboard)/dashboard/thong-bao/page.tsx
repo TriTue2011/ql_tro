@@ -741,15 +741,17 @@ export default function ThongBaoPage() {
   );
 }
 
+interface ZaloNhomChatItem { threadId: string; tang?: number | null; label?: string }
+
 // Form component for adding/editing thong bao
-function ThongBaoForm({ 
-  thongBao, 
+function ThongBaoForm({
+  thongBao,
   toaNhaList,
   phongList,
   khachThueList,
-  onClose, 
-  onSuccess 
-}: { 
+  onClose,
+  onSuccess
+}: {
   thongBao: ThongBao | null;
   toaNhaList: ToaNha[];
   phongList: Phong[];
@@ -764,29 +766,65 @@ function ThongBaoForm({
     nguoiNhan: thongBao?.nguoiNhan || [],
     phong: thongBao?.phong || [],
     toaNha: thongBao?.toaNha || '',
+    nhomChatIds: (thongBao as any)?.nhomChatIds || [],
+    fileDinhKem: (thongBao as any)?.fileDinhKem || [],
   });
+  const [nhomChatList, setNhomChatList] = useState<ZaloNhomChatItem[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Khi đổi tòa nhà → load danh sách nhóm Zalo của tòa đó
+  useEffect(() => {
+    let aborted = false;
+    async function load() {
+      const id = formData.toaNha;
+      if (!id || id === 'all') { setNhomChatList([]); return; }
+      try {
+        const r = await fetch(`/api/toa-nha/${id}`);
+        const j = await r.json();
+        const groups: ZaloNhomChatItem[] = (j?.data?.zaloNhomChat ?? []) as ZaloNhomChatItem[];
+        if (!aborted) setNhomChatList(Array.isArray(groups) ? groups : []);
+      } catch { if (!aborted) setNhomChatList([]); }
+    }
+    load();
+    return () => { aborted = true; };
+  }, [formData.toaNha]);
+
+  // Lọc phòng/khách thuê theo tòa nhà đang chọn (nếu có)
+  const filteredPhong = formData.toaNha && formData.toaNha !== 'all'
+    ? phongList.filter(p => (typeof p.toaNha === 'string' ? p.toaNha : (p.toaNha as any)?.id) === formData.toaNha)
+    : phongList;
+  const filteredPhongIds = new Set(filteredPhong.map(p => p.id));
+  const filteredKhachThue = formData.toaNha && formData.toaNha !== 'all'
+    ? khachThueList.filter((k: any) => {
+        const pid = typeof k.phong === 'string' ? k.phong : k.phong?.id;
+        return pid && filteredPhongIds.has(pid);
+      })
+    : khachThueList;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    if (formData.nguoiNhan.length === 0 && formData.nhomChatIds.length === 0) {
+      toast.error('Phải chọn ít nhất 1 người nhận hoặc 1 nhóm Zalo');
+      return;
+    }
+    setIsSubmitting(true);
     try {
-      const url = thongBao 
-        ? `/api/thong-bao?id=${thongBao.id}` 
-        : '/api/thong-bao';
+      const url = thongBao ? `/api/thong-bao?id=${thongBao.id}` : '/api/thong-bao';
       const method = thongBao ? 'PUT' : 'POST';
 
+      const payload = {
+        ...formData,
+        nguoiNhan: formData.nguoiNhan.length > 0 ? formData.nguoiNhan : ['__broadcast__'],
+      };
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-
       const result = await response.json();
-
       if (result.success) {
-        toast.success(thongBao ? 'Cập nhật thông báo thành công' : 'Tạo thông báo thành công');
+        toast.success(thongBao ? 'Cập nhật thông báo thành công' : 'Tạo và gửi thông báo thành công');
         onSuccess();
       } else {
         toast.error(result.message || 'Có lỗi xảy ra');
@@ -794,25 +832,46 @@ function ThongBaoForm({
     } catch (error) {
       console.error('Error submitting form:', error);
       toast.error('Có lỗi xảy ra khi gửi form');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleNguoiNhanChange = (khachThueId: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      nguoiNhan: checked 
-        ? [...prev.nguoiNhan, khachThueId]
-        : prev.nguoiNhan.filter(id => id !== khachThueId)
-    }));
+  const toggleAll = (field: 'phong' | 'nguoiNhan' | 'nhomChatIds', ids: string[]) => {
+    setFormData(prev => {
+      const current = prev[field] as string[];
+      const allSelected = ids.length > 0 && ids.every(id => current.includes(id));
+      return { ...prev, [field]: allSelected ? current.filter(id => !ids.includes(id)) : Array.from(new Set([...current, ...ids])) };
+    });
   };
 
-  const handlePhongChange = (phongId: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      phong: checked 
-        ? [...prev.phong, phongId]
-        : prev.phong.filter(id => id !== phongId)
-    }));
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    const urls: string[] = [];
+    try {
+      for (const f of Array.from(files)) {
+        const fd = new FormData();
+        fd.append('file', f);
+        fd.append('type', f.type.startsWith('image/') ? 'image' : 'file');
+        fd.append('folder', 'thong-bao');
+        const r = await fetch('/api/upload', { method: 'POST', body: fd });
+        const j = await r.json();
+        if (j.success && j.data?.secure_url) urls.push(j.data.secure_url);
+        else toast.error(j.message || 'Upload thất bại');
+      }
+      if (urls.length > 0) setFormData(prev => ({ ...prev, fileDinhKem: [...prev.fileDinhKem, ...urls] }));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeFile = (url: string) => {
+    setFormData(prev => ({ ...prev, fileDinhKem: prev.fileDinhKem.filter((u: string) => u !== url) }));
+  };
+
+  const fileName = (url: string) => {
+    try { return decodeURIComponent(url.split('/').pop() || url); } catch { return url; }
   };
 
   return (
@@ -842,85 +901,178 @@ function ThongBaoForm({
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="loai" className="text-xs md:text-sm">Loại thông báo</Label>
-        <Select value={formData.loai} onValueChange={(value) => setFormData(prev => ({ ...prev, loai: value as any }))}>
-          <SelectTrigger className="text-sm">
-            <SelectValue placeholder="Chọn loại thông báo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="chung" className="text-sm">Chung</SelectItem>
-            <SelectItem value="hoaDon" className="text-sm">Hóa đơn</SelectItem>
-            <SelectItem value="suCo" className="text-sm">Sự cố</SelectItem>
-            <SelectItem value="hopDong" className="text-sm">Hợp đồng</SelectItem>
-            <SelectItem value="khac" className="text-sm">Khác</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label htmlFor="loai" className="text-xs md:text-sm">Loại thông báo</Label>
+          <Select value={formData.loai} onValueChange={(value) => setFormData(prev => ({ ...prev, loai: value as any }))}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Chọn loại thông báo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="chung" className="text-sm">Chung</SelectItem>
+              <SelectItem value="hoaDon" className="text-sm">Hóa đơn</SelectItem>
+              <SelectItem value="suCo" className="text-sm">Sự cố</SelectItem>
+              <SelectItem value="hopDong" className="text-sm">Hợp đồng</SelectItem>
+              <SelectItem value="khac" className="text-sm">Khác</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="toaNha" className="text-xs md:text-sm">Tòa nhà</Label>
+          <Select value={formData.toaNha || undefined} onValueChange={(value) => setFormData(prev => ({ ...prev, toaNha: value, phong: [], nguoiNhan: [], nhomChatIds: [] }))}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Chọn tòa nhà (tùy chọn)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-sm">Tất cả tòa nhà</SelectItem>
+              {toaNhaList.map((toaNha) => (
+                <SelectItem key={toaNha.id} value={toaNha.id!} className="text-sm">
+                  {toaNha.tenToaNha}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
+      {/* Phòng */}
       <div className="space-y-2">
-        <Label htmlFor="toaNha" className="text-xs md:text-sm">Tòa nhà</Label>
-        <Select value={formData.toaNha} onValueChange={(value) => setFormData(prev => ({ ...prev, toaNha: value }))}>
-          <SelectTrigger className="text-sm">
-            <SelectValue placeholder="Chọn tòa nhà (tùy chọn)" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" className="text-sm">Tất cả tòa nhà</SelectItem>
-            {toaNhaList.map((toaNha) => (
-              <SelectItem key={toaNha.id} value={toaNha.id!} className="text-sm">
-                {toaNha.tenToaNha}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-xs md:text-sm">Phòng (tùy chọn)</Label>
-        <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-          {phongList.map((phong) => (
-            <div key={phong.id} className="flex items-center space-x-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs md:text-sm">Phòng ({formData.phong.length}/{filteredPhong.length})</Label>
+          <div className="flex gap-1">
+            <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs"
+              onClick={() => toggleAll('phong', filteredPhong.map(p => p.id!).filter(Boolean))}>
+              Chọn tất cả / Bỏ chọn
+            </Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
+          {filteredPhong.length === 0 && <div className="text-xs text-gray-400 col-span-full">Không có phòng</div>}
+          {filteredPhong.map((phong) => (
+            <label key={phong.id} className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
-                id={phong.id}
                 checked={formData.phong.includes(phong.id!)}
-                onChange={(e) => handlePhongChange(phong.id!, e.target.checked)}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  phong: e.target.checked
+                    ? [...prev.phong, phong.id!]
+                    : prev.phong.filter(id => id !== phong.id),
+                }))}
                 className="rounded border-gray-300"
               />
-              <Label htmlFor={phong.id} className="text-xs cursor-pointer">
-                {phong.maPhong}
-              </Label>
-            </div>
+              <span className="text-xs truncate">{phong.maPhong}</span>
+            </label>
           ))}
         </div>
       </div>
 
+      {/* Người nhận */}
       <div className="space-y-2">
-        <Label className="text-xs md:text-sm">Người nhận</Label>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-          {khachThueList.map((khachThue) => (
-            <div key={khachThue.id} className="flex items-center space-x-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs md:text-sm">Người nhận ({formData.nguoiNhan.length}/{filteredKhachThue.length})</Label>
+          <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs"
+            onClick={() => toggleAll('nguoiNhan', filteredKhachThue.map(k => k.id!).filter(Boolean))}>
+            Chọn tất cả / Bỏ chọn
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
+          {filteredKhachThue.length === 0 && <div className="text-xs text-gray-400 col-span-full">Không có khách thuê</div>}
+          {filteredKhachThue.map((khachThue) => (
+            <label key={khachThue.id} className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
-                id={khachThue.id}
                 checked={formData.nguoiNhan.includes(khachThue.id!)}
-                onChange={(e) => handleNguoiNhanChange(khachThue.id!, e.target.checked)}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  nguoiNhan: e.target.checked
+                    ? [...prev.nguoiNhan, khachThue.id!]
+                    : prev.nguoiNhan.filter(id => id !== khachThue.id),
+                }))}
                 className="rounded border-gray-300"
               />
-              <Label htmlFor={khachThue.id} className="text-xs cursor-pointer truncate">
-                {khachThue.hoTen}
-              </Label>
-            </div>
+              <span className="text-xs truncate">{khachThue.hoTen}</span>
+            </label>
           ))}
         </div>
+      </div>
+
+      {/* Nhóm Zalo */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs md:text-sm">Nhóm Zalo ({formData.nhomChatIds.length}/{nhomChatList.length})</Label>
+          <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs"
+            onClick={() => toggleAll('nhomChatIds', nhomChatList.map(g => g.threadId))}>
+            Chọn tất cả / Bỏ chọn
+          </Button>
+        </div>
+        <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1">
+          {nhomChatList.length === 0 && (
+            <div className="text-xs text-gray-400">
+              {formData.toaNha && formData.toaNha !== 'all' ? 'Tòa nhà chưa khai báo nhóm Zalo' : 'Chọn một tòa nhà để xem nhóm Zalo'}
+            </div>
+          )}
+          {nhomChatList.map((g) => {
+            const label = g.label ?? (g.tang != null ? `Tầng ${g.tang}` : 'Toàn tòa');
+            return (
+              <label key={g.threadId} className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.nhomChatIds.includes(g.threadId)}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    nhomChatIds: e.target.checked
+                      ? [...prev.nhomChatIds, g.threadId]
+                      : prev.nhomChatIds.filter((t: string) => t !== g.threadId),
+                  }))}
+                  className="rounded border-gray-300"
+                />
+                <span className="text-xs">{label}</span>
+                <span className="text-[10px] text-gray-400 font-mono">{g.threadId.slice(0, 10)}…</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* File đính kèm */}
+      <div className="space-y-2">
+        <Label className="text-xs md:text-sm">File đính kèm ({formData.fileDinhKem.length})</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="file"
+            multiple
+            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+            onChange={(e) => handleFileUpload(e.target.files)}
+            disabled={uploading}
+            className="text-xs"
+          />
+          {uploading && <span className="text-xs text-gray-500">Đang tải...</span>}
+        </div>
+        {formData.fileDinhKem.length > 0 && (
+          <div className="border rounded-md p-2 space-y-1">
+            {formData.fileDinhKem.map((url: string) => (
+              <div key={url} className="flex items-center justify-between gap-2 text-xs">
+                <a href={url} target="_blank" rel="noopener noreferrer" className="truncate text-blue-600 hover:underline">
+                  {fileName(url)}
+                </a>
+                <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-red-600"
+                  onClick={() => removeFile(url)}>
+                  Xóa
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <DialogFooter className="flex-col sm:flex-row gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onClose} className="w-full sm:w-auto">
           Hủy
         </Button>
-        <Button type="submit" size="sm" className="w-full sm:w-auto">
-          {thongBao ? 'Cập nhật' : 'Tạo thông báo'}
+        <Button type="submit" size="sm" disabled={isSubmitting || uploading} className="w-full sm:w-auto">
+          {isSubmitting ? 'Đang gửi...' : (thongBao ? 'Cập nhật' : 'Tạo & gửi thông báo')}
         </Button>
       </DialogFooter>
     </form>
