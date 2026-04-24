@@ -135,6 +135,7 @@ export interface InvoiceTemplateInput {
     conLai: number;
     hanThanhToan: string | Date;
     ngayTao: string | Date;
+    ngayCapNhat?: string | Date;
     ghiChu?: string;
   };
   phong?: {
@@ -461,14 +462,15 @@ export function buildInvoiceHTML(input: InvoiceTemplateInput): string {
 
       <!-- Payment Info -->
       <div class="payment-info">
-        ${hoaDon.conLai <= 0 ? `
-        <div style="text-align: center; padding: 16px 0;">
-          <div style="display: inline-block; background: #d1fae5; border: 2px solid #10b981; border-radius: 8px; padding: 12px 32px;">
+        ${Number(hoaDon.conLai) <= 0 ? `
+        <div style="text-align: center; padding: 20px 0;">
+          <div style="display: inline-block; background: #d1fae5; border: 2px solid #10b981; border-radius: 10px; padding: 16px 40px;">
             <div style="font-size: 22px; font-weight: bold; color: #065f46;">✅ ĐÃ THANH TOÁN ĐẦY ĐỦ</div>
-            <div style="font-size: 13px; color: #047857; margin-top: 4px; font-style: italic;">Fully Paid — Thank you!</div>
+            <div style="font-size: 14px; color: #047857; margin-top: 6px; font-style: italic;">Fully Paid</div>
+            <div style="font-size: 16px; font-weight: bold; color: #065f46; margin-top: 8px;">Cảm ơn / Thank you!</div>
           </div>
-          <div style="margin-top: 10px; font-size: 12px; color: #374151;">
-            Hạn thanh toán/ <i>Due date</i>: <b>${new Date(hoaDon.hanThanhToan).toLocaleDateString('vi-VN')}</b>
+          <div style="margin-top: 12px; font-size: 12px; color: #374151;">
+            Ngày thanh toán/ <i>Payment date</i>: <b>${new Date(hoaDon.ngayCapNhat ?? hoaDon.ngayTao).toLocaleDateString('vi-VN')}</b>
           </div>
         </div>
         ` : `
