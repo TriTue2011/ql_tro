@@ -714,6 +714,131 @@ function ChuNhaHeThongTab() {
   );
 }
 
+// ─── Tab Tài khoản ngân hàng (quanLy, khi chủ trọ cho phép) ────────────────
+
+function QuanLyBankTab() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [data, setData] = useState({ nganHangTen: '', nganHangSoTaiKhoan: '', nganHangChuTaiKhoan: '' });
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/cai-dat/cho-phep-quan-ly-tai-khoan')
+      .then(r => r.json())
+      .then(res => setEnabled(!!res.enabled))
+      .catch(() => setEnabled(false));
+  }, []);
+
+  useEffect(() => {
+    if (enabled !== true) return;
+    fetch('/api/chuNha/settings')
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.data) {
+          setData({
+            nganHangTen: res.data.nganHangTen ?? '',
+            nganHangSoTaiKhoan: res.data.nganHangSoTaiKhoan ?? '',
+            nganHangChuTaiKhoan: res.data.nganHangChuTaiKhoan ?? '',
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [enabled]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/chuNha/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.success) toast.success('Đã lưu tài khoản ngân hàng');
+      else toast.error(json.error || 'Lưu thất bại');
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (enabled === null) return <p className="text-sm text-gray-500 text-center py-8">Đang kiểm tra...</p>;
+  if (enabled === false) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center space-y-2">
+          <CreditCard className="h-10 w-10 mx-auto text-gray-400" />
+          <p className="text-sm font-medium text-gray-700">Tính năng chưa được kích hoạt</p>
+          <p className="text-xs text-gray-500">
+            Chủ trọ chưa cho phép quản lý tự cấu hình tài khoản nhận tiền riêng.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <CreditCard className="h-4 w-4" />
+          Tài khoản ngân hàng cá nhân
+        </CardTitle>
+        <CardDescription className="text-xs md:text-sm">
+          Tài khoản này sẽ được dùng trên các hóa đơn do bạn tạo, thay cho tài khoản chung của chủ trọ.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-6">
+            <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
+          </div>
+        ) : (
+          <>
+            <div className="space-y-1">
+              <Label className="text-xs md:text-sm font-medium">Ngân hàng</Label>
+              <Input
+                value={data.nganHangTen}
+                onChange={(e) => setData({ ...data, nganHangTen: e.target.value })}
+                placeholder="VD: Vietcombank"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs md:text-sm font-medium">Số tài khoản</Label>
+              <Input
+                value={data.nganHangSoTaiKhoan}
+                onChange={(e) => setData({ ...data, nganHangSoTaiKhoan: e.target.value })}
+                placeholder="VD: 1234567890"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs md:text-sm font-medium">Chủ tài khoản</Label>
+              <Input
+                value={data.nganHangChuTaiKhoan}
+                onChange={(e) => setData({ ...data, nganHangChuTaiKhoan: e.target.value })}
+                placeholder="VD: NGUYEN VAN A"
+                className="text-sm"
+              />
+            </div>
+            <Button size="sm" className="w-full mt-2" onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Lưu tài khoản ngân hàng
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Zalo Webhook URL Card ────────────────────────────────────────────────────
 
 function ZaloWebhookCard({
@@ -2119,6 +2244,7 @@ export default function CaiDatPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "admin";
   const isChuNha = session?.user?.role === "chuNha" || session?.user?.role === "dongChuTro";
+  const isQuanLy = session?.user?.role === "quanLy";
   // Admin quản lý HA + lưu trữ theo tòa nhà; chuNha quản lý thanh toán + cảnh báo + hệ thống
   const canManage = isAdmin || isChuNha;
 
@@ -2841,7 +2967,7 @@ export default function CaiDatPage() {
         </p>
       </div>
 
-      <Tabs defaultValue={isAdmin ? "homeAssistant" : isChuNha ? "thanhToan" : "display"}>
+      <Tabs defaultValue={isAdmin ? "homeAssistant" : isChuNha ? "thanhToan" : isQuanLy ? "bankQL" : "display"}>
         <TabsList className="flex flex-wrap h-auto gap-1 w-full md:w-auto">
           {/* Admin: Home Assistant + Lưu trữ (per tòa nhà) */}
           {isAdmin && (
@@ -2908,6 +3034,15 @@ export default function CaiDatPage() {
                 Đăng nhập KT
               </TabsTrigger>
             </>
+          )}
+          {isQuanLy && (
+            <TabsTrigger
+              value="bankQL"
+              className="flex items-center gap-1.5 text-xs md:text-sm"
+            >
+              <CreditCard className="h-3.5 w-3.5" />
+              Tài khoản ngân hàng
+            </TabsTrigger>
           )}
           <TabsTrigger
             value="display"
@@ -3130,6 +3265,13 @@ export default function CaiDatPage() {
         {isChuNha && (
           <TabsContent value="dangNhapKT" className="space-y-4 mt-4">
             <ChuNhaDangNhapKTTab />
+          </TabsContent>
+        )}
+
+        {/* ── Tab Tài khoản ngân hàng (chỉ quản lý) ─────────────────────────── */}
+        {isQuanLy && (
+          <TabsContent value="bankQL" className="space-y-4 mt-4">
+            <QuanLyBankTab />
           </TabsContent>
         )}
 

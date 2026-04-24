@@ -161,9 +161,9 @@ export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
       where: { id: hoaDonId },
       select: {
         id: true, maHoaDon: true, thang: true, nam: true,
-        tongTien: true, conLai: true, daThanhToan: true, hanThanhToan: true,
-        phong: { select: { maPhong: true, tang: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
-        khachThue: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } },
+        tongTien: true, conLai: true, daThanhToan: true, hanThanhToan: true, nguoiTaoId: true,
+        phong: { select: { id: true, maPhong: true, tang: true, dienTich: true, giaThue: true, toaNhaId: true, toaNha: { select: { tenToaNha: true, diaChi: true } } } },
+        khachThue: { select: { hoTen: true, soDienThoai: true, zaloChatId: true, nhanThongBaoZalo: true } },
         hopDong: { select: { nguoiDaiDien: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } } } },
       },
     });
@@ -174,7 +174,10 @@ export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
 
     const han = new Date(hd.hanThanhToan).toLocaleDateString('vi-VN');
     const qrUrl = await buildQrUrl(hd);
+    const chatId = nguoiNhan.zaloChatId;
+    const toaNhaId = hd.phong.toaNhaId;
 
+    // 1. Gửi text summary (không kèm QR link nữa — QR gửi bằng ảnh)
     const msg = [
       `📄 Hóa đơn tháng ${hd.thang}/${hd.nam}`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
@@ -185,13 +188,86 @@ export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
       `💳 Còn lại: ${hd.conLai.toLocaleString('vi-VN')}đ`,
       `📅 Hạn thanh toán: ${han}`,
       `🔖 Mã hóa đơn: ${hd.maHoaDon}`,
-      '',
-      qrUrl ? `📲 Quét QR thanh toán:\n${qrUrl}` : '',
     ].filter(Boolean).join('\n');
 
-    await sendZalo(nguoiNhan.zaloChatId, msg, hd.phong.toaNhaId);
+    await sendZalo(chatId, msg, toaNhaId);
+
+    // 2. Gửi PDF hóa đơn
+    sendInvoicePdf(hd, chatId, toaNhaId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
+
+    // 3. Gửi ảnh QR (còn nợ) — dùng sendImageViaBotServer với URL trực tiếp
+    if (qrUrl && hd.conLai > 0) {
+      sendQrImage(chatId, qrUrl, toaNhaId).catch(e => console.error('[zalo-notify] sendQrImage error:', e));
+    }
   } catch (e) {
     console.error('[zalo-notify] notifyNewInvoice error:', e);
+  }
+}
+
+/** Tạo PDF hóa đơn rồi gửi qua Zalo */
+async function sendInvoicePdf(hd: any, chatId: string, toaNhaId: string): Promise<void> {
+  const fs = await import('fs');
+  const path = await import('path');
+  const { buildInvoiceHTML } = await import('@/lib/invoice-pdf-template');
+  const { renderPdf } = await import('@/lib/puppeteer-browser');
+  const { resolveInvoiceBankInfo } = await import('@/lib/invoice-bank-resolver');
+  const { sendFileViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
+
+  const cauHinh = await resolveInvoiceBankInfo(hd.nguoiTaoId);
+  const html = buildInvoiceHTML({
+    hoaDon: hd as any,
+    phong: hd.phong,
+    khachThue: hd.khachThue,
+    cauHinh,
+  });
+  const pdfBuffer = await renderPdf(html);
+
+  const TEMP_DIR = path.join(process.cwd(), 'tmp', 'zalo');
+  if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
+  const tempPath = path.join(TEMP_DIR, `invoice_${hd.maHoaDon}_${Date.now()}.pdf`);
+  fs.writeFileSync(tempPath, pdfBuffer as Buffer);
+
+  try {
+    const botConfig = await getBotConfigForToaNha(toaNhaId);
+    const caption = `Hóa đơn ${hd.maHoaDon} — T${hd.thang}/${hd.nam}`;
+    const activeMode = await getActiveMode();
+    if (activeMode === 'direct') {
+      const { sendFile: directSendFile } = await import('@/lib/zalo-direct/service');
+      await directSendFile(chatId, tempPath, caption, 0, 0);
+    } else {
+      await sendFileViaBotServer(chatId, tempPath, caption, 0, undefined, botConfig);
+    }
+  } finally {
+    try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
+  }
+}
+
+/** Tải ảnh QR về rồi gửi kèm qua Zalo (vì URL vietqr.io có thể không ổn định với bot server) */
+async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string): Promise<void> {
+  const fs = await import('fs');
+  const path = await import('path');
+  const { sendImageViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
+
+  const res = await fetch(qrUrl);
+  if (!res.ok) throw new Error(`QR fetch failed: ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+
+  const TEMP_DIR = path.join(process.cwd(), 'tmp', 'zalo');
+  if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
+  const tempPath = path.join(TEMP_DIR, `qr_${Date.now()}.png`);
+  fs.writeFileSync(tempPath, buf);
+
+  try {
+    const botConfig = await getBotConfigForToaNha(toaNhaId);
+    const activeMode = await getActiveMode();
+    if (activeMode === 'direct') {
+      const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
+      await directSendImage(chatId, tempPath, '📲 Quét QR để thanh toán', 0, 0);
+    } else {
+      await sendImageViaBotServer(chatId, tempPath, '📲 Quét QR để thanh toán', 0, undefined, botConfig);
+    }
+  } finally {
+    try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
   }
 }
 
