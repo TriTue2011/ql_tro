@@ -135,6 +135,7 @@ export interface InvoiceTemplateInput {
     conLai: number;
     hanThanhToan: string | Date;
     ngayTao: string | Date;
+    ngayCapNhat?: string | Date;
     ghiChu?: string;
   };
   phong?: {
@@ -461,19 +462,31 @@ export function buildInvoiceHTML(input: InvoiceTemplateInput): string {
 
       <!-- Payment Info -->
       <div class="payment-info">
+        ${Number(hoaDon.conLai) <= 0 ? `
+        <div style="text-align: center; padding: 20px 0;">
+          <div style="display: inline-block; background: #d1fae5; border: 2px solid #10b981; border-radius: 10px; padding: 16px 40px;">
+            <div style="font-size: 22px; font-weight: bold; color: #065f46;">✅ ĐÃ THANH TOÁN ĐẦY ĐỦ</div>
+            <div style="font-size: 14px; color: #047857; margin-top: 6px; font-style: italic;">Fully Paid</div>
+            <div style="font-size: 16px; font-weight: bold; color: #065f46; margin-top: 8px;">Cảm ơn / Thank you!</div>
+          </div>
+          <div style="margin-top: 12px; font-size: 12px; color: #374151;">
+            Ngày thanh toán/ <i>Payment date</i>: <b>${new Date(hoaDon.ngayCapNhat ?? hoaDon.ngayTao).toLocaleDateString('vi-VN')}</b>
+          </div>
+        </div>
+        ` : `
         <h3>Thông tin thanh toán / <i>Payment information</i>:</h3>
         <div>* Thanh toán bằng tiền mặt/ <i>Payment by cash</i>: Liên hệ chủ nhà</div>
         <div style="margin-top: 4px;">* Thanh toán chuyển khoản/ <i>Bank transfer</i>:</div>
         <table class="bank-table">
           <tr>
-            <td style="width: ${soTaiKhoan && nganHang && hoaDon.conLai > 0 ? '65%' : '100%'};">
+            <td style="width: ${soTaiKhoan && nganHang ? '65%' : '100%'};">
               <div><b>Chủ tài khoản/</b> <i>Account holder</i>: ${chuTaiKhoan}</div>
               <div><b>Số TK/</b> <i>Account No.</i>: ${soTaiKhoan || '—'}</div>
               <div><b>Ngân hàng/</b> <i>Bank</i>: ${nganHang || '—'}</div>
               <div style="margin-top: 4px;"><b>Số tiền/</b> <i>Amount</i>: ${fmtVND(hoaDon.conLai)} VND</div>
               <div><b>Nội dung/</b> <i>Content</i>: ${maPhong} ${thangStr}.${namStr}</div>
             </td>
-            ${soTaiKhoan && nganHang && hoaDon.conLai > 0 ? `
+            ${soTaiKhoan && nganHang ? `
             <td style="width: 35%; text-align: center; padding: 8px;">
               <img src="https://qr.sepay.vn/img?acc=${encodeURIComponent(soTaiKhoan)}&bank=${encodeURIComponent(nganHang)}&amount=${Math.round(hoaDon.conLai)}&des=${encodeURIComponent(`${maPhong} ${thangStr}.${namStr}`)}&template=compact"
                    style="max-width: 160px; max-height: 160px;" alt="QR chuyển khoản" />
@@ -489,6 +502,7 @@ export function buildInvoiceHTML(input: InvoiceTemplateInput): string {
           Nếu sau thời gian trên khách hàng chưa thanh toán, chủ nhà có quyền tạm dừng dịch vụ.
           <i>If payment is not received by the due date, services may be suspended.</i>
         </div>
+        `}
         <div class="note">Trân trọng cảm ơn! / <i>Thanks and best regards.</i></div>
         ${hoaDon.ghiChu ? `<div style="margin-top:8px; padding-top:6px; border-top: 1px dashed #ccc;"><b>Ghi chú/</b> <i>Note</i>: ${hoaDon.ghiChu}</div>` : ''}
       </div>
