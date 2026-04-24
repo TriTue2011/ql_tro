@@ -396,6 +396,11 @@ export default function HoaDonPage() {
       ? `\n━━━━━━━━━━━━━━━━━━━━\n🏦 CHUYỂN KHOẢN\nNgân hàng: ${bank.nganHang}\nSố TK: ${bank.soTaiKhoan}${bank.chuTaiKhoan ? `\nChủ TK: ${bank.chuTaiKhoan}` : ''}\nSố tiền: ${formatCurrency(hoaDon.conLai)}\nNội dung: ${buildTransferDesc(hoaDon, phongList)}`
       : '';
 
+    const isPaid = hoaDon.conLai <= 0;
+    const footer = isPaid
+      ? `Hạn thanh toán: ${hanTT}\n✅ Đã thanh toán đầy đủ. Cảm ơn bạn!`
+      : `Hạn thanh toán: ${hanTT}\nVui lòng thanh toán đúng hạn.`;
+
     return `THÔNG BÁO TIỀN PHÒNG THÁNG ${hoaDon.thang}/${hoaDon.nam}
 ━━━━━━━━━━━━━━━━━━━━
 Phòng: ${phongName}
@@ -411,8 +416,7 @@ TỔNG TIỀN: ${formatCurrency(hoaDon.tongTien)}
 Đã thanh toán: ${formatCurrency(hoaDon.daThanhToan)}
 CÒN LẠI: ${formatCurrency(hoaDon.conLai)}${bankBlock}
 ━━━━━━━━━━━━━━━━━━━━
-Hạn thanh toán: ${hanTT}
-Vui lòng thanh toán đúng hạn.`;
+${footer}`;
   };
 
   const getKhachThueContact = (hoaDon: HoaDon): { phone: string; zaloChatId: string } => {
