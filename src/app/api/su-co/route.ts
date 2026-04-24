@@ -7,6 +7,7 @@ import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import { z } from 'zod';
 import { checkQuyen } from '@/lib/server/check-quyen';
+import { notifyIncidentGhiNhan, notifyNewIncident } from '@/lib/zalo-notify';
 
 const suCoSchema = z.object({
   phong: z.string().min(1, 'Phòng là bắt buộc'),
@@ -125,6 +126,9 @@ export async function POST(request: NextRequest) {
       loaiSuCo: validatedData.loaiSuCo,
       mucDoUuTien: validatedData.mucDoUuTien || 'trungBinh',
     });
+
+    notifyIncidentGhiNhan(newSuCo.id).catch(() => {});
+    notifyNewIncident(newSuCo.id).catch(() => {});
 
     sseEmit('su-co', { action: 'created' });
     return NextResponse.json({

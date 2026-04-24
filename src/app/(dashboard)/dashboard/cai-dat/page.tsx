@@ -445,6 +445,81 @@ function StorageSettingsCard({
   );
 }
 
+// ─── Component: Gửi Zalo tự động ─────────────────────────────────────────────
+
+function AutoZaloCard({
+  items,
+  values,
+  onChange,
+  onSave,
+  saving,
+}: {
+  items: CaiDatItem[];
+  values: Record<string, string>;
+  onChange: (khoa: string, val: string) => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  const sections = [
+    {
+      label: "Hóa đơn",
+      icon: <FileText className="h-3.5 w-3.5 text-blue-500" />,
+      keys: ["auto_zalo_hoa_don_tao", "auto_zalo_hoa_don_thanh_toan"],
+    },
+    {
+      label: "Sự cố",
+      icon: <AlertTriangle className="h-3.5 w-3.5 text-red-500" />,
+      keys: ["auto_zalo_su_co_ghi_nhan", "auto_zalo_su_co_tiep_nhan", "auto_zalo_su_co_xu_ly_xong", "auto_zalo_su_co_huy"],
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <Bell className="h-4 w-4" />
+          Gửi Zalo tự động
+        </CardTitle>
+        <CardDescription className="text-xs md:text-sm">
+          Tự động gửi thông báo Zalo cho khách thuê khi có sự kiện tương ứng.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 space-y-4">
+        {sections.map((sec) => {
+          const secItems = sec.keys.map(k => items.find(i => i.khoa === k)).filter(Boolean) as CaiDatItem[];
+          if (!secItems.length) return null;
+          return (
+            <div key={sec.label} className="space-y-2">
+              <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5 pt-1">
+                {sec.icon} {sec.label}
+              </p>
+              <div className="space-y-2 pl-1">
+                {secItems.map((item) => (
+                  <div key={item.khoa} className="flex items-center justify-between gap-3 py-1">
+                    <Label className="text-xs text-gray-700 flex-1">{item.moTa}</Label>
+                    <Switch
+                      checked={values[item.khoa] === 'true'}
+                      onCheckedChange={(checked) => onChange(item.khoa, checked ? 'true' : 'false')}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        <Button size="sm" className="w-full mt-2" onClick={onSave} disabled={saving}>
+          {saving ? (
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          Lưu cài đặt tự động
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Component: Cảnh báo / Nhắc nhở ──────────────────────────────────────────
 
 const ALERT_KEYS = new Set([
@@ -461,6 +536,15 @@ const ALERT_KEYS = new Set([
   "su_co_chua_nhan_gio",
   "su_co_chua_xu_ly_gio",
 ]);
+
+const AUTO_ZALO_KEYS = [
+  "auto_zalo_hoa_don_tao",
+  "auto_zalo_hoa_don_thanh_toan",
+  "auto_zalo_su_co_ghi_nhan",
+  "auto_zalo_su_co_tiep_nhan",
+  "auto_zalo_su_co_xu_ly_xong",
+  "auto_zalo_su_co_huy",
+];
 
 
 function AlertSettingsCard({
@@ -2742,6 +2826,9 @@ export default function CaiDatPage() {
   const alertItems = (settingsByGroup["thongBao"] ?? []).filter((s) =>
     ALERT_KEYS.has(s.khoa),
   );
+  const autoZaloItems = (settingsByGroup["thongBao"] ?? []).filter((s) =>
+    AUTO_ZALO_KEYS.includes(s.khoa),
+  );
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -2900,6 +2987,15 @@ export default function CaiDatPage() {
               <p className="text-sm text-gray-500 text-center py-8">
                 Chưa có cài đặt cảnh báo nào.
               </p>
+            )}
+            {autoZaloItems.length > 0 && (
+              <AutoZaloCard
+                items={autoZaloItems}
+                values={settingValues}
+                onChange={handleSettingChange}
+                onSave={() => handleSaveGroup("thongBao")}
+                saving={savingGroup === "thongBao"}
+              />
             )}
             <ZaloWebhookCard
               currentWebhookId={currentWebhookId}

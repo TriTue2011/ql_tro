@@ -52,6 +52,13 @@ const DEFAULT_SETTINGS = [
   // Nhắc nhở sự cố (không áp dụng khách thuê)
   { khoa: 'su_co_chua_nhan_gio', giaTri: '2', moTa: 'Nhắc nhở sự cố chưa được nhận sau N giờ', nhom: 'thongBao', laBiMat: false },
   { khoa: 'su_co_chua_xu_ly_gio', giaTri: '24', moTa: 'Nhắc nhở sự cố chưa được xử lý sau N giờ', nhom: 'thongBao', laBiMat: false },
+  // Gửi Zalo tự động
+  { khoa: 'auto_zalo_hoa_don_tao', giaTri: 'false', moTa: 'Tự động gửi Zalo cho khách thuê khi tạo hóa đơn mới', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'auto_zalo_hoa_don_thanh_toan', giaTri: 'false', moTa: 'Tự động gửi Zalo cho khách thuê khi xác nhận thanh toán', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'auto_zalo_su_co_ghi_nhan', giaTri: 'false', moTa: 'Tự động gửi Zalo cho khách thuê khi ghi nhận sự cố mới', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'auto_zalo_su_co_tiep_nhan', giaTri: 'false', moTa: 'Tự động gửi Zalo khi tiếp nhận và bắt đầu xử lý sự cố', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'auto_zalo_su_co_xu_ly_xong', giaTri: 'false', moTa: 'Tự động gửi Zalo (kèm ảnh) khi xử lý xong sự cố', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'auto_zalo_su_co_huy', giaTri: 'false', moTa: 'Tự động gửi Zalo khi hủy sự cố', nhom: 'thongBao', laBiMat: false },
   // Chatbot tự động
   { khoa: 'bot_auto_reply_enabled', giaTri: 'true', moTa: 'Bật/tắt chatbot tự động trả lời tin nhắn Zalo (true/false)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'bot_forward_unknown', giaTri: 'true', moTa: 'Chuyển tiếp tin nhắn người lạ đến quản lý (true/false)', nhom: 'thongBao', laBiMat: false },

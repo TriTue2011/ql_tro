@@ -7,6 +7,7 @@ import { sseEmit } from '@/lib/sse-emitter';
 import { parsePage, parseLimit } from '@/lib/parse-query';
 import prisma from '@/lib/prisma';
 import { checkQuyen, getToaNhaIdFromHoaDon } from '@/lib/server/check-quyen';
+import { notifyPaymentConfirmed } from '@/lib/zalo-notify';
 
 // GET - Lấy danh sách thanh toán
 export async function GET(request: NextRequest) {
@@ -168,6 +169,8 @@ export async function POST(request: NextRequest) {
 
     // Cập nhật hóa đơn (cộng thêm số tiền đã thanh toán)
     const updatedHoaDon = await hoaDonRepo.addPayment(hoaDonId, soTien);
+
+    notifyPaymentConfirmed(hoaDonId, soTien).catch(() => {});
 
     sseEmit('thanh-toan', { action: 'created' });
     sseEmit('hoa-don', { action: 'updated' }); // hóa đơn cập nhật trạng thái thanh toán

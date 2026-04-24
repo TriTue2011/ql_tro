@@ -28,6 +28,11 @@ async function getSetting(khoa: string): Promise<string> {
   return row?.giaTri?.trim() ?? '';
 }
 
+async function isAutoEnabled(khoa: string): Promise<boolean> {
+  const val = await getSetting(khoa);
+  return val === 'true' || val === '1';
+}
+
 /** Lấy bot config riêng từ chủ sở hữu tòa nhà, fallback sang global */
 async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null> {
   try {
@@ -147,9 +152,10 @@ async function getTargets(toaNhaId: string, category: NotifCategory): Promise<No
 
 /**
  * Thông báo hóa đơn mới cho đúng khách thuê (kèm QR thanh toán).
- * Chỉ gửi cho người đại diện hợp đồng (nguoiDaiDien).
+ * Chỉ gửi nếu cài đặt auto_zalo_hoa_don_tao = true.
  */
 export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
+  if (!await isAutoEnabled('auto_zalo_hoa_don_tao')) return;
   try {
     const hd = await prisma.hoaDon.findUnique({
       where: { id: hoaDonId },
@@ -223,33 +229,38 @@ export async function notifyInvoiceOverdue(hoaDonId: string): Promise<void> {
 }
 
 /**
- * Xác nhận thanh toán — luôn gửi chủ trọ (dù đang ủy quyền).
+ * Xác nhận thanh toán — gửi cho khách thuê nếu cài đặt auto_zalo_hoa_don_thanh_toan = true.
  */
-export async function notifyPaymentConfirmed(hoaDonId: string): Promise<void> {
+export async function notifyPaymentConfirmed(hoaDonId: string, soTienVừaThanhToan?: number): Promise<void> {
+  if (!await isAutoEnabled('auto_zalo_hoa_don_thanh_toan')) return;
   try {
     const hd = await prisma.hoaDon.findUnique({
       where: { id: hoaDonId },
       select: {
-        maHoaDon: true, thang: true, nam: true, tongTien: true, daThanhToan: true,
-        phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true, chuSoHuu: { select: { zaloChatId: true, nhanThongBaoZalo: true, ten: true } } } } } },
-        khachThue: { select: { hoTen: true } },
+        maHoaDon: true, thang: true, nam: true, tongTien: true, daThanhToan: true, conLai: true,
+        phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
+        khachThue: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } },
+        hopDong: { select: { nguoiDaiDien: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } } } },
       },
     });
     if (!hd) return;
 
-    const chu = hd.phong.toaNha.chuSoHuu;
-    if (!chu?.nhanThongBaoZalo || !chu.zaloChatId) return;
+    const nguoiNhan = hd.hopDong?.nguoiDaiDien?.nhanThongBaoZalo ? hd.hopDong.nguoiDaiDien
+      : hd.khachThue?.nhanThongBaoZalo ? hd.khachThue : null;
+    if (!nguoiNhan?.zaloChatId) return;
 
+    const soTien = soTienVừaThanhToan ?? hd.daThanhToan;
     const msg = [
       `✅ Xác nhận thanh toán`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
       `🏠 Phòng: ${hd.phong.maPhong} — ${hd.phong.toaNha.tenToaNha}`,
       `👤 Khách thuê: ${hd.khachThue.hoTen}`,
-      `💰 Số tiền: ${hd.daThanhToan.toLocaleString('vi-VN')}đ`,
+      `💰 Đã thanh toán: ${soTien.toLocaleString('vi-VN')}đ`,
+      hd.conLai > 0 ? `💳 Còn lại: ${hd.conLai.toLocaleString('vi-VN')}đ` : `🎉 Đã thanh toán đầy đủ!`,
       `🔖 Mã hóa đơn: ${hd.maHoaDon} T${hd.thang}/${hd.nam}`,
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
-    await sendZalo(chu.zaloChatId, msg, hd.phong.toaNhaId);
+    await sendZalo(nguoiNhan.zaloChatId, msg, hd.phong.toaNhaId);
   } catch (e) {
     console.error('[zalo-notify] notifyPaymentConfirmed error:', e);
   }
@@ -258,7 +269,40 @@ export async function notifyPaymentConfirmed(hoaDonId: string): Promise<void> {
 // ─── Sự cố ────────────────────────────────────────────────────────────────────
 
 /**
- * Thông báo sự cố mới — gửi cá nhân theo routing (KHÔNG gửi nhóm).
+ * Gửi Zalo cho khách thuê xác nhận đã ghi nhận sự cố.
+ * Chỉ gửi nếu auto_zalo_su_co_ghi_nhan = true.
+ */
+export async function notifyIncidentGhiNhan(suCoId: string): Promise<void> {
+  if (!await isAutoEnabled('auto_zalo_su_co_ghi_nhan')) return;
+  try {
+    const sc = await prisma.suCo.findUnique({
+      where: { id: suCoId },
+      select: {
+        tieuDe: true, moTa: true,
+        phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
+        khachThue: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } },
+      },
+    });
+    if (!sc || !sc.khachThue.nhanThongBaoZalo || !sc.khachThue.zaloChatId) return;
+
+    const msg = [
+      `📋 ĐÃ GHI NHẬN SỰ CỐ`,
+      `━━━━━━━━━━━━━━━━━━━━━━`,
+      `🏠 Phòng: ${sc.phong.maPhong} — ${sc.phong.toaNha.tenToaNha}`,
+      `📌 Sự cố: ${sc.tieuDe}`,
+      `📝 Mô tả: ${sc.moTa}`,
+      ``,
+      `Chúng tôi đã ghi nhận sự cố và sẽ xử lý trong thời gian sớm nhất. Cảm ơn bạn đã phản ánh!`,
+    ].join('\n');
+
+    await sendZalo(sc.khachThue.zaloChatId, msg, sc.phong.toaNhaId);
+  } catch (e) {
+    console.error('[zalo-notify] notifyIncidentGhiNhan error:', e);
+  }
+}
+
+/**
+ * Thông báo sự cố mới cho chủ trọ/QL — gửi cá nhân theo routing (KHÔNG gửi nhóm).
  */
 export async function notifyNewIncident(suCoId: string): Promise<void> {
   try {
@@ -329,47 +373,59 @@ export async function notifyIncidentEscalate(suCoId: string, reason: 'chua_nhan'
 }
 
 /**
- * Thông báo cập nhật sự cố cho khách thuê báo cáo.
- * Khi daXong: cũng gửi lại chủ trọ (luôn).
+ * Thông báo cập nhật trạng thái sự cố cho khách thuê.
+ * Mỗi trạng thái có setting riêng; daXong gửi kèm ảnh nếu có.
  */
-export async function notifyIncidentUpdate(suCoId: string, newStatus: string): Promise<void> {
+export async function notifyIncidentUpdate(suCoId: string, newStatus: string, ghiChuXuLy?: string): Promise<void> {
+  const settingKey: Record<string, string> = {
+    dangXuLy: 'auto_zalo_su_co_tiep_nhan',
+    daXong: 'auto_zalo_su_co_xu_ly_xong',
+    daHuy: 'auto_zalo_su_co_huy',
+  };
+  const key = settingKey[newStatus];
+  if (!key || !await isAutoEnabled(key)) return;
+
   try {
     const sc = await prisma.suCo.findUnique({
       where: { id: suCoId },
       select: {
-        tieuDe: true, ghiChuXuLy: true,
-        phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true, chuSoHuu: { select: { zaloChatId: true, nhanThongBaoZalo: true } } } } } },
+        tieuDe: true, ghiChuXuLy: true, anhSuCo: true,
+        phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
         khachThue: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } },
         nguoiXuLy: { select: { ten: true } },
       },
     });
-    if (!sc) return;
+    if (!sc || !sc.khachThue.nhanThongBaoZalo || !sc.khachThue.zaloChatId) return;
 
-    const statusLabel: Record<string, string> = {
-      dangXuLy: '🔧 Đang xử lý', daXong: '✅ Đã hoàn thành', daHuy: '❌ Đã hủy',
+    const ghiChu = ghiChuXuLy ?? sc.ghiChuXuLy ?? '';
+    const toaNhaId = sc.phong.toaNhaId;
+    const chatId = sc.khachThue.zaloChatId;
+
+    const headerMap: Record<string, string> = {
+      dangXuLy: `🔧 ĐÃ TIẾP NHẬN VÀ ĐANG XỬ LÝ SỰ CỐ`,
+      daXong: `✅ ĐÃ XỬ LÝ XONG SỰ CỐ`,
+      daHuy: `❌ ĐÃ HỦY SỰ CỐ`,
     };
 
-    const msg = [
-      `📢 Cập nhật sự cố của bạn`,
+    const lines = [
+      headerMap[newStatus],
       `━━━━━━━━━━━━━━━━━━━━━━`,
       `🏠 Phòng: ${sc.phong.maPhong} — ${sc.phong.toaNha.tenToaNha}`,
       `📌 Sự cố: ${sc.tieuDe}`,
-      `📊 Trạng thái: ${statusLabel[newStatus] ?? newStatus}`,
       sc.nguoiXuLy ? `👷 Người xử lý: ${sc.nguoiXuLy.ten}` : '',
-      sc.ghiChuXuLy ? `📝 Ghi chú: ${sc.ghiChuXuLy}` : '',
-    ].filter(Boolean).join('\n');
+      ghiChu ? (newStatus === 'daHuy' ? `📝 Lý do: ${ghiChu}` : `📝 Ghi chú: ${ghiChu}`) : '',
+    ].filter(Boolean);
 
-    // Gửi khách thuê
-    if (sc.khachThue.nhanThongBaoZalo && sc.khachThue.zaloChatId) {
-      await sendZalo(sc.khachThue.zaloChatId, msg, sc.phong.toaNhaId);
-    }
+    const msg = lines.join('\n');
+    const botConfig = await getBotConfigForToaNha(toaNhaId);
 
-    // Khi hoàn thành: luôn báo lại chủ trọ dù đang ủy quyền
-    if (newStatus === 'daXong') {
-      const chu = sc.phong.toaNha.chuSoHuu;
-      if (chu?.nhanThongBaoZalo && chu.zaloChatId) {
-        const doneMsg = msg + '\n\n(Sự cố đã được xử lý xong)';
-        await sendZalo(chu.zaloChatId, doneMsg, sc.phong.toaNhaId);
+    await sendZalo(chatId, msg, toaNhaId);
+
+    // Gửi kèm ảnh khi daXong
+    if (newStatus === 'daXong' && sc.anhSuCo?.length) {
+      const { sendImageViaBotServer } = await import('@/lib/zalo-bot-client');
+      for (const imgUrl of sc.anhSuCo.slice(0, 5)) {
+        await sendImageViaBotServer(chatId, imgUrl, '', 0, undefined, botConfig).catch(() => {});
       }
     }
   } catch (e) {

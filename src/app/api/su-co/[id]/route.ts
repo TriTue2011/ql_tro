@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSuCoRepo } from '@/lib/repositories';
 import { sseEmit } from '@/lib/sse-emitter';
-import { notifyKhachThue } from '@/lib/send-zalo';
+import { notifyIncidentUpdate } from '@/lib/zalo-notify';
 import { z } from 'zod';
 import { checkQuyen, getToaNhaIdFromSuCo } from '@/lib/server/check-quyen';
 
@@ -106,17 +106,9 @@ export async function PUT(
       );
     }
 
-    // Gửi Zalo thông báo cho khách thuê khi trạng thái thay đổi
+    // Gửi Zalo thông báo cho khách thuê khi trạng thái thay đổi (theo cài đặt auto_zalo_su_co_*)
     if (validatedData.trangThai && suCoCu && validatedData.trangThai !== suCoCu.trangThai) {
-      const msgMap: Record<string, string> = {
-        dangXuLy: `✅ Sự cố "${suCo.tieuDe}" của bạn đã được tiếp nhận và đang xử lý.`,
-        daXong: `🎉 Sự cố "${suCo.tieuDe}" đã được xử lý xong!${validatedData.ghiChuXuLy ? `\nGhi chú: ${validatedData.ghiChuXuLy}` : ''}`,
-        daHuy: `ℹ️ Sự cố "${suCo.tieuDe}" đã được đóng/hủy.${validatedData.ghiChuXuLy ? `\nGhi chú: ${validatedData.ghiChuXuLy}` : ''}`,
-      };
-      const msg = msgMap[validatedData.trangThai];
-      if (msg) {
-        notifyKhachThue((suCo as any).khachThueId, msg).catch(() => {});
-      }
+      notifyIncidentUpdate(suCo.id, validatedData.trangThai, validatedData.ghiChuXuLy).catch(() => {});
     }
 
     sseEmit('su-co', { action: 'updated' });
