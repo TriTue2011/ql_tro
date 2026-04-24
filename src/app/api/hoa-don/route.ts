@@ -546,7 +546,13 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    await repo.delete(id);
+    const deleted = await repo.delete(id);
+    if (!deleted) {
+      return NextResponse.json(
+        { message: 'Không thể xóa hóa đơn. Kiểm tra dữ liệu liên quan.' },
+        { status: 500 }
+      );
+    }
     sseEmit('hoa-don', { action: 'deleted' });
     return NextResponse.json({
       success: true,

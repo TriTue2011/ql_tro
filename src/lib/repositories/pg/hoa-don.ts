@@ -191,6 +191,8 @@ export default class HoaDonRepository {
 
   async delete(id: string): Promise<boolean> {
     try {
+      // Xóa ThanhToan liên quan trước (không có onDelete: Cascade)
+      await prisma.thanhToan.deleteMany({ where: { hoaDonId: id } });
       await prisma.hoaDon.delete({ where: { id } });
       return true;
     } catch {
