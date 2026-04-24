@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { notifyKhachThue, notifyDaiDienHopDong, getToaNhaIdOfKhachThue } from '@/lib/send-zalo';
+import { notifyYeuCauPheDuyet } from '@/lib/zalo-notify';
 import { autoLinkZaloChatIds } from '@/lib/zalo-auto-link';
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 
@@ -195,16 +196,8 @@ export async function PUT(request: NextRequest) {
     },
   });
 
-  // Thông báo Zalo cho khách thuê về kết quả phê duyệt
-  const loaiLabel: Record<string, string> = {
-    thongTin: 'thông tin cá nhân', anhCCCD: 'ảnh CCCD',
-    nguoiCungPhong: 'người cùng phòng', thongBao: 'cài đặt thông báo',
-  };
-  if (trangThai === 'daPheduyet') {
-    notifyKhachThue(yeuCau.khachThueId, `✅ Yêu cầu thay đổi ${loaiLabel[yeuCau.loai] ?? yeuCau.loai} của bạn đã được phê duyệt.`).catch(() => {});
-  } else {
-    notifyKhachThue(yeuCau.khachThueId, `❌ Yêu cầu thay đổi ${loaiLabel[yeuCau.loai] ?? yeuCau.loai} của bạn bị từ chối.${ghiChuPheDuyet ? `\nLý do: ${ghiChuPheDuyet}` : ''}`).catch(() => {});
-  }
+  // Thông báo Zalo cho khách thuê về kết quả phê duyệt (theo cài đặt auto_zalo_yeu_cau_phe_duyet)
+  notifyYeuCauPheDuyet(id, trangThai as 'daPheduyet' | 'tuChoi', ghiChuPheDuyet).catch(() => {});
 
   return NextResponse.json({
     success: true,
