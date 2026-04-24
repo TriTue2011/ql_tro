@@ -795,9 +795,15 @@ function ThongBaoForm({
     ? phongList.filter(p => (typeof p.toaNha === 'string' ? p.toaNha : (p.toaNha as any)?.id) === formData.toaNha)
     : phongList;
   const filteredPhongIds = new Set(filteredPhong.map(p => p.id));
+  // Khách thuê lấy phòng qua hopDongHienTai (API /api/khach-thue trả trường này).
+  // Nếu thiếu (vd khách chưa ký hợp đồng), chấp nhận fallback `phong` nếu repo có join sẵn.
   const filteredKhachThue = formData.toaNha && formData.toaNha !== 'all'
     ? khachThueList.filter((k: any) => {
-        const pid = typeof k.phong === 'string' ? k.phong : k.phong?.id;
+        const toaNhaIdOfKT = k.hopDongHienTai?.phong?.toaNha?.id
+          ?? (typeof k.hopDongHienTai?.phong?.toaNha === 'string' ? k.hopDongHienTai.phong.toaNha : undefined);
+        if (toaNhaIdOfKT) return toaNhaIdOfKT === formData.toaNha;
+        const pid = k.hopDongHienTai?.phong?.id
+          ?? (typeof k.phong === 'string' ? k.phong : k.phong?.id);
         return pid && filteredPhongIds.has(pid);
       })
     : khachThueList;

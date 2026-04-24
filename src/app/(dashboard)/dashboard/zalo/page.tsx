@@ -3654,6 +3654,13 @@ function BuildingAccordion({
       </button>
       {open && (
         <div className="bg-gray-50 border-t p-3 space-y-2">
+          {/* Nhóm Zalo tòa nhà — mỗi tòa 1 hoặc nhiều nhóm, dùng cho thông báo/nhắc nhở */}
+          {(isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro' || userRole === 'quanLy') && (
+            <BuildingZaloGroupsSection
+              buildingId={building.id}
+              canEdit={isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro'}
+            />
+          )}
           {chuTroGroup.length > 0 && (
             <RoleGroup
               role="chuTro"
@@ -3682,6 +3689,182 @@ function BuildingAccordion({
           )}
           {totalPeople === 0 && (
             <p className="text-xs text-gray-400 text-center py-2">Chưa gán người quản lý cho tòa nhà này</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Building Zalo Groups ─────────────────────────────────────────────────────
+
+interface BuildingZaloGroupItem {
+  threadId: string;
+  tang?: number | null;
+  label?: string | null;
+}
+
+function BuildingZaloGroupsSection({ buildingId, canEdit }: {
+  buildingId: string;
+  canEdit: boolean;
+}) {
+  const [groups, setGroups] = useState<BuildingZaloGroupItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [newThreadId, setNewThreadId] = useState('');
+  const [newLabel, setNewLabel] = useState('');
+  const [newTang, setNewTang] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/toa-nha/${buildingId}/zalo-nhom-chat`);
+      const j = await r.json();
+      if (j.success && Array.isArray(j.data)) {
+        setGroups(j.data as BuildingZaloGroupItem[]);
+      } else {
+        setGroups([]);
+      }
+    } catch {
+      setGroups([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [buildingId]);
+
+  useEffect(() => { if (open) load(); }, [open, load]);
+
+  const save = async (next: BuildingZaloGroupItem[]) => {
+    setSaving(true);
+    try {
+      const r = await fetch(`/api/toa-nha/${buildingId}/zalo-nhom-chat`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zaloNhomChat: next }),
+      });
+      const j = await r.json();
+      if (j.success) {
+        setGroups(Array.isArray(j.data) ? (j.data as BuildingZaloGroupItem[]) : next);
+        toast.success('Đã lưu nhóm Zalo');
+      } else {
+        toast.error(j.message || 'Lưu thất bại');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAdd = async () => {
+    const threadId = newThreadId.trim();
+    if (!threadId) { toast.error('Cần nhập Thread ID nhóm'); return; }
+    if (groups.some(g => g.threadId === threadId)) {
+      toast.error('Thread ID đã tồn tại');
+      return;
+    }
+    const tang = newTang.trim() === '' ? null : Number(newTang);
+    if (newTang.trim() !== '' && !Number.isFinite(tang)) {
+      toast.error('Tầng phải là số');
+      return;
+    }
+    const next = [...groups, {
+      threadId,
+      tang: tang as number | null,
+      label: newLabel.trim() || null,
+    }];
+    await save(next);
+    setNewThreadId('');
+    setNewLabel('');
+    setNewTang('');
+  };
+
+  const handleDelete = async (threadId: string) => {
+    const next = groups.filter(g => g.threadId !== threadId);
+    await save(next);
+  };
+
+  return (
+    <div className="border rounded-md bg-white overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {open ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+          <Users className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+          <span className="text-sm font-medium text-gray-700">Nhóm Zalo tòa nhà</span>
+          <span className="text-xs text-gray-400">— dùng cho thông báo/nhắc nhở</span>
+          {groups.length > 0 && (
+            <Badge variant="outline" className="text-[10px] px-1.5 ml-1 text-gray-500">{groups.length}</Badge>
+          )}
+        </div>
+      </button>
+      {open && (
+        <div className="px-3 pb-3 pt-1 border-t bg-gray-50/50 space-y-2">
+          {loading && (
+            <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải...
+            </div>
+          )}
+
+          {!loading && groups.length === 0 && (
+            <p className="text-xs text-gray-400">Chưa có nhóm Zalo nào. Thêm Thread ID nhóm để nhận thông báo chung.</p>
+          )}
+
+          {!loading && groups.map((g) => (
+            <div key={g.threadId} className="flex items-center gap-2 px-2 py-1.5 bg-white rounded-md border">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 shrink-0">Nhóm</span>
+              <code className="text-xs font-mono text-gray-700 flex-1 min-w-0 truncate">{g.threadId}</code>
+              {g.tang != null && (
+                <span className="text-[10px] text-gray-500 shrink-0">Tầng {g.tang}</span>
+              )}
+              {g.label && (
+                <span className="text-[10px] italic text-gray-500 truncate max-w-[140px]">{g.label}</span>
+              )}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleDelete(g.threadId)}
+                  disabled={saving}
+                  className="text-[10px] text-red-500 hover:text-red-700 shrink-0"
+                >
+                  Xóa
+                </button>
+              )}
+            </div>
+          ))}
+
+          {canEdit && !loading && (
+            <div className="mt-2 space-y-2 border-t pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_100px_140px_auto] gap-2">
+                <Input
+                  value={newThreadId}
+                  onChange={e => setNewThreadId(e.target.value)}
+                  placeholder="Thread ID nhóm Zalo"
+                  className="text-xs h-8"
+                />
+                <Input
+                  value={newTang}
+                  onChange={e => setNewTang(e.target.value)}
+                  placeholder="Tầng (nếu có)"
+                  className="text-xs h-8"
+                  inputMode="numeric"
+                />
+                <Input
+                  value={newLabel}
+                  onChange={e => setNewLabel(e.target.value)}
+                  placeholder="Nhãn (tùy chọn)"
+                  className="text-xs h-8"
+                />
+                <Button size="sm" onClick={handleAdd} disabled={saving} className="h-8 text-xs">
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Plus className="h-3.5 w-3.5 mr-1" />Thêm</>}
+                </Button>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Thread ID là ID nhóm Zalo (lấy từ tab Theo dõi tin). Để trống "Tầng" nếu nhóm dùng cho toàn tòa.
+              </p>
+            </div>
           )}
         </div>
       )}
