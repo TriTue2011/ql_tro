@@ -464,6 +464,9 @@ export async function notifyInvoiceOverdue(hoaDonId: string): Promise<void> {
 /**
  * Xác nhận thanh toán — gửi cho khách thuê nếu cài đặt auto_zalo_hoa_don_thanh_toan = true.
  * Kèm PDF hóa đơn đã đánh dấu "ĐÃ THANH TOÁN" để khách có chứng từ.
+ *
+ * Khi admin đã bật cờ auto toàn cục → chỉ cần có zaloChatId là gửi,
+ * không gate thêm cờ cá nhân nhanThongBaoZalo để tránh tắt ngầm.
  */
 export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanhToan?: number): Promise<void> {
   if (!await isAutoEnabled('auto_zalo_hoa_don_thanh_toan')) return;
@@ -481,15 +484,22 @@ export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanh
             toaNha: { select: { tenToaNha: true, diaChi: true } },
           },
         },
-        khachThue: { select: { hoTen: true, soDienThoai: true, zaloChatId: true, nhanThongBaoZalo: true } },
-        hopDong: { select: { nguoiDaiDien: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } } } },
+        khachThue: { select: { hoTen: true, soDienThoai: true, zaloChatId: true } },
+        hopDong: { select: { nguoiDaiDien: { select: { hoTen: true, zaloChatId: true } } } },
       },
     });
     if (!hd) return;
 
-    const nguoiNhan = hd.hopDong?.nguoiDaiDien?.nhanThongBaoZalo ? hd.hopDong.nguoiDaiDien
-      : hd.khachThue?.nhanThongBaoZalo ? hd.khachThue : null;
-    if (!nguoiNhan?.zaloChatId) return;
+    // Ưu tiên người đại diện hợp đồng, fallback khách thuê tạo hóa đơn
+    const nguoiNhan = hd.hopDong?.nguoiDaiDien?.zaloChatId
+      ? hd.hopDong.nguoiDaiDien
+      : hd.khachThue?.zaloChatId
+        ? hd.khachThue
+        : null;
+    if (!nguoiNhan?.zaloChatId) {
+      console.warn('[zalo-notify] notifyPaymentConfirmed skipped: no zaloChatId', { hoaDonId });
+      return;
+    }
 
     const chatId = nguoiNhan.zaloChatId;
     const toaNhaId = hd.phong.toaNhaId;
@@ -509,6 +519,33 @@ export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanh
 // ─── Sự cố ────────────────────────────────────────────────────────────────────
 
 /**
+ * Tìm chatId Zalo phù hợp để gửi cho khách báo sự cố:
+ *  1) Ưu tiên zaloChatId của khách thuê báo sự cố.
+ *  2) Fallback người đại diện hợp đồng đang hoạt động của phòng.
+ */
+async function resolveSuCoRecipient(sc: {
+  phongId: string;
+  khachThue?: { zaloChatId: string | null } | null;
+}): Promise<string | null> {
+  if (sc.khachThue?.zaloChatId) return sc.khachThue.zaloChatId;
+  try {
+    const now = new Date();
+    const hopDong = await prisma.hopDong.findFirst({
+      where: {
+        phongId: sc.phongId,
+        trangThai: 'hoatDong',
+        ngayBatDau: { lte: now },
+        ngayKetThuc: { gte: now },
+      },
+      select: { nguoiDaiDien: { select: { zaloChatId: true } } },
+    });
+    return hopDong?.nguoiDaiDien?.zaloChatId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Gửi Zalo cho khách thuê xác nhận đã ghi nhận sự cố.
  * Chỉ gửi nếu auto_zalo_su_co_ghi_nhan = true.
  */
@@ -518,14 +555,17 @@ export async function notifyIncidentGhiNhan(suCoId: string): Promise<void> {
     const sc = await prisma.suCo.findUnique({
       where: { id: suCoId },
       select: {
-        tieuDe: true, moTa: true,
+        tieuDe: true, moTa: true, phongId: true,
         phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
         khachThue: { select: { hoTen: true, zaloChatId: true } },
       },
     });
-    // Admin đã bật cờ auto toàn cục → chỉ cần khách có zaloChatId là gửi,
+    if (!sc) return;
+
+    const chatId = await resolveSuCoRecipient(sc);
+    // Admin đã bật cờ auto toàn cục → chỉ cần có zaloChatId là gửi,
     // không gate thêm cờ cá nhân nhanThongBaoZalo (mặc định false gây tắt ngầm).
-    if (!sc || !sc.khachThue?.zaloChatId) {
+    if (!chatId) {
       console.warn('[zalo-notify] notifyIncidentGhiNhan skipped: no zaloChatId', { suCoId });
       return;
     }
@@ -540,7 +580,7 @@ export async function notifyIncidentGhiNhan(suCoId: string): Promise<void> {
       `Chúng tôi đã ghi nhận sự cố và sẽ xử lý trong thời gian sớm nhất. Cảm ơn bạn đã phản ánh!`,
     ].join('\n');
 
-    await sendZalo(sc.khachThue.zaloChatId, msg, sc.phong.toaNhaId);
+    await sendZalo(chatId, msg, sc.phong.toaNhaId);
   } catch (e) {
     console.error('[zalo-notify] notifyIncidentGhiNhan error:', e);
   }
@@ -634,21 +674,23 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string, gh
     const sc = await prisma.suCo.findUnique({
       where: { id: suCoId },
       select: {
-        tieuDe: true, ghiChuXuLy: true, anhSuCo: true,
+        tieuDe: true, ghiChuXuLy: true, anhSuCo: true, phongId: true,
         phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
         khachThue: { select: { hoTen: true, zaloChatId: true } },
         nguoiXuLy: { select: { ten: true } },
       },
     });
-    // Admin đã bật cờ auto cho trạng thái này → chỉ cần khách có zaloChatId là gửi.
-    if (!sc || !sc.khachThue?.zaloChatId) {
+    if (!sc) return;
+
+    // Admin đã bật cờ auto cho trạng thái này → chỉ cần có zaloChatId là gửi.
+    const chatId = await resolveSuCoRecipient(sc);
+    if (!chatId) {
       console.warn('[zalo-notify] notifyIncidentUpdate skipped: no zaloChatId', { suCoId, newStatus });
       return;
     }
 
     const ghiChu = ghiChuXuLy ?? sc.ghiChuXuLy ?? '';
     const toaNhaId = sc.phong.toaNhaId;
-    const chatId = sc.khachThue.zaloChatId;
 
     const headerMap: Record<string, string> = {
       dangXuLy: `🔧 ĐÃ TIẾP NHẬN VÀ ĐANG XỬ LÝ SỰ CỐ`,
@@ -728,5 +770,84 @@ export async function notifyMeterReminder(toaNhaId: string, tenToaNha: string): 
     );
   } catch (e) {
     console.error('[zalo-notify] notifyMeterReminder error:', e);
+  }
+}
+
+// ─── Yêu cầu phê duyệt ───────────────────────────────────────────────────────
+
+/**
+ * Thông báo kết quả phê duyệt yêu cầu thay đổi cho khách thuê.
+ * Chỉ gửi nếu auto_zalo_yeu_cau_phe_duyet = true.
+ *
+ * - daPheduyet: báo đã duyệt + loại yêu cầu
+ * - tuChoi: báo đã từ chối + lý do (ghiChuPheDuyet)
+ *
+ * Admin đã bật cờ auto toàn cục → chỉ cần có zaloChatId là gửi,
+ * không gate thêm cờ cá nhân nhanThongBaoZalo.
+ */
+export async function notifyYeuCauPheDuyet(
+  yeuCauId: string,
+  trangThai: 'daPheduyet' | 'tuChoi',
+  ghiChuPheDuyet?: string | null,
+): Promise<void> {
+  if (!await isAutoEnabled('auto_zalo_yeu_cau_phe_duyet')) return;
+  try {
+    const yc = await prisma.yeuCauThayDoi.findUnique({
+      where: { id: yeuCauId },
+      select: {
+        loai: true,
+        khachThueId: true,
+        khachThue: { select: { hoTen: true, zaloChatId: true } },
+      },
+    });
+    if (!yc || !yc.khachThue?.zaloChatId) {
+      console.warn('[zalo-notify] notifyYeuCauPheDuyet skipped: no zaloChatId', { yeuCauId });
+      return;
+    }
+
+    const loaiLabel: Record<string, string> = {
+      thongTin: 'thông tin cá nhân',
+      anhCCCD: 'ảnh CCCD',
+      nguoiCungPhong: 'người cùng phòng',
+      thongBao: 'cài đặt nhận thông báo',
+    };
+    const loaiText = loaiLabel[yc.loai] ?? yc.loai;
+
+    let msg: string;
+    if (trangThai === 'daPheduyet') {
+      msg = [
+        `✅ YÊU CẦU ĐÃ ĐƯỢC PHÊ DUYỆT`,
+        `━━━━━━━━━━━━━━━━━━━━━━`,
+        `📌 Loại yêu cầu: ${loaiText}`,
+        ``,
+        `Các thay đổi đã được áp dụng. Cảm ơn bạn!`,
+      ].join('\n');
+    } else {
+      msg = [
+        `❌ YÊU CẦU BỊ TỪ CHỐI`,
+        `━━━━━━━━━━━━━━━━━━━━━━`,
+        `📌 Loại yêu cầu: ${loaiText}`,
+        ghiChuPheDuyet ? `📝 Lý do: ${ghiChuPheDuyet}` : '',
+        ``,
+        `Vui lòng liên hệ quản lý nếu cần hỗ trợ thêm.`,
+      ].filter(Boolean).join('\n');
+    }
+
+    // Lấy tòa nhà theo hợp đồng đang hoạt động để chọn bot config đúng chủ
+    const now = new Date();
+    const hopDong = await prisma.hopDong.findFirst({
+      where: {
+        khachThue: { some: { id: yc.khachThueId } },
+        trangThai: 'hoatDong',
+        ngayBatDau: { lte: now },
+        ngayKetThuc: { gte: now },
+      },
+      select: { phong: { select: { toaNhaId: true } } },
+    });
+    const toaNhaId = hopDong?.phong.toaNhaId;
+
+    await sendZalo(yc.khachThue.zaloChatId, msg, toaNhaId);
+  } catch (e) {
+    console.error('[zalo-notify] notifyYeuCauPheDuyet error:', e);
   }
 }

@@ -59,6 +59,7 @@ const DEFAULT_SETTINGS = [
   { khoa: 'auto_zalo_su_co_tiep_nhan', giaTri: 'false', moTa: 'Tự động gửi Zalo khi tiếp nhận và bắt đầu xử lý sự cố', nhom: 'thongBao', laBiMat: false },
   { khoa: 'auto_zalo_su_co_xu_ly_xong', giaTri: 'false', moTa: 'Tự động gửi Zalo (kèm ảnh) khi xử lý xong sự cố', nhom: 'thongBao', laBiMat: false },
   { khoa: 'auto_zalo_su_co_huy', giaTri: 'false', moTa: 'Tự động gửi Zalo khi hủy sự cố', nhom: 'thongBao', laBiMat: false },
+  { khoa: 'auto_zalo_yeu_cau_phe_duyet', giaTri: 'false', moTa: 'Tự động gửi Zalo cho khách thuê khi phê duyệt / từ chối yêu cầu thay đổi', nhom: 'thongBao', laBiMat: false },
   // Chatbot tự động
   { khoa: 'bot_auto_reply_enabled', giaTri: 'true', moTa: 'Bật/tắt chatbot tự động trả lời tin nhắn Zalo (true/false)', nhom: 'thongBao', laBiMat: false },
   { khoa: 'bot_forward_unknown', giaTri: 'true', moTa: 'Chuyển tiếp tin nhắn người lạ đến quản lý (true/false)', nhom: 'thongBao', laBiMat: false },
