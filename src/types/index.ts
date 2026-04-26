@@ -78,6 +78,7 @@ export interface Phong {
   tienNghi: string[];
   trangThai: 'trong' | 'daDat' | 'dangThue' | 'baoTri';
   soNguoiToiDa: number;
+  ngayTinhTien?: number;
   ngayTao: Date;
   ngayCapNhat: Date;
   hopDongHienTai?: {

@@ -12,7 +12,8 @@ export type UploadResult = {
   secure_url: string;
 };
 
-export { buildFolderPath, buildUploadFolder } from './upload-path';
+import { buildFolderPath, buildUploadFolder } from './upload-path';
+export { buildFolderPath, buildUploadFolder };
 
 interface CloudinaryConfig {
   cloudName: string;

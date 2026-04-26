@@ -4,19 +4,20 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
 // POST /api/phong/[id]/thue — gán khách thuê vào phòng (tạo hợp đồng tối giản)
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user || !['admin', 'chuNha'].includes(session.user.role ?? '')) {
     return NextResponse.json({ success: false, message: 'Không có quyền' }, { status: 403 });
   }
 
   try {
+    const { id } = await params;
     const { khachThueId } = await req.json();
     if (!khachThueId) {
       return NextResponse.json({ success: false, message: 'Thiếu khachThueId' }, { status: 400 });
     }
 
-    const phong = await prisma.phong.findUnique({ where: { id: params.id } });
+    const phong = await prisma.phong.findUnique({ where: { id } });
     if (!phong) {
       return NextResponse.json({ success: false, message: 'Phòng không tồn tại' }, { status: 404 });
     }
@@ -69,15 +70,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 }
 
 // DELETE /api/phong/[id]/thue — hủy gán (kết thúc hợp đồng hiện tại)
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user || !['admin', 'chuNha'].includes(session.user.role ?? '')) {
     return NextResponse.json({ success: false, message: 'Không có quyền' }, { status: 403 });
   }
 
   try {
+    const { id } = await params;
     const hopDong = await prisma.hopDong.findFirst({
-      where: { phongId: params.id, trangThai: 'hoatDong' },
+      where: { phongId: id, trangThai: 'hoatDong' },
       include: { khachThue: true },
     });
 
@@ -86,7 +88,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     await prisma.hopDong.update({ where: { id: hopDong.id }, data: { trangThai: 'daHuy' } });
-    await prisma.phong.update({ where: { id: params.id }, data: { trangThai: 'trong' } });
+    await prisma.phong.update({ where: { id }, data: { trangThai: 'trong' } });
 
     // Cập nhật tất cả khách thuê trong hợp đồng
     for (const kt of hopDong.khachThue) {

@@ -94,6 +94,7 @@ function TopBar({
 }) {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
   const userName = session?.user?.name ?? 'User';
 
   const segments = pathname.replace('/dashboard', '').split('/').filter(Boolean);

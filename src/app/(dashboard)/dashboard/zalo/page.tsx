@@ -778,7 +778,7 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
                   <div className="text-gray-400 font-mono text-[10px]">{matchedAccount.ownId}</div>
                 </div>
               </div>
-              {canEdit && matchedAccount._source === "direct" && (
+              {canEdit && matchedAccount && (
                 <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50"
                   onClick={() => handleLogout(matchedAccount.ownId)}>
                   <LogOut className="h-3 w-3 mr-1" /> Đăng xuất
@@ -3966,7 +3966,7 @@ export default function ZaloSettingsPage() {
             Quản lý tài khoản Zalo, thông báo và phân quyền theo từng tòa nhà
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={loadBuildings} disabled={loading} className="gap-1.5 text-xs">
+        <Button size="sm" variant="outline" onClick={() => loadBuildings()} disabled={loading} className="gap-1.5 text-xs">
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           Làm mới
         </Button>

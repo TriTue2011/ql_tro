@@ -59,15 +59,15 @@ export async function GET() {
           where: { zaloAccountId: { in: allOwnIds } },
           select: {
             zaloAccountId: true, ten: true, vaiTro: true,
-            toaNhaSoHuu: { select: { tenToaNha: true }, take: 1 },
-            quanLyToaNha: { select: { toaNha: { select: { tenToaNha: true } } }, take: 1 },
+            toaNha: { select: { tenToaNha: true }, take: 1 },
+            toaNhaQuanLy: { select: { toaNha: { select: { tenToaNha: true } } }, take: 1 },
           },
         }),
         prisma.khachThue.findMany({
           where: { zaloChatId: { in: allOwnIds } },
           select: {
             zaloChatId: true, hoTen: true,
-            phong: { select: { toaNha: { select: { tenToaNha: true } } } },
+            hopDong: { select: { phong: { select: { toaNha: { select: { tenToaNha: true } } } } }, take: 1 },
           },
         }),
       ]);
@@ -77,7 +77,7 @@ export async function GET() {
           admin: "Admin", chuNha: "Chủ trọ", dongChuTro: "Đồng chủ trọ",
           quanLy: "Quản lý", nhanVien: "Nhân viên",
         };
-        const toaNha = nd.toaNhaSoHuu?.[0]?.tenToaNha || nd.quanLyToaNha?.[0]?.toaNha?.tenToaNha || "";
+        const toaNha = nd.toaNha?.[0]?.tenToaNha || nd.toaNhaQuanLy?.[0]?.toaNha?.tenToaNha || "";
         accountOwners[nd.zaloAccountId] = {
           ten: nd.ten, vaiTro: vaiTroMap[nd.vaiTro ?? ""] || nd.vaiTro || "",
           toaNha,
@@ -87,7 +87,7 @@ export async function GET() {
         if (!kt.zaloChatId || accountOwners[kt.zaloChatId]) continue;
         accountOwners[kt.zaloChatId] = {
           ten: kt.hoTen, vaiTro: "Khách thuê",
-          toaNha: kt.phong?.toaNha?.tenToaNha || "",
+          toaNha: kt.hopDong?.[0]?.phong?.toaNha?.tenToaNha || "",
         };
       }
     }
