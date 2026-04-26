@@ -11,65 +11,65 @@ datasource db {
 }
 
 model NguoiDung {
-  id            String    @id @default(cuid())
-  ten           String
-  email         String?   @unique
-  matKhau       String
-  soDienThoai   String?   @unique
-  vaiTro        String    @default("nhanVien") // admin | chuNha | dongChuTro | quanLy | nhanVien
-  anhDaiDien    String?
-  trangThai        String    @default("hoatDong") // hoatDong | khoa
-  zaloChatId        String?   // Zalo bot chat_id đã xác thực (tài khoản bot mặc định)
-  zaloChatIds       Json?     // Map { [botAccountId]: chatId } — lưu chatId theo từng tài khoản bot
-  pendingZaloChatId String?  // Zalo bot chat_id chờ xác nhận (từ getUpdates)
-  nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
-  zaloAccountId     String?  // Account ID (own_id) trên bot server dùng gửi tin
-  zaloBotServerUrl  String?  // URL bot server riêng (ghi đè CaiDat nếu có)
-  zaloBotUsername   String?  // Username bot server riêng
-  zaloBotPassword   String?  // Password bot server riêng
-  zaloBotTtl        Int?     // TTL tin nhắn (ms), 0 = không tự hủy
-  zaloWebhookToken  String?  @unique // Token ngẫu nhiên cho webhook URL riêng
-  zaloViTri         Json?    // Vị trí slot Zalo: { "buildingId": number } — VD quản lý 2 = { "bldg123": 2 }
-  hoatDongCuoi     DateTime? // Lần hoạt động cuối trên web (dùng xác định online/offline)
-  ngayTao          DateTime  @default(now())
-  ngayCapNhat      DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  ten               String
+  email             String?   @unique
+  matKhau           String
+  soDienThoai       String?   @unique
+  vaiTro            String    @default("nhanVien") // admin | chuNha | dongChuTro | quanLy | nhanVien
+  anhDaiDien        String?
+  trangThai         String    @default("hoatDong") // hoatDong | khoa
+  zaloChatId        String? // Zalo bot chat_id đã xác thực (tài khoản bot mặc định)
+  zaloChatIds       Json? // Map { [botAccountId]: chatId } — lưu chatId theo từng tài khoản bot
+  pendingZaloChatId String? // Zalo bot chat_id chờ xác nhận (từ getUpdates)
+  nhanThongBaoZalo  Boolean   @default(false) // Có gửi thông báo Zalo không
+  zaloAccountId     String? // Account ID (own_id) trên bot server dùng gửi tin
+  zaloBotServerUrl  String? // URL bot server riêng (ghi đè CaiDat nếu có)
+  zaloBotUsername   String? // Username bot server riêng
+  zaloBotPassword   String? // Password bot server riêng
+  zaloBotTtl        Int? // TTL tin nhắn (ms), 0 = không tự hủy
+  zaloWebhookToken  String?   @unique // Token ngẫu nhiên cho webhook URL riêng
+  zaloViTri         Json? // Vị trí slot Zalo: { "buildingId": number } — VD quản lý 2 = { "bldg123": 2 }
+  hoatDongCuoi      DateTime? // Lần hoạt động cuối trên web (dùng xác định online/offline)
+  ngayTao           DateTime  @default(now())
+  ngayCapNhat       DateTime  @updatedAt
 
   // Relations
-  toaNha        ToaNha[]
-  toaNhaQuanLy  ToaNhaNguoiQuanLy[]
-  caiDatChuNha  CaiDatChuNha?
-  chiSo         ChiSoDienNuoc[]
-  thanhToan     ThanhToan[]
-  suCoXuLy          SuCo[]          @relation("NguoiXuLy")
-  thongBaoGui       ThongBao[]
-  yeuCauPheDuyet    YeuCauThayDoi[]
+  toaNha                ToaNha[]
+  toaNhaQuanLy          ToaNhaNguoiQuanLy[]
+  caiDatChuNha          CaiDatChuNha?
+  chiSo                 ChiSoDienNuoc[]
+  thanhToan             ThanhToan[]
+  suCoXuLy              SuCo[]                 @relation("NguoiXuLy")
+  thongBaoGui           ThongBao[]
+  yeuCauPheDuyet        YeuCauThayDoi[]
   zaloThongBaoCaiDat    ZaloThongBaoCaiDat[]
   zaloDongChuTroThreads ZaloDongChuTroThread[]
   danhBaNgoai           DanhBaNgoai[]
-  khachThueTao          KhachThue[]     @relation("KhachThueNguoiTao")
-  hoaDonTao             HoaDon[]        @relation("HoaDonNguoiTao")
+  khachThueTao          KhachThue[]            @relation("KhachThueNguoiTao")
+  hoaDonTao             HoaDon[]               @relation("HoaDonNguoiTao")
 }
 
 model ToaNha {
-  id            String    @id @default(cuid())
-  tenToaNha     String
-  diaChi        Json      // { soNha, duong, phuong, quan, thanhPho }
-  moTa          String?
-  anhToaNha     String[]
-  chuSoHuuId    String
-  chuSoHuu      NguoiDung @relation(fields: [chuSoHuuId], references: [id])
-  tongSoPhong   Int       @default(0)
-  tienNghiChung   String[]
-  lienHePhuTrach  Json      @default("[]") // [{ ten, soDienThoai, vaiTro? }]
-  zaloNhomChat    Json      @default("[]") // [{ tang?: number|null, threadId: string, label?: string }] — null tang = toàn tòa
-  ngayTao         DateTime  @default(now())
-  ngayCapNhat     DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  tenToaNha      String
+  diaChi         Json // { soNha, duong, phuong, quan, thanhPho }
+  moTa           String?
+  anhToaNha      String[]
+  chuSoHuuId     String
+  chuSoHuu       NguoiDung @relation(fields: [chuSoHuuId], references: [id])
+  tongSoPhong    Int       @default(0)
+  tienNghiChung  String[]
+  lienHePhuTrach Json      @default("[]") // [{ ten, soDienThoai, vaiTro? }]
+  zaloNhomChat   Json      @default("[]") // [{ tang?: number|null, threadId: string, label?: string }] — null tang = toàn tòa
+  ngayTao        DateTime  @default(now())
+  ngayCapNhat    DateTime  @updatedAt
 
-  phong         Phong[]
-  nguoiQuanLy   ToaNhaNguoiQuanLy[]
+  phong                 Phong[]
+  nguoiQuanLy           ToaNhaNguoiQuanLy[]
   zaloThongBaoCaiDat    ZaloThongBaoCaiDat[]
   zaloDongChuTroThreads ZaloDongChuTroThread[]
-  caiDatToaNha  CaiDatToaNha?
+  caiDatToaNha          CaiDatToaNha?
 }
 
 // Bảng gán người quản lý cho tòa nhà (role: quanLy)
@@ -122,215 +122,215 @@ model ZaloThongBaoCaiDat {
 }
 
 model Phong {
-  id            String    @id @default(cuid())
-  maPhong       String
-  toaNhaId      String
-  toaNha        ToaNha    @relation(fields: [toaNhaId], references: [id])
-  tang          Int
-  dienTich      Float
-  giaThue       Float
-  tienCoc       Float
-  moTa          String?
-  anhPhong      String[]
-  tienNghi      String[]
-  trangThai     String    @default("trong") // trong | daDat | dangThue | baoTri
-  soNguoiToiDa  Int
-  ngayTinhTien  Int       @default(1)        // Ngày thu tiền hàng tháng (1-28)
-  ngayTao       DateTime  @default(now())
-  ngayCapNhat   DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  maPhong      String
+  toaNhaId     String
+  toaNha       ToaNha   @relation(fields: [toaNhaId], references: [id])
+  tang         Int
+  dienTich     Float
+  giaThue      Float
+  tienCoc      Float
+  moTa         String?
+  anhPhong     String[]
+  tienNghi     String[]
+  trangThai    String   @default("trong") // trong | daDat | dangThue | baoTri
+  soNguoiToiDa Int
+  ngayTinhTien Int      @default(1) // Ngày thu tiền hàng tháng (1-28)
+  ngayTao      DateTime @default(now())
+  ngayCapNhat  DateTime @updatedAt
 
-  hopDong       HopDong[]
-  chiSo         ChiSoDienNuoc[]
-  hoaDon        HoaDon[]
-  suCo          SuCo[]
-  thongBao      ThongBaoPhong[]
+  hopDong  HopDong[]
+  chiSo    ChiSoDienNuoc[]
+  hoaDon   HoaDon[]
+  suCo     SuCo[]
+  thongBao ThongBaoPhong[]
 
   @@unique([maPhong, toaNhaId])
 }
 
 model KhachThue {
-  id            String    @id @default(cuid())
-  hoTen         String
-  soDienThoai   String?   @unique // Tùy chọn — cần ít nhất 1 trong soDienThoai hoặc email
-  email         String?   @unique // Tùy chọn — cần ít nhất 1 trong soDienThoai hoặc email
-  cccd          String    @unique
-  ngaySinh      DateTime
-  gioiTinh      String    // nam | nu | khac
-  queQuan       String
-  anhCCCD       Json?     // { matTruoc, matSau }
-  ngheNghiep    String?
-  matKhau       String?
-  zaloChatId        String?   // Zalo bot chat_id đã xác thực (tài khoản bot mặc định)
-  zaloChatIds       Json?     // Map { [botAccountId]: chatId } — lưu chatId theo từng tài khoản bot
-  pendingZaloChatId String?   // Zalo bot chat_id chờ xác nhận (phát hiện từ getUpdates)
-  nhanThongBaoZalo  Boolean  @default(false) // Có gửi thông báo Zalo không
-  batDangNhapWeb    Boolean  @default(false) // Bật/tắt đăng nhập web per khách thuê (mặc định tắt)
-  trangThai         String    @default("chuaThue") // dangThue | daTraPhong | chuaThue
-  nguoiTaoId        String?   // ID của NguoiDung tạo khách thuê này
+  id                String     @id @default(cuid())
+  hoTen             String
+  soDienThoai       String?    @unique // Tùy chọn — cần ít nhất 1 trong soDienThoai hoặc email
+  email             String?    @unique // Tùy chọn — cần ít nhất 1 trong soDienThoai hoặc email
+  cccd              String     @unique
+  ngaySinh          DateTime
+  gioiTinh          String // nam | nu | khac
+  queQuan           String
+  anhCCCD           Json? // { matTruoc, matSau }
+  ngheNghiep        String?
+  matKhau           String?
+  zaloChatId        String? // Zalo bot chat_id đã xác thực (tài khoản bot mặc định)
+  zaloChatIds       Json? // Map { [botAccountId]: chatId } — lưu chatId theo từng tài khoản bot
+  pendingZaloChatId String? // Zalo bot chat_id chờ xác nhận (phát hiện từ getUpdates)
+  nhanThongBaoZalo  Boolean    @default(false) // Có gửi thông báo Zalo không
+  batDangNhapWeb    Boolean    @default(false) // Bật/tắt đăng nhập web per khách thuê (mặc định tắt)
+  trangThai         String     @default("chuaThue") // dangThue | daTraPhong | chuaThue
+  nguoiTaoId        String? // ID của NguoiDung tạo khách thuê này
   nguoiTao          NguoiDung? @relation("KhachThueNguoiTao", fields: [nguoiTaoId], references: [id], onDelete: SetNull)
-  ngayTao       DateTime  @default(now())
-  ngayCapNhat   DateTime  @updatedAt
+  ngayTao           DateTime   @default(now())
+  ngayCapNhat       DateTime   @updatedAt
 
-  hopDong         HopDong[]
-  daiDienHopDong  HopDong[] @relation("NguoiDaiDien")
-  hoaDon          HoaDon[]
-  suCo            SuCo[]
-  yeuCauThayDoi   YeuCauThayDoi[]
+  hopDong        HopDong[]
+  daiDienHopDong HopDong[]       @relation("NguoiDaiDien")
+  hoaDon         HoaDon[]
+  suCo           SuCo[]
+  yeuCauThayDoi  YeuCauThayDoi[]
 }
 
 model HopDong {
-  id                String    @id @default(cuid())
-  maHopDong         String    @unique
-  phongId           String
-  phong             Phong     @relation(fields: [phongId], references: [id])
-  nguoiDaiDienId    String
-  nguoiDaiDien      KhachThue @relation("NguoiDaiDien", fields: [nguoiDaiDienId], references: [id])
-  ngayBatDau        DateTime
-  ngayKetThuc       DateTime
-  giaThue           Float
-  tienCoc           Float
-  chuKyThanhToan    String    @default("thang") // thang | quy | nam
-  ngayThanhToan     Int
-  dieuKhoan         String
-  giaDien           Float
-  giaNuoc           Float
-  bangGiaDienLuyTien Json?    // [{ tu, den, gia }] — null = giá phẳng theo giaDien
-  bangGiaNuocLuyTien Json?    // [{ tu, den, gia }] — null = giá phẳng theo giaNuoc
-  chiSoDienBanDau   Float     @default(0)
-  chiSoNuocBanDau   Float     @default(0)
-  phiDichVu         Json      @default("[]") // [{ ten, gia }]
-  trangThai         String    @default("hoatDong") // hoatDong | hetHan | daHuy
-  fileHopDong       String?
-  ngayTao           DateTime  @default(now())
-  ngayCapNhat       DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  maHopDong          String    @unique
+  phongId            String
+  phong              Phong     @relation(fields: [phongId], references: [id])
+  nguoiDaiDienId     String
+  nguoiDaiDien       KhachThue @relation("NguoiDaiDien", fields: [nguoiDaiDienId], references: [id])
+  ngayBatDau         DateTime
+  ngayKetThuc        DateTime
+  giaThue            Float
+  tienCoc            Float
+  chuKyThanhToan     String    @default("thang") // thang | quy | nam
+  ngayThanhToan      Int
+  dieuKhoan          String
+  giaDien            Float
+  giaNuoc            Float
+  bangGiaDienLuyTien Json? // [{ tu, den, gia }] — null = giá phẳng theo giaDien
+  bangGiaNuocLuyTien Json? // [{ tu, den, gia }] — null = giá phẳng theo giaNuoc
+  chiSoDienBanDau    Float     @default(0)
+  chiSoNuocBanDau    Float     @default(0)
+  phiDichVu          Json      @default("[]") // [{ ten, gia }]
+  trangThai          String    @default("hoatDong") // hoatDong | hetHan | daHuy
+  fileHopDong        String?
+  ngayTao            DateTime  @default(now())
+  ngayCapNhat        DateTime  @updatedAt
 
-  khachThue         KhachThue[]
-  hoaDon            HoaDon[]
+  khachThue KhachThue[]
+  hoaDon    HoaDon[]
 }
 
 model ChiSoDienNuoc {
-  id                String    @id @default(cuid())
-  phongId           String
-  phong             Phong     @relation(fields: [phongId], references: [id])
-  thang             Int
-  nam               Int
-  chiSoDienCu       Float
-  chiSoDienMoi      Float
-  soDienTieuThu     Float     @default(0)
-  chiSoNuocCu       Float
-  chiSoNuocMoi      Float
-  soNuocTieuThu     Float     @default(0)
-  anhChiSoDien      String?
-  anhChiSoNuoc      String?
-  nguoiGhiId        String
-  nguoiGhi          NguoiDung @relation(fields: [nguoiGhiId], references: [id])
-  ngayGhi           DateTime  @default(now())
-  ngayTao           DateTime  @default(now())
+  id            String    @id @default(cuid())
+  phongId       String
+  phong         Phong     @relation(fields: [phongId], references: [id])
+  thang         Int
+  nam           Int
+  chiSoDienCu   Float
+  chiSoDienMoi  Float
+  soDienTieuThu Float     @default(0)
+  chiSoNuocCu   Float
+  chiSoNuocMoi  Float
+  soNuocTieuThu Float     @default(0)
+  anhChiSoDien  String?
+  anhChiSoNuoc  String?
+  nguoiGhiId    String
+  nguoiGhi      NguoiDung @relation(fields: [nguoiGhiId], references: [id])
+  ngayGhi       DateTime  @default(now())
+  ngayTao       DateTime  @default(now())
 
   @@unique([phongId, thang, nam])
 }
 
 model HoaDon {
-  id                String    @id @default(cuid())
-  maHoaDon          String    @unique
-  hopDongId         String
-  hopDong           HopDong   @relation(fields: [hopDongId], references: [id])
-  phongId           String
-  phong             Phong     @relation(fields: [phongId], references: [id])
-  khachThueId       String?
-  khachThue         KhachThue? @relation(fields: [khachThueId], references: [id], onDelete: SetNull)
-  thang             Int
-  nam               Int
-  tienPhong         Float
-  tienDien          Float
-  soDien            Float     @default(0)
-  chiSoDienBanDau   Float     @default(0)
-  chiSoDienCuoiKy   Float     @default(0)
-  chiTietDien       Json?     // [{ bac, tu, den, soLuong, donGia, thanhTien }] — null = giá phẳng
-  tienNuoc          Float
-  soNuoc            Float     @default(0)
-  chiSoNuocBanDau   Float     @default(0)
-  chiSoNuocCuoiKy   Float     @default(0)
-  chiTietNuoc       Json?     // [{ bac, tu, den, soLuong, donGia, thanhTien }] — null = giá phẳng
-  phiDichVu         Json      @default("[]")
-  tongTien          Float
-  daThanhToan       Float     @default(0)
-  conLai            Float
-  trangThai         String    @default("chuaThanhToan") // chuaThanhToan | daThanhToanMotPhan | daThanhToan | quaHan
-  hanThanhToan      DateTime
-  ghiChu            String?
-  anhChiSoDien      String?
-  anhChiSoNuoc      String?
-  nguoiTaoId        String?
-  nguoiTao          NguoiDung? @relation("HoaDonNguoiTao", fields: [nguoiTaoId], references: [id], onDelete: SetNull)
-  ngayTao           DateTime  @default(now())
-  ngayCapNhat       DateTime  @updatedAt
+  id              String     @id @default(cuid())
+  maHoaDon        String     @unique
+  hopDongId       String
+  hopDong         HopDong    @relation(fields: [hopDongId], references: [id])
+  phongId         String
+  phong           Phong      @relation(fields: [phongId], references: [id])
+  khachThueId     String?
+  khachThue       KhachThue? @relation(fields: [khachThueId], references: [id], onDelete: SetNull)
+  thang           Int
+  nam             Int
+  tienPhong       Float
+  tienDien        Float
+  soDien          Float      @default(0)
+  chiSoDienBanDau Float      @default(0)
+  chiSoDienCuoiKy Float      @default(0)
+  chiTietDien     Json? // [{ bac, tu, den, soLuong, donGia, thanhTien }] — null = giá phẳng
+  tienNuoc        Float
+  soNuoc          Float      @default(0)
+  chiSoNuocBanDau Float      @default(0)
+  chiSoNuocCuoiKy Float      @default(0)
+  chiTietNuoc     Json? // [{ bac, tu, den, soLuong, donGia, thanhTien }] — null = giá phẳng
+  phiDichVu       Json       @default("[]")
+  tongTien        Float
+  daThanhToan     Float      @default(0)
+  conLai          Float
+  trangThai       String     @default("chuaThanhToan") // chuaThanhToan | daThanhToanMotPhan | daThanhToan | quaHan
+  hanThanhToan    DateTime
+  ghiChu          String?
+  anhChiSoDien    String?
+  anhChiSoNuoc    String?
+  nguoiTaoId      String?
+  nguoiTao        NguoiDung? @relation("HoaDonNguoiTao", fields: [nguoiTaoId], references: [id], onDelete: SetNull)
+  ngayTao         DateTime   @default(now())
+  ngayCapNhat     DateTime   @updatedAt
 
-  thanhToan         ThanhToan[]
+  thanhToan ThanhToan[]
 
   @@index([nguoiTaoId])
 }
 
 model ThanhToan {
-  id                    String    @id @default(cuid())
-  hoaDonId              String
-  hoaDon                HoaDon    @relation(fields: [hoaDonId], references: [id])
-  soTien                Float
-  phuongThuc            String    // tienMat | chuyenKhoan | viDienTu
-  thongTinChuyenKhoan   Json?     // { nganHang, soGiaoDich }
-  ngayThanhToan         DateTime  @default(now())
-  nguoiNhanId           String
-  nguoiNhan             NguoiDung @relation(fields: [nguoiNhanId], references: [id])
-  ghiChu                String?
-  anhBienLai            String?
-  ngayTao               DateTime  @default(now())
+  id                  String    @id @default(cuid())
+  hoaDonId            String
+  hoaDon              HoaDon    @relation(fields: [hoaDonId], references: [id])
+  soTien              Float
+  phuongThuc          String // tienMat | chuyenKhoan | viDienTu
+  thongTinChuyenKhoan Json? // { nganHang, soGiaoDich }
+  ngayThanhToan       DateTime  @default(now())
+  nguoiNhanId         String
+  nguoiNhan           NguoiDung @relation(fields: [nguoiNhanId], references: [id])
+  ghiChu              String?
+  anhBienLai          String?
+  ngayTao             DateTime  @default(now())
 }
 
 model SuCo {
-  id              String    @id @default(cuid())
-  phongId         String
-  phong           Phong     @relation(fields: [phongId], references: [id])
-  khachThueId     String
-  khachThue       KhachThue @relation(fields: [khachThueId], references: [id])
-  tieuDe          String
-  moTa            String
-  anhSuCo         String[]
-  loaiSuCo        String    // dienNuoc | noiThat | vesinh | anNinh | khac
-  mucDoUuTien     String    @default("trungBinh")
-  trangThai       String    @default("moi") // moi | dangXuLy | daXong | daHuy
-  nguoiXuLyId     String?
-  nguoiXuLy       NguoiDung? @relation("NguoiXuLy", fields: [nguoiXuLyId], references: [id])
-  ghiChuXuLy      String?
-  ngayBaoCao      DateTime  @default(now())
-  ngayXuLy        DateTime?
-  ngayHoanThanh   DateTime?
-  ngayTao         DateTime  @default(now())
-  ngayCapNhat     DateTime  @updatedAt
+  id            String     @id @default(cuid())
+  phongId       String
+  phong         Phong      @relation(fields: [phongId], references: [id])
+  khachThueId   String
+  khachThue     KhachThue  @relation(fields: [khachThueId], references: [id])
+  tieuDe        String
+  moTa          String
+  anhSuCo       String[]
+  loaiSuCo      String // dienNuoc | noiThat | vesinh | anNinh | khac
+  mucDoUuTien   String     @default("trungBinh")
+  trangThai     String     @default("moi") // moi | dangXuLy | daXong | daHuy
+  nguoiXuLyId   String?
+  nguoiXuLy     NguoiDung? @relation("NguoiXuLy", fields: [nguoiXuLyId], references: [id])
+  ghiChuXuLy    String?
+  ngayBaoCao    DateTime   @default(now())
+  ngayXuLy      DateTime?
+  ngayHoanThanh DateTime?
+  ngayTao       DateTime   @default(now())
+  ngayCapNhat   DateTime   @updatedAt
 }
 
 model ThongBao {
-  id              String    @id @default(cuid())
-  tieuDe          String
-  noiDung         String
-  loai            String    @default("chung") // chung | hoaDon | suCo | hopDong | khac
-  nguoiGuiId      String
-  nguoiGui        NguoiDung @relation(fields: [nguoiGuiId], references: [id])
-  nguoiNhan       String[]  // array of NguoiDung/KhachThue IDs
-  daDoc           String[]  // array of IDs đã đọc
-  trangThaiXuLy   String    @default("chuaXuLy") // chuaXuLy | daXuLy | tuChoi | tamHoan
-  ngayGui         DateTime  @default(now())
-  ngayTao         DateTime  @default(now())
-  toaNhaId        String?
-  nhomChatIds     String[]  @default([]) // threadId nhóm Zalo gửi kèm
-  fileDinhKem     String[]  @default([]) // URL file/ảnh đính kèm
-  phong           ThongBaoPhong[]
+  id            String          @id @default(cuid())
+  tieuDe        String
+  noiDung       String
+  loai          String          @default("chung") // chung | hoaDon | suCo | hopDong | khac
+  nguoiGuiId    String
+  nguoiGui      NguoiDung       @relation(fields: [nguoiGuiId], references: [id])
+  nguoiNhan     String[] // array of NguoiDung/KhachThue IDs
+  daDoc         String[] // array of IDs đã đọc
+  trangThaiXuLy String          @default("chuaXuLy") // chuaXuLy | daXuLy | tuChoi | tamHoan
+  ngayGui       DateTime        @default(now())
+  ngayTao       DateTime        @default(now())
+  toaNhaId      String?
+  nhomChatIds   String[]        @default([]) // threadId nhóm Zalo gửi kèm
+  fileDinhKem   String[]        @default([]) // URL file/ảnh đính kèm
+  phong         ThongBaoPhong[]
 }
 
 model ThongBaoPhong {
-  thongBaoId  String
-  phongId     String
-  thongBao    ThongBao  @relation(fields: [thongBaoId], references: [id])
-  phong       Phong     @relation(fields: [phongId], references: [id])
+  thongBaoId String
+  phongId    String
+  thongBao   ThongBao @relation(fields: [thongBaoId], references: [id])
+  phong      Phong    @relation(fields: [phongId], references: [id])
 
   @@id([thongBaoId, phongId])
 }
@@ -338,14 +338,14 @@ model ThongBaoPhong {
 // Lịch sử tin nhắn Zalo Bot (webhook inbound + bot outbound)
 model ZaloMessage {
   id            String   @id @default(cuid())
-  chatId        String   // Zalo ID của người dùng (người gửi)
-  ownId         String?  // Zalo ID tài khoản nhận (bot account)
-  displayName   String?  // Tên hiển thị Zalo
-  content       String   // Nội dung tin nhắn (text)
-  attachmentUrl String?  // URL ảnh / file đính kèm đầu tiên
-  role          String   // 'user' | 'bot'
-  eventName     String?  // Loại event Zalo (e.g. "follow", "message")
-  rawPayload    Json?    // Payload gốc từ Zalo (để AI đọc sau)
+  chatId        String // Zalo ID của người dùng (người gửi)
+  ownId         String? // Zalo ID tài khoản nhận (bot account)
+  displayName   String? // Tên hiển thị Zalo
+  content       String // Nội dung tin nhắn (text)
+  attachmentUrl String? // URL ảnh / file đính kèm đầu tiên
+  role          String // 'user' | 'bot'
+  eventName     String? // Loại event Zalo (e.g. "follow", "message")
+  rawPayload    Json? // Payload gốc từ Zalo (để AI đọc sau)
   createdAt     DateTime @default(now())
 
   @@index([chatId, createdAt])
@@ -356,11 +356,11 @@ model ZaloMessage {
 // Cài đặt hệ thống — chỉ admin đọc/ghi qua UI
 model CaiDat {
   id          String   @id @default(cuid())
-  khoa        String   @unique  // key, e.g. "storage_provider"
-  giaTri      String?           // value (JSON string for complex values)
-  moTa        String?           // mô tả
+  khoa        String   @unique // key, e.g. "storage_provider"
+  giaTri      String? // value (JSON string for complex values)
+  moTa        String? // mô tả
   nhom        String   @default("chung") // chung | luuTru | thongBao | heThong | baoMat
-  laBiMat     Boolean  @default(false)   // true → che giá trị khi trả về client
+  laBiMat     Boolean  @default(false) // true → che giá trị khi trả về client
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
 }
@@ -370,8 +370,8 @@ model YeuCauThayDoi {
   id              String     @id @default(cuid())
   khachThueId     String
   khachThue       KhachThue  @relation(fields: [khachThueId], references: [id])
-  loai            String     // thongTin | anhCCCD | nguoiCungPhong | thongBao
-  noiDung         Json       // { truoc: {...}, sau: {...}, moTa: "..." }
+  loai            String // thongTin | anhCCCD | nguoiCungPhong | thongBao
+  noiDung         Json // { truoc: {...}, sau: {...}, moTa: "..." }
   trangThai       String     @default("choPheduyet") // choPheduyet | daPheduyet | tuChoi
   nguoiPheDuyetId String?
   nguoiPheDuyet   NguoiDung? @relation(fields: [nguoiPheDuyetId], references: [id])
@@ -382,58 +382,58 @@ model YeuCauThayDoi {
 
 // Thread ID Zalo của đồng chủ trọ — mỗi threadId có 1 bảng cài đặt thông báo riêng
 model ZaloDongChuTroThread {
-  id          String    @id @default(cuid())
-  nguoiDungId String
-  nguoiDung   NguoiDung @relation(fields: [nguoiDungId], references: [id], onDelete: Cascade)
-  toaNhaId    String
-  toaNha      ToaNha    @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
-  threadId    String    // Zalo thread/group ID
-  ten         String?   // Nhãn hiển thị (tùy chọn)
-  loai        String    @default("user") // "user" | "group"
+  id           String    @id @default(cuid())
+  nguoiDungId  String
+  nguoiDung    NguoiDung @relation(fields: [nguoiDungId], references: [id], onDelete: Cascade)
+  toaNhaId     String
+  toaNha       ToaNha    @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
+  threadId     String // Zalo thread/group ID
+  ten          String? // Nhãn hiển thị (tùy chọn)
+  loai         String    @default("user") // "user" | "group"
   // Cài đặt thông báo cho thread này
-  nhanSuCo     Boolean @default(true)
-  nhanHoaDon   Boolean @default(true)
-  nhanTinKhach Boolean @default(true)
-  nhanNguoiLa  Boolean @default(true)
-  nhanNhacNho  Boolean @default(true)
-  ngayTao     DateTime  @default(now())
-  ngayCapNhat DateTime  @updatedAt
+  nhanSuCo     Boolean   @default(true)
+  nhanHoaDon   Boolean   @default(true)
+  nhanTinKhach Boolean   @default(true)
+  nhanNguoiLa  Boolean   @default(true)
+  nhanNhacNho  Boolean   @default(true)
+  ngayTao      DateTime  @default(now())
+  ngayCapNhat  DateTime  @updatedAt
 
   @@unique([nguoiDungId, toaNhaId, threadId])
 }
 
 // Cài đặt per tòa nhà: Home Assistant + lưu trữ — do admin quản lý
 model CaiDatToaNha {
-  id          String   @id @default(cuid())
-  toaNhaId    String   @unique
-  toaNha      ToaNha   @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  toaNhaId String @unique
+  toaNha   ToaNha @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
 
   // Home Assistant
-  haUrl            String?  // URL domain/IP của Home Assistant (e.g. https://ha.myhouse.com)
-  haToken          String?  // Long-lived access token
-  haWebhookUrl     String?  // URL webhook để HA gửi thông báo về app (hoặc app gửi đến HA)
-  haAllowedThreads String?  // JSON array: [{threadId, type}] — lọc thread được chuyển tiếp đến HA
+  haUrl            String? // URL domain/IP của Home Assistant (e.g. https://ha.myhouse.com)
+  haToken          String? // Long-lived access token
+  haWebhookUrl     String? // URL webhook để HA gửi thông báo về app (hoặc app gửi đến HA)
+  haAllowedThreads String? // JSON array: [{threadId, type}] — lọc thread được chuyển tiếp đến HA
 
   // Lưu trữ ảnh
-  storageProvider  String  @default("local") // local | minio | cloudinary | both
-  minioEndpoint    String?
-  minioAccessKey   String?
-  minioSecretKey   String?
-  minioBucket      String?
-  cloudinaryCloudName   String?
-  cloudinaryApiKey      String?
-  cloudinaryApiSecret   String?
-  cloudinaryPreset      String?
-  uploadMaxSizeMb  Int     @default(10)
+  storageProvider     String  @default("local") // local | minio | cloudinary | both
+  minioEndpoint       String?
+  minioAccessKey      String?
+  minioSecretKey      String?
+  minioBucket         String?
+  cloudinaryCloudName String?
+  cloudinaryApiKey    String?
+  cloudinaryApiSecret String?
+  cloudinaryPreset    String?
+  uploadMaxSizeMb     Int     @default(10)
 
   // Giới hạn vai trò theo tòa nhà — JSON: {"dongChuTro":2,"quanLy":3,"nhanVien":5}
   // null = dùng giới hạn chung (global)
-  roleLimits       String?
+  roleLimits String?
 
   // Văn mẫu Zalo tùy chỉnh — JSON: { friendMsgKT?, friendMsgQL?, followUpMsgKT?, followUpMsgQL? }
   // Hỗ trợ biến: {ten}, {tenToaNha}, {diaChiNgan}, {diaChiDay}, {phong}, {soNha}, {duong}
   // null = dùng văn mẫu mặc định
-  zaloVanMau       String?
+  zaloVanMau String?
 
   // Quyền sử dụng tính năng Zalo per role per tòa nhà
   // JSON: { admin: { chuNha: {...}, dongChuTro: {...}, quanLy: {...}, nhanVien: {...} }, chuNha: { dongChuTro: {...}, quanLy: {...}, nhanVien: {...} } }
@@ -446,9 +446,9 @@ model CaiDatToaNha {
   // adminBatDangNhapKT = true: admin cho phép tính năng đăng nhập KT ở tòa nhà này
   // Khi admin bật → chủ trọ mới thấy và có quyền bật/tắt (chuTroBatDangNhapKT)
   // Khi admin tắt → tất cả khách thuê tòa nhà này không thể đăng nhập web
-  adminBatDangNhapKT   Boolean @default(false) // Admin cho phép tính năng đăng nhập KT
-  gioiHanDangNhapKT    Int?                    // Giới hạn số khách thuê được bật đăng nhập (null = không giới hạn)
-  chuTroBatDangNhapKT  Boolean @default(true)  // Chủ trọ tắt thêm nếu muốn (mặc định cho phép khi admin bật)
+  adminBatDangNhapKT  Boolean @default(false) // Admin cho phép tính năng đăng nhập KT
+  gioiHanDangNhapKT   Int? // Giới hạn số khách thuê được bật đăng nhập (null = không giới hạn)
+  chuTroBatDangNhapKT Boolean @default(true) // Chủ trọ tắt thêm nếu muốn (mặc định cho phép khi admin bật)
 
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
@@ -461,30 +461,30 @@ model CaiDatChuNha {
   nguoiDung   NguoiDung @relation(fields: [nguoiDungId], references: [id], onDelete: Cascade)
 
   // Thanh toán
-  nganHangTen          String?
-  nganHangSoTaiKhoan   String?
-  nganHangChuTaiKhoan  String?
+  nganHangTen         String?
+  nganHangSoTaiKhoan  String?
+  nganHangChuTaiKhoan String?
 
   // Cảnh báo & nhắc nhở (số ngày/giờ)
-  thongBaoTruocHanHopDong  Int  @default(30)
-  thongBaoQuaHanHoaDon     Int  @default(3)
-  hoaDonCanhBaoLan1        Int  @default(3)
-  hoaDonCanhBaoLan2        Int  @default(7)
-  hoaDonCanhBaoLan3        Int  @default(14)
-  hopDongCanhBaoLan1       Int  @default(30)
-  hopDongCanhBaoLan2       Int  @default(15)
-  hopDongCanhBaoLan3       Int  @default(7)
-  chotChiSoNgayTrongThang  Int  @default(1)
-  chotChiSoTruocNgay       Int  @default(5)
-  suCoChuaNhanGio          Int  @default(24)
-  suCoChuaXuLyGio          Int  @default(72)
+  thongBaoTruocHanHopDong Int @default(30)
+  thongBaoQuaHanHoaDon    Int @default(3)
+  hoaDonCanhBaoLan1       Int @default(3)
+  hoaDonCanhBaoLan2       Int @default(7)
+  hoaDonCanhBaoLan3       Int @default(14)
+  hopDongCanhBaoLan1      Int @default(30)
+  hopDongCanhBaoLan2      Int @default(15)
+  hopDongCanhBaoLan3      Int @default(7)
+  chotChiSoNgayTrongThang Int @default(1)
+  chotChiSoTruocNgay      Int @default(5)
+  suCoChuaNhanGio         Int @default(24)
+  suCoChuaXuLyGio         Int @default(72)
 
   // Hệ thống
   tenCongTy    String?
   emailLienHe  String?
   sdtLienHe    String?
   diaChiCongTy String?
-  appDomainUrl String?  // Domain công khai của chủ trọ
+  appDomainUrl String? // Domain công khai của chủ trọ
 
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
@@ -493,14 +493,14 @@ model CaiDatChuNha {
 // Danh sách bạn bè Zalo theo từng tài khoản bot
 // Được sync khi bot server đăng nhập + khi cần kiểm tra bạn bè real-time
 model ZaloBanBe {
-  id              String   @id @default(cuid())
-  zaloAccountId   String   // ID tài khoản bot (ownId)
-  friendUserId    String   // ID bạn bè trên Zalo
-  displayName     String?  // Tên hiển thị
-  zaloName        String?  // Tên Zalo
-  phone           String?  // SĐT (nếu có)
-  ngayTao         DateTime @default(now())
-  ngayCapNhat     DateTime @updatedAt
+  id            String   @id @default(cuid())
+  zaloAccountId String // ID tài khoản bot (ownId)
+  friendUserId  String // ID bạn bè trên Zalo
+  displayName   String? // Tên hiển thị
+  zaloName      String? // Tên Zalo
+  phone         String? // SĐT (nếu có)
+  ngayTao       DateTime @default(now())
+  ngayCapNhat   DateTime @updatedAt
 
   @@unique([zaloAccountId, friendUserId])
   @@index([friendUserId])
@@ -509,14 +509,14 @@ model ZaloBanBe {
 
 // Danh bạ ngoài — liên hệ thêm thủ công bởi user (không có trong hệ thống)
 model DanhBaNgoai {
-  id            String   @id @default(cuid())
-  ten           String
-  soDienThoai   String?
-  threadId      String?
-  nguoiTaoId    String
-  nguoiTao      NguoiDung @relation(fields: [nguoiTaoId], references: [id])
-  ngayTao       DateTime @default(now())
-  ngayCapNhat   DateTime @updatedAt
+  id          String    @id @default(cuid())
+  ten         String
+  soDienThoai String?
+  threadId    String?
+  nguoiTaoId  String
+  nguoiTao    NguoiDung @relation(fields: [nguoiTaoId], references: [id])
+  ngayTao     DateTime  @default(now())
+  ngayCapNhat DateTime  @updatedAt
 
   @@index([nguoiTaoId])
 }
@@ -524,12 +524,12 @@ model DanhBaNgoai {
 // Danh sách endpoint của Zalo Bot Server — seed từ code, proxy dùng làm whitelist
 model ZaloBotApi {
   id             String   @id @default(cuid())
-  endpoint       String   @unique  // e.g. "/api/sendMessageByAccount"
+  endpoint       String   @unique // e.g. "/api/sendMessageByAccount"
   method         String   @default("POST")
-  nhom           String   // auth | zalo_direct | by_account | friend | group | message | board | conversation | account | webhook
-  tenNhom        String   // tên nhóm hiển thị
+  nhom           String // auth | zalo_direct | by_account | friend | group | message | board | conversation | account | webhook
+  tenNhom        String // tên nhóm hiển thị
   moTa           String?
-  defaultPayload String?  // JSON template mặc định
+  defaultPayload String? // JSON template mặc định
   thuTu          Int      @default(0)
   ngayTao        DateTime @default(now())
 }
