@@ -273,11 +273,13 @@ function msgSenderUid(msg: ZaloMsg): string {
 
 function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string) => void }) {
   const isBot = msg.role === 'bot';
-  const isOwner = msg.role === 'owner'; // Tin nhắn gửi từ Monitor (chủ tài khoản)
-  const isRight = isOwner; // Hiển thị bên phải nếu là chủ tài khoản
+  const isOwner = msg.role === 'owner';
+  // outgoing = tin nhắn CỦA TA (bot auto-reply hoặc chủ tài khoản gửi)
+  // incoming = tin nhắn CỦA KHÁCH (tenant gửi vào)
+  const isOutgoing = isBot || isOwner;
   const group = isGroup(msg);
-  const groupSender = group && !isBot && !isOwner ? msgSenderInGroup(msg) : '';
-  const groupSenderUid = group && !isBot && !isOwner ? msgSenderUid(msg) : '';
+  const groupSender = group && !isOutgoing ? msgSenderInGroup(msg) : '';
+  const groupSenderUid = group && !isOutgoing ? msgSenderUid(msg) : '';
   const mediaUrl = getMediaUrl(msg);
   const image = isImageMsg(msg);
   const video = isVideoMsg(msg);
@@ -289,33 +291,49 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
     && !isRawJsonContent(msg.content)
     && !(typeof msg.content === 'string' && msg.content.startsWith('[reaction:'));
 
+  // Màu bubble:
+  // - Bot auto-reply (outgoing)  → xanh lam  (bg-blue-500)
+  // - Owner gửi tay (outgoing)   → tím indigo (bg-indigo-500)
+  // - Khách thuê (incoming)      → xám       (bg-gray-100)
+  const bubbleColor = isOwner
+    ? 'bg-indigo-500 text-white rounded-br-sm'
+    : isBot
+      ? 'bg-blue-500 text-white rounded-br-sm'
+      : 'bg-gray-100 text-gray-800 rounded-bl-sm';
+
+  const timestampColor = isOutgoing ? 'text-white/70' : 'text-gray-400';
+  const fallbackTextColor = isOutgoing ? 'text-white/70' : 'text-gray-500';
+  const mediaOverlayColor = isOutgoing ? 'bg-white/20 hover:bg-white/30' : 'bg-black/5 hover:bg-black/10';
+
   return (
-    <div className={`flex items-end gap-1.5 group ${(isBot && !isOwner) ? 'flex-row' : 'flex-row-reverse'}`}>
+    <div className={`flex items-end gap-1.5 group ${isOutgoing ? 'flex-row-reverse' : 'flex-row'}`}>
       {/* avatar */}
       <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mb-0.5 ${
-        isBot ? 'bg-gray-200' : isOwner ? 'bg-indigo-100' : group ? 'bg-purple-100' : 'bg-blue-100'
+        isOwner ? 'bg-indigo-100' : isBot ? 'bg-blue-100' : group ? 'bg-purple-100' : 'bg-gray-200'
       }`}>
-        {isBot ? <Bot className="h-3.5 w-3.5 text-gray-500" /> 
-         : isOwner ? <Shield className="h-3.5 w-3.5 text-indigo-600" />
-         : group ? <Users className="h-3.5 w-3.5 text-purple-600" /> 
-         : <User className="h-3.5 w-3.5 text-blue-600" />}
+        {isOwner ? <Shield className="h-3.5 w-3.5 text-indigo-600" />
+         : isBot  ? <Bot className="h-3.5 w-3.5 text-blue-500" />
+         : group  ? <Users className="h-3.5 w-3.5 text-purple-600" />
+                  : <User className="h-3.5 w-3.5 text-gray-500" />}
       </div>
 
-      {/* bubble wrapper — includes optional sender name for group messages */}
-      <div className={`flex flex-col max-w-[72%] ${isBot ? 'items-start' : 'items-end'}`}>
+      {/* bubble wrapper */}
+      <div className={`flex flex-col max-w-[72%] ${isOutgoing ? 'items-end' : 'items-start'}`}>
         {groupSender && (
-          <div className={`flex flex-col mb-0.5 px-1 ${isBot ? 'items-start' : 'items-end'}`}>
+          <div className={`flex flex-col mb-0.5 px-1 ${isOutgoing ? 'items-end' : 'items-start'}`}>
             <span className="text-[10px] text-purple-600 font-medium">{groupSender}</span>
             {groupSenderUid && (
               <span className="text-[9px] text-gray-400 font-mono">{groupSenderUid}</span>
             )}
           </div>
         )}
-        <div className={`rounded-2xl px-3 py-2 text-sm relative ${
-          isBot ? 'bg-gray-100 text-gray-800 rounded-bl-sm' 
-          : isOwner ? 'bg-indigo-500 text-white rounded-br-sm'
-          : 'bg-blue-500 text-white rounded-br-sm'
-        }`}>
+        {/* label nhỏ phân biệt bot vs owner */}
+        {isOutgoing && (
+          <span className={`text-[9px] mb-0.5 px-1 ${isOwner ? 'text-indigo-400' : 'text-blue-400'}`}>
+            {isOwner ? '🛡️ Bạn' : '🤖 Bot'}
+          </span>
+        )}
+        <div className={`rounded-2xl px-3 py-2 text-sm relative ${bubbleColor}`}>
           {/* Ảnh */}
           {image && mediaUrl && (
             <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="block mb-1">
@@ -330,7 +348,7 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
             </a>
           )}
           {image && mediaUrl && (
-            <span className={`img-fallback text-xs italic ${isBot ? 'text-gray-500' : 'text-blue-100'}`} style={{ display: 'none' }}>
+            <span className={`img-fallback text-xs italic ${fallbackTextColor}`} style={{ display: 'none' }}>
               📷 Hình ảnh (đã hết hạn, click để mở)
             </span>
           )}
@@ -347,9 +365,7 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
           {/* File */}
           {file && mediaUrl && (
             <a href={mediaUrl} target="_blank" rel="noopener noreferrer"
-              className={`flex items-center gap-2 mb-1 p-2 rounded-lg transition ${
-                isBot ? 'bg-white/60 hover:bg-white/80' : 'bg-white/20 hover:bg-white/30'
-              }`}>
+              className={`flex items-center gap-2 mb-1 p-2 rounded-lg transition ${mediaOverlayColor}`}>
               <FileText className="h-5 w-5 shrink-0" />
               <div className="min-w-0">
                 <span className="text-xs font-medium truncate block">{fileName || 'File'}</span>
@@ -361,9 +377,7 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
           {/* Đính kèm không xác định loại */}
           {!image && !video && !file && mediaUrl && (
             <a href={mediaUrl} target="_blank" rel="noopener noreferrer"
-              className={`flex items-center gap-2 mb-1 p-2 rounded-lg transition ${
-                isBot ? 'bg-white/60 hover:bg-white/80' : 'bg-white/20 hover:bg-white/30'
-              }`}>
+              className={`flex items-center gap-2 mb-1 p-2 rounded-lg transition ${mediaOverlayColor}`}>
               <Paperclip className="h-4 w-4 shrink-0" />
               <span className="text-xs truncate">{fileName || 'Đính kèm'}</span>
             </a>
@@ -374,9 +388,9 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
             <span className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</span>
           )}
 
-          {/* Fallback: không có ảnh/file/text → hiện placeholder để bubble không trống */}
+          {/* Fallback */}
           {!hasTextContent && !image && !video && !file && !mediaUrl && (
-            <span className={`text-xs italic ${isBot ? 'text-gray-500' : 'text-blue-100'}`}>
+            <span className={`text-xs italic ${fallbackTextColor}`}>
               {msg.content === '[hình ảnh]' || (typeof msg.content === 'string' && msg.content.startsWith('{'))
                 ? '📷 Hình ảnh (không tải được)'
                 : msg.content === '[sticker]' ? '🎨 Sticker'
@@ -386,7 +400,7 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
             </span>
           )}
 
-          <span className={`block text-[10px] mt-0.5 ${isBot ? 'text-gray-400' : 'text-blue-100'}`}>
+          <span className={`block text-[10px] mt-0.5 ${timestampColor}`}>
             {formatTime(msg.createdAt)}
           </span>
         </div>
