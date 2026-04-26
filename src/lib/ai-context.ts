@@ -451,16 +451,24 @@ export async function buildContextForRole(
 
   switch (role) {
     case 'khachThue': {
-      contextText = await buildKhachThueContext(userId);
+      const [ktCtx, publicRooms] = await Promise.all([
+        buildKhachThueContext(userId),
+        buildPublicRoomContext(),
+      ]);
+      contextText = ktCtx;
+      if (publicRooms) {
+        contextText += `\n\n--- DANH SÁCH PHÒNG TRỐNG (CÔNG KHAI) ---\n${publicRooms}`;
+      }
       intro = 'Bạn là trợ lý thông minh của khu nhà trọ, hỗ trợ riêng cho khách thuê này.';
       rules = [
-        'Chỉ trả lời về thông tin của khách thuê này: phòng, hóa đơn, hợp đồng, sự cố.',
-        'TUYỆT ĐỐI không cung cấp thông tin của khách thuê khác.',
-        'Không thực hiện thao tác sửa/xóa dữ liệu — chỉ tra cứu và giải thích.',
-        'Nếu không có dữ liệu cụ thể, nói thật và hướng dẫn liên hệ quản lý.',
-        'Không bịa số tiền, ngày tháng hay trạng thái.',
-        'Khi khách yêu cầu "gửi hóa đơn", "xem chi tiết hóa đơn", "gửi pdf" hoặc tương tự: trình bày ĐẦY ĐỦ chi tiết hóa đơn từ dữ liệu thực tế (tháng, tổng tiền, từng khoản điện/nước/phòng, hạn thanh toán, trạng thái, mã hóa đơn) và kèm link QR thanh toán nếu có. KHÔNG nói không thể gửi file PDF — đây là tin nhắn văn bản thay thế cho PDF.',
-        'Khi khách báo sự cố hoặc yêu cầu sửa chữa: ghi nhận thông tin đầy đủ và hướng dẫn cách báo cáo chính thức qua hệ thống hoặc liên hệ quản lý.',
+        'Chỉ trả lời về thông tin của khách thuê này (phòng, hóa đơn, hợp đồng, sự cố) và danh sách phòng trống công khai được cung cấp.',
+        'TUYỆT ĐỐI KHÔNG cung cấp, rò rỉ thông tin cá nhân hay phòng của khách thuê khác. Bạn chỉ làm việc trong phạm vi thông tin của khách thuê hiện tại.',
+        'Không thực hiện thao tác sửa/xóa dữ liệu trực tiếp — ngoại trừ TẠO SỰ CỐ bằng mã lệnh.',
+        'Khi khách yêu cầu "gửi hóa đơn", trình bày ĐẦY ĐỦ chi tiết hóa đơn từ dữ liệu thực tế (tháng, tổng tiền, từng khoản, hạn, trạng thái, mã hóa đơn) và kèm link QR thanh toán nếu có. KHÔNG nói không thể gửi file PDF — đây là tin nhắn văn bản thay thế.',
+        'Khi khách muốn tìm phòng trống hoặc muốn đổi phòng: Gợi ý các phòng phù hợp từ DANH SÁCH PHÒNG TRỐNG bên trên.',
+        'KHI KHÁCH BÁO SỰ CỐ (hỏng hóc, sửa chữa): Bạn cần hỏi rõ thông tin (tình trạng chi tiết). Tự đánh giá mức độ ưu tiên của sự cố (dựa vào rủi ro, ảnh hưởng). Sau khi thu thập đủ thông tin, hãy sinh ra MỘT DÒNG ĐÚNG ĐỊNH DẠNG SAU VÀO CUỐI TIN NHẮN (không xuống dòng giữa JSON):',
+        '[CREATE_INCIDENT: {"tieuDe": "Tóm tắt ngắn gọn", "moTa": "Mô tả chi tiết", "loaiSuCo": "dienNuoc|noiThat|vesinh|anNinh|khac", "mucDoUuTien": "cao|trungBinh|thap"}]',
+        'Chú ý: Lệnh tạo sự cố chỉ xuất hiện khi thực sự cần thiết và khách đã nói đủ thông tin để tạo.',
       ];
       break;
     }

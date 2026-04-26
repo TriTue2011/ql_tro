@@ -223,7 +223,15 @@ async function findKhachThueByZaloChatId(chatId: string) {
   try {
     return await prisma.khachThue.findFirst({
       where: { zaloChatId: chatId },
-      select: { id: true, hoTen: true },
+      select: {
+        id: true,
+        hoTen: true,
+        hopDong: {
+          where: { trangThai: 'hoatDong' },
+          select: { phongId: true },
+          take: 1
+        }
+      },
     });
   } catch {
     return null;
@@ -418,9 +426,45 @@ async function handleRegisteredTenant(
   }
 
   if (aiReply) {
-    await sendReply(token, chatId, aiReply, accountSelection);
+    // Xử lý chặn mã lệnh CREATE_INCIDENT (dùng [\s\S] thay cho cờ s để tương thích với ES cũ)
+    const incidentRegex = /\[CREATE_INCIDENT:\s*({[\s\S]*?})\s*\]/;
+    const match = aiReply.match(incidentRegex);
+    let finalReply = aiReply;
+
+    if (match && match[1]) {
+      try {
+        const incidentData = JSON.parse(match[1]);
+        const phongId = kt.hopDong[0]?.phongId;
+        
+        if (phongId && incidentData.tieuDe) {
+          // Tạo sự cố tự động
+          await prisma.suCo.create({
+            data: {
+              tieuDe: incidentData.tieuDe,
+              moTa: incidentData.moTa || 'Báo cáo từ Zalo AI',
+              loaiSuCo: incidentData.loaiSuCo || 'khac',
+              mucDoUuTien: incidentData.mucDoUuTien || 'trungBinh',
+              trangThai: 'moi',
+              phongId,
+              khachThueId: kt.id,
+            }
+          });
+          
+          // Xóa đoạn mã JSON khỏi tin nhắn gửi đi và thêm dòng xác nhận
+          finalReply = aiReply.replace(incidentRegex, '').trim();
+          finalReply += '\n\n✅ Đã tự động tạo sự cố trên hệ thống thành công. Quản lý sẽ sớm kiểm tra và hỗ trợ bạn!';
+        } else {
+          finalReply = aiReply.replace(incidentRegex, '').trim();
+        }
+      } catch (e) {
+        console.error('[zalo-handler] Error parsing CREATE_INCIDENT JSON:', e);
+        finalReply = aiReply.replace(incidentRegex, '').trim();
+      }
+    }
+
+    await sendReply(token, chatId, finalReply, accountSelection);
     await prisma.zaloMessage.create({
-      data: { chatId, content: aiReply, role: 'bot', eventName: 'bot_reply', rawPayload: {} },
+      data: { chatId, content: finalReply, role: 'bot', eventName: 'bot_reply', rawPayload: {} },
     }).catch(() => {});
     return true;
   }
