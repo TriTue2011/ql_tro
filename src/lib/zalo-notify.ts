@@ -108,7 +108,7 @@ interface InvoiceForMessage {
   daThanhToan: number;
   conLai: number;
   hanThanhToan: Date;
-  phong: { maPhong: string };
+  phong: { maPhong: string; tang?: number };
   khachThue?: { hoTen: string } | null;
 }
 
@@ -125,9 +125,10 @@ function buildInvoiceMessage(hd: InvoiceForMessage, fallbackKhachThueName?: stri
     ? `Hạn thanh toán: ${hanTT}\n✅ Đã thanh toán đầy đủ. Cảm ơn bạn!`
     : `Hạn thanh toán: ${hanTT}\nVui lòng thanh toán đúng hạn.`;
 
+  const tangInfo = hd.phong.tang && hd.phong.tang > 0 ? ` (Tầng ${hd.phong.tang})` : '';
   return `THÔNG BÁO TIỀN PHÒNG THÁNG ${hd.thang}/${hd.nam}
 ━━━━━━━━━━━━━━━━━━━━
-Phòng: ${hd.phong.maPhong}
+Phòng: ${hd.phong.maPhong}${tangInfo}
 Khách thuê: ${hd.khachThue?.hoTen ?? fallbackKhachThueName ?? ''}
 ━━━━━━━━━━━━━━━━━━━━
 Tiền phòng: ${fmtVND(hd.tienPhong)}
@@ -580,7 +581,7 @@ export async function notifyIncidentGhiNhan(suCoId: string): Promise<void> {
       where: { id: suCoId },
       select: {
         tieuDe: true, moTa: true, phongId: true,
-        phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
+        phong: { select: { maPhong: true, tang: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
         khachThue: { select: { hoTen: true, zaloChatId: true } },
       },
     });
@@ -594,10 +595,12 @@ export async function notifyIncidentGhiNhan(suCoId: string): Promise<void> {
       return;
     }
 
+    const tangInfo = sc.phong.tang && sc.phong.tang > 0 ? ` — Tầng ${sc.phong.tang}` : '';
     const msg = [
       `📋 ĐÃ GHI NHẬN SỰ CỐ`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
-      `🏠 Phòng: ${sc.phong.maPhong} — ${sc.phong.toaNha.tenToaNha}`,
+      `🏠 Phòng: ${sc.phong.maPhong}${tangInfo} — ${sc.phong.toaNha.tenToaNha}`,
+      `👤 Khách thuê: ${sc.khachThue?.hoTen ?? '—'}`,
       `📌 Sự cố: ${sc.tieuDe}`,
       `📝 Mô tả: ${sc.moTa}`,
       ``,
@@ -628,10 +631,11 @@ export async function notifyNewIncident(suCoId: string): Promise<void> {
     const mucDo: Record<string, string> = { thap: '🟢 Thấp', trungBinh: '🟡 Trung bình', cao: '🔴 Cao', khancap: '🆘 Khẩn cấp' };
     const loai: Record<string, string> = { dienNuoc: '💡 Điện/Nước', noiThat: '🪑 Nội thất', vesinh: '🚿 Vệ sinh', anNinh: '🔒 An ninh', khac: '📋 Khác' };
 
+    const tangInfo = sc.phong.tang && sc.phong.tang > 0 ? ` — Tầng ${sc.phong.tang}` : '';
     const msg = [
       `🚨 SỰ CỐ MỚI`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
-      `🏠 Phòng: ${sc.phong.maPhong} — ${sc.phong.toaNha.tenToaNha}`,
+      `🏠 Phòng: ${sc.phong.maPhong}${tangInfo} — ${sc.phong.toaNha.tenToaNha}`,
       `👤 Khách thuê: ${sc.khachThue?.hoTen ?? '—'} (${sc.khachThue?.soDienThoai ?? ''})`,
       `📌 Tiêu đề: ${sc.tieuDe}`,
       `📝 Mô tả: ${sc.moTa}`,
@@ -698,8 +702,8 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string, gh
     const sc = await prisma.suCo.findUnique({
       where: { id: suCoId },
       select: {
-        tieuDe: true, ghiChuXuLy: true, anhSuCo: true, phongId: true,
-        phong: { select: { maPhong: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
+        tieuDe: true, moTa: true, ghiChuXuLy: true, anhSuCo: true, phongId: true,
+        phong: { select: { maPhong: true, tang: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } } },
         khachThue: { select: { hoTen: true, zaloChatId: true } },
         nguoiXuLy: { select: { ten: true } },
       },
@@ -715,6 +719,7 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string, gh
 
     const ghiChu = ghiChuXuLy ?? sc.ghiChuXuLy ?? '';
     const toaNhaId = sc.phong.toaNhaId;
+    const tangInfo = sc.phong.tang && sc.phong.tang > 0 ? ` — Tầng ${sc.phong.tang}` : '';
 
     const headerMap: Record<string, string> = {
       dangXuLy: `🔧 ĐÃ TIẾP NHẬN VÀ ĐANG XỬ LÝ SỰ CỐ`,
@@ -725,8 +730,10 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string, gh
     const lines = [
       headerMap[newStatus],
       `━━━━━━━━━━━━━━━━━━━━━━`,
-      `🏠 Phòng: ${sc.phong.maPhong} — ${sc.phong.toaNha.tenToaNha}`,
+      `🏠 Phòng: ${sc.phong.maPhong}${tangInfo} — ${sc.phong.toaNha.tenToaNha}`,
+      `👤 Khách thuê: ${sc.khachThue?.hoTen ?? '—'}`,
       `📌 Sự cố: ${sc.tieuDe}`,
+      `📝 Mô tả: ${sc.moTa ?? ''}`,
       sc.nguoiXuLy ? `👷 Người xử lý: ${sc.nguoiXuLy.ten}` : '',
       ghiChu ? (newStatus === 'daHuy' ? `📝 Lý do: ${ghiChu}` : `📝 Ghi chú: ${ghiChu}`) : '',
     ].filter(Boolean);
