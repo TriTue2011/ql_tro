@@ -103,8 +103,21 @@ async function getNguoiDungInfo(nguoiDungIdOrToken: string) {
 
 async function saveMessage(update: any): Promise<void> {
   try {
-    const { chatId, ownId, displayName, content, eventName, attachmentUrl } = normalizeWebhookPayload(update);
-    if (!chatId) return;
+    const { chatId: rawChatId, ownId, displayName, content, eventName, attachmentUrl } = normalizeWebhookPayload(update);
+    if (!rawChatId) return;
+
+    const data = update?.data;
+
+    // Khi bot gửi tin nhắn ra (direct mode), Zalo gửi webhook với uidFrom = bot's own ID.
+    // Cần swap chatId sang idTo (tenant) để lưu đúng thread trong Monitor.
+    const isBotOwnMessage = ownId && rawChatId === ownId;
+    const chatId = isBotOwnMessage
+      ? (data?.idTo ? String(data.idTo) :
+         data?.toId ? String(data.toId) :
+         update?.idTo ? String(update.idTo) :
+         update?.toId ? String(update.toId) : rawChatId)
+      : rawChatId;
+    const role = isBotOwnMessage ? 'owner' : 'user';
 
     const saved = await prisma.zaloMessage.create({
       data: {
@@ -113,7 +126,7 @@ async function saveMessage(update: any): Promise<void> {
         displayName: displayName || null,
         content,
         attachmentUrl,
-        role: 'user',
+        role,
         eventName: typeof eventName === 'string' ? eventName : String(eventName),
         rawPayload: update as any,
       },

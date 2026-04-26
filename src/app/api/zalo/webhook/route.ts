@@ -149,16 +149,27 @@ function normalizeWebhookPayload(update: any): {
 
 async function saveMessage(update: any): Promise<void> {
   try {
-    const { chatId, ownId, displayName, content, eventName, attachmentUrl } = normalizeWebhookPayload(update);
+    const { chatId: rawChatId, ownId, displayName, content, eventName, attachmentUrl } = normalizeWebhookPayload(update);
+    const data = update?.data;
 
-    if (!chatId) {
+    if (!rawChatId) {
       console.warn('[zalo/webhook] Không tìm thấy chatId, raw:', JSON.stringify(update).slice(0, 300));
       return;
     }
 
-    const eventName_compat = eventName; // alias for log below
+    // Khi bot gửi tin nhắn ra (direct mode), Zalo gửi webhook với uidFrom = bot's own ID.
+    // Cần swap chatId sang idTo (đới tượng nhận) để lưu đúng thread.
+    const isBotOwnMessage = ownId && rawChatId === ownId;
+    const chatId = isBotOwnMessage
+      ? (data?.idTo ? String(data.idTo) :
+         data?.toId ? String(data.toId) :
+         update?.idTo ? String(update.idTo) :
+         update?.toId ? String(update.toId) : rawChatId)
+      : rawChatId;
+    const role = isBotOwnMessage ? 'owner' : 'user';
 
-    console.log(`[zalo/webhook] chatId=${chatId} event=${eventName_compat} content="${content.slice(0,50)}"`);
+    const eventName_compat = eventName;
+    console.log(`[zalo/webhook] chatId=${chatId} role=${role} event=${eventName_compat} content="${content.slice(0,50)}"`);
 
     const saved = await prisma.zaloMessage.create({
       data: {
@@ -167,7 +178,7 @@ async function saveMessage(update: any): Promise<void> {
         displayName: displayName || null,
         content,
         attachmentUrl,
-        role: 'user',
+        role,
         eventName: eventName_compat,
         rawPayload: update as any,
       },
