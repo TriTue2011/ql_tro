@@ -307,16 +307,20 @@ export async function notifyNewInvoice(hoaDonId: string): Promise<void> {
     const nguoiNhan = hd.hopDong?.nguoiDaiDien;
     if (!nguoiNhan?.nhanThongBaoZalo || !nguoiNhan.zaloChatId) return;
 
-    const qrUrl = await buildQrUrl(hd);
     const chatId = nguoiNhan.zaloChatId;
     const toaNhaId = hd.phong.toaNhaId;
 
     const message = buildInvoiceMessage(hd, nguoiNhan.hoTen);
 
-    if (qrUrl && hd.conLai > 0) {
-      // Còn nợ → gửi QR kèm caption là toàn bộ thông báo tiền phòng
-      await sendQrImage(chatId, qrUrl, toaNhaId, `${message}\n\n📲 Quét QR để thanh toán`)
-        .catch(e => console.error('[zalo-notify] sendQrImage error:', e));
+    if (hd.conLai > 0) {
+      const qrUrl = await buildQrUrl(hd);
+      if (qrUrl) {
+        // Còn nợ → gửi QR kèm caption là toàn bộ thông báo tiền phòng
+        await sendQrImage(chatId, qrUrl, toaNhaId, `${message}\n\n📲 Quét QR để thanh toán`)
+          .catch(e => console.error('[zalo-notify] sendQrImage error:', e));
+      } else {
+        await sendZalo(chatId, message, toaNhaId);
+      }
     } else {
       // Đã thanh toán đầy đủ → gửi text
       await sendZalo(chatId, message, toaNhaId);
@@ -517,10 +521,14 @@ export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanh
     // "✅ Đã thanh toán đầy đủ" khi conLai <= 0
     const message = buildInvoiceMessage(hd, nguoiNhan.hoTen);
     
-    const qrUrl = await buildQrUrl(hd);
-    if (qrUrl && hd.conLai > 0) {
-      await sendQrImage(chatId, qrUrl, toaNhaId, `${message}\n\n📲 Quét QR để thanh toán`)
-        .catch(e => console.error('[zalo-notify] sendQrImage error:', e));
+    if (hd.conLai > 0) {
+      const qrUrl = await buildQrUrl(hd);
+      if (qrUrl) {
+        await sendQrImage(chatId, qrUrl, toaNhaId, `${message}\n\n📲 Quét QR để thanh toán`)
+          .catch(e => console.error('[zalo-notify] sendQrImage error:', e));
+      } else {
+        await sendZalo(chatId, message, toaNhaId);
+      }
     } else {
       await sendZalo(chatId, message, toaNhaId);
     }

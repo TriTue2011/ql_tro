@@ -50,6 +50,7 @@ interface UserProfile {
   trangThai: string;
   ngayTao: string;
   ngayCapNhat?: string;
+  hoatDongCuoi?: string | Date | null;
   zaloChatId?: string | null;
   zaloChatIds?: { ten: string; userId: string; threadId: string }[] | null;
   zaloAccountId?: string | null;

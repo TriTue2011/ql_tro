@@ -50,7 +50,7 @@ export default class ThanhToanRepository {
     const limit = opts.limit ?? 20;
     const skip = (page - 1) * limit;
 
-    const opts2 = opts as QueryOptions & { toaNhaIds?: string[] };
+    const opts2 = opts as QueryOptions & { toaNhaIds?: string[]; hoaDonId?: string };
     const where: any = {};
     if (opts2.hoaDonId) where.hoaDonId = opts2.hoaDonId;
     else if (opts2.toaNhaIds?.length) {

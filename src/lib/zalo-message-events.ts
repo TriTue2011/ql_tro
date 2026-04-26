@@ -14,11 +14,12 @@ import prisma from '@/lib/prisma';
 export interface ZaloMessageEvent {
   id: string;
   chatId: string;
+  ownId?: string | null;
   displayName: string | null;
   content: string;
   attachmentUrl?: string | null;
   role: string;
-  eventName: string;
+  eventName: string | null;
   createdAt: Date;
   rawPayload?: unknown;
 }

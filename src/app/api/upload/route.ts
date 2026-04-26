@@ -231,7 +231,7 @@ async function uploadBufferToCloudinary(buffer: Buffer, originalName: string, mi
     throw new Error('Thiếu cấu hình Cloudinary');
   }
 
-  const blob = new Blob([buffer], { type: mimeType });
+  const blob = new Blob([new Uint8Array(buffer)], { type: mimeType });
   const fd = new FormData();
   fd.append('file', blob, originalName);
   fd.append('upload_preset', uploadPreset);
