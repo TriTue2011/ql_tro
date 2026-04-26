@@ -507,7 +507,14 @@ export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanh
     // Dùng cùng format THÔNG BÁO TIỀN PHÒNG như khi tạo hóa đơn, footer tự đổi thành
     // "✅ Đã thanh toán đầy đủ" khi conLai <= 0
     const message = buildInvoiceMessage(hd, nguoiNhan.hoTen);
-    await sendZalo(chatId, message, toaNhaId);
+    
+    const qrUrl = await buildQrUrl(hd);
+    if (qrUrl && hd.conLai > 0) {
+      await sendQrImage(chatId, qrUrl, toaNhaId, `${message}\n\n📲 Quét QR để thanh toán`)
+        .catch(e => console.error('[zalo-notify] sendQrImage error:', e));
+    } else {
+      await sendZalo(chatId, message, toaNhaId);
+    }
 
     // Gửi kèm PDF hóa đơn (đã cập nhật trạng thái đã thanh toán) — fire-and-forget
     sendInvoicePdf(hd, chatId, toaNhaId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
