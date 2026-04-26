@@ -196,7 +196,7 @@ export interface HoaDon {
   tongTien: number;
   daThanhToan: number;
   conLai: number;
-  trangThai: 'chuaThanhToan' | 'daThanhToanMotPhan' | 'daThanhToan' | 'quaHan';
+  trangThai: 'chuaThanhToan' | 'daThanhToanMotPhan' | 'daThanhToan' | 'quaHan' | 'daHuy';
   hanThanhToan: Date;
   ghiChu?: string;
   ngayTao: Date;

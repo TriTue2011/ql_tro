@@ -464,12 +464,12 @@ function AutoZaloCard({
     {
       label: "Hóa đơn",
       icon: <FileText className="h-3.5 w-3.5 text-blue-500" />,
-      keys: ["auto_zalo_hoa_don_tao", "auto_zalo_hoa_don_thanh_toan"],
+      keys: ["auto_zalo_hoa_don_tao", "auto_zalo_hoa_don_thanh_toan", "auto_zalo_hoa_don_huy", "auto_zalo_hoa_don_huy_kem_ly_do"],
     },
     {
       label: "Sự cố",
       icon: <AlertTriangle className="h-3.5 w-3.5 text-red-500" />,
-      keys: ["auto_zalo_su_co_ghi_nhan", "auto_zalo_su_co_tiep_nhan", "auto_zalo_su_co_xu_ly_xong", "auto_zalo_su_co_huy"],
+      keys: ["auto_zalo_su_co_ghi_nhan", "auto_zalo_su_co_tiep_nhan", "auto_zalo_su_co_xu_ly_xong", "auto_zalo_su_co_huy", "auto_zalo_su_co_huy_kem_ly_do"],
     },
     {
       label: "Yêu cầu phê duyệt",
@@ -545,10 +545,13 @@ const ALERT_KEYS = new Set([
 const AUTO_ZALO_KEYS = [
   "auto_zalo_hoa_don_tao",
   "auto_zalo_hoa_don_thanh_toan",
+  "auto_zalo_hoa_don_huy",
+  "auto_zalo_hoa_don_huy_kem_ly_do",
   "auto_zalo_su_co_ghi_nhan",
   "auto_zalo_su_co_tiep_nhan",
   "auto_zalo_su_co_xu_ly_xong",
   "auto_zalo_su_co_huy",
+  "auto_zalo_su_co_huy_kem_ly_do",
   "auto_zalo_yeu_cau_phe_duyet",
 ];
 

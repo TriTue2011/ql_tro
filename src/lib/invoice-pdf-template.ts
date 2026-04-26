@@ -7,6 +7,8 @@
  *   - Client (hiện tại): html2canvas → jsPDF (PDF dạng ảnh, kích thước lớn hơn)
  */
 
+import { formatPhongName } from './utils';
+
 const fmtVND = (n: number): string =>
   new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Math.round(n));
 
@@ -183,7 +185,7 @@ export function buildInvoiceHTML(input: InvoiceTemplateInput): string {
   const ngayPhatHanh = new Date(hoaDon.ngayTao).toLocaleDateString('vi-VN');
   const diaChi = formatAddress(phong?.toaNha?.diaChi);
   const tenDuAn = phong?.toaNha?.tenToaNha || '';
-  const maPhong = phong?.maPhong || '';
+  const maPhong = phong ? formatPhongName(phong.maPhong, phong.tang) : '';
   const tenKhach = khachThue?.hoTen || '';
 
   const soRows: string[] = [];

@@ -163,7 +163,7 @@ type HoaDonTableProps = {
   khachThueList: KhachThue[]
   onView: (hoaDon: HoaDon) => void
   onEdit: (hoaDon: HoaDon) => void
-  onDelete: (id: string) => void
+  onCancel: (hoaDon: HoaDon) => void
   onDownload: (hoaDon: HoaDon) => void
   onScreenshot: (hoaDon: HoaDon) => void
   onShare: (hoaDon: HoaDon) => void
@@ -344,13 +344,15 @@ const createColumns = (props: HoaDonTableProps): ColumnDef<HoaDon>[] => [
             Tải HTML
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="text-destructive"
-            onClick={() => props.onDelete(row.original.id!)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Xóa
-          </DropdownMenuItem>
+          {row.original.trangThai !== 'daHuy' && (
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => props.onCancel(row.original)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Hủy hóa đơn
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     ),

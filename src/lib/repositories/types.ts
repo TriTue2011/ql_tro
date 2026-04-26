@@ -355,7 +355,8 @@ export type TrangThaiHoaDon =
   | 'chuaThanhToan'
   | 'daThanhToanMotPhan'
   | 'daThanhToan'
-  | 'quaHan';
+  | 'quaHan'
+  | 'daHuy';
 
 export interface HoaDonData {
   id: string;

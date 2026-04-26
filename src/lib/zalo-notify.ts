@@ -20,6 +20,7 @@
 
 import prisma from '@/lib/prisma';
 import { sendMessageViaBotServer, getBotConfig, BotConfig } from '@/lib/zalo-bot-client';
+import { formatPhongName } from '@/lib/utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -125,10 +126,10 @@ function buildInvoiceMessage(hd: InvoiceForMessage, fallbackKhachThueName?: stri
     ? `Hạn thanh toán: ${hanTT}\n✅ Đã thanh toán đầy đủ. Cảm ơn bạn!`
     : `Hạn thanh toán: ${hanTT}\nVui lòng thanh toán đúng hạn.`;
 
-  const tangInfo = hd.phong.tang && hd.phong.tang > 0 ? ` (Tầng ${hd.phong.tang})` : '';
+  const phongFormatted = formatPhongName(hd.phong.maPhong, hd.phong.tang);
   return `THÔNG BÁO TIỀN PHÒNG THÁNG ${hd.thang}/${hd.nam}
 ━━━━━━━━━━━━━━━━━━━━
-Phòng: ${hd.phong.maPhong}${tangInfo}
+Phòng: ${phongFormatted}
 Khách thuê: ${hd.khachThue?.hoTen ?? fallbackKhachThueName ?? ''}
 ━━━━━━━━━━━━━━━━━━━━
 Tiền phòng: ${fmtVND(hd.tienPhong)}
@@ -457,10 +458,11 @@ export async function notifyInvoiceOverdue(hoaDonId: string): Promise<void> {
     });
     if (!hd) return;
 
+    const phongFormatted = formatPhongName(hd.phong.maPhong, hd.phong.tang);
     const msg = [
       `⚠️ Hóa đơn QUÁ HẠN`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
-      `🏠 Phòng: ${hd.phong.maPhong} — ${hd.phong.toaNha.tenToaNha}`,
+      `🏠 Phòng: ${phongFormatted} — ${hd.phong.toaNha.tenToaNha}`,
       `👤 Khách thuê: ${hd.khachThue?.hoTen ?? '—'} (${hd.khachThue?.soDienThoai ?? ''})`,
       `💳 Còn lại: ${hd.conLai.toLocaleString('vi-VN')}đ`,
       `🔖 Mã HD: ${hd.maHoaDon} T${hd.thang}/${hd.nam}`,
@@ -541,6 +543,57 @@ export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanh
   }
 }
 
+/**
+ * Hủy hóa đơn — gửi cho khách thuê nếu cài đặt auto_zalo_hoa_don_huy = true.
+ */
+export async function notifyInvoiceCanceled(hoaDonId: string): Promise<void> {
+  if (!await isAutoEnabled('auto_zalo_hoa_don_huy')) return;
+  try {
+    const hd = await prisma.hoaDon.findUnique({
+      where: { id: hoaDonId },
+      select: {
+        id: true, maHoaDon: true, thang: true, nam: true, ghiChu: true,
+        phong: {
+          select: { maPhong: true, tang: true, toaNhaId: true, toaNha: { select: { tenToaNha: true } } },
+        },
+        khachThue: { select: { hoTen: true, zaloChatId: true } },
+        hopDong: { select: { nguoiDaiDien: { select: { hoTen: true, zaloChatId: true } } } },
+      },
+    });
+    if (!hd) return;
+
+    const nguoiNhan = hd.hopDong?.nguoiDaiDien?.zaloChatId
+      ? hd.hopDong.nguoiDaiDien
+      : hd.khachThue?.zaloChatId
+        ? hd.khachThue
+        : null;
+    if (!nguoiNhan?.zaloChatId) return;
+
+    const chatId = nguoiNhan.zaloChatId;
+    const toaNhaId = hd.phong.toaNhaId;
+
+    const phongFormatted = formatPhongName(hd.phong.maPhong, hd.phong.tang);
+    const kemLyDo = await isAutoEnabled('auto_zalo_hoa_don_huy_kem_ly_do');
+    
+    // Ghi chú của hóa đơn có thể chứa cả ghi chú cũ và lý do hủy mới, nhưng thông thường lý do hủy sẽ nằm ở cuối.
+    // Nếu thiết lập kèm lý do, ta in toàn bộ ghi chú (hoặc khách thuê tự xem).
+    const ghiChuText = kemLyDo && hd.ghiChu ? `\n📝 Ghi chú: ${hd.ghiChu}` : '';
+
+    const msg = [
+      `❌ ĐÃ HỦY HÓA ĐƠN`,
+      `━━━━━━━━━━━━━━━━━━━━━━`,
+      `🏠 Phòng: ${phongFormatted} — ${hd.phong.toaNha.tenToaNha}`,
+      `👤 Khách thuê: ${nguoiNhan.hoTen}`,
+      `🔖 Mã HD: ${hd.maHoaDon} T${hd.thang}/${hd.nam}`,
+      `Hóa đơn này đã bị hủy. Nếu có thắc mắc, vui lòng liên hệ quản lý.${ghiChuText}`,
+    ].join('\n');
+
+    await sendZalo(chatId, msg, toaNhaId);
+  } catch (e) {
+    console.error('[zalo-notify] notifyInvoiceCanceled error:', e);
+  }
+}
+
 // ─── Sự cố ────────────────────────────────────────────────────────────────────
 
 /**
@@ -595,11 +648,11 @@ export async function notifyIncidentGhiNhan(suCoId: string): Promise<void> {
       return;
     }
 
-    const tangInfo = sc.phong.tang && sc.phong.tang > 0 ? ` — Tầng ${sc.phong.tang}` : '';
+    const phongFormatted = formatPhongName(sc.phong.maPhong, sc.phong.tang);
     const msg = [
       `📋 ĐÃ GHI NHẬN SỰ CỐ`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
-      `🏠 Phòng: ${sc.phong.maPhong}${tangInfo} — ${sc.phong.toaNha.tenToaNha}`,
+      `🏠 Phòng: ${phongFormatted} — ${sc.phong.toaNha.tenToaNha}`,
       `👤 Khách thuê: ${sc.khachThue?.hoTen ?? '—'}`,
       `📌 Sự cố: ${sc.tieuDe}`,
       `📝 Mô tả: ${sc.moTa}`,
@@ -631,11 +684,11 @@ export async function notifyNewIncident(suCoId: string): Promise<void> {
     const mucDo: Record<string, string> = { thap: '🟢 Thấp', trungBinh: '🟡 Trung bình', cao: '🔴 Cao', khancap: '🆘 Khẩn cấp' };
     const loai: Record<string, string> = { dienNuoc: '💡 Điện/Nước', noiThat: '🪑 Nội thất', vesinh: '🚿 Vệ sinh', anNinh: '🔒 An ninh', khac: '📋 Khác' };
 
-    const tangInfo = sc.phong.tang && sc.phong.tang > 0 ? ` — Tầng ${sc.phong.tang}` : '';
+    const phongFormatted = formatPhongName(sc.phong.maPhong, sc.phong.tang);
     const msg = [
       `🚨 SỰ CỐ MỚI`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
-      `🏠 Phòng: ${sc.phong.maPhong}${tangInfo} — ${sc.phong.toaNha.tenToaNha}`,
+      `🏠 Phòng: ${phongFormatted} — ${sc.phong.toaNha.tenToaNha}`,
       `👤 Khách thuê: ${sc.khachThue?.hoTen ?? '—'} (${sc.khachThue?.soDienThoai ?? ''})`,
       `📌 Tiêu đề: ${sc.tieuDe}`,
       `📝 Mô tả: ${sc.moTa}`,
@@ -667,10 +720,11 @@ export async function notifyIncidentEscalate(suCoId: string, reason: 'chua_nhan'
     if (!sc) return;
 
     const label = reason === 'chua_nhan' ? 'CHƯA ĐƯỢC TIẾP NHẬN' : 'CHƯA ĐƯỢC XỬ LÝ';
+    const phongFormatted = formatPhongName(sc.phong.maPhong, sc.phong.tang);
     const msg = [
       `⏰ NHẮC NHỞ SỰ CỐ ${label}`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
-      `🏠 Phòng: ${sc.phong.maPhong} — ${sc.phong.toaNha.tenToaNha}`,
+      `🏠 Phòng: ${phongFormatted} — ${sc.phong.toaNha.tenToaNha}`,
       `👤 Khách: ${sc.khachThue.hoTen}`,
       `📌 Sự cố: ${sc.tieuDe}`,
       `🕐 Báo cáo: ${new Date(sc.ngayBaoCao).toLocaleString('vi-VN')}`,
@@ -719,7 +773,7 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string, gh
 
     const ghiChu = ghiChuXuLy ?? sc.ghiChuXuLy ?? '';
     const toaNhaId = sc.phong.toaNhaId;
-    const tangInfo = sc.phong.tang && sc.phong.tang > 0 ? ` — Tầng ${sc.phong.tang}` : '';
+    const phongFormatted = formatPhongName(sc.phong.maPhong, sc.phong.tang);
 
     const headerMap: Record<string, string> = {
       dangXuLy: `🔧 ĐÃ TIẾP NHẬN VÀ ĐANG XỬ LÝ SỰ CỐ`,
@@ -727,15 +781,17 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string, gh
       daHuy: `❌ ĐÃ HỦY SỰ CỐ`,
     };
 
+    const kemLyDoHuy = newStatus === 'daHuy' ? await isAutoEnabled('auto_zalo_su_co_huy_kem_ly_do') : true;
+
     const lines = [
       headerMap[newStatus],
       `━━━━━━━━━━━━━━━━━━━━━━`,
-      `🏠 Phòng: ${sc.phong.maPhong}${tangInfo} — ${sc.phong.toaNha.tenToaNha}`,
+      `🏠 Phòng: ${phongFormatted} — ${sc.phong.toaNha.tenToaNha}`,
       `👤 Khách thuê: ${sc.khachThue?.hoTen ?? '—'}`,
       `📌 Sự cố: ${sc.tieuDe}`,
       `📝 Mô tả: ${sc.moTa ?? ''}`,
       sc.nguoiXuLy ? `👷 Người xử lý: ${sc.nguoiXuLy.ten}` : '',
-      ghiChu ? (newStatus === 'daHuy' ? `📝 Lý do: ${ghiChu}` : `📝 Ghi chú: ${ghiChu}`) : '',
+      ghiChu && (newStatus !== 'daHuy' || kemLyDoHuy) ? (newStatus === 'daHuy' ? `📝 Lý do: ${ghiChu}` : `📝 Ghi chú: ${ghiChu}`) : '',
     ].filter(Boolean);
 
     const msg = lines.join('\n');

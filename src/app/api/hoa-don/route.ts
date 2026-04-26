@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getHoaDonRepo, getHopDongRepo } from '@/lib/repositories';
 import { getUserToaNhaIds } from '@/lib/server/get-user-toa-nha-ids';
 import { parsePage, parseLimit } from '@/lib/parse-query';
-import { notifyNewInvoice } from '@/lib/zalo-notify';
+import { notifyNewInvoice, notifyInvoiceCanceled } from '@/lib/zalo-notify';
 import { PhiDichVu } from '@/types';
 import { sseEmit } from '@/lib/sse-emitter';
 import { checkQuyen, getToaNhaIdFromHopDong, getToaNhaIdFromHoaDon } from '@/lib/server/check-quyen';
@@ -436,6 +436,12 @@ export async function PUT(request: NextRequest) {
       return new Date(nam, thang - 1, Math.min(hopDongData.ngayThanhToan, lastDay));
     })();
 
+    if (trangThai === 'daHuy' && (!ghiChu || ghiChu.trim() === '')) {
+      return NextResponse.json({ message: 'Bắt buộc phải nhập lý do khi hủy hóa đơn' }, { status: 400 });
+    }
+
+    const finalConLai = trangThai === 'daHuy' ? 0 : (trangThai === 'daThanhToan' ? 0 : conLai);
+
     // Cập nhật hóa đơn
     const updatedHoaDon = await hoaDonRepo.update(id, {
       tienPhong,
@@ -446,7 +452,7 @@ export async function PUT(request: NextRequest) {
       phiDichVu: phiDichVu || [],
       tongTien,
       daThanhToan,
-      conLai,
+      conLai: finalConLai,
       trangThai,
       hanThanhToan: computedHanThanhToan,
       ghiChu,
@@ -454,6 +460,10 @@ export async function PUT(request: NextRequest) {
       ...(anhChiSoDien !== undefined && { anhChiSoDien: anhChiSoDien || null }),
       ...(anhChiSoNuoc !== undefined && { anhChiSoNuoc: anhChiSoNuoc || null }),
     });
+
+    if (trangThai === 'daHuy') {
+      notifyInvoiceCanceled(id).catch(e => console.error('Lỗi khi gửi Zalo hủy hóa đơn:', e));
+    }
 
     sseEmit('hoa-don', { action: 'updated' });
     return NextResponse.json({
@@ -493,11 +503,20 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ message: 'Hóa đơn không tồn tại' }, { status: 404 });
     }
 
+    if (trangThai === 'daHuy' && (!ghiChu || ghiChu.trim() === '')) {
+      return NextResponse.json({ message: 'Bắt buộc phải nhập lý do khi hủy hóa đơn' }, { status: 400 });
+    }
+
     const updated = await hoaDonRepo.update(id, {
       trangThai,
       daThanhToan: trangThai === 'daThanhToan' ? existing.tongTien : existing.daThanhToan,
+      conLai: trangThai === 'daHuy' ? 0 : (trangThai === 'daThanhToan' ? 0 : existing.conLai),
       ...(ghiChu !== undefined && { ghiChu }),
     });
+
+    if (trangThai === 'daHuy') {
+      notifyInvoiceCanceled(id).catch(e => console.error('Lỗi khi gửi Zalo hủy hóa đơn:', e));
+    }
 
     sseEmit('hoa-don', { action: 'updated' });
     return NextResponse.json({ success: true, data: updated });

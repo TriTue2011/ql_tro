@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { Textarea } from '@/components/ui/textarea';
 import { HoaDonDataTable } from './table';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import {
@@ -151,6 +152,13 @@ export default function HoaDonPage() {
   const [isAutoCreating, setIsAutoCreating] = useState(false);
   const [viewingHoaDon, setViewingHoaDon] = useState<HoaDon | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+
+  // States for Cancel Invoice
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelHoaDon, setCancelHoaDon] = useState<HoaDon | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCanceling, setIsCanceling] = useState(false);
+  
   const [paymentHoaDon, setPaymentHoaDon] = useState<HoaDon | null>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [sendingHoaDon, setSendingHoaDon] = useState<HoaDon | null>(null);
@@ -281,6 +289,8 @@ export default function HoaDonPage() {
         return <Badge variant="secondary">Thanh toán một phần</Badge>;
       case 'daThanhToan':
         return <Badge variant="default">Đã thanh toán</Badge>;
+      case 'daHuy':
+        return <Badge variant="secondary" className="bg-gray-500 text-white">Đã hủy</Badge>;
       case 'quaHan':
         return <Badge variant="outline">Quá hạn</Badge>;
       default:
@@ -302,23 +312,45 @@ export default function HoaDonPage() {
     router.push(`/dashboard/hoa-don/${hoaDon.id}`);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleCancelInvoiceClick = (hoaDon: HoaDon) => {
+    setCancelHoaDon(hoaDon);
+    setCancelReason('');
+    setIsCancelDialogOpen(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelHoaDon || !cancelReason.trim()) return;
+    
+    setIsCanceling(true);
     try {
-      const response = await fetch(`/api/hoa-don?id=${id}`, {
-        method: 'DELETE',
+      const response = await fetch(`/api/hoa-don/${cancelHoaDon.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...cancelHoaDon,
+          hopDong: cancelHoaDon.hopDong,
+          trangThai: 'daHuy',
+          ghiChu: cancelHoaDon.ghiChu ? `${cancelHoaDon.ghiChu}\nLý do hủy: ${cancelReason}` : `Lý do hủy: ${cancelReason}`
+        }),
       });
 
       if (response.ok) {
+        const result = await response.json();
         cache.clearCache();
-        setHoaDonList(prev => prev.filter(hoaDon => hoaDon.id !== id));
-        toast.success('Hóa đơn đã được xóa thành công');
+        setHoaDonList(prev => prev.map(hd => hd.id === cancelHoaDon.id ? result.data : hd));
+        toast.success('Hóa đơn đã được hủy thành công');
+        setIsCancelDialogOpen(false);
       } else {
         const errorData = await response.json();
-        toast.error(errorData.message || 'Có lỗi xảy ra khi xóa hóa đơn');
+        toast.error(errorData.message || 'Có lỗi xảy ra khi hủy hóa đơn');
       }
     } catch (error) {
-      console.error('Error deleting hoa don:', error);
-      toast.error('Có lỗi xảy ra khi xóa hóa đơn');
+      console.error('Error canceling hoa don:', error);
+      toast.error('Có lỗi xảy ra khi hủy hóa đơn');
+    } finally {
+      setIsCanceling(false);
     }
   };
 
@@ -616,7 +648,7 @@ ${footer}`;
             onShare={handleCopyLink}
             onSend={handleSend}
             onEdit={handleEdit}
-            onDelete={handleDelete}
+            onCancel={handleCancelInvoiceClick}
             onDeleteMultiple={handleDeleteMultiple}
             onPayment={handlePayment}
             canEdit={canEdit}
@@ -1209,6 +1241,43 @@ ${footer}`;
               }}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Invoice Dialog */}
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent className="w-[95vw] md:w-full max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Hủy hóa đơn</DialogTitle>
+            <DialogDescription className="text-sm">
+              Bạn đang thực hiện hủy hóa đơn <span className="font-semibold">{cancelHoaDon?.maHoaDon}</span>. Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="cancelReason" className="text-sm">Lý do hủy (bắt buộc) <span className="text-red-500">*</span></Label>
+              <Textarea
+                id="cancelReason"
+                placeholder="Nhập lý do hủy hóa đơn..."
+                value={cancelReason}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCancelReason(e.target.value)}
+                rows={3}
+                required
+              />
+            </div>
+            <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+              Lưu ý: Tổng tiền còn lại sẽ được đưa về 0. Khách thuê sẽ nhận được thông báo Zalo hóa đơn đã bị hủy (nếu đã cấu hình).
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)} disabled={isCanceling} className="w-full sm:w-auto">
+              Đóng
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmCancel} disabled={!cancelReason.trim() || isCanceling} className="w-full sm:w-auto">
+              {isCanceling ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Xác nhận hủy hóa đơn
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -257,6 +257,17 @@ export default function SuCoPage() {
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
+    let ghiChuXuLy = undefined;
+
+    if (newStatus === 'daHuy') {
+      const reason = window.prompt('Nhập lý do hủy sự cố (có thể để trống):');
+      // Nếu người dùng bấm "Hủy" trên hộp thoại prompt
+      if (reason === null) {
+        return;
+      }
+      ghiChuXuLy = reason;
+    }
+
     try {
       const response = await fetch(`/api/su-co/${id}`, {
         method: 'PUT',
@@ -265,6 +276,7 @@ export default function SuCoPage() {
         },
         body: JSON.stringify({
           trangThai: newStatus,
+          ...(ghiChuXuLy !== undefined && { ghiChuXuLy }),
         }),
       });
 
@@ -809,15 +821,17 @@ function SuCoForm({
         </div>
       )}
 
-      {suCo && (formData.trangThai === 'dangXuLy' || formData.trangThai === 'daXong') && (
+      {suCo && (formData.trangThai === 'dangXuLy' || formData.trangThai === 'daXong' || formData.trangThai === 'daHuy') && (
         <div className="space-y-2">
-          <Label htmlFor="ghiChuXuLy" className="text-xs md:text-sm">Ghi chú xử lý</Label>
+          <Label htmlFor="ghiChuXuLy" className="text-xs md:text-sm">
+            {formData.trangThai === 'daHuy' ? 'Lý do hủy (tùy chọn)' : 'Ghi chú xử lý'}
+          </Label>
           <Textarea
             id="ghiChuXuLy"
             value={formData.ghiChuXuLy}
             onChange={(e) => setFormData(prev => ({ ...prev, ghiChuXuLy: e.target.value }))}
             rows={3}
-            placeholder="Ghi chú về quá trình xử lý..."
+            placeholder={formData.trangThai === 'daHuy' ? 'Ghi chú về lý do hủy sự cố...' : 'Ghi chú về quá trình xử lý...'}
             className="text-sm"
           />
         </div>
