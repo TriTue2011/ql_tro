@@ -142,7 +142,31 @@ function isGroupMember(chatId: string): boolean {
   return _groupMembersCache?.has(chatId) ?? false;
 }
 
+// Số điện thoại hợp lệ — đầu số thuộc nhà mạng VN chính thức
+// Viettel: 032-039, 086, 096, 097, 098
+// Mobifone: 070,079,077,076,078, 089, 090, 093
+// Vinaphone: 081-086, 088, 091, 094
+// Vietnamobile: 052,056,058,092
+// Gmobile: 059,099
+// Reddi: 055
+const VN_CARRIER_PREFIXES = [
+  '032','033','034','035','036','037','038','039',
+  '086','096','097','098', // Viettel
+  '070','076','077','078','079','089','090','093', // Mobifone
+  '081','082','083','084','085','088','091','094', // Vinaphone
+  '052','056','058','092', // Vietnamobile
+  '055', // Reddi
+  '059','099', // Gmobile
+];
 const PHONE_REGEX = /^(\+84|0)[0-9]{9}$/;
+
+/** Kiểm tra số điện thoại có thuộc nhà mạng VN hợp lệ không */
+function isValidVnCarrierPhone(phone: string): boolean {
+  const normalized = phone.replace(/^\+84/, '0').replace(/\D/g, '');
+  if (!PHONE_REGEX.test(normalized)) return false;
+  const prefix = normalized.slice(0, 3);
+  return VN_CARRIER_PREFIXES.includes(prefix);
+}
 
 function normalizePhone(raw: string): string {
   const cleaned = raw.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
@@ -238,25 +262,18 @@ async function findKhachThueByZaloChatId(chatId: string) {
   }
 }
 
-/** Đăng ký tự động khi khách thuê gửi số điện thoại */
+/** Đăng ký tự động khi khách thuê gửi số điện thoại VN hợp lệ */
 async function handlePhoneRegistration(token: string, chatId: string, rawText: string, accountSelection?: string): Promise<boolean> {
   const text = rawText.trim();
 
+  // Chỉ xử lý nếu trông giống số điện thoại (9-15 ký tự số/dấu)
   const looksLikePhone = /^[\d\s+\-()]{9,15}$/.test(text);
   if (!looksLikePhone) return false;
 
   const phone = normalizePhone(text);
 
-  if (!PHONE_REGEX.test(phone)) {
-    await sendReply(
-      token, chatId,
-      '❌ Số điện thoại không đúng định dạng.\n\n' +
-      'Vui lòng gửi số điện thoại 10 số bắt đầu bằng 0.\n' +
-      'Ví dụ: 0912345678',
-      accountSelection,
-    );
-    return true;
-  }
+  // Phải là số nhà mạng VN hợp lệ — không phản hồi nếu là chuỗi số ngẫu nhiên
+  if (!isValidVnCarrierPhone(phone)) return false;
 
   try {
     // 1. Kiểm tra NguoiDung (nhân viên / chủ nhà) trước
@@ -492,31 +509,43 @@ async function handleRegisteredTenant(
 }
 
 /**
- * Kiểm tra tin nhắn của người lạ có liên quan đến lĩnh vực phòng trọ không.
+ * Kiểm tra tin nhắn của người lạ có THỰC SỰ liên quan đến phòng trọ không.
  * Dùng AI phân tích — chỉ trả lời "yes" / "no".
- * Liên quan: thuê phòng, giá cả, tiện nghi, vị trí, xem phòng, điều kiện thuê, đặt cọc.
- * Không liên quan: mọi chủ đề khác hoàn toàn không dính đến nhà trọ.
+ *
+ * Quy tắc nghiêm ngặt:
+ * - "yes": chỉ khi rõ ràng, cụ thể đang hỏi về thuê phòng, giá, tiện nghi, xem phòng, đặt cọc.
+ * - "no": chào hỏi, câu ngắn mơ hồ, chuỗi số, chủ đề không liên quan nhà trọ.
  */
 async function isRentalDomainQuery(text: string): Promise<boolean> {
   const cleaned = text.trim();
-  // Tin nhắn quá ngắn hoặc rỗng → không thể là hỏi thuê phòng
-  if (cleaned.length < 5) return false;
+
+  // Quá ngắn → chắc chắn không phải hỏi thuê phòng
+  if (cleaned.length < 8) return false;
+
+  // Nếu TOÀN là số/ký hiệu → không phải câu hỏi thuê phòng
+  if (/^[\d\s+\-().]+$/.test(cleaned)) return false;
 
   const result = await askAI([
     {
       role: 'system',
       content:
-        'Bạn là bộ lọc tin nhắn cho hệ thống cho thuê phòng trọ. ' +
-        'Chỉ trả về "yes" nếu tin nhắn RÕ RÀNG, CỤ THỂ hỏi về: ' +
-        'thuê phòng, giá thuê phòng, còn phòng trống không, muốn xem phòng, đặt cọc thuê nhà, ' +
-        'diện tích phòng, tiện nghi phòng cho thuê, vị trí/địa chỉ nhà trọ. ' +
-        'Trả về "no" với: tin nhắn 1-2 từ mơ hồ, chào hỏi xã giao, nhận xét giá chung chung ' +
-        'không rõ đang hỏi thuê phòng, trò chuyện thông thường không liên quan nhà trọ. ' +
-        'Ví dụ "yes": "Còn phòng không ạ?", "Giá thuê bao nhiêu?", "Tôi muốn xem phòng", ' +
-        '"Phòng có wifi không", "Đặt cọc bao nhiêu tiền", "Cho hỏi phòng trọ ở đây". ' +
-        'Ví dụ "no": "Thế quá rẻ", "Để em xem", "Lấy con nào a", "Đúng rồi", ' +
-        '"OK", "Hello", "Thế à", "Hehe", "Oke bạn". ' +
-        'Chỉ trả về đúng 1 từ: "yes" hoặc "no".',
+        'Bạn là bộ lọc TIN NHẮN CỦA NGƯỜI LẠ cho hệ thống cho thuê phòng trọ. ' +
+        'Nhiệm vụ: phân loại tin nhắn có liên quan đến việc THUÊ PHÒNG TRỌ hay không. ' +
+        '\n\nTRẢ VỀ "yes" CHỈ KHI tin nhắn RÕ RÀNG đang hỏi về: ' +
+        'còn phòng trống không, giá thuê phòng bao nhiêu, muốn xem phòng, ' +
+        'đặt cọc, diện tích phòng, tiện nghi phòng trọ, địa chỉ/vị trí nhà trọ, ' +
+        'điều kiện thuê, hỏi về phòng trọ. ' +
+        '\n\nTRẢ VỀ "no" VỚI TẤT CẢ CÁC TRƯỜNG HỢP KHÁC: ' +
+        'chào hỏi, trò chuyện xã giao ("hi", "hello", "ok", "ừ", "vâng", "dạ"), ' +
+        'câu ngắn mơ hồ không rõ ý định ("thế à", "oke", "hiểu rồi", "thế thôi", "để xem"), ' +
+        'câu không liên quan nhà trọ, bình luận chung ("đắt quá", "rẻ thế"), ' +
+        'số điện thoại đơn thuần, link URL, ảnh sticker, emoji đơn lẻ. ' +
+        '\n\nVÍ DỤ "yes": "Cho tôi hỏi còn phòng trống không ạ?", "Giá thuê bao nhiêu/tháng?", ' +
+        '"Tôi muốn thuê phòng", "Phòng có điều hòa không?", "Đặt cọc bao nhiêu?", ' +
+        '"Nhà trọ ở đâu vậy?", "Mình muốn xem phòng được không?". ' +
+        '\n\nVÍ DỤ "no": "Hi", "Ok", "Vâng", "Dạ", "Ừ", "Hehe", "Thế à", "Đắt vậy", ' +
+        '"Để em xem", "Oke bạn", "0912345678", "Lấy cái nào", "Rẻ quá", bất kỳ tin ngắn mơ hồ. ' +
+        '\n\nChỉ trả về đúng 1 từ: "yes" hoặc "no". Không giải thích.',
     },
     { role: 'user', content: cleaned },
   ], 10).catch(() => null);
@@ -525,9 +554,9 @@ async function isRentalDomainQuery(text: string): Promise<boolean> {
 
 /**
  * Xử lý người lạ gửi tin nhắn liên quan đến phòng trọ.
- * - AI phân tích xem nội dung có thuộc lĩnh vực phòng trọ không
+ * Chỉ phản hồi khi AI xác nhận tin nhắn THỰC SỰ liên quan đến hỏi thuê phòng.
+ * - Tin nhắn mơ hồ, chào hỏi, chuỗi số không hợp lệ → im lặng hoàn toàn
  * - Nếu có → AI tư vấn dựa trên danh sách phòng trống từ DB
- * - Nếu không liên quan → bỏ qua (để handleStranger chạy)
  * - Không tiết lộ thông tin cá nhân của bất kỳ khách thuê nào
  * Trả về true nếu đã xử lý.
  */
@@ -538,15 +567,31 @@ async function handleStrangerRentalInquiry(
   attachmentUrl: string | null,
   accountSelection?: string,
 ): Promise<boolean> {
+  // Không có nội dung → bỏ qua
   if (!text && !attachmentUrl) return false;
 
-  // Bạn bè đã kết nối → không gửi tin nhắn tư vấn tự động
+  // Bạn bè đã kết nối → không áp dụng luồng người lạ
   const alreadyFriend = await isFriend(chatId, undefined, accountSelection).catch(() => false);
   if (alreadyFriend) return false;
 
-  // Nội dung không liên quan đến hỏi thuê phòng → bỏ qua
+  // Nếu nội dung là chuỗi số thuần túy → kiểm tra SĐT nhà mạng VN
+  // Nếu không phải SĐT VN hợp lệ → im lặng (không phản hồi)
+  if (text && /^[\d\s+\-().]{7,15}$/.test(text.trim())) {
+    const phone = normalizePhone(text.trim());
+    if (!isValidVnCarrierPhone(phone)) {
+      // Chuỗi số không phải SĐT VN → bỏ qua
+      return false;
+    }
+    // Là SĐT hợp lệ → đã được handlePhoneRegistration xử lý trước đó, bỏ qua ở đây
+    return false;
+  }
+
+  // Phân tích ngữ nghĩa: nội dung có THỰC SỰ hỏi về phòng trọ không?
   const relevant = await isRentalDomainQuery(text || '').catch(() => false);
-  if (!relevant) return false;
+  if (!relevant) {
+    // Không liên quan phòng trọ → im lặng hoàn toàn, không greeting, không forward
+    return false;
+  }
 
   const [publicCtx, history] = await Promise.all([
     buildPublicRoomContext().catch(() => ''),
@@ -701,10 +746,11 @@ async function handleStranger(token: string, chatId: string, displayName: string
       }
     }
 
-    // Forward đến nhóm quản lý
+    // Forward đến nhóm quản lý — chỉ forward nếu tin nhắn có nội dung thực sự
+    // (không forward tin nhắn chào xã giao hay chuỗi số không hợp lệ)
     const shouldForward = map['bot_forward_unknown'] !== 'false';
     const forwardThreadId = map['bot_forward_thread_id'];
-    if (shouldForward && forwardThreadId && text) {
+    if (shouldForward && forwardThreadId && text && text.trim().length > 3) {
       const looksLikePhone = /^[\d\s+\-()]{9,15}$/.test(text.trim());
       const fwdMsg = [
         `📨 Tin nhắn từ người lạ`,
