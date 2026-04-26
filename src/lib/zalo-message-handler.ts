@@ -311,8 +311,9 @@ async function handlePhoneRegistration(token: string, chatId: string, rawText: s
     const kt = await repo.findBySoDienThoai(phone);
 
     if (!kt) {
-      // Không tìm thấy → để handleStranger chạy (gửi lời chào + forward cho admin)
-      return false;
+      // Số VN hợp lệ nhưng không trùng khớp bất kỳ khách thuê nào
+      // → im lặng hoàn toàn (không chào hỏi, không forward, không phản hồi)
+      return true;
     }
 
     if (kt.zaloChatId === chatId && kt.nhanThongBaoZalo) {

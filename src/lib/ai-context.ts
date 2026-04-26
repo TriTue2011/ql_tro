@@ -199,7 +199,7 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
 
   if (buildingIds.length === 0) return '(Chưa được gán tòa nhà nào)';
 
-  const [buildings, roomStats, unpaidInvoices, expiringCount, openIncidents, activeRooms] = await Promise.all([
+  const [buildings, roomStats, unpaidInvoices, expiringContracts, openIncidents, activeRooms] = await Promise.all([
     prisma.toaNha.findMany({
       where: { id: { in: buildingIds } },
       select: {
@@ -235,7 +235,7 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
       }
     }),
 
-    prisma.hopDong.count({
+    prisma.hopDong.findMany({
       where: {
         phong: { toaNhaId: { in: buildingIds } },
         trangThai: 'hoatDong',
@@ -243,6 +243,14 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
           gte: new Date(),
           lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
+      },
+      orderBy: { ngayKetThuc: 'asc' },
+      take: 20,
+      select: {
+        maHopDong: true,
+        ngayKetThuc: true,
+        phong: { select: { maPhong: true, toaNha: { select: { tenToaNha: true } } } },
+        nguoiDaiDien: { select: { hoTen: true } },
       },
     }),
 
@@ -309,8 +317,14 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
     });
   }
 
-  if (expiringCount > 0)
-    lines.push(`HỢP ĐỒNG SẮP HẾT HẠN (30 ngày): ${expiringCount} hợp đồng`);
+  if (expiringContracts.length > 0) {
+    lines.push(`\nHỢP ĐỒNG SẮP HẾT HẠN (30 ngày) — ${expiringContracts.length} hợp đồng:`);
+    expiringContracts.forEach(hd => {
+      const tenKhach = hd.nguoiDaiDien?.hoTen || 'Chưa rõ';
+      const soNgay = Math.ceil((new Date(hd.ngayKetThuc).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      lines.push(`- ${hd.maHopDong} | P.${hd.phong.maPhong} - ${hd.phong.toaNha.tenToaNha} | Khách: ${tenKhach} | Hết hạn: ${fmtDate(hd.ngayKetThuc)} (còn ${soNgay} ngày)`);
+    });
+  }
 
   if (openIncidents.length > 0) {
     lines.push(`\nSỰ CỐ ĐANG MỞ (${openIncidents.length}):`);
