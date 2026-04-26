@@ -199,7 +199,15 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
 
   if (buildingIds.length === 0) return '(Chưa được gán tòa nhà nào)';
 
-  const [buildings, roomStats, unpaidInvoices, expiringContracts, openIncidents, activeRooms] = await Promise.all([
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const [
+    buildings, roomStats, unpaidInvoices, expiringContracts,
+    openIncidents, activeRooms,
+    resolvedIncidentsToday, recentPaidInvoices, recentExpiredContracts,
+  ] = await Promise.all([
     prisma.toaNha.findMany({
       where: { id: { in: buildingIds } },
       select: {
@@ -224,12 +232,8 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
       orderBy: [{ nam: 'asc' }, { thang: 'asc' }],
       take: 30,
       select: {
-        maHoaDon: true,
-        thang: true,
-        nam: true,
-        conLai: true,
-        trangThai: true,
-        hanThanhToan: true,
+        maHoaDon: true, thang: true, nam: true,
+        conLai: true, trangThai: true, hanThanhToan: true,
         phong: { select: { maPhong: true, tang: true, toaNha: { select: { tenToaNha: true } } } },
         khachThue: { select: { hoTen: true } },
       }
@@ -239,38 +243,28 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
       where: {
         phong: { toaNhaId: { in: buildingIds } },
         trangThai: 'hoatDong',
-        ngayKetThuc: {
-          gte: new Date(),
-          lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        },
+        ngayKetThuc: { gte: new Date(), lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
       },
       orderBy: { ngayKetThuc: 'asc' },
       take: 20,
       select: {
-        maHopDong: true,
-        ngayKetThuc: true,
+        maHopDong: true, ngayKetThuc: true,
         phong: { select: { maPhong: true, toaNha: { select: { tenToaNha: true } } } },
         nguoiDaiDien: { select: { hoTen: true } },
       },
     }),
 
+    // Sự cố đang mở (mới + đang xử lý)
     prisma.suCo.findMany({
       where: {
         phong: { toaNhaId: { in: buildingIds } },
         trangThai: { in: ['moi', 'dangXuLy'] },
       },
-      take: 8,
+      take: 15,
       orderBy: { ngayBaoCao: 'desc' },
       select: {
-        tieuDe: true,
-        trangThai: true,
-        mucDoUuTien: true,
-        phong: {
-          select: {
-            maPhong: true,
-            toaNha: { select: { tenToaNha: true } },
-          },
-        },
+        tieuDe: true, trangThai: true, mucDoUuTien: true, ngayBaoCao: true,
+        phong: { select: { maPhong: true, toaNha: { select: { tenToaNha: true } } } },
       },
     }),
 
@@ -278,16 +272,60 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
       where: { toaNhaId: { in: buildingIds }, trangThai: 'dangThue' },
       take: 50,
       select: {
-        maPhong: true,
-        tang: true,
+        maPhong: true, tang: true,
         toaNha: { select: { tenToaNha: true } },
         hopDong: {
           where: { trangThai: 'hoatDong' },
-          select: {
-            nguoiDaiDien: { select: { hoTen: true } },
-          }
+          select: { nguoiDaiDien: { select: { hoTen: true } } }
         }
       }
+    }),
+
+    // Sự cố đã xử lý xong trong hôm nay
+    prisma.suCo.findMany({
+      where: {
+        phong: { toaNhaId: { in: buildingIds } },
+        trangThai: 'daXuLy',
+        ngayCapNhat: { gte: todayStart },
+      },
+      take: 20,
+      orderBy: { ngayCapNhat: 'desc' },
+      select: {
+        tieuDe: true, ngayCapNhat: true,
+        phong: { select: { maPhong: true, toaNha: { select: { tenToaNha: true } } } },
+      },
+    }),
+
+    // Hóa đơn đã thanh toán trong 7 ngày gần đây
+    prisma.hoaDon.findMany({
+      where: {
+        phong: { toaNhaId: { in: buildingIds } },
+        trangThai: 'daThanhToan',
+        ngayCapNhat: { gte: sevenDaysAgo },
+      },
+      take: 20,
+      orderBy: { ngayCapNhat: 'desc' },
+      select: {
+        maHoaDon: true, thang: true, nam: true, tongTien: true, ngayCapNhat: true,
+        phong: { select: { maPhong: true, toaNha: { select: { tenToaNha: true } } } },
+        khachThue: { select: { hoTen: true } },
+      },
+    }),
+
+    // Hợp đồng đã hết hạn trong 30 ngày gần đây
+    prisma.hopDong.findMany({
+      where: {
+        phong: { toaNhaId: { in: buildingIds } },
+        trangThai: { in: ['hetHan', 'hoatDong'] },
+        ngayKetThuc: { gte: thirtyDaysAgo, lte: new Date() },
+      },
+      take: 10,
+      orderBy: { ngayKetThuc: 'desc' },
+      select: {
+        maHopDong: true, ngayKetThuc: true,
+        phong: { select: { maPhong: true, toaNha: { select: { tenToaNha: true } } } },
+        nguoiDaiDien: { select: { hoTen: true } },
+      },
     }),
   ]);
 
@@ -343,6 +381,33 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
     activeRooms.forEach(r => {
       const nguoiDaiDien = r.hopDong[0]?.nguoiDaiDien?.hoTen || 'Chưa rõ';
       lines.push(`- Tòa: ${r.toaNha.tenToaNha} | Tầng: ${r.tang} | Phòng: ${r.maPhong} | Khách: ${nguoiDaiDien}`);
+    });
+  }
+
+  if (resolvedIncidentsToday.length > 0) {
+    lines.push(`\nSỰ CỐ ĐÃ XỬ LÝ XONG HÔM NAY (${resolvedIncidentsToday.length}):`);
+    resolvedIncidentsToday.forEach(sc => {
+      const gio = new Date(sc.ngayCapNhat).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      lines.push(`- ${sc.tieuDe} — Phòng ${sc.phong.maPhong} (${sc.phong.toaNha.tenToaNha}) [Xong lúc ${gio}]`);
+    });
+  } else {
+    lines.push(`\nSỰ CỐ ĐÃ XỬ LÝ HÔM NAY: Chưa có sự cố nào được xử lý xong trong hôm nay.`);
+  }
+
+  if (recentPaidInvoices.length > 0) {
+    lines.push(`\nHÓA ĐƠN ĐÃ THANH TOÁN (7 ngày gần đây — ${recentPaidInvoices.length} hóa đơn):`);
+    recentPaidInvoices.forEach(inv => {
+      const khach = inv.khachThue?.hoTen ? ` (${inv.khachThue.hoTen})` : '';
+      const ngay = fmtDate(inv.ngayCapNhat);
+      lines.push(`- T${inv.thang}/${inv.nam} | P.${inv.phong.maPhong} - ${inv.phong.toaNha.tenToaNha}${khach} | ${fmtMoney(inv.tongTien)} | Ngày TT: ${ngay}`);
+    });
+  }
+
+  if (recentExpiredContracts.length > 0) {
+    lines.push(`\nHỢP ĐỒNG VỪA HẾT HẠN (30 ngày qua — ${recentExpiredContracts.length}):`);
+    recentExpiredContracts.forEach(hd => {
+      const tenKhach = hd.nguoiDaiDien?.hoTen || 'Chưa rõ';
+      lines.push(`- ${hd.maHopDong} | P.${hd.phong.maPhong} - ${hd.phong.toaNha.tenToaNha} | Khách: ${tenKhach} | Hết hạn: ${fmtDate(hd.ngayKetThuc)}`);
     });
   }
 
