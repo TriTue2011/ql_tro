@@ -323,14 +323,19 @@ export default function HoaDonPage() {
     
     setIsCanceling(true);
     try {
-      const response = await fetch(`/api/hoa-don/${cancelHoaDon.id}`, {
+      // Đảm bảo lấy ID của hopDong nếu nó là object
+      const hopDongId = typeof cancelHoaDon.hopDong === 'object' 
+        ? (cancelHoaDon.hopDong as any)?.id || (cancelHoaDon.hopDong as any)?._id 
+        : cancelHoaDon.hopDong;
+
+      const response = await fetch(`/api/hoa-don`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           ...cancelHoaDon,
-          hopDong: cancelHoaDon.hopDong,
+          hopDong: hopDongId,
           trangThai: 'daHuy',
           ghiChu: cancelHoaDon.ghiChu ? `${cancelHoaDon.ghiChu}\nLý do hủy: ${cancelReason}` : `Lý do hủy: ${cancelReason}`
         }),

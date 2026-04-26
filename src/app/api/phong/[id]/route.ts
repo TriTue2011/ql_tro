@@ -90,6 +90,7 @@ export async function PUT(
     }
 
     const updatedPhong = await phongRepo.update(id, {
+      maPhong: validatedData.maPhong,
       tang: validatedData.tang,
       dienTich: validatedData.dienTich,
       giaThue: validatedData.giaThue,
