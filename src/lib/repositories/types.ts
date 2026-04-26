@@ -151,6 +151,7 @@ export interface CreatePhongInput {
 }
 
 export interface UpdatePhongInput {
+  maPhong?: string;
   tang?: number;
   dienTich?: number;
   giaThue?: number;

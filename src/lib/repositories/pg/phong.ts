@@ -102,6 +102,7 @@ export default class PhongRepository {
       const raw = await prisma.phong.update({
         where: { id },
         data: {
+          ...(data.maPhong !== undefined && { maPhong: data.maPhong }),
           ...(data.tang !== undefined && { tang: data.tang }),
           ...(data.dienTich !== undefined && { dienTich: data.dienTich }),
           ...(data.giaThue !== undefined && { giaThue: data.giaThue }),
