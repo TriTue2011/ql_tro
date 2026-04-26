@@ -199,7 +199,7 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
 
   if (buildingIds.length === 0) return '(Chưa được gán tòa nhà nào)';
 
-  const [buildings, roomStats, unpaidCount, overdueCount, expiringCount, openIncidents] = await Promise.all([
+  const [buildings, roomStats, unpaidInvoices, expiringCount, openIncidents, activeRooms] = await Promise.all([
     prisma.toaNha.findMany({
       where: { id: { in: buildingIds } },
       select: {
@@ -216,19 +216,23 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
       _count: { _all: true },
     }),
 
-    prisma.hoaDon.count({
+    prisma.hoaDon.findMany({
       where: {
         phong: { toaNhaId: { in: buildingIds } },
         trangThai: { in: ['chuaThanhToan', 'daThanhToanMotPhan', 'quaHan'] },
       },
-    }),
-
-    prisma.hoaDon.count({
-      where: {
-        phong: { toaNhaId: { in: buildingIds } },
-        trangThai: { in: ['chuaThanhToan', 'quaHan'] },
-        hanThanhToan: { lt: new Date() },
-      },
+      orderBy: [{ nam: 'asc' }, { thang: 'asc' }],
+      take: 30,
+      select: {
+        maHoaDon: true,
+        thang: true,
+        nam: true,
+        conLai: true,
+        trangThai: true,
+        hanThanhToan: true,
+        phong: { select: { maPhong: true, tang: true, toaNha: { select: { tenToaNha: true } } } },
+        khachThue: { select: { hoTen: true } },
+      }
     }),
 
     prisma.hopDong.count({
@@ -261,6 +265,22 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
         },
       },
     }),
+
+    prisma.phong.findMany({
+      where: { toaNhaId: { in: buildingIds }, trangThai: 'dangThue' },
+      take: 50,
+      select: {
+        maPhong: true,
+        tang: true,
+        toaNha: { select: { tenToaNha: true } },
+        hopDong: {
+          where: { trangThai: 'hoatDong' },
+          select: {
+            nguoiDaiDien: { select: { hoTen: true } },
+          }
+        }
+      }
+    }),
   ]);
 
   const countByStatus = (s: string) =>
@@ -280,10 +300,13 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
   if (countByStatus('baoTri') > 0) lines.push(`- Bảo trì: ${countByStatus('baoTri')} phòng`);
   if (countByStatus('daDat') > 0) lines.push(`- Đã đặt: ${countByStatus('daDat')} phòng`);
 
-  if (unpaidCount > 0) {
-    lines.push(`\nHÓA ĐƠN CHƯA THANH TOÁN: ${unpaidCount} hóa đơn`);
-    if (overdueCount > 0)
-      lines.push(`  Trong đó quá hạn: ${overdueCount} hóa đơn`);
+  if (unpaidInvoices.length > 0) {
+    const overdueCount = unpaidInvoices.filter(i => new Date(i.hanThanhToan) < new Date()).length;
+    lines.push(`\nHÓA ĐƠN CHƯA THANH TOÁN (${unpaidInvoices.length} hóa đơn, quá hạn: ${overdueCount}):`);
+    unpaidInvoices.forEach(inv => {
+      const khach = inv.khachThue?.hoTen ? ` (${inv.khachThue.hoTen})` : '';
+      lines.push(`- T${inv.thang}/${inv.nam} | P.${inv.phong.maPhong} - ${inv.phong.toaNha.tenToaNha}${khach} | Nợ: ${fmtMoney(inv.conLai)} | Hạn: ${fmtDate(inv.hanThanhToan)}`);
+    });
   }
 
   if (expiringCount > 0)
@@ -298,6 +321,14 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
       lines.push(
         `${uu} ${sc.tieuDe} — Phòng ${sc.phong.maPhong} (${sc.phong.toaNha.tenToaNha}) [${tt}]`,
       );
+    });
+  }
+
+  if (activeRooms.length > 0) {
+    lines.push(`\nDANH SÁCH KHÁCH THUÊ HIỆN TẠI:`);
+    activeRooms.forEach(r => {
+      const nguoiDaiDien = r.hopDong[0]?.nguoiDaiDien?.hoTen || 'Chưa rõ';
+      lines.push(`- Tòa: ${r.toaNha.tenToaNha} | Tầng: ${r.tang} | Phòng: ${r.maPhong} | Khách: ${nguoiDaiDien}`);
     });
   }
 

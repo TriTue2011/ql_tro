@@ -22,6 +22,66 @@ export default function AiAssistant() {
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Kéo thả icon
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({
+    startX: 0,
+    startY: 0,
+    startPosX: 0,
+    startPosY: 0,
+    isDragging: false,
+    hasMoved: false,
+  });
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return; // Chỉ chuột trái
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startPosX: position.x,
+      startPosY: position.y,
+      isDragging: true,
+      hasMoved: false,
+    };
+    setIsDragging(true);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current.isDragging) return;
+    
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      dragRef.current.hasMoved = true;
+    }
+    
+    setPosition({
+      x: dragRef.current.startPosX + dx,
+      y: dragRef.current.startPosY + dy,
+    });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    dragRef.current.isDragging = false;
+    setIsDragging(false);
+    
+    // Nếu kéo sát lề, có thể thêm logic snap vào lề ở đây nếu muốn
+  };
+
+  const handleToggleOpen = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (dragRef.current.hasMoved) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragRef.current.hasMoved = false; // Reset
+      return;
+    }
+    setOpen(p => !p);
+  };
+
   // Kiểm tra tài khoản có được kích hoạt AI không
   useEffect(() => {
     fetch('/api/ai/status')
@@ -108,6 +168,7 @@ export default function AiAssistant() {
           background: '#fff',
           display: 'flex',
           flexDirection: 'column',
+          transform: `translate(${position.x}px, ${position.y}px)`,
         }}
         aria-hidden={!open}
       >
@@ -357,7 +418,11 @@ export default function AiAssistant() {
 
       {/* ── Floating button ─────────────────────────────────────────────────── */}
       <button
-        onClick={() => setOpen(p => !p)}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onClick={handleToggleOpen}
         title={open ? 'Đóng trợ lý AI' : 'Mở trợ lý AI'}
         style={{
           position: 'fixed',
@@ -371,20 +436,22 @@ export default function AiAssistant() {
             ? 'linear-gradient(135deg,#4f46e5,#7c3aed)'
             : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
           color: '#fff',
-          cursor: 'pointer',
+          cursor: isDragging ? 'grabbing' : 'grab',
           boxShadow: '0 4px 18px rgba(99,102,241,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 10000,
           fontSize: 20,
-          transition: 'transform 0.2s, box-shadow 0.2s',
+          transform: `translate(${position.x}px, ${position.y}px) ${!isDragging ? 'scale(1)' : 'scale(1.05)'}`,
+          transition: isDragging ? 'none' : 'transform 0.2s, box-shadow 0.2s',
+          touchAction: 'none', // Prevent scrolling when dragging on touch devices
         }}
         onMouseEnter={e => {
-          (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.1)';
+          if (!isDragging) (e.currentTarget as HTMLButtonElement).style.transform = `translate(${position.x}px, ${position.y}px) scale(1.1)`;
         }}
         onMouseLeave={e => {
-          (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
+          if (!isDragging) (e.currentTarget as HTMLButtonElement).style.transform = `translate(${position.x}px, ${position.y}px) scale(1)`;
         }}
       >
         <i className={`bi bi-${open ? 'x-lg' : 'stars'}`} />
