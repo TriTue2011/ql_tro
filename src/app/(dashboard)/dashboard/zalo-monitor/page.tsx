@@ -273,9 +273,11 @@ function msgSenderUid(msg: ZaloMsg): string {
 
 function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string) => void }) {
   const isBot = msg.role === 'bot';
+  const isOwner = msg.role === 'owner'; // Tin nhắn gửi từ Monitor (chủ tài khoản)
+  const isRight = isOwner; // Hiển thị bên phải nếu là chủ tài khoản
   const group = isGroup(msg);
-  const groupSender = group && !isBot ? msgSenderInGroup(msg) : '';
-  const groupSenderUid = group && !isBot ? msgSenderUid(msg) : '';
+  const groupSender = group && !isBot && !isOwner ? msgSenderInGroup(msg) : '';
+  const groupSenderUid = group && !isBot && !isOwner ? msgSenderUid(msg) : '';
   const mediaUrl = getMediaUrl(msg);
   const image = isImageMsg(msg);
   const video = isVideoMsg(msg);
@@ -288,10 +290,15 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
     && !(typeof msg.content === 'string' && msg.content.startsWith('[reaction:'));
 
   return (
-    <div className={`flex items-end gap-1.5 group ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
+    <div className={`flex items-end gap-1.5 group ${(isBot && !isOwner) ? 'flex-row' : 'flex-row-reverse'}`}>
       {/* avatar */}
-      <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mb-0.5 ${isBot ? 'bg-gray-200' : group ? 'bg-purple-100' : 'bg-blue-100'}`}>
-        {isBot ? <Bot className="h-3.5 w-3.5 text-gray-500" /> : group ? <Users className="h-3.5 w-3.5 text-purple-600" /> : <User className="h-3.5 w-3.5 text-blue-600" />}
+      <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mb-0.5 ${
+        isBot ? 'bg-gray-200' : isOwner ? 'bg-indigo-100' : group ? 'bg-purple-100' : 'bg-blue-100'
+      }`}>
+        {isBot ? <Bot className="h-3.5 w-3.5 text-gray-500" /> 
+         : isOwner ? <Shield className="h-3.5 w-3.5 text-indigo-600" />
+         : group ? <Users className="h-3.5 w-3.5 text-purple-600" /> 
+         : <User className="h-3.5 w-3.5 text-blue-600" />}
       </div>
 
       {/* bubble wrapper — includes optional sender name for group messages */}
@@ -305,7 +312,9 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
           </div>
         )}
         <div className={`rounded-2xl px-3 py-2 text-sm relative ${
-          isBot ? 'bg-gray-100 text-gray-800 rounded-bl-sm' : 'bg-blue-500 text-white rounded-br-sm'
+          isBot ? 'bg-gray-100 text-gray-800 rounded-bl-sm' 
+          : isOwner ? 'bg-indigo-500 text-white rounded-br-sm'
+          : 'bg-blue-500 text-white rounded-br-sm'
         }`}>
           {/* Ảnh */}
           {image && mediaUrl && (

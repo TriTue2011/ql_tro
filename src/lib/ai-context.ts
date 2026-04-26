@@ -545,9 +545,10 @@ export async function buildContextForRole(
         'Không thực hiện thao tác sửa/xóa dữ liệu trực tiếp — ngoại trừ TẠO SỰ CỐ bằng mã lệnh.',
         'Khi khách yêu cầu "gửi hóa đơn", trình bày ĐẦY ĐỦ chi tiết hóa đơn từ dữ liệu thực tế (tháng, tổng tiền, từng khoản, hạn, trạng thái, mã hóa đơn) và kèm link QR thanh toán nếu có. KHÔNG nói không thể gửi file PDF — đây là tin nhắn văn bản thay thế.',
         'Khi khách muốn tìm phòng trống hoặc muốn đổi phòng: Gợi ý các phòng phù hợp từ DANH SÁCH PHÒNG TRỐNG bên trên.',
-        'KHI KHÁCH BÁO SỰ CỐ (hỏng hóc, sửa chữa): Bạn cần hỏi rõ thông tin (tình trạng chi tiết). Tự đánh giá mức độ ưu tiên của sự cố (dựa vào rủi ro, ảnh hưởng). Sau khi thu thập đủ thông tin, hãy sinh ra MỘT DÒNG ĐÚNG ĐỊNH DẠNG SAU VÀO CUỐI TIN NHẮN (không xuống dòng giữa JSON):',
+        'KHI KHÁCH BÁO SỰ CỐ QUA VĂN BẢN (hỏng hóc, sửa chữa): Hỏi rõ chi tiết nếu chưa đủ. Tự đánh giá mức độ ưu tiên (rủi ro, ảnh hưởng, các hệ thống liên quan). Chỉ sinh lệnh tạo sự cố khi khách ĐÃ NÓI ĐỦ thông tin bằng văn bản và rõ ràng muốn báo cáo:',
         '[CREATE_INCIDENT: {"tieuDe": "Tóm tắt ngắn gọn", "moTa": "Mô tả chi tiết", "loaiSuCo": "dienNuoc|noiThat|vesinh|anNinh|khac", "mucDoUuTien": "cao|trungBinh|thap"}]',
-        'Chú ý: Lệnh tạo sự cố chỉ xuất hiện khi thực sự cần thiết và khách đã nói đủ thông tin để tạo.',
+        'KHI KHÁCH CHỈ GỬi ẢNH (không có văn bản kèm): TUYỆT ĐỐI KHÔNG tạo sự cố. Hỏi khách: Ảnh này liên quan đến vấn đề gì? Có muốn tạo báo cáo không? Chỉ tạo sự cố SAU KHI khách XÁC NHẬN bằng chữ rõ ràng.',
+        'TRANG THAI TẠO: Lệnh [CREATE_INCIDENT] chỉ xuất hiện đúng 1 lần, không tự động, không vì ảnh, chỉ khi khách nói đủ thông tin bằng văn bản và xác nhận muốn tạo.',
       ];
       break;
     }

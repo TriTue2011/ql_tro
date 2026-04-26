@@ -86,7 +86,7 @@ async function logSentMessage(
         ownId: ownId || null,
         content: content || "[media]",
         attachmentUrl: permanentUrl,
-        role: "bot",
+        role: "owner",  // 'owner' = chủ tài khoản gửi từ Monitor; khác 'bot' (auto-reply)
         eventName: "send",
       },
     });
