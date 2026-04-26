@@ -61,8 +61,17 @@ async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null
 async function sendZalo(chatId: string, text: string, toaNhaId?: string): Promise<void> {
   try {
     const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
-    await sendMessageViaBotServer(chatId, text, 0, undefined, botConfig);
-  } catch { /* fire-and-forget */ }
+    const { getActiveMode } = await import('@/lib/zalo-bot-client');
+    const activeMode = await getActiveMode();
+    if (activeMode === 'direct') {
+      const { sendMessage: directSendMessage } = await import('@/lib/zalo-direct/service');
+      await directSendMessage(chatId, text, 0, botConfig?.ttl ?? 0, null, undefined);
+    } else {
+      await sendMessageViaBotServer(chatId, text, 0, undefined, botConfig);
+    }
+  } catch (e) { 
+    console.error('[zalo-notify] sendZalo error:', e);
+  }
 }
 
 /** Tạo VietQR URL cho hóa đơn */
