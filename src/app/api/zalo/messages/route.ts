@@ -36,7 +36,7 @@ async function resolveOwnIds(userId: string, role: string, zaloAccountId: string
       if (m.toaNha.chuSoHuu.zaloAccountId) ownerIds.add(m.toaNha.chuSoHuu.zaloAccountId);
       ownerIds.add(m.toaNha.chuSoHuuId); // fallback nếu chưa set zaloAccountId
     }
-    if (ownerIds.size > 0) return Array.from(ownerIds);
+    if (ownerIds.size > 0) return [...new Set([base, ...Array.from(ownerIds)])];
   }
 
   return [base];
