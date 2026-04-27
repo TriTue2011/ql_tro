@@ -25,16 +25,19 @@ export async function GET(req: NextRequest) {
   const uid = session.user.id;
   const role = session.user.role as string;
 
+  const dbUser = await prisma.nguoiDung.findUnique({ where: { id: uid }, select: { vaiTro: true } });
+  const effectiveRole = dbUser?.vaiTro || role;
+
   // Admin dmFilter (global)
   const dmRow = await prisma.caiDat.findUnique({ where: { khoa: KEY_DM_FILTER }, select: { giaTri: true } });
   const dmFilter = dmRow?.giaTri === 'system_only' ? 'system_only' : 'none';
 
   // Group whitelist
   let groupWhitelist: string[] = [];
-  if (['chuNha', 'dongChuTro'].includes(role)) {
+  if (['chuNha', 'dongChuTro'].includes(effectiveRole)) {
     const gwRow = await prisma.caiDat.findUnique({ where: { khoa: userGroupKey(uid) }, select: { giaTri: true } });
     try { groupWhitelist = JSON.parse(gwRow?.giaTri || '[]'); } catch { /* ignore */ }
-  } else if (role === 'quanLy' || role === 'nhanVien') {
+  } else if (effectiveRole === 'quanLy' || effectiveRole === 'nhanVien') {
     // Kế thừa whitelist của các chủ trọ mà họ quản lý tòa nhà
     const managed = await prisma.toaNhaNguoiQuanLy.findMany({
       where: { nguoiDungId: uid },
@@ -50,7 +53,7 @@ export async function GET(req: NextRequest) {
       } catch { /* ignore */ }
     }
     groupWhitelist = [...new Set(merged)];
-  } else if (role === 'admin') {
+  } else if (effectiveRole === 'admin') {
     const gwRow = await prisma.caiDat.findUnique({ where: { khoa: KEY_GROUP_WL }, select: { giaTri: true } });
     try { groupWhitelist = JSON.parse(gwRow?.giaTri || '[]'); } catch { /* ignore */ }
   }
