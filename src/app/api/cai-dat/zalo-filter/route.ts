@@ -115,7 +115,7 @@ export async function PUT(req: NextRequest) {
       const nd = await prisma.nguoiDung.findUnique({ where: { id: uid }, select: { zaloAccountId: true } });
       const accountId = nd?.zaloAccountId || uid;
 
-      const existing = groups.find(g => g.name.toLowerCase() === name.toLowerCase());
+      const existing = groups.find(g => g.name?.toLowerCase() === name.toLowerCase());
       if (existing) {
         // Cập nhật threadId cho account này
         existing.threadIds = { ...(existing.threadIds || {}), [accountId]: threadId };
@@ -137,7 +137,7 @@ export async function PUT(req: NextRequest) {
       }
     } else {
       // Xóa nhóm khỏi danh sách
-      groups = groups.filter(g => g.name.toLowerCase() !== name.toLowerCase());
+      groups = groups.filter(g => g.name?.toLowerCase() !== name.toLowerCase());
 
       // Xóa khỏi groupWhitelist của user
       const gwRow = await prisma.caiDat.findUnique({ where: { khoa: userGroupKey(uid) }, select: { giaTri: true } });

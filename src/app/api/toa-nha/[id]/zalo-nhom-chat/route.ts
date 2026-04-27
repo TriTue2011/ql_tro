@@ -11,7 +11,8 @@ import prisma from '@/lib/prisma';
 import { z } from 'zod';
 
 const nhomChatSchema = z.object({
-  threadId: z.string().min(1, 'Thread ID không được trống'),
+  name: z.string().min(1, 'Tên nhóm không được trống'),
+  threadIds: z.record(z.string()),
   tang: z.number().int().nullable().optional(),
   label: z.string().nullable().optional(),
 });
@@ -84,17 +85,19 @@ export async function PUT(
     const body = await request.json();
     const { zaloNhomChat } = payloadSchema.parse(body);
 
-    // Chuẩn hóa: loại bỏ threadId trùng; tang = null khi rỗng
+    // Chuẩn hóa: loại bỏ name trùng; tang = null khi rỗng
     const seen = new Set<string>();
     const normalized = zaloNhomChat
       .map((g) => ({
-        threadId: g.threadId.trim(),
+        name: g.name.trim(),
+        threadIds: g.threadIds,
         tang: typeof g.tang === 'number' ? g.tang : null,
         label: g.label ? g.label.trim() : null,
       }))
       .filter((g) => {
-        if (!g.threadId || seen.has(g.threadId)) return false;
-        seen.add(g.threadId);
+        const lowerName = g.name.toLowerCase();
+        if (!lowerName || seen.has(lowerName)) return false;
+        seen.add(lowerName);
         return true;
       });
 

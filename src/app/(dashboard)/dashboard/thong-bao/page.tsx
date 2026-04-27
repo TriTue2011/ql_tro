@@ -741,7 +741,7 @@ export default function ThongBaoPage() {
   );
 }
 
-interface ZaloNhomChatItem { threadId: string; tang?: number | null; label?: string }
+interface ZaloNhomChatItem { name: string; threadIds: Record<string, string>; tang?: number | null; label?: string }
 
 // Form component for adding/editing thong bao
 function ThongBaoForm({
@@ -1020,22 +1020,23 @@ function ThongBaoForm({
             </div>
           )}
           {nhomChatList.map((g) => {
-            const label = g.label ?? (g.tang != null ? `Tầng ${g.tang}` : 'Toàn tòa');
+            const label = g.label ?? (g.name || (g.tang != null ? `Tầng ${g.tang}` : 'Toàn tòa'));
+            const key = g.name || (Object.values(g.threadIds || {})[0] as string);
             return (
-              <label key={g.threadId} className="flex items-center space-x-2 cursor-pointer">
+              <label key={key} className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={formData.nhomChatIds.includes(g.threadId)}
+                  checked={formData.nhomChatIds.includes(key)}
                   onChange={(e) => setFormData(prev => ({
                     ...prev,
                     nhomChatIds: e.target.checked
-                      ? [...prev.nhomChatIds, g.threadId]
-                      : prev.nhomChatIds.filter((t: string) => t !== g.threadId),
+                      ? [...prev.nhomChatIds, key]
+                      : prev.nhomChatIds.filter((t: string) => t !== key),
                   }))}
                   className="rounded border-gray-300"
                 />
                 <span className="text-xs">{label}</span>
-                <span className="text-[10px] text-gray-400 font-mono">{g.threadId.slice(0, 10)}…</span>
+                <Users className="h-3 w-3 text-purple-400" />
               </label>
             );
           })}

@@ -148,13 +148,40 @@ ${footer}`;
 /** Gửi tin nhắn đến nhóm chat của tòa nhà (chỉ dùng cho nhắc nhở, không dùng cho sự cố/hóa đơn) */
 async function sendToGroup(toaNhaId: string, text: string, tang?: number): Promise<void> {
   const toaNha = await prisma.toaNha.findUnique({ where: { id: toaNhaId }, select: { zaloNhomChat: true } });
-  const groups = (toaNha?.zaloNhomChat as { tang?: number | null; threadId: string }[] | null) ?? [];
-  let threadId: string | null = null;
-  if (groups.length > 0) {
-    if (tang !== undefined) threadId = groups.find(g => g.tang === tang)?.threadId ?? null;
-    if (!threadId) threadId = groups.find(g => g.tang == null)?.threadId ?? null;
-    if (!threadId) threadId = groups[0]?.threadId ?? null;
+  if (!toaNha?.zaloNhomChat || !Array.isArray(toaNha.zaloNhomChat)) return;
+
+  const botConfig = await getBotConfigForToaNha(toaNhaId);
+  const botAccountId = botConfig?.accountId || '';
+
+  // groups có thể là chuẩn cũ [{threadId, tang}] hoặc chuẩn mới [{name, threadIds: {uid: tid}, tang}]
+  const groups = toaNha.zaloNhomChat as any[];
+  
+  function resolveThreadId(g: any): string | null {
+    if (g.threadId) return g.threadId; // Chuẩn cũ
+    if (g.threadIds && typeof g.threadIds === 'object') {
+      // Chuẩn mới: ưu tiên threadId của bot account đang dùng, fallback sang bất kỳ threadId nào có đầu tiên
+      if (botAccountId && g.threadIds[botAccountId]) return g.threadIds[botAccountId];
+      const firstId = Object.values(g.threadIds)[0];
+      return typeof firstId === 'string' ? firstId : null;
+    }
+    return null;
   }
+
+  let threadId: string | null = null;
+  if (tang !== undefined) {
+    const matched = groups.find(g => g.tang === tang);
+    if (matched) threadId = resolveThreadId(matched);
+  }
+  
+  if (!threadId) {
+    const globalGroup = groups.find(g => g.tang == null);
+    if (globalGroup) threadId = resolveThreadId(globalGroup);
+  }
+  
+  if (!threadId && groups.length > 0) {
+    threadId = resolveThreadId(groups[0]);
+  }
+
   if (!threadId) threadId = await getSetting('bot_forward_thread_id') || null;
   if (threadId) await sendZalo(threadId, text, toaNhaId);
 }
@@ -207,6 +234,31 @@ export async function broadcastThongBao(opts: {
 }): Promise<void> {
   const { text, chatIds = [], groupThreadIds = [], fileUrls = [], toaNhaId } = opts;
 
+  // Lấy thông tin toaNha để resolve group names (nếu có)
+  const toaNha = toaNhaId ? await prisma.toaNha.findUnique({ where: { id: toaNhaId }, select: { zaloNhomChat: true } }) : null;
+  const groups = Array.isArray(toaNha?.zaloNhomChat) ? toaNha!.zaloNhomChat as any[] : [];
+
+  const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
+  const botAccountId = botConfig?.accountId || '';
+
+  function resolveGroup(idOrName: string): string {
+    // Nếu là ID (số hoặc bắt đầu bằng g), trả về luôn
+    if (/^\d+$/.test(idOrName) || idOrName.startsWith('g')) return idOrName;
+    
+    // Thử tìm trong danh sách nhóm tòa nhà theo tên
+    const matched = groups.find(g => (g.name || '').toLowerCase() === idOrName.toLowerCase());
+    if (matched) {
+      if (matched.threadId) return matched.threadId; // chuẩn cũ
+      if (matched.threadIds && typeof matched.threadIds === 'object') {
+        if (botAccountId && matched.threadIds[botAccountId]) return matched.threadIds[botAccountId];
+        return Object.values(matched.threadIds)[0] as string || idOrName;
+      }
+    }
+    return idOrName;
+  }
+
+  const resolvedGroupIds = groupThreadIds.map(resolveGroup).filter(Boolean);
+
   const sendAllTo = async (chatId: string, threadType: 0 | 1) => {
     try {
       if (text) await sendZalo(chatId, text, toaNhaId);
@@ -223,7 +275,7 @@ export async function broadcastThongBao(opts: {
   // Cá nhân
   for (const chatId of chatIds) if (chatId) await sendAllTo(chatId, 0);
   // Nhóm
-  for (const tid of groupThreadIds) if (tid) await sendAllTo(tid, 1);
+  for (const tid of resolvedGroupIds) if (tid) await sendAllTo(tid, 1);
 }
 
 // ─── Notification Router ──────────────────────────────────────────────────────

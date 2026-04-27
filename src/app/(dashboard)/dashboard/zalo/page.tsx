@@ -3699,7 +3699,8 @@ function BuildingAccordion({
 // ─── Building Zalo Groups ─────────────────────────────────────────────────────
 
 interface BuildingZaloGroupItem {
-  threadId: string;
+  name: string;
+  threadIds: Record<string, string>;
   tang?: number | null;
   label?: string | null;
 }
@@ -3712,7 +3713,9 @@ function BuildingZaloGroupsSection({ buildingId, canEdit }: {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
-  const [newThreadId, setNewThreadId] = useState('');
+  const [groupName, setGroupName] = useState('');
+  const [lookupResults, setLookupResults] = useState<{ threadId: string; displayName: string }[]>([]);
+  const [looking, setLooking] = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [newTang, setNewTang] = useState('');
 
@@ -3755,31 +3758,59 @@ function BuildingZaloGroupsSection({ buildingId, canEdit }: {
     }
   };
 
-  const handleAdd = async () => {
-    const threadId = newThreadId.trim();
-    if (!threadId) { toast.error('Cần nhập Thread ID nhóm'); return; }
-    if (groups.some(g => g.threadId === threadId)) {
-      toast.error('Thread ID đã tồn tại');
-      return;
-    }
+  const handleLookup = async () => {
+    const n = groupName.trim();
+    if (!n) return;
+    setLooking(true);
+    setLookupResults([]);
+    try {
+      const r = await fetch(`/api/zalo/group-thread-lookup?name=${encodeURIComponent(n)}`);
+      const d = await r.json();
+      setLookupResults(d.results || []);
+      if (!d.results?.length) toast.info('Không tìm thấy nhóm nào khớp tên.');
+    } catch { toast.error('Lỗi tra cứu'); }
+    finally { setLooking(false); }
+  };
+
+  const handleAddFromLookup = async (res: { threadId: string; displayName: string }) => {
     const tang = newTang.trim() === '' ? null : Number(newTang);
     if (newTang.trim() !== '' && !Number.isFinite(tang)) {
       toast.error('Tầng phải là số');
       return;
     }
-    const next = [...groups, {
-      threadId,
-      tang: tang as number | null,
-      label: newLabel.trim() || null,
-    }];
+
+    // Lấy zaloAccountId của user hiện tại để gán vào threadIds
+    const profileRes = await fetch('/api/user/profile');
+    const profile = await profileRes.json();
+    const accountId = profile.zaloAccountId || profile.id;
+
+    const existing = groups.find(g => g.name.toLowerCase() === res.displayName.toLowerCase());
+    let next: BuildingZaloGroupItem[];
+    if (existing) {
+      next = groups.map(g => g.name === existing.name ? {
+        ...g,
+        threadIds: { ...(g.threadIds || {}), [accountId]: res.threadId },
+        tang: tang as number | null,
+        label: newLabel.trim() || g.label
+      } : g);
+    } else {
+      next = [...groups, {
+        name: res.displayName,
+        threadIds: { [accountId]: res.threadId },
+        tang: tang as number | null,
+        label: newLabel.trim() || null,
+      }];
+    }
+
     await save(next);
-    setNewThreadId('');
+    setGroupName('');
+    setLookupResults([]);
     setNewLabel('');
     setNewTang('');
   };
 
-  const handleDelete = async (threadId: string) => {
-    const next = groups.filter(g => g.threadId !== threadId);
+  const handleDelete = async (name: string) => {
+    const next = groups.filter(g => g.name !== name);
     await save(next);
   };
 
@@ -3809,27 +3840,27 @@ function BuildingZaloGroupsSection({ buildingId, canEdit }: {
           )}
 
           {!loading && groups.length === 0 && (
-            <p className="text-xs text-gray-400">Chưa có nhóm Zalo nào. Thêm Thread ID nhóm để nhận thông báo chung.</p>
+            <p className="text-xs text-gray-400">Chưa có nhóm Zalo nào. Tìm tên nhóm để nhận thông báo chung.</p>
           )}
 
           {!loading && groups.map((g) => (
-            <div key={g.threadId} className="flex items-center gap-2 px-2 py-1.5 bg-white rounded-md border">
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 shrink-0">Nhóm</span>
-              <code className="text-xs font-mono text-gray-700 flex-1 min-w-0 truncate">{g.threadId}</code>
+            <div key={g.name} className="flex items-center gap-2 px-2 py-1.5 bg-white rounded-md border">
+              <Users className="h-3 w-3 text-purple-500 shrink-0" />
+              <span className="text-xs font-medium text-gray-700 flex-1 truncate">{g.name}</span>
               {g.tang != null && (
-                <span className="text-[10px] text-gray-500 shrink-0">Tầng {g.tang}</span>
+                <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 shrink-0">Tầng {g.tang}</span>
               )}
               {g.label && (
-                <span className="text-[10px] italic text-gray-500 truncate max-w-[140px]">{g.label}</span>
+                <span className="text-[10px] italic text-gray-400 truncate max-w-[140px]">{g.label}</span>
               )}
               {canEdit && (
                 <button
                   type="button"
-                  onClick={() => handleDelete(g.threadId)}
+                  onClick={() => handleDelete(g.name)}
                   disabled={saving}
-                  className="text-[10px] text-red-500 hover:text-red-700 shrink-0"
+                  className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
                 >
-                  Xóa
+                  <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
@@ -3839,9 +3870,10 @@ function BuildingZaloGroupsSection({ buildingId, canEdit }: {
             <div className="mt-2 space-y-2 border-t pt-2">
               <div className="grid grid-cols-1 md:grid-cols-[1fr_100px_140px_auto] gap-2">
                 <Input
-                  value={newThreadId}
-                  onChange={e => setNewThreadId(e.target.value)}
-                  placeholder="Thread ID nhóm Zalo"
+                  value={groupName}
+                  onChange={e => setGroupName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleLookup(); }}
+                  placeholder="Nhập tên nhóm Zalo..."
                   className="text-xs h-8"
                 />
                 <Input
@@ -3857,12 +3889,26 @@ function BuildingZaloGroupsSection({ buildingId, canEdit }: {
                   placeholder="Nhãn (tùy chọn)"
                   className="text-xs h-8"
                 />
-                <Button size="sm" onClick={handleAdd} disabled={saving} className="h-8 text-xs">
-                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Plus className="h-3.5 w-3.5 mr-1" />Thêm</>}
+                <Button size="sm" onClick={handleLookup} disabled={looking || !groupName.trim()} className="h-8 text-xs gap-1.5">
+                  {looking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Plus className="h-3.5 w-3.5" />Tìm</>}
                 </Button>
               </div>
+
+              {lookupResults.length > 0 && (
+                <div className="mt-2 space-y-1 border rounded-lg p-2 bg-purple-50">
+                  <p className="text-[10px] text-purple-600 font-medium mb-1">Kết quả tìm kiếm — chọn để thêm:</p>
+                  {lookupResults.map(r => (
+                    <button key={r.threadId} type="button" onClick={() => handleAddFromLookup(r)} disabled={saving}
+                      className="w-full text-left flex items-center justify-between gap-2 px-2 py-1 rounded-md hover:bg-purple-100 transition-colors">
+                      <span className="text-xs font-medium text-gray-800">{r.displayName}</span>
+                      <Badge className="text-[9px] h-4 bg-purple-500">+ Thêm</Badge>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <p className="text-[11px] text-gray-400">
-                Thread ID là ID nhóm Zalo (lấy từ tab Theo dõi tin). Để trống "Tầng" nếu nhóm dùng cho toàn tòa.
+                Nhập tên nhóm Zalo chính xác để hệ thống tự động tìm ID. Để trống "Tầng" nếu nhóm dùng cho toàn tòa.
               </p>
             </div>
           )}

@@ -1149,7 +1149,9 @@ function OwnerGroupFilterPanel({
   // Tất cả group của tất cả buildings của user này
   const allGroupNames = useMemo(() => {
     const names = new Set<string>();
-    buildings.forEach(b => b.zaloNhomChat.forEach(g => names.add(g.name)));
+    buildings.forEach(b => b.zaloNhomChat.forEach(g => {
+      if (g.name) names.add(g.name);
+    }));
     return Array.from(names);
   }, [buildings]);
 
@@ -1256,7 +1258,7 @@ function OwnerGroupFilterPanel({
         {/* Nhóm đã thêm của tòa đang chọn */}
         {currentBldg && currentBldg.zaloNhomChat.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {currentBldg.zaloNhomChat.map(g => (
+            {currentBldg.zaloNhomChat.filter(g => !!g.name).map(g => (
               <span key={g.name} className="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-full px-2 py-0.5">
                 <Users className="h-3 w-3" /> {g.name}
                 <button type="button" onClick={() => handleRemoveGroup(g.name)} disabled={saving}
