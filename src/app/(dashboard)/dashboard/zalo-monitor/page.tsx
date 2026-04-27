@@ -48,7 +48,7 @@ function getThreadId(msg: ZaloMsg): string {
 
 function isGroup(msg: ZaloMsg): boolean {
   const payload = msg.rawPayload as any;
-  return !!payload?.threadId || payload?.type === 1 || payload?.type === '1';
+  return Number(payload?.type) === 1 || Number(payload?.data?.type) === 1;
 }
 
 function senderName(msg: ZaloMsg): string {
@@ -1579,6 +1579,20 @@ export default function ZaloMonitorPage() {
               <CompactContactDir onSelectThread={(threadId) => {
                 setSelectedChatId(threadId);
                 setLeftTab('conv');
+                // Nếu chưa có trong danh sách, thêm một item tạm để hiển thị ngay
+                if (!convs.some(c => c.chatId === threadId)) {
+                  setConvs(prev => [{
+                    id: 'temp-' + Date.now(),
+                    chatId: threadId,
+                    displayName: 'Đang tải...',
+                    content: '',
+                    attachmentUrl: null,
+                    role: 'user',
+                    eventName: 'message',
+                    createdAt: new Date().toISOString(),
+                    rawPayload: { threadId }
+                  }, ...prev]);
+                }
               }} />
             )}
           </div>

@@ -183,19 +183,33 @@ export async function GET(request: NextRequest) {
       select: { id: true }
     });
 
-    // Kiểm tra xem có bật system_only không cho bất kỳ tòa nào
+    // Kiểm tra xem có cần lọc system_only không
+    // Chỉ lọc nếu TẤT CẢ các tòa nhà đều bật 'system_only'
+    // Nếu có BẤT KỲ tòa nhà nào để 'none' → không lọc (hiển thị tất cả DM)
     let dmFilterActive = false;
+    let hasAnyBuilding = false;
+    
     for (const b of userBuildings) {
       const cfgRow = await prisma.caiDat.findUnique({ where: { khoa: `zalo_monitor_config_${b.id}` } });
       const cfg = cfgRow ? JSON.parse(cfgRow.giaTri || '{}') : { enabled: true, dmFilter: 'none' };
-      if (cfg.enabled !== false && cfg.dmFilter === 'system_only') {
+      
+      if (cfg.enabled !== false) {
+        hasAnyBuilding = true;
+        if (cfg.dmFilter !== 'system_only') {
+          // Có một tòa nhà không filter → không lọc DM (override)
+          dmFilterActive = false;
+          break;
+        }
+        // Tòa này muốn filter
         dmFilterActive = true;
-        break;
       }
     }
+    
+    // Nếu không có tòa nhà nào bật Monitor, không cần lọc
+    if (!hasAnyBuilding) dmFilterActive = false;
 
-    // Nếu không có per-building config, fallback global
-    if (!dmFilterActive) {
+    // Nếu không có per-building config nào bật (hoặc user không có tòa nhà), fallback global
+    if (!hasAnyBuilding) {
       const globalDmRow = await prisma.caiDat.findUnique({ where: { khoa: 'zalo_monitor_dm_filter' }, select: { giaTri: true } });
       if (globalDmRow?.giaTri === 'system_only') dmFilterActive = true;
     }
@@ -208,7 +222,7 @@ export async function GET(request: NextRequest) {
 
     const filteredRows = rows.filter(row => {
       const payload = (row.rawPayload || {}) as any;
-      const isGroup = !!payload.threadId || payload.type === 1 || payload.type === '1';
+      const isGroup = Number(payload.type) === 1 || Number(payload.data?.type) === 1;
 
       if (isGroup) {
         // Không thay đổi filter nhóm
