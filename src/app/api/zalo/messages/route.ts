@@ -285,12 +285,20 @@ export async function DELETE(request: NextRequest) {
   const { id: userId } = session.user;
   const role = session.user.role as string;
 
-  // Lấy ownIds của user (quanLy dùng ownId của chủ trọ họ quản lý)
   const nguoiDung = await prisma.nguoiDung.findUnique({
     where: { id: userId },
     select: { zaloAccountId: true, vaiTro: true },
   });
-  const ownIds = await resolveOwnIds(userId, nguoiDung?.zaloAccountId);
+  const effectiveRole = nguoiDung?.vaiTro || role;
+
+  if (effectiveRole === "nhanVien") {
+    return NextResponse.json({ error: "Forbidden: Nhân viên không có quyền" }, { status: 403 });
+  }
+
+  const ownIds = await resolveOwnIds(userId, effectiveRole, nguoiDung?.zaloAccountId);
+  if (ownIds.length === 0) {
+    return NextResponse.json({ error: "Không tìm thấy tài khoản Zalo liên kết" }, { status: 403 });
+  }
   const ownIdsJoined = Prisma.join(ownIds);
 
   // Xóa 1 tin nhắn theo id (chỉ admin/chuNha)
@@ -314,10 +322,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true, deleted: Number(deleted) });
   }
 
-  // Xóa tất cả — chỉ admin/chuNha, và chỉ xóa tin thuộc ownIds của mình
-  if (!["admin", "chuNha", "quanLy", "dongChuTro"].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  // Xóa tất cả — chỉ admin/chuNha/quanLy/dongChuTro
   const deleted = await prisma.$executeRaw`
     DELETE FROM "ZaloMessage"
     WHERE "ownId" IN (${ownIdsJoined})
