@@ -146,6 +146,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Kiểm tra trùng mã hợp đồng
+    const existingMa = await prisma.hopDong.findFirst({
+      where: { maHopDong: validatedData.maHopDong }
+    });
+    if (existingMa) {
+      return NextResponse.json(
+        { message: `Mã hợp đồng "${validatedData.maHopDong}" đã tồn tại. Vui lòng chọn mã khác.` },
+        { status: 400 }
+      );
+    }
+
     // Kiểm tra phòng có hợp đồng đang hoạt động không
     const existingHopDong = await hopDongRepo.findMany({
       phongId: validatedData.phong,
