@@ -10,7 +10,7 @@ import {
   Image, FileText, Upload, MessageSquare,
   Bot, Copy, ExternalLink, ChevronLeft,
   HardDrive, Folder, UserPlus, AlertCircle, Zap, LogOut,
-  Globe, QrCode as QrCodeIcon, Plus, Trash2, WifiOff,
+  Globe, QrCode as QrCodeIcon, Plus, Trash2, WifiOff, X,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
