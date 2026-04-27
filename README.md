@@ -110,6 +110,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Zalo Bot Server ─────────────────────────────────────────────────────────
+  # Bot Zalo Web (đăng nhập cá nhân bằng QR, không cần OA).
+  # Truy cập: http://localhost:3001  (admin/admin)
+  # Đăng nhập lần đầu: vào Cài đặt → tab Thông báo → "Lấy QR code" rồi quét.
+  zalo:
+    image: ghcr.io/smarthomeblack/zalobot-amd64:latest
+    container_name: zalo
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - PORT=3001
+    volumes:
+      - /opt/zalo_bot:/app/data
+      - /opt/zalo_bot/www/zalo_bot:/config/www/zalo_bot
+
 volumes:
   postgres_data:
   minio_data:
