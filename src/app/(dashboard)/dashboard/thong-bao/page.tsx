@@ -843,7 +843,27 @@ function ThongBaoForm({
     setFormData(prev => {
       const current = prev[field] as string[];
       const allSelected = ids.length > 0 && ids.every(id => current.includes(id));
-      return { ...prev, [field]: allSelected ? current.filter(id => !ids.includes(id)) : Array.from(new Set([...current, ...ids])) };
+      const nextIds = allSelected ? current.filter(id => !ids.includes(id)) : Array.from(new Set([...current, ...ids]));
+
+      if (field === 'phong') {
+        // Tự động tích/bỏ tích khách thuê trong các phòng này
+        const tenantsInRooms = filteredKhachThue.filter((kt: any) => {
+          const pid = kt.hopDongHienTai?.phong?.id ?? (typeof kt.phong === 'string' ? kt.phong : kt.phong?.id);
+          return ids.includes(pid);
+        }).map((kt: any) => kt.id!);
+
+        let nextNguoiNhan = prev.nguoiNhan;
+        if (!allSelected) {
+          // Add all tenants from these rooms
+          nextNguoiNhan = Array.from(new Set([...prev.nguoiNhan, ...tenantsInRooms]));
+        } else {
+          // Remove all tenants from these rooms
+          nextNguoiNhan = prev.nguoiNhan.filter(id => !tenantsInRooms.includes(id));
+        }
+        return { ...prev, phong: nextIds, nguoiNhan: nextNguoiNhan };
+      }
+
+      return { ...prev, [field]: nextIds };
     });
   };
 

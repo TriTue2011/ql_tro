@@ -59,9 +59,31 @@ async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null
   return getBotConfig();
 }
 
-async function sendZalo(chatId: string, text: string, toaNhaId?: string): Promise<void> {
+async function resolveBotConfig(toaNhaId?: string, senderId?: string): Promise<BotConfig | null> {
+  if (senderId) {
+    try {
+      const user = await prisma.nguoiDung.findUnique({
+        where: { id: senderId },
+        select: { zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloAccountId: true },
+      });
+      if (user?.zaloBotServerUrl) {
+        return {
+          serverUrl: user.zaloBotServerUrl.replace(/\/$/, ''),
+          username: user.zaloBotUsername || 'admin',
+          password: user.zaloBotPassword || 'admin',
+          accountId: user.zaloAccountId || '',
+          ttl: user.zaloBotTtl ?? 0,
+        };
+      }
+    } catch { /* ignore */ }
+  }
+  if (toaNhaId) return getBotConfigForToaNha(toaNhaId);
+  return getBotConfig();
+}
+
+async function sendZalo(chatId: string, text: string, toaNhaId?: string, senderId?: string): Promise<void> {
   try {
-    const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
+    const botConfig = await resolveBotConfig(toaNhaId, senderId);
     const { getActiveMode } = await import('@/lib/zalo-bot-client');
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
@@ -195,9 +217,10 @@ async function sendAttachmentToChat(
   fileUrl: string,
   toaNhaId: string | undefined,
   threadType: 0 | 1 = 0,
+  senderId?: string,
 ): Promise<void> {
   const { sendImageViaBotServer, sendFileViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
-  const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
+  const botConfig = await resolveBotConfig(toaNhaId, senderId);
   const lower = fileUrl.toLowerCase().split('?')[0];
   const isImage = /\.(jpe?g|png|gif|webp|bmp|avif|heic)$/.test(lower);
   const activeMode = await getActiveMode();
@@ -231,14 +254,15 @@ export async function broadcastThongBao(opts: {
   groupThreadIds?: string[];
   fileUrls?: string[];
   toaNhaId?: string;
+  senderId?: string;
 }): Promise<void> {
-  const { text, chatIds = [], groupThreadIds = [], fileUrls = [], toaNhaId } = opts;
+  const { text, chatIds = [], groupThreadIds = [], fileUrls = [], toaNhaId, senderId } = opts;
 
   // Lấy thông tin toaNha để resolve group names (nếu có)
   const toaNha = toaNhaId ? await prisma.toaNha.findUnique({ where: { id: toaNhaId }, select: { zaloNhomChat: true } }) : null;
   const groups = Array.isArray(toaNha?.zaloNhomChat) ? toaNha!.zaloNhomChat as any[] : [];
 
-  const botConfig = toaNhaId ? await getBotConfigForToaNha(toaNhaId) : await getBotConfig();
+  const botConfig = await resolveBotConfig(toaNhaId, senderId);
   const botAccountId = botConfig?.accountId || '';
 
   function resolveGroup(idOrName: string): string {
@@ -261,9 +285,9 @@ export async function broadcastThongBao(opts: {
 
   const sendAllTo = async (chatId: string, threadType: 0 | 1) => {
     try {
-      if (text) await sendZalo(chatId, text, toaNhaId);
+      if (text) await sendZalo(chatId, text, toaNhaId, senderId);
       for (const url of fileUrls) {
-        await sendAttachmentToChat(chatId, url, toaNhaId, threadType).catch(e =>
+        await sendAttachmentToChat(chatId, url, toaNhaId, threadType, senderId).catch(e =>
           console.error('[broadcastThongBao] attachment error:', e),
         );
       }

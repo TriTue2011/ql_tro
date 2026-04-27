@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
           groupThreadIds: validatedData.nhomChatIds || [],
           fileUrls: validatedData.fileDinhKem || [],
           toaNhaId,
+          senderId: session.user.id,
         });
       } catch (e) {
         console.error('[thong-bao POST broadcast] error:', e);
