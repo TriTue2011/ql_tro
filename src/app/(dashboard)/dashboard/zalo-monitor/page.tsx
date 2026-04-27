@@ -1460,10 +1460,17 @@ export default function ZaloMonitorPage() {
 
   async function handleDeleteAll() {
     if (!confirm('Xóa tất cả tin nhắn?')) return;
-    await fetch('/api/zalo/messages', { method: 'DELETE' });
-    setConvs([]);
-    setSelectedChatId(null);
-    toast.success('Đã xóa tất cả');
+    const res = await fetch('/api/zalo/messages', { method: 'DELETE' });
+    if (res.ok) {
+      setConvs([]);
+      setSelectedChatId(null);
+      toast.success('Đã xóa tất cả');
+      // Reload từ server để đảm bảo sạch hoàn toàn
+      setTimeout(() => loadConvs(), 500);
+    } else {
+      const d = await res.json().catch(() => ({}));
+      toast.error(d.error || 'Không có quyền xóa');
+    }
   }
 
   return (
