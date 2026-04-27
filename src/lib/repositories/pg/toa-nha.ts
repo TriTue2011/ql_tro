@@ -23,6 +23,7 @@ function normalize(raw: any): ToaNhaData {
     tongSoPhong: raw.tongSoPhong,
     tienNghiChung: raw.tienNghiChung,
     lienHePhuTrach: (raw.lienHePhuTrach as LienHePhuTrach[]) ?? [],
+    zaloNhomChat: (raw.zaloNhomChat as any[]) ?? [],
     ngayTao: raw.ngayTao,
     ngayCapNhat: raw.ngayCapNhat,
   };
@@ -86,6 +87,7 @@ export default class ToaNhaRepository {
         tongSoPhong: data.tongSoPhong ?? 0,
         tienNghiChung: data.tienNghiChung ?? [],
         lienHePhuTrach: (data.lienHePhuTrach ?? []) as object[],
+        zaloNhomChat: (data.zaloNhomChat ?? []) as object[],
       },
       include: { chuSoHuu: { select: { id: true, ten: true, email: true } } },
     });
@@ -111,6 +113,7 @@ export default class ToaNhaRepository {
           ...(data.tongSoPhong !== undefined && { tongSoPhong: data.tongSoPhong }),
           ...(data.tienNghiChung !== undefined && { tienNghiChung: data.tienNghiChung }),
           ...(data.lienHePhuTrach !== undefined && { lienHePhuTrach: data.lienHePhuTrach as object[] }),
+          ...(data.zaloNhomChat !== undefined && { zaloNhomChat: data.zaloNhomChat as object[] }),
         },
         include: { chuSoHuu: { select: { id: true, ten: true, email: true } } },
       });

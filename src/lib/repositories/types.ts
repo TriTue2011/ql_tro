@@ -88,6 +88,7 @@ export interface ToaNhaData {
   tongSoPhong: number;
   tienNghiChung: string[];
   lienHePhuTrach: LienHePhuTrach[];
+  zaloNhomChat?: any[];
   ngayTao: Date;
   ngayCapNhat: Date;
 }
@@ -101,6 +102,7 @@ export interface CreateToaNhaInput {
   tongSoPhong?: number;
   tienNghiChung?: string[];
   lienHePhuTrach?: LienHePhuTrach[];
+  zaloNhomChat?: any[];
 }
 
 export interface UpdateToaNhaInput {
@@ -111,6 +113,7 @@ export interface UpdateToaNhaInput {
   tongSoPhong?: number;
   tienNghiChung?: string[];
   lienHePhuTrach?: LienHePhuTrach[];
+  zaloNhomChat?: any[];
 }
 
 // ─── Phong ────────────────────────────────────────────────────
