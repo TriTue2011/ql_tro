@@ -188,20 +188,22 @@ export default function DashboardPage() {
             { label: 'Người dùng', value: s.tongNguoiDung, icon: 'bi-people-fill', color: '#f59e0b', bg: 'card-amber', href: '/dashboard/quan-ly-tai-khoan' },
           ].map((item) => (
             <div key={item.label} className="col-6 col-sm-6 col-lg-3">
-              <div className={`bs-stat-card ${item.bg}`}>
-                <div className="d-flex align-items-start justify-content-between">
-                  <div>
-                    <div className="bs-stat-label">{item.label}</div>
-                    <div className="bs-stat-value">{item.value}</div>
-                    {item.href && (
-                      <Link href={item.href} style={{ fontSize: 11, color: item.color }}>Xem danh sách →</Link>
-                    )}
-                  </div>
-                  <div className="bs-stat-icon" style={{ background: `${item.color}18`, color: item.color }}>
-                    <i className={`bi ${item.icon}`} />
+              <Link href={item.href} className="text-decoration-none">
+                <div className={`bs-stat-card ${item.bg}`}>
+                  <div className="d-flex align-items-start justify-content-between">
+                    <div>
+                      <div className="bs-stat-label">{item.label}</div>
+                      <div className="bs-stat-value">{item.value}</div>
+                      {item.href && (
+                        <div style={{ fontSize: 11, color: item.color, marginTop: 4 }}>Xem danh sách →</div>
+                      )}
+                    </div>
+                    <div className="bs-stat-icon" style={{ background: `${item.color}18`, color: item.color }}>
+                      <i className={`bi ${item.icon}`} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Link>
             </div>
           ))}
         </div>
@@ -392,85 +394,93 @@ export default function DashboardPage() {
       <div className="row g-3 mb-4">
         {/* Tổng phòng */}
         <div className="col-6 col-sm-6 col-lg-3">
-          <div className="bs-stat-card card-indigo">
-            <div className="d-flex align-items-start justify-content-between">
-              <div>
-                <div className="bs-stat-label">Tổng phòng</div>
-                <div className="bs-stat-value">{stats.tongSoPhong}</div>
-                <div className="bs-stat-sub">
-                  <span className="bs-pulse-dot dot-blue" style={{ marginRight: 5 }} />
-                  {stats.phongDangThue} đang thuê
+          <Link href="/dashboard/phong" className="text-decoration-none">
+            <div className="bs-stat-card card-indigo">
+              <div className="d-flex align-items-start justify-content-between">
+                <div>
+                  <div className="bs-stat-label">Tổng phòng</div>
+                  <div className="bs-stat-value">{stats.tongSoPhong}</div>
+                  <div className="bs-stat-sub">
+                    <span className="bs-pulse-dot dot-blue" style={{ marginRight: 5 }} />
+                    {stats.phongDangThue} đang thuê
+                  </div>
+                </div>
+                <div className="bs-stat-icon icon-indigo">
+                  <i className="bi bi-building" />
                 </div>
               </div>
-              <div className="bs-stat-icon icon-indigo">
-                <i className="bi bi-building" />
-              </div>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Phòng trống */}
         <div className="col-6 col-sm-6 col-lg-3">
-          <div className="bs-stat-card card-emerald">
-            <div className="d-flex align-items-start justify-content-between">
-              <div>
-                <div className="bs-stat-label">Phòng trống</div>
-                <div className="bs-stat-value" style={{ color: '#059669' }}>{stats.phongTrong}</div>
-                <div className="bs-stat-sub">
-                  <span className="bs-pulse-dot dot-green" style={{ marginRight: 5 }} />
-                  {stats.tongSoPhong > 0
-                    ? ((stats.phongTrong / stats.tongSoPhong) * 100).toFixed(0)
-                    : 0}% tổng số
+          <Link href="/dashboard/phong?status=available" className="text-decoration-none">
+            <div className="bs-stat-card card-emerald">
+              <div className="d-flex align-items-start justify-content-between">
+                <div>
+                  <div className="bs-stat-label">Phòng trống</div>
+                  <div className="bs-stat-value" style={{ color: '#059669' }}>{stats.phongTrong}</div>
+                  <div className="bs-stat-sub">
+                    <span className="bs-pulse-dot dot-green" style={{ marginRight: 5 }} />
+                    {stats.tongSoPhong > 0
+                      ? ((stats.phongTrong / stats.tongSoPhong) * 100).toFixed(0)
+                      : 0}% tổng số
+                  </div>
+                </div>
+                <div className="bs-stat-icon icon-emerald">
+                  <i className="bi bi-door-open" />
                 </div>
               </div>
-              <div className="bs-stat-icon icon-emerald">
-                <i className="bi bi-door-open" />
-              </div>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Doanh thu tháng */}
         <div className="col-6 col-sm-6 col-lg-3">
-          <div className="bs-stat-card card-blue">
-            <div className="d-flex align-items-start justify-content-between">
-              <div>
-                <div className="bs-stat-label">Doanh thu tháng</div>
-                <div className="bs-stat-value" style={{ fontSize: 20 }}>
-                  {(stats.doanhThuThang / 1_000_000).toFixed(1)}
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#6b7280' }}>M₫</span>
+          <Link href="/dashboard/thanh-toan" className="text-decoration-none">
+            <div className="bs-stat-card card-blue">
+              <div className="d-flex align-items-start justify-content-between">
+                <div>
+                  <div className="bs-stat-label">Doanh thu tháng</div>
+                  <div className="bs-stat-value" style={{ fontSize: 20 }}>
+                    {(stats.doanhThuThang / 1_000_000).toFixed(1)}
+                    <span style={{ fontSize: 14, fontWeight: 600, color: '#6b7280' }}>M₫</span>
+                  </div>
+                  <div className="bs-stat-sub">
+                    <span className="bs-stat-trend-up">
+                      <i className="bi bi-arrow-up-right" />+12%
+                    </span>
+                    <span style={{ marginLeft: 4 }}>tháng trước</span>
+                  </div>
                 </div>
-                <div className="bs-stat-sub">
-                  <span className="bs-stat-trend-up">
-                    <i className="bi bi-arrow-up-right" />+12%
-                  </span>
-                  <span style={{ marginLeft: 4 }}>tháng trước</span>
+                <div className="bs-stat-icon icon-blue">
+                  <i className="bi bi-graph-up-arrow" />
                 </div>
-              </div>
-              <div className="bs-stat-icon icon-blue">
-                <i className="bi bi-graph-up-arrow" />
               </div>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Sự cố */}
         <div className="col-6 col-sm-6 col-lg-3">
-          <div className="bs-stat-card card-rose">
-            <div className="d-flex align-items-start justify-content-between">
-              <div>
-                <div className="bs-stat-label">Sự cố cần xử lý</div>
-                <div className="bs-stat-value" style={{ color: '#dc2626' }}>{stats.suCoCanXuLy}</div>
-                <div className="bs-stat-sub">
-                  <span className="bs-pulse-dot dot-red" style={{ marginRight: 5 }} />
-                  Cần xử lý ngay
+          <Link href="/dashboard/su-co" className="text-decoration-none">
+            <div className="bs-stat-card card-rose">
+              <div className="d-flex align-items-start justify-content-between">
+                <div>
+                  <div className="bs-stat-label">Sự cố cần xử lý</div>
+                  <div className="bs-stat-value" style={{ color: '#dc2626' }}>{stats.suCoCanXuLy}</div>
+                  <div className="bs-stat-sub">
+                    <span className="bs-pulse-dot dot-red" style={{ marginRight: 5 }} />
+                    Cần xử lý ngay
+                  </div>
+                </div>
+                <div className="bs-stat-icon icon-rose">
+                  <i className="bi bi-exclamation-triangle" />
                 </div>
               </div>
-              <div className="bs-stat-icon icon-rose">
-                <i className="bi bi-exclamation-triangle" />
-              </div>
             </div>
-          </div>
+          </Link>
         </div>
       </div>
 
@@ -539,63 +549,71 @@ export default function DashboardPage() {
       {(stats.tongQuanLy !== undefined || stats.tongKhachThue !== undefined) && (
         <div className="row g-3 mb-4">
           <div className="col-6 col-md-3">
-            <div className="bs-stat-card card-blue">
-              <div className="d-flex align-items-center gap-3">
-                <div className="bs-stat-icon icon-blue" style={{ width: 40, height: 40, fontSize: 18 }}>
-                  <i className="bi bi-person-badge-fill" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Quản lý</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb' }}>{stats.tongQuanLy ?? 0}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-6 col-md-3">
-            <div className="bs-stat-card card-violet">
-              <div className="d-flex align-items-center gap-3">
-                <div className="bs-stat-icon icon-violet" style={{ width: 40, height: 40, fontSize: 18 }}>
-                  <i className="bi bi-person-workspace" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Nhân viên</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#7c3aed' }}>{stats.tongNhanVien ?? 0}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-6 col-md-3">
-            <div className="bs-stat-card card-amber">
-              <div className="d-flex align-items-center gap-3">
-                <div className="bs-stat-icon icon-amber" style={{ width: 40, height: 40, fontSize: 18 }}>
-                  <i className="bi bi-people-fill" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Khách thuê</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706' }}>{stats.tongKhachThue ?? 0}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-6 col-md-3">
-            <div className="bs-stat-card card-emerald">
-              <div className="d-flex align-items-center gap-3">
-                <div className="bs-stat-icon icon-emerald" style={{ width: 40, height: 40, fontSize: 18 }}>
-                  <i className="bi bi-person-check-fill" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
-                    Có TK / Chưa có TK
+            <Link href="/dashboard/quan-ly-tai-khoan" className="text-decoration-none">
+              <div className="bs-stat-card card-blue">
+                <div className="d-flex align-items-center gap-3">
+                  <div className="bs-stat-icon icon-blue" style={{ width: 40, height: 40, fontSize: 18 }}>
+                    <i className="bi bi-person-badge-fill" />
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#059669' }}>
-                    {stats.khachThueCoTaiKhoan ?? 0}
-                    <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: 14 }}>
-                      {' / '}{(stats.tongKhachThue ?? 0) - (stats.khachThueCoTaiKhoan ?? 0)}
-                    </span>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Quản lý</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#2563eb' }}>{stats.tongQuanLy ?? 0}</div>
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
+          </div>
+          <div className="col-6 col-md-3">
+            <Link href="/dashboard/quan-ly-tai-khoan" className="text-decoration-none">
+              <div className="bs-stat-card card-violet">
+                <div className="d-flex align-items-center gap-3">
+                  <div className="bs-stat-icon icon-violet" style={{ width: 40, height: 40, fontSize: 18 }}>
+                    <i className="bi bi-person-workspace" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Nhân viên</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#7c3aed' }}>{stats.tongNhanVien ?? 0}</div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+          <div className="col-6 col-md-3">
+            <Link href="/dashboard/khach-thue" className="text-decoration-none">
+              <div className="bs-stat-card card-amber">
+                <div className="d-flex align-items-center gap-3">
+                  <div className="bs-stat-icon icon-amber" style={{ width: 40, height: 40, fontSize: 18 }}>
+                    <i className="bi bi-people-fill" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Khách thuê</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706' }}>{stats.tongKhachThue ?? 0}</div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+          <div className="col-6 col-md-3">
+            <Link href="/dashboard/khach-thue" className="text-decoration-none">
+              <div className="bs-stat-card card-emerald">
+                <div className="d-flex align-items-center gap-3">
+                  <div className="bs-stat-icon icon-emerald" style={{ width: 40, height: 40, fontSize: 18 }}>
+                    <i className="bi bi-person-check-fill" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
+                      Có TK / Chưa có TK
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#059669' }}>
+                      {stats.khachThueCoTaiKhoan ?? 0}
+                      <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: 14 }}>
+                        {' / '}{(stats.tongKhachThue ?? 0) - (stats.khachThueCoTaiKhoan ?? 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
       )}
@@ -752,9 +770,7 @@ export default function DashboardPage() {
                 const MONTH_LABELS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
                 const currentMonth = selectedYear === currentYear ? new Date().getMonth() : 11;
                 // Show last 6 active months
-                const visibleMonths = revenueData
-                  .filter(m => m.month - 1 <= currentMonth)
-                  .slice(-6);
+                const visibleMonths = revenueData;
                 const maxVal = Math.max(...visibleMonths.map(m => m.revenue), 1);
                 const bestMonth = visibleMonths.reduce((a, b) => b.revenue > a.revenue ? b : a, visibleMonths[0]);
                 return (
