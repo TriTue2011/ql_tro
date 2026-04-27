@@ -50,3 +50,12 @@ next-env.d.ts
 
 # Upload files (local storage)
 public/uploads/
+
+# AI Assistant context — không liên quan đến dự án, không push lên GitHub
+.antigravity/
+
+# Scratch & dev artifacts — chỉ dùng locally
+scratch/
+*.resolved
+tsc-errors.txt
+knip-report.txt

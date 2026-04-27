@@ -355,8 +355,7 @@ export default function DashboardPage() {
         </div>
       </div>
       {/* ── Quick Actions (Top Horizontal) ────────────────────────────── */}
-      {/* ── Quick Actions (Top Horizontal) ────────────────────────────── */}
-      <div className="mb-4">
+      <div className="mb-4" style={{ position: 'relative', zIndex: 100 }}>
         <div className="row g-2">
           {[
             { href: '/dashboard/hoa-don/them-moi', icon: 'bi-receipt-cutoff', label: 'Tạo hóa đơn', color: '#6366f1', count: stats?.hoaDonSapDenHan },
@@ -374,32 +373,34 @@ export default function DashboardPage() {
                   padding: '16px 8px',
                   background: '#fff',
                   borderRadius: 12,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                   transition: 'all 0.2s ease',
-                  border: '1px solid #f3f4f6',
-                  zIndex: 1
+                  border: '1px solid #e5e7eb',
+                  display: 'flex',
+                  cursor: 'pointer',
+                  overflow: 'visible'
                 }}
               >
                 <i
                   className={`bi ${item.icon}`}
                   style={{ color: item.color, fontSize: 24, marginBottom: 6 }}
                 />
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{item.label}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{item.label}</span>
                 
                 {item.count ? (
                   <span 
                     className="position-absolute badge rounded-pill bg-danger" 
                     style={{ 
-                      top: 8, 
-                      right: 8, 
+                      top: -5, 
+                      right: -5, 
                       fontSize: 10,
-                      minWidth: 18,
-                      height: 18,
+                      minWidth: 20,
+                      height: 20,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      pointerEvents: 'none',
-                      zIndex: 2
+                      boxShadow: '0 2px 4px rgba(220,38,38,0.3)',
+                      zIndex: 10
                     }}
                   >
                     {item.count}
