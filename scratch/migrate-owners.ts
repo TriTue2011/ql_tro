@@ -1,3 +1,24 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ─── Tự động load .env hoặc .env.local ───────────────────────────
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.join(__dirname, '..');
+
+['.env', '.env.local'].forEach(file => {
+  const envPath = path.join(rootDir, file);
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf8');
+    content.split('\n').forEach(line => {
+      const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
+      if (m && !process.env[m[1]]) {
+        process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '').trim();
+      }
+    });
+  }
+});
+
 import prisma from '../src/lib/prisma';
 
 async function main() {
