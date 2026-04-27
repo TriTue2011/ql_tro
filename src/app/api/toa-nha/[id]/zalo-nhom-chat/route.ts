@@ -10,16 +10,26 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 
-const nhomChatSchema = z.object({
-  name: z.string().min(1, 'Tên nhóm không được trống'),
-  threadIds: z.record(z.string()),
-  tang: z.number().int().nullable().optional(),
-  label: z.string().nullable().optional(),
-});
-
-const payloadSchema = z.object({
-  zaloNhomChat: z.array(nhomChatSchema),
-});
+// Validation function thay thế cho Zod để tránh lỗi '_zod'
+function validateNhomChat(data: any): any[] {
+  if (!data || !Array.isArray(data.zaloNhomChat)) {
+    throw new Error('Dữ liệu zaloNhomChat không hợp lệ');
+  }
+  return data.zaloNhomChat.map((g: any, index: number) => {
+    if (!g.name || typeof g.name !== 'string') {
+      throw new Error(`Tên nhóm tại dòng ${index + 1} không hợp lệ`);
+    }
+    if (!g.threadIds || typeof g.threadIds !== 'object') {
+      throw new Error(`Thread IDs của nhóm "${g.name}" không hợp lệ`);
+    }
+    return {
+      name: g.name.trim(),
+      threadIds: g.threadIds,
+      tang: typeof g.tang === 'number' ? g.tang : null,
+      label: typeof g.label === 'string' ? g.label.trim() : null,
+    };
+  });
+}
 
 async function assertCanEdit(toaNhaId: string, userId: string, role?: string): Promise<boolean> {
   if (!toaNhaId || !userId) return false;
@@ -107,39 +117,26 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { zaloNhomChat } = payloadSchema.parse(body);
+    const normalized = validateNhomChat(body);
 
-    // Chuẩn hóa: loại bỏ name trùng; tang = null khi rỗng
+    // Lọc trùng name
     const seen = new Set<string>();
-    const normalized = zaloNhomChat
-      .map((g) => ({
-        name: g.name.trim(),
-        threadIds: g.threadIds,
-        tang: typeof g.tang === 'number' ? g.tang : null,
-        label: g.label ? g.label.trim() : null,
-      }))
-      .filter((g) => {
-        const lowerName = g.name.toLowerCase();
-        if (!lowerName || seen.has(lowerName)) return false;
-        seen.add(lowerName);
-        return true;
-      });
+    const finalData = normalized.filter((g) => {
+      const lowerName = g.name.toLowerCase();
+      if (!lowerName || seen.has(lowerName)) return false;
+      seen.add(lowerName);
+      return true;
+    });
 
     const updated = await prisma.toaNha.update({
       where: { id },
-      data: { zaloNhomChat: normalized as any },
+      data: { zaloNhomChat: finalData as any },
       select: { zaloNhomChat: true },
     });
 
     return NextResponse.json({ success: true, data: updated.zaloNhomChat });
   } catch (error: any) {
     console.error('[toa-nha zalo-nhom-chat PUT]', error);
-    
-    // Kiểm tra lỗi validation từ Zod một cách an toàn
-    if (error?.name === 'ZodError' && Array.isArray(error.issues)) {
-      return NextResponse.json({ message: error.issues[0]?.message || 'Dữ liệu không hợp lệ' }, { status: 400 });
-    }
-
     return NextResponse.json({ 
       message: error instanceof Error ? error.message : 'Lỗi hệ thống không xác định' 
     }, { status: 500 });
