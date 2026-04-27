@@ -852,12 +852,31 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
 
   useEffect(() => { if (!loaded) { load(); loadExternal(); } }, [loaded, load, loadExternal]);
 
-  const handleUpdateChatId = async (id: string, type: 'nguoiDung' | 'khachThue', zaloChatId: string) => {
+  const handleUpdateChatId = async (id: string, type: 'nguoiDung' | 'khachThue' | 'nhomZalo', val: string) => {
     try {
+      if (type === 'nhomZalo') {
+        const payload = JSON.parse(val);
+        const { index, newThreadId, groups } = payload;
+        const newGroups = JSON.parse(JSON.stringify(groups));
+        const botId = currentBotAccountId || 'default';
+        if (!newGroups[index].threadIds) newGroups[index].threadIds = {};
+        newGroups[index].threadIds[botId] = newThreadId;
+
+        const res = await fetch(`/api/toa-nha/${id}/zalo-nhom-chat`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ zaloNhomChat: newGroups }),
+        });
+        const data = await res.json();
+        if (data.success) { toast.success('Đã cập nhật Thread ID nhóm'); load(); }
+        else toast.error(data.message || 'Lỗi cập nhật');
+        return;
+      }
+
       const res = await fetch('/api/admin/zalo/khach-thue', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, type, zaloChatId }),
+        body: JSON.stringify({ id, type, zaloChatId: val }),
       });
       const data = await res.json();
       if (data.ok) { toast.success('Đã cập nhật Thread ID'); load(); }
@@ -888,7 +907,7 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
 
       <div className="space-y-1.5">
         {buildings.map(b => (
-          <DirBuilding key={b.id} building={b} onUpdate={handleUpdateChatId} />
+          <DirBuilding key={b.id} building={b} currentBotAccountId={currentBotAccountId} onUpdate={handleUpdateChatId} />
         ))}
       </div>
 
@@ -975,7 +994,7 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
   );
 }
 
-function DirBuilding({ building, onUpdate }: { building: any; onUpdate: (id: string, type: 'nguoiDung' | 'khachThue', v: string) => void }) {
+function DirBuilding({ building, currentBotAccountId, onUpdate }: { building: any; currentBotAccountId?: string | null; onUpdate: (id: string, type: 'nguoiDung' | 'khachThue' | 'nhomZalo', v: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border rounded-md overflow-hidden">
@@ -1009,7 +1028,11 @@ function DirBuilding({ building, onUpdate }: { building: any; onUpdate: (id: str
             <DirTenantGroup tenants={building.khachThue} onUpdate={(id, v) => onUpdate(id, 'khachThue', v)} />
           )}
           {building.zaloNhomChat?.length > 0 && (
-            <DirGroupGroup groups={building.zaloNhomChat} />
+            <DirGroupGroup 
+              groups={building.zaloNhomChat} 
+              currentBotAccountId={currentBotAccountId}
+              onUpdate={(index, val) => onUpdate(building.id, 'nhomZalo', JSON.stringify({ index, newThreadId: val, groups: building.zaloNhomChat }))}
+            />
           )}
         </div>
       )}
@@ -1129,7 +1152,7 @@ function DirFloorGroup({ tang, tenants, onUpdate }: { tang: number; tenants: Con
   );
 }
 
-function DirGroupGroup({ groups }: { groups: any[] }) {
+function DirGroupGroup({ groups, currentBotAccountId, onUpdate }: { groups: any[], currentBotAccountId?: string | null, onUpdate?: (index: number, val: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border rounded-md overflow-hidden bg-white">
@@ -1147,16 +1170,25 @@ function DirGroupGroup({ groups }: { groups: any[] }) {
           <table className="w-full text-xs">
             <thead><tr className="bg-gray-100 text-gray-600">
               <th className="text-left px-2 py-1.5 font-medium">Tên nhóm</th>
+              <th className="text-left px-2 py-1.5 font-medium">Tầng</th>
+              <th className="text-left px-2 py-1.5 font-medium">Nhãn</th>
               <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
             </tr></thead>
             <tbody className="divide-y">
               {groups.map((g, idx) => {
-                const label = g.label || g.name || (g.tang != null ? `Tầng ${g.tang}` : 'Toàn tòa');
-                const threadId = typeof g.threadIds === 'object' ? Object.values(g.threadIds)[0] : g.threadId;
+                const threadId = currentBotAccountId && g.threadIds && g.threadIds[currentBotAccountId] ? g.threadIds[currentBotAccountId] : g.threadId;
                 return (
                   <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-2 py-1.5 font-medium text-gray-800">{label}</td>
-                    <td className="px-2 py-1.5 font-mono text-gray-500">{threadId || '—'}</td>
+                    <td className="px-2 py-1.5 font-medium text-gray-800">{g.name || '—'}</td>
+                    <td className="px-2 py-1.5 text-gray-600">{g.tang != null ? `Tầng ${g.tang}` : '—'}</td>
+                    <td className="px-2 py-1.5 text-gray-600">{g.label || '—'}</td>
+                    <td className="px-2 py-1.5">
+                      {onUpdate ? (
+                        <DirEditableCell value={threadId || ''} placeholder="Chưa có" onSave={v => onUpdate(idx, v)} />
+                      ) : (
+                        <span className="font-mono text-gray-500">{threadId || '—'}</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
