@@ -2,35 +2,36 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// ─── Tự động load .env hoặc .env.local ───────────────────────────
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.join(__dirname, '..');
-
-['.env', '.env.local'].forEach(file => {
-  const envPath = path.join(rootDir, file);
-  if (fs.existsSync(envPath)) {
-    const content = fs.readFileSync(envPath, 'utf8');
-    content.split('\n').forEach(line => {
-      const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-      if (m && !process.env[m[1]]) {
-        process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '').trim();
-      }
-    });
-  }
-});
-
-import prisma from '../src/lib/prisma';
-
 async function main() {
+  console.log('--- Loading environment ---');
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const rootDir = path.join(__dirname, '..');
+
+  const envFiles = ['.env', '.env.local', '.env.production'];
+  for (const file of envFiles) {
+    const envPath = path.join(rootDir, file);
+    if (fs.existsSync(envPath)) {
+      console.log(`Loading ${file}...`);
+      const content = fs.readFileSync(envPath, 'utf8');
+      content.split('\n').forEach(line => {
+        const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
+        if (m) {
+          const key = m[1];
+          const val = m[2].replace(/^['"]|['"]$/g, '').trim();
+          if (!process.env[key]) process.env[key] = val;
+        }
+      });
+    }
+  }
+
+  if (!process.env.DATABASE_URL) process.env.DATABASE_URL = process.env.POSTGRESQL_URI;
+
+  const { default: prisma } = await import('../src/lib/prisma.js');
+
   console.log('Starting migration: Assigning owners to their own buildings...');
 
-  // 1. Lấy danh sách tất cả các tòa nhà và chủ sở hữu của chúng
   const allBuildings = await prisma.toaNha.findMany({
-    select: {
-      id: true,
-      chuSoHuuId: true,
-      tenToaNha: true,
-    }
+    select: { id: true, chuSoHuuId: true, tenToaNha: true }
   });
 
   console.log(`Found ${allBuildings.length} buildings.`);
@@ -39,7 +40,6 @@ async function main() {
   let skippedCount = 0;
 
   for (const building of allBuildings) {
-    // 2. Kiểm tra xem chủ sở hữu đã có trong bảng ToaNhaNguoiQuanLy chưa
     const existing = await prisma.toaNhaNguoiQuanLy.findUnique({
       where: {
         toaNhaId_nguoiDungId: {
@@ -50,12 +50,10 @@ async function main() {
     });
 
     if (!existing) {
-      // 3. Nếu chưa có, thêm vào
       await prisma.toaNhaNguoiQuanLy.create({
         data: {
           toaNhaId: building.id,
           nguoiDungId: building.chuSoHuuId,
-          // Mặc định chủ nhà có tất cả quyền
           quyenKichHoatTaiKhoan: true,
           quyenHopDong: true,
           quyenHoaDon: true,
@@ -74,11 +72,7 @@ async function main() {
   console.log(`Total: ${allBuildings.length} | Migrated: ${migratedCount} | Skipped: ${skippedCount}`);
 }
 
-main()
-  .catch((e) => {
-    console.error('Migration failed:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((e) => {
+  console.error('Migration failed:', e);
+  process.exit(1);
+});
