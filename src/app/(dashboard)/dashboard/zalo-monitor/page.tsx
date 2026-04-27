@@ -1114,6 +1114,197 @@ function CompactPersonItem({ person, showRoom, onSelectThread }: {
   );
 }
 
+// ─── Owner Group Filter Panel ─────────────────────────────────────────────────
+
+interface BuildingGroup { name: string; threadIds: Record<string, string>; tang?: number | null; label?: string }
+
+function OwnerGroupFilterPanel({
+  userId, dmFilterGlobal, systemChatIdsCount, groupWhitelist, onWhitelistChange
+}: {
+  userId: string;
+  dmFilterGlobal: 'none' | 'system_only';
+  systemChatIdsCount: number;
+  groupWhitelist: string[];
+  onWhitelistChange: (wl: string[]) => void;
+}) {
+  const [buildings, setBuildings] = useState<{ id: string; tenToaNha: string; zaloNhomChat: BuildingGroup[] }[]>([]);
+  const [selectedBldg, setSelectedBldg] = useState('');
+  const [groupName, setGroupName] = useState('');
+  const [looking, setLooking] = useState(false);
+  const [lookupResults, setLookupResults] = useState<{ threadId: string; displayName: string; lastSeen: string }[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/toa-nha?limit=100').then(r => r.json()).then(d => {
+      const list = (d.data || []).map((b: any) => ({
+        id: b.id,
+        tenToaNha: b.tenToaNha,
+        zaloNhomChat: Array.isArray(b.zaloNhomChat) ? b.zaloNhomChat : [],
+      }));
+      setBuildings(list);
+      if (list.length === 1) setSelectedBldg(list[0].id);
+    }).catch(() => {});
+  }, []);
+
+  // Tất cả group của tất cả buildings của user này
+  const allGroupNames = useMemo(() => {
+    const names = new Set<string>();
+    buildings.forEach(b => b.zaloNhomChat.forEach(g => names.add(g.name)));
+    return Array.from(names);
+  }, [buildings]);
+
+  async function handleLookup() {
+    const n = groupName.trim();
+    if (!n) return;
+    setLooking(true);
+    setLookupResults([]);
+    try {
+      const r = await fetch(`/api/zalo/group-thread-lookup?name=${encodeURIComponent(n)}`);
+      const d = await r.json();
+      setLookupResults(d.results || []);
+      if (!d.results?.length) toast.info('Không tìm thấy nhóm nào khớp tên. Hãy thử gõ đúng tên nhóm Zalo.');
+    } catch { toast.error('Lỗi tra cứu'); }
+    finally { setLooking(false); }
+  }
+
+  async function handleAddGroup(result: { threadId: string; displayName: string }) {
+    if (!selectedBldg) { toast.error('Vui lòng chọn tòa nhà'); return; }
+    setSaving(true);
+    try {
+      const r = await fetch('/api/cai-dat/zalo-filter', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', toaNhaId: selectedBldg, name: result.displayName, threadId: result.threadId }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        toast.success(`Đã thêm nhóm "${result.displayName}" vào danh bạ tòa nhà`);
+        setGroupName('');
+        setLookupResults([]);
+        // Cập nhật whitelist local
+        if (!groupWhitelist.includes(result.displayName)) {
+          onWhitelistChange([...groupWhitelist, result.displayName]);
+        }
+        // Cập nhật buildings local
+        setBuildings(prev => prev.map(b => {
+          if (b.id !== selectedBldg) return b;
+          const existing = b.zaloNhomChat.find(g => g.name.toLowerCase() === result.displayName.toLowerCase());
+          if (existing) {
+            return { ...b, zaloNhomChat: b.zaloNhomChat.map(g => g.name === existing.name ? { ...g, threadIds: { ...(g.threadIds || {}), [userId]: result.threadId } } : g) };
+          }
+          return { ...b, zaloNhomChat: [...b.zaloNhomChat, { name: result.displayName, threadIds: { [userId]: result.threadId } }] };
+        }));
+      } else { toast.error(d.error || 'Lưu thất bại'); }
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setSaving(false); }
+  }
+
+  async function handleRemoveGroup(name: string) {
+    if (!selectedBldg) return;
+    setSaving(true);
+    try {
+      const r = await fetch('/api/cai-dat/zalo-filter', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'remove', toaNhaId: selectedBldg, name }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        toast.success(`Đã xóa nhóm "${name}"`);
+        onWhitelistChange(groupWhitelist.filter(w => w !== name));
+        setBuildings(prev => prev.map(b => b.id === selectedBldg
+          ? { ...b, zaloNhomChat: b.zaloNhomChat.filter(g => g.name !== name) }
+          : b));
+      } else { toast.error(d.error || 'Xóa thất bại'); }
+    } catch { toast.error('Lỗi kết nối'); }
+    finally { setSaving(false); }
+  }
+
+  const currentBldg = buildings.find(b => b.id === selectedBldg);
+
+  return (
+    <div className="space-y-3">
+      {/* DM filter info — chỉ hiện khi admin để "xem tất cả" */}
+      {dmFilterGlobal === 'none' && (
+        <div className="p-2 bg-blue-50 rounded-lg text-[11px] text-blue-700">
+          <User className="h-3 w-3 inline mr-1" />
+          DM cá nhân: Hiện tất cả ({systemChatIdsCount} liên kết hệ thống). Admin chưa giới hạn DM.
+        </div>
+      )}
+      {dmFilterGlobal === 'system_only' && (
+        <div className="p-2 bg-gray-50 rounded-lg text-[11px] text-gray-500 flex items-center gap-1">
+          <ShieldOff className="h-3 w-3 shrink-0" />
+          DM cá nhân đang được Admin lọc theo hệ thống — không cần cài đặt thêm.
+        </div>
+      )}
+
+      {/* Group filter theo tòa nhà */}
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5 text-purple-500" /> Nhóm Zalo thông báo theo tòa nhà
+        </p>
+
+        {/* Chọn tòa nhà */}
+        {buildings.length > 1 && (
+          <select value={selectedBldg} onChange={e => setSelectedBldg(e.target.value)}
+            className="w-full text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400">
+            <option value="">— Chọn tòa nhà —</option>
+            {buildings.map(b => <option key={b.id} value={b.id}>{b.tenToaNha}</option>)}
+          </select>
+        )}
+
+        {/* Nhóm đã thêm của tòa đang chọn */}
+        {currentBldg && currentBldg.zaloNhomChat.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {currentBldg.zaloNhomChat.map(g => (
+              <span key={g.name} className="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-full px-2 py-0.5">
+                <Users className="h-3 w-3" /> {g.name}
+                <button type="button" onClick={() => handleRemoveGroup(g.name)} disabled={saving}
+                  className="hover:text-red-500 transition-colors"><X className="h-3 w-3" /></button>
+              </span>
+            ))}
+          </div>
+        )}
+        {currentBldg && currentBldg.zaloNhomChat.length === 0 && (
+          <p className="text-[11px] text-gray-400">Tòa nhà này chưa có nhóm Zalo. Thêm nhóm bên dưới.</p>
+        )}
+
+        {/* Nhập tên nhóm + lookup */}
+        <div className="flex gap-2">
+          <input type="text" value={groupName} onChange={e => setGroupName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleLookup(); }}
+            placeholder="Nhập tên nhóm Zalo..."
+            className="flex-1 text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
+          <Button size="sm" variant="outline" onClick={handleLookup}
+            disabled={!groupName.trim() || looking || !selectedBldg}
+            className="text-xs gap-1 text-purple-600 border-purple-200 hover:bg-purple-50">
+            {looking ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            Tìm
+          </Button>
+        </div>
+        {!selectedBldg && <p className="text-[11px] text-amber-500">⚠ Vui lòng chọn tòa nhà trước</p>}
+
+        {/* Kết quả lookup */}
+        {lookupResults.length > 0 && (
+          <div className="space-y-1 border rounded-lg p-2 bg-purple-50">
+            <p className="text-[11px] text-purple-600 font-medium">Tìm thấy {lookupResults.length} nhóm — chọn để thêm vào danh bạ tòa nhà:</p>
+            {lookupResults.map(r => (
+              <button key={r.threadId} type="button" onClick={() => handleAddGroup(r)} disabled={saving}
+                className="w-full text-left flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-purple-100 transition-colors">
+                <div>
+                  <span className="text-xs font-medium text-gray-800">{r.displayName}</span>
+                  <span className="block text-[10px] text-gray-400 font-mono">{r.threadId.slice(0, 16)}…</span>
+                </div>
+                <Badge className="text-[10px] bg-purple-500 shrink-0">+ Thêm</Badge>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ZaloMonitorPage() {
@@ -1333,91 +1524,32 @@ export default function ZaloMonitorPage() {
             <div className="space-y-2">
               <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Lọc tin nhắn cá nhân (DM)</p>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => saveFilter({ dmFilter: 'none' })}
-                  disabled={savingFilter}
-                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-2 px-3 rounded-lg border transition-colors ${dmFilter === 'none' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}
-                >
+                <button type="button" onClick={() => saveFilter({ dmFilter: 'none' })} disabled={savingFilter}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-2 px-3 rounded-lg border transition-colors ${dmFilter === 'none' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}>
                   <Users className="h-3.5 w-3.5" /> Xem tất cả
                 </button>
-                <button
-                  type="button"
-                  onClick={() => saveFilter({ dmFilter: 'system_only' })}
-                  disabled={savingFilter}
-                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-2 px-3 rounded-lg border transition-colors ${dmFilter === 'system_only' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}
-                >
+                <button type="button" onClick={() => saveFilter({ dmFilter: 'system_only' })} disabled={savingFilter}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-2 px-3 rounded-lg border transition-colors ${dmFilter === 'system_only' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}>
                   <Shield className="h-3.5 w-3.5" /> Chỉ số trong hệ thống
                 </button>
               </div>
               {dmFilter === 'system_only' && (
                 <p className="text-[11px] text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                  Chỉ hiện DM từ khách thuê / tài khoản đã liên kết Zalo trong hệ thống. Tổng: {systemChatIds.size} liên kết.
+                  Chỉ hiện DM từ khách thuê / tài khoản đã liên kết Zalo. Tổng: {systemChatIds.size} liên kết.
                 </p>
               )}
             </div>
           )}
 
-          {/* Group whitelist — chuNha + dongChuTro + admin */}
-          {(isAdmin || ['chuNha', 'dongChuTro'].includes(session?.user?.role || '')) && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Lọc nhóm theo tên</p>
-              <p className="text-[11px] text-gray-400">
-                {groupWhitelist.length === 0
-                  ? 'Hiện tất cả nhóm (chưa giới hạn). Thêm tên nhóm để chỉ hiện các nhóm khớp tên.'
-                  : `Chỉ hiện ${groupWhitelist.length} nhóm được phép.`}
-              </p>
-              {/* Danh sách whitelist */}
-              {groupWhitelist.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {groupWhitelist.map(name => (
-                    <span key={name} className="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-full px-2 py-0.5">
-                      {name}
-                      <button
-                        type="button"
-                        onClick={() => saveFilter({ groupWhitelist: groupWhitelist.filter(g => g !== name) })}
-                        disabled={savingFilter}
-                        className="hover:text-red-500 transition-colors"
-                      ><X className="h-3 w-3" /></button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              {/* Thêm tên nhóm */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newGroupName}
-                  onChange={e => setNewGroupName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && newGroupName.trim()) {
-                      const name = newGroupName.trim();
-                      if (!groupWhitelist.includes(name)) {
-                        saveFilter({ groupWhitelist: [...groupWhitelist, name] });
-                      }
-                      setNewGroupName('');
-                    }
-                  }}
-                  placeholder="Nhập tên nhóm rồi Enter..."
-                  className="flex-1 text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!newGroupName.trim() || savingFilter}
-                  onClick={() => {
-                    const name = newGroupName.trim();
-                    if (name && !groupWhitelist.includes(name)) {
-                      saveFilter({ groupWhitelist: [...groupWhitelist, name] });
-                    }
-                    setNewGroupName('');
-                  }}
-                  className="text-xs gap-1"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Thêm
-                </Button>
-              </div>
-            </div>
+          {/* Group filter — chủ trọ / đồng chủ trọ (không phải admin) */}
+          {!isAdmin && ['chuNha', 'dongChuTro'].includes(session?.user?.role || '') && (
+            <OwnerGroupFilterPanel
+              userId={session?.user?.id || ''}
+              dmFilterGlobal={dmFilter}
+              systemChatIdsCount={systemChatIds.size}
+              groupWhitelist={groupWhitelist}
+              onWhitelistChange={setGroupWhitelist}
+            />
           )}
         </div>
       )}

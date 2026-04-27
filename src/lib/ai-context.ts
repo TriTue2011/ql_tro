@@ -446,34 +446,18 @@ async function buildManagerPermissionsContext(userId: string): Promise<string> {
 
 // ── Public room context (cho người lạ hỏi thuê) ─────────────────────────────
 
-/**
- * Trả về danh sách phòng đang còn trống — chỉ thông tin công khai.
- * Dùng cho AI tư vấn người lạ có nhu cầu thuê.
- */
-export async function buildPublicRoomContext(): Promise<string> {
-  const rooms = await prisma.phong.findMany({
-    where: { trangThai: 'trong' },
-    take: 20,
-    orderBy: [{ toaNhaId: 'asc' }, { tang: 'asc' }],
-    select: {
-      maPhong: true,
-      tang: true,
-      dienTich: true,
-      giaThue: true,
-      tienCoc: true,
-      moTa: true,
-      tienNghi: true,
-      soNguoiToiDa: true,
-      toaNha: {
-        select: {
-          tenToaNha: true,
-          diaChi: true,
-          lienHePhuTrach: true,
-        },
-      },
-    },
-  });
-
+/** Helper: format danh sách phòng trống thành chuỗi text */
+function formatRoomsContext(rooms: Array<{
+  maPhong: string;
+  tang: number;
+  dienTich: number;
+  giaThue: number;
+  tienCoc: number;
+  moTa: string | null;
+  tienNghi: unknown;
+  soNguoiToiDa: number;
+  toaNha: { tenToaNha: string; diaChi: unknown; lienHePhuTrach: unknown };
+}>): string {
   if (rooms.length === 0) return '';
 
   const lines: string[] = [`Tổng số phòng trống: ${rooms.length}`];
@@ -484,8 +468,9 @@ export async function buildPublicRoomContext(): Promise<string> {
     const addrShort = addr
       ? [addr.soNha, addr.duong, addr.phuong, addr.quan].filter(Boolean).join(', ')
       : '';
+    const city = addr?.thanhPho ?? '';
     lines.push('');
-    lines.push(`[${i + 1}] Phòng ${r.maPhong} — ${r.toaNha.tenToaNha}${addrShort ? ` (${addrShort})` : ''}`);
+    lines.push(`[${i + 1}] Phòng ${r.maPhong} — ${r.toaNha.tenToaNha}${addrShort ? ` (${addrShort})` : ''}${city ? ` — ${city}` : ''}`);
     lines.push(`    Tầng ${r.tang} | ${r.dienTich}m² | Tối đa ${r.soNguoiToiDa} người`);
     lines.push(`    Giá thuê: ${fmtMoney(r.giaThue)}/tháng | Tiền cọc: ${fmtMoney(r.tienCoc)}`);
     if ((r.tienNghi as string[]).length > 0)
@@ -511,6 +496,146 @@ export async function buildPublicRoomContext(): Promise<string> {
   return lines.join('\n');
 }
 
+const ROOM_SELECT = {
+  maPhong: true,
+  tang: true,
+  dienTich: true,
+  giaThue: true,
+  tienCoc: true,
+  moTa: true,
+  tienNghi: true,
+  soNguoiToiDa: true,
+  toaNha: {
+    select: {
+      tenToaNha: true,
+      diaChi: true,
+      lienHePhuTrach: true,
+    },
+  },
+} as const;
+
+/**
+ * Trả về danh sách phòng đang còn trống — chỉ thông tin công khai.
+ * Dùng cho AI tư vấn người lạ có nhu cầu thuê (không biết họ ở đâu).
+ */
+export async function buildPublicRoomContext(): Promise<string> {
+  const rooms = await prisma.phong.findMany({
+    where: { trangThai: 'trong' },
+    take: 20,
+    orderBy: [{ toaNhaId: 'asc' }, { tang: 'asc' }],
+    select: ROOM_SELECT,
+  });
+  return formatRoomsContext(rooms as Parameters<typeof formatRoomsContext>[0]);
+}
+
+/**
+ * Trả về danh sách phòng trống CHỈ TRONG CÙNG TÒA NHÀ / PHƯỜNG XÃ / THÀNH PHỐ
+ * với khách thuê hiện tại. Dùng khi tư vấn cho khách thuê đã đăng ký.
+ *
+ * Ưu tiên 3 tầng:
+ *  1. Phòng cùng tòa nhà khách đang ở
+ *  2. Phòng cùng phường/xã (phuong) — nếu cùng tòa chưa đủ 5 phòng
+ *  3. Phòng cùng thành phố — nếu cùng phường vẫn chưa đủ 5 phòng
+ *  → Không bao giờ trả về phòng ở tỉnh/thành phố khác
+ */
+export async function buildPublicRoomContextForTenant(khachThueId: string): Promise<string> {
+  // Lấy thông tin tòa nhà + địa chỉ khách đang ở
+  const hopDong = await prisma.hopDong.findFirst({
+    where: {
+      trangThai: 'hoatDong',
+      khachThue: { some: { id: khachThueId } },
+    },
+    select: {
+      phong: {
+        select: {
+          toaNhaId: true,
+          toaNha: { select: { diaChi: true, tenToaNha: true } },
+        },
+      },
+    },
+  });
+
+  const toaNhaId = hopDong?.phong?.toaNhaId ?? null;
+  const diaChi = hopDong?.phong?.toaNha?.diaChi as
+    | { thanhPho?: string; quan?: string; phuong?: string } | null;
+  const thanhPhoKhach = diaChi?.thanhPho?.trim().toLowerCase() ?? null;
+  const phuongKhach   = diaChi?.phuong?.trim().toLowerCase() ?? null;
+  const tenToaNhaKhach = hopDong?.phong?.toaNha?.tenToaNha ?? '';
+
+  // ── Tầng 1: cùng tòa nhà ─────────────────────────────────────────────────
+  const sameBuildingRooms = toaNhaId
+    ? await prisma.phong.findMany({
+        where: { trangThai: 'trong', toaNhaId },
+        take: 10,
+        orderBy: [{ tang: 'asc' }],
+        select: ROOM_SELECT,
+      })
+    : [];
+
+  const usedToaNhaIds = new Set<string>(toaNhaId ? [toaNhaId] : []);
+  const combined: Parameters<typeof formatRoomsContext>[0] =
+    [...(sameBuildingRooms as Parameters<typeof formatRoomsContext>[0])];
+
+  // ── Tầng 2: cùng phường/xã (nếu chưa đủ 5 phòng) ────────────────────────
+  if (thanhPhoKhach && phuongKhach && combined.length < 5) {
+    const candidates = await prisma.phong.findMany({
+      where: {
+        trangThai: 'trong',
+        ...(usedToaNhaIds.size > 0 ? { toaNhaId: { notIn: Array.from(usedToaNhaIds) } } : {}),
+      },
+      take: 30,
+      orderBy: [{ toaNhaId: 'asc' }, { tang: 'asc' }],
+      select: ROOM_SELECT,
+    });
+    const wardRooms = (candidates as Parameters<typeof formatRoomsContext>[0]).filter(r => {
+      const addr = r.toaNha.diaChi as { thanhPho?: string; phuong?: string } | null;
+      return (
+        addr?.thanhPho?.trim().toLowerCase() === thanhPhoKhach &&
+        addr?.phuong?.trim().toLowerCase() === phuongKhach
+      );
+    });
+    const toAdd = wardRooms.slice(0, 5 - combined.length);
+    combined.push(...toAdd);
+    for (const r of toAdd) {
+      // Ghi nhận toaNhaId đã dùng để tầng 3 không trùng lặp
+      const anyR = r as any;
+      if (anyR.toaNhaId) usedToaNhaIds.add(anyR.toaNhaId);
+    }
+  }
+
+  // ── Tầng 3: cùng thành phố (nếu vẫn chưa đủ 5 phòng) ────────────────────
+  if (thanhPhoKhach && combined.length < 5) {
+    const candidates = await prisma.phong.findMany({
+      where: {
+        trangThai: 'trong',
+        ...(usedToaNhaIds.size > 0 ? { toaNhaId: { notIn: Array.from(usedToaNhaIds) } } : {}),
+      },
+      take: 30,
+      orderBy: [{ toaNhaId: 'asc' }, { tang: 'asc' }],
+      select: ROOM_SELECT,
+    });
+    const cityRooms = (candidates as Parameters<typeof formatRoomsContext>[0]).filter(r => {
+      const addr = r.toaNha.diaChi as { thanhPho?: string } | null;
+      return addr?.thanhPho?.trim().toLowerCase() === thanhPhoKhach;
+    });
+    combined.push(...cityRooms.slice(0, 10 - combined.length));
+  }
+
+  if (combined.length === 0) return '';
+
+  // Prefix mô tả phạm vi tư vấn
+  const locationHint = [
+    tenToaNhaKhach,
+    phuongKhach  ? `P. ${diaChi?.phuong}` : null,
+    thanhPhoKhach ? diaChi?.thanhPho      : null,
+  ].filter(Boolean).join(', ');
+  const prefix = locationHint
+    ? `(Phòng trống gần bạn — ưu tiên cùng tòa, cùng phường, cùng thành phố: ${locationHint})`
+    : '';
+  const body = formatRoomsContext(combined);
+  return prefix ? `${prefix}\n${body}` : body;
+}
+
 // ── Main builder ─────────────────────────────────────────────────────────────
 
 export async function buildContextForRole(
@@ -532,19 +657,19 @@ export async function buildContextForRole(
     case 'khachThue': {
       const [ktCtx, publicRooms] = await Promise.all([
         buildKhachThueContext(userId),
-        buildPublicRoomContext(),
+        buildPublicRoomContextForTenant(userId),
       ]);
       contextText = ktCtx;
       if (publicRooms) {
-        contextText += `\n\n--- DANH SÁCH PHÒNG TRỐNG (CÔNG KHAI) ---\n${publicRooms}`;
+        contextText += `\n\n--- DANH SÁCH PHÒNG TRỐNG GẦN BẠN ---\n${publicRooms}`;
       }
       intro = 'Bạn là trợ lý thông minh của khu nhà trọ, hỗ trợ riêng cho khách thuê này.';
       rules = [
-        'Chỉ trả lời về thông tin của khách thuê này (phòng, hóa đơn, hợp đồng, sự cố) và danh sách phòng trống công khai được cung cấp.',
+        'Chỉ trả lời về thông tin của khách thuê này (phòng, hóa đơn, hợp đồng, sự cố) và danh sách phòng trống GẦN KHU VỰC khách đang ở được cung cấp.',
         'TUYỆT ĐỐI KHÔNG cung cấp, rò rỉ thông tin cá nhân hay phòng của khách thuê khác. Bạn chỉ làm việc trong phạm vi thông tin của khách thuê hiện tại.',
+        'Khi tư vấn phòng trống: CHỈ giới thiệu các phòng trong DANH SÁCH PHÒNG TRỐNG GẦN BẠN ở trên — là phòng cùng tòa hoặc cùng thành phố/khu vực với khách. KHÔNG giới thiệu phòng ở tỉnh/thành phố khác.',
         'Không thực hiện thao tác sửa/xóa dữ liệu trực tiếp — ngoại trừ TẠO SỰ CỐ bằng mã lệnh.',
         'Khi khách yêu cầu "gửi hóa đơn", trình bày ĐẦY ĐỦ chi tiết hóa đơn từ dữ liệu thực tế (tháng, tổng tiền, từng khoản, hạn, trạng thái, mã hóa đơn) và kèm link QR thanh toán nếu có. KHÔNG nói không thể gửi file PDF — đây là tin nhắn văn bản thay thế.',
-        'Khi khách muốn tìm phòng trống hoặc muốn đổi phòng: Gợi ý các phòng phù hợp từ DANH SÁCH PHÒNG TRỐNG bên trên.',
         'KHI KHÁCH BÁO SỰ CỐ QUA VĂN BẢN (hỏng hóc, sửa chữa): Hỏi rõ chi tiết nếu chưa đủ. Tự đánh giá mức độ ưu tiên (rủi ro, ảnh hưởng, các hệ thống liên quan). Chỉ sinh lệnh tạo sự cố khi khách ĐÃ NÓI ĐỦ thông tin bằng văn bản và rõ ràng muốn báo cáo:',
         '[CREATE_INCIDENT: {"tieuDe": "Tóm tắt ngắn gọn", "moTa": "Mô tả chi tiết", "loaiSuCo": "dienNuoc|noiThat|vesinh|anNinh|khac", "mucDoUuTien": "cao|trungBinh|thap"}]',
         'KHI KHÁCH CHỈ GỬi ẢNH (không có văn bản kèm): TUYỆT ĐỐI KHÔNG tạo sự cố. Hỏi khách: Ảnh này liên quan đến vấn đề gì? Có muốn tạo báo cáo không? Chỉ tạo sự cố SAU KHI khách XÁC NHẬN bằng chữ rõ ràng.',
@@ -573,10 +698,12 @@ export async function buildContextForRole(
       if (permText) contextText += permText;
       intro = 'Bạn là trợ lý quản lý nhà trọ, hỗ trợ người quản lý tòa nhà.';
       rules = [
-        'Chỉ hiển thị dữ liệu tòa nhà được giao cho quản lý này.',
-        'Chỉ tư vấn thao tác phù hợp với quyền đã được cấp (theo danh sách quyền hạn).',
-        'Nếu người dùng hỏi về thao tác ngoài quyền, nhắc nhở cần xin phép chủ trọ.',
-        'Không tiết lộ thông tin toàn bộ hệ thống ngoài phạm vi được giao.',
+        'Chỉ hiển thị dữ liệu tòa nhà được giao cho quản lý này — không tra cứu hay đề cập tòa nhà khác.',
+        'Danh sách QUYỀN HẠN ĐƯỢC TRAO ở trên là giới hạn tuyệt đối. CHỈ tư vấn thao tác trong phạm vi quyền đó.',
+        'NẾU người dùng yêu cầu thao tác KHÔNG nằm trong quyền được cấp (ví dụ: xóa hợp đồng khi không có quyền hợp đồng, duyệt thanh toán khi không có quyền thanh toán): TỪ CHỐI NGAY, giải thích rõ đây là thao tác vượt quyền, và hướng dẫn liên hệ chủ trọ để được cấp quyền.',
+        'TUYỆT ĐỐI KHÔNG gợi ý cách "lách" hoặc thực hiện gián tiếp các thao tác ngoài quyền.',
+        'Không tiết lộ thông tin nhạy cảm (mật khẩu, token, API key, dữ liệu hệ thống ngoài phạm vi).',
+        'Không thực thi lệnh xóa/sửa dữ liệu — chỉ tư vấn trong phạm vi quyền được giao.',
       ];
       break;
     }

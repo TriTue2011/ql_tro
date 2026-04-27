@@ -1,0 +1,150 @@
+# Zalo Group Filter & Building Notification Group
+
+## Tổng quan
+
+Phân quyền bộ lọc Zalo Monitor theo vai trò và liên kết nhóm Zalo với tòa nhà để gửi thông báo tự động.
+
+## Yêu cầu từ người dùng
+
+| # | Yêu cầu |
+|---|---------|
+| 1 | **Admin**: chỉ quản lý bộ lọc DM toàn cục — KHÔNG có bộ lọc nhóm |
+| 2 | **Chủ trọ**: quản lý bộ lọc nhóm (per-user). DM filter chỉ hiện khi admin = `none` |
+| 3 | **Chủ trọ DM filter**: **ẨN** hoàn toàn khi admin = `system_only` (kế thừa, không override). Chủ trọ **không có** DM filter riêng chồng lên admin |
+| 4 | **Group whitelist**: lưu **per-user** (`CaiDat` key `zalo_group_whitelist_{userId}`) — chủ trọ A không ảnh hưởng chủ trọ B |
+| 5 | **Group notification**: nhóm đặt trong filter của chủ trọ = nhóm nhận thông báo của tòa nhà |
+| 6 | **Thread ID per account**: mỗi tài khoản Zalo có threadId khác nhau cho cùng một nhóm → tự động tra cứu từ lịch sử tin nhắn |
+| 7 | **Danh bạ Zalo theo tòa nhà**: thêm tên nhóm → hệ thống tự tra threadId từ DB |
+
+## Phân tích hiện tại
+
+### Bộ lọc hiện tại (lỗi thiết kế)
+- `CaiDat.zalo_monitor_dm_filter` = global (admin set, áp dụng cho tất cả)  
+- `CaiDat.zalo_monitor_group_whitelist` = global (ai cũng dùng chung một bộ lọc)
+- Cả admin và chủ trọ đều thấy cả DM filter lẫn group filter → **sai**
+
+### Dữ liệu nhóm
+- `ToaNha.zaloNhomChat` = `[{ tang?, threadId, label? }]` — đã có nhưng chỉ lưu threadId cứng
+- Mỗi tài khoản Zalo (mỗi chủ trọ) có thể có threadId khác nhau cho cùng một nhóm
+
+## Proposed Changes
+
+---
+
+### 1. API: Tách bộ lọc theo role
+
+#### [MODIFY] [route.ts](file:///d:/QLPT/ql_tro/src/app/api/cai-dat/zalo-filter/route.ts)
+
+- **GET**: Trả về `dmFilter` (chỉ khi là admin hoặc chủ trọ khi admin=`none`) + `groupWhitelist` (chỉ khi là chủ trọ)
+- **PUT `dmFilter`**: Chỉ admin được đổi → lưu vào `CaiDat.zalo_monitor_dm_filter` (global)
+- **PUT `groupWhitelist`**: Chỉ chủ trọ/đồng chủ trọ → lưu vào **`NguoiDung.zaloViTri` hoặc `CaiDat` per-user** (key: `zalo_group_whitelist_{userId}`)
+
+> [!IMPORTANT]
+> Group whitelist phải lưu **per-user** (theo userId), không global. Admin không có group whitelist.
+
+---
+
+### 2. API: Tự động tra threadId nhóm theo tên
+
+#### [NEW] [route.ts](file:///d:/QLPT/ql_tro/src/app/api/zalo/group-thread-lookup/route.ts)
+
+```
+GET /api/zalo/group-thread-lookup?name=AI+Camera
+```
+- Tìm trong bảng `ZaloMessage` những record có:
+  - `rawPayload.type = 1` (tin nhắn nhóm)  
+  - `displayName ILIKE '%AI Camera%'`  
+- Trả về danh sách `{ threadId, displayName, lastSeen }` để UI cho người dùng xác nhận đúng nhóm
+
+---
+
+### 3. API: Lưu nhóm Zalo per user vào tòa nhà
+
+#### [NEW] [route.ts](file:///d:/QLPT/ql_tro/src/app/api/toa-nha/[id]/zalo-nhom/route.ts)
+
+```
+GET  /api/toa-nha/{id}/zalo-nhom         → Lấy danh sách nhóm + threadId của TK hiện tại
+PUT  /api/toa-nha/{id}/zalo-nhom         → Lưu { name, threadId } vào ToaNha.zaloNhomChat per account
+DELETE /api/toa-nha/{id}/zalo-nhom?name=X → Xóa nhóm
+```
+
+Cấu trúc mới `zaloNhomChat`:
+```json
+[
+  { 
+    "name": "AI Camera",
+    "threadIds": {
+      "userId1": "95369863368...",  
+      "userId2": "84729123456..."
+    },
+    "tang": null,
+    "label": "Nhóm chung tòa nhà"
+  }
+]
+```
+
+---
+
+### 4. UI: Zalo Monitor — Filter Panel
+
+#### [MODIFY] [page.tsx](file:///d:/QLPT/ql_tro/src/app/(dashboard)/dashboard/zalo-monitor/page.tsx)
+
+**Thay đổi filter panel:**
+
+```
+Admin thấy:
+  ✅ [DM filter] Xem tất cả / Chỉ số trong hệ thống  
+  ❌ KHÔNG thấy group filter
+
+Chủ trọ thấy:
+  ✅ [DM filter] — CHỈ hiện khi admin đặt "Xem tất cả"
+                   ẨN khi admin đặt "Chỉ số trong hệ thống"
+  ✅ [Group filter] Thêm nhóm theo tên → tự tra threadId
+```
+
+**Tích hợp threadId lookup:**
+- Khi chủ trọ nhập tên nhóm → gọi `/api/zalo/group-thread-lookup?name=X`
+- Hiển thị kết quả tìm được (tên nhóm + threadId preview)
+- Chủ trọ xác nhận → lưu vào `zaloNhomChat` của tòa nhà với threadId đúng tài khoản hiện tại
+
+---
+
+### 5. UI: Thông báo — Nhóm Zalo section
+
+#### [MODIFY] [page.tsx](file:///d:/QLPT/ql_tro/src/app/(dashboard)/dashboard/thong-bao/page.tsx)
+
+- Khi chọn tòa nhà → load `zaloNhomChat` từ `/api/toa-nha/{id}/zalo-nhom`  
+- Hiển thị danh sách nhóm đã cấu hình cho tòa đó
+- Dùng `threadId` tương ứng với `zaloAccountId` của chủ trọ hiện tại để gửi
+
+---
+
+### 6. UI: Danh bạ Zalo theo tòa nhà — thêm nhóm
+
+#### [MODIFY] CompactContactDir trong [page.tsx](file:///d:/QLPT/ql_tro/src/app/(dashboard)/dashboard/zalo-monitor/page.tsx)
+
+- Thêm section "Nhóm Zalo" trong tab Danh bạ
+- Hiện danh sách nhóm của tòa nhà + trạng thái `threadId` của TK hiện tại
+- Nút `+ Thêm nhóm`: nhập tên → lookup → xác nhận → lưu
+- Click vào nhóm → mở thread hội thoại
+
+## Quyết định thiết kế
+
+> [!NOTE]
+> **DM filter cho chủ trọ khi admin = `system_only`**: Chủ trọ **không có** DM filter riêng. Khi admin đặt `system_only`, UI ẩn hoàn toàn option DM filter của chủ trọ — họ kế thừa nguyên filter của admin, không cần override. Lý do: filter đã áp dụng ở tầng toàn hệ thống, tạo thêm filter chồng chỉ gây confusing (ai ưu tiên?). Khi admin = `none` → hiện DM filter cho chủ trọ tự chọn.
+
+> [!NOTE]
+> **Per-user group whitelist**: Đã implement đúng với key `zalo_group_whitelist_{userId}` trong `CaiDat`. Chủ trọ A và B có whitelist hoàn toàn độc lập. `ToaNha.zaloNhomChat` lưu `threadIds` dạng map `{ userId → threadId }` để hỗ trợ nhiều tài khoản Zalo.
+
+## Verification Plan
+
+### Automated
+- `tsc --noEmit` sau mỗi thay đổi
+
+### Manual
+1. Đăng nhập với admin → mở filter → chỉ thấy DM filter, không thấy group filter
+2. Đăng nhập với chủ trọ → mở filter:
+   - Admin = `none`: thấy cả DM filter + group filter
+   - Admin = `system_only`: chỉ thấy group filter, DM filter bị ẩn
+3. Thêm nhóm "AI Camera" trong filter → hệ thống tìm threadId → xác nhận → thông báo dùng đúng threadId
+4. Tạo thông báo → chọn tòa nhà → danh sách nhóm hiện đúng

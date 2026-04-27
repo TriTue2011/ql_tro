@@ -331,6 +331,29 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      {/* ── Quick Actions (Top Horizontal) ────────────────────────────── */}
+      <div className="bs-card mb-4" style={{ border: 'none', background: 'transparent', boxShadow: 'none' }}>
+        <div className="row g-2">
+          {[
+            { href: '/dashboard/hoa-don/them-moi', icon: 'bi-receipt-cutoff', label: 'Tạo hóa đơn', color: '#6366f1' },
+            { href: '/dashboard/phong', icon: 'bi-door-open', label: 'Quản lý phòng', color: '#10b981' },
+            { href: '/dashboard/khach-thue', icon: 'bi-people-fill', label: 'Khách thuê', color: '#3b82f6' },
+            { href: '/dashboard/hop-dong', icon: 'bi-file-earmark-text-fill', label: 'Hợp đồng', color: '#f59e0b' },
+            { href: '/dashboard/thanh-toan', icon: 'bi-credit-card-fill', label: 'Thanh toán', color: '#8b5cf6' },
+            { href: '/dashboard/su-co', icon: 'bi-tools', label: 'Báo sự cố', color: '#ef4444' },
+          ].map((item) => (
+            <div key={item.href} className="col-4 col-sm-2">
+              <Link href={item.href} className="bs-quick-btn h-100" style={{ padding: '12px 8px' }}>
+                <i
+                  className={`bi ${item.icon}`}
+                  style={{ color: item.color, fontSize: 22 }}
+                />
+                <span style={{ fontSize: 11, fontWeight: 600, marginTop: 4 }}>{item.label}</span>
+              </Link>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* ── KPI Cards ───────────────────────────────────────────────────── */}
       <div className="bs-section-header">
@@ -721,43 +744,6 @@ export default function DashboardPage() {
                   <span className="bs-pulse-dot dot-green" />
                   Hệ thống đang hoạt động bình thường
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="col-12 col-lg-4">
-          <div className="bs-card h-100">
-            <div className="bs-card-header">
-              <div>
-                <h5 className="bs-card-title">
-                  <i className="bi bi-lightning-charge-fill" />
-                  Thao tác nhanh
-                </h5>
-                <div className="bs-card-subtitle">Truy cập tính năng thường dùng</div>
-              </div>
-            </div>
-            <div className="bs-card-body">
-              <div className="row g-2">
-                {[
-                  { href: '/dashboard/hoa-don/them-moi', icon: 'bi-receipt-cutoff', label: 'Tạo hóa đơn', color: '#6366f1' },
-                  { href: '/dashboard/phong', icon: 'bi-door-open', label: 'Quản lý phòng', color: '#10b981' },
-                  { href: '/dashboard/khach-thue', icon: 'bi-people-fill', label: 'Khách thuê', color: '#3b82f6' },
-                  { href: '/dashboard/hop-dong', icon: 'bi-file-earmark-text-fill', label: 'Hợp đồng', color: '#f59e0b' },
-                  { href: '/dashboard/thanh-toan', icon: 'bi-credit-card-fill', label: 'Thanh toán', color: '#8b5cf6' },
-                  { href: '/dashboard/su-co', icon: 'bi-tools', label: 'Báo sự cố', color: '#ef4444' },
-                ].map((item) => (
-                  <div key={item.href} className="col-4">
-                    <Link href={item.href} className="bs-quick-btn">
-                      <i
-                        className={`bi ${item.icon}`}
-                        style={{ color: item.color, fontSize: 22 }}
-                      />
-                      <span style={{ fontSize: 11, lineHeight: 1.3 }}>{item.label}</span>
-                    </Link>
-                  </div>
-                ))}
               </div>
             </div>
           </div>

@@ -115,7 +115,21 @@ export async function PUT(
     if (zaloViTri !== undefined) updateData.zaloViTri = zaloViTri;
     await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
-    if (role !== 'admin') {
+    if (role === 'chuNha') {
+      // Với chuNha: gán tòa nhà bằng cách cập nhật chuSoHuuId trực tiếp trên ToaNha
+      // KHÔNG dùng ToaNhaNguoiQuanLy — đó là bảng cho quản lý/nhân viên
+      const idsToAssign: string[] = Array.isArray(toaNhaIds) && toaNhaIds.length > 0
+        ? toaNhaIds
+        : (toaNhaId ? [toaNhaId] : []);
+
+      // Gán chuSoHuuId cho các tòa nhà được chọn
+      for (const tid of idsToAssign) {
+        await prisma.toaNha.update({
+          where: { id: tid },
+          data: { chuSoHuuId: id },
+        }).catch(() => {});
+      }
+    } else if (role !== 'admin') {
       // Lấy danh sách tòa nhà cũ để so sánh
       const oldAssignments = await prisma.toaNhaNguoiQuanLy.findMany({
         where: { nguoiDungId: id },
