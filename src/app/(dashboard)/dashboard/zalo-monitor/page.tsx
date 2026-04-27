@@ -1176,12 +1176,21 @@ function OwnerGroupFilterPanel({
       const r = await fetch('/api/cai-dat/zalo-filter', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'add', toaNhaId: selectedBldg, name: result.displayName, threadId: result.threadId }),
+        body: JSON.stringify({ 
+          action: 'add', 
+          toaNhaId: selectedBldg, 
+          name: result.displayName, 
+          threadId: result.threadId,
+          tang: groupTang ? parseInt(groupTang) : null,
+          label: groupLabel || undefined,
+        }),
       });
       const d = await r.json();
       if (d.success) {
         toast.success(`Đã thêm nhóm "${result.displayName}" vào danh bạ tòa nhà`);
         setGroupName('');
+        setGroupTang('');
+        setGroupLabel('');
         setLookupResults([]);
         // Cập nhật whitelist local
         if (!groupWhitelist.includes(result.displayName)) {
@@ -1192,9 +1201,19 @@ function OwnerGroupFilterPanel({
           if (b.id !== selectedBldg) return b;
           const existing = b.zaloNhomChat.find(g => g.name.toLowerCase() === result.displayName.toLowerCase());
           if (existing) {
-            return { ...b, zaloNhomChat: b.zaloNhomChat.map(g => g.name === existing.name ? { ...g, threadIds: { ...(g.threadIds || {}), [userId]: result.threadId } } : g) };
+            return { ...b, zaloNhomChat: b.zaloNhomChat.map(g => g.name === existing.name ? { 
+              ...g, 
+              threadIds: { ...(g.threadIds || {}), [userId]: result.threadId },
+              tang: groupTang ? parseInt(groupTang) : g.tang,
+              label: groupLabel || g.label,
+            } : g) };
           }
-          return { ...b, zaloNhomChat: [...b.zaloNhomChat, { name: result.displayName, threadIds: { [userId]: result.threadId } }] };
+          return { ...b, zaloNhomChat: [...b.zaloNhomChat, { 
+            name: result.displayName, 
+            threadIds: { [userId]: result.threadId },
+            tang: groupTang ? parseInt(groupTang) : null,
+            label: groupLabel || undefined,
+          }] };
         }));
       } else { toast.error(d.error || 'Lưu thất bại'); }
     } catch { toast.error('Lỗi kết nối'); }
@@ -1272,17 +1291,29 @@ function OwnerGroupFilterPanel({
         )}
 
         {/* Nhập tên nhóm + lookup */}
-        <div className="flex gap-2">
-          <input type="text" value={groupName} onChange={e => setGroupName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleLookup(); }}
-            placeholder="Nhập tên nhóm Zalo..."
-            className="flex-1 text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
-          <Button size="sm" variant="outline" onClick={handleLookup}
-            disabled={!groupName.trim() || looking || !selectedBldg}
-            className="text-xs gap-1 text-purple-600 border-purple-200 hover:bg-purple-50">
-            {looking ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-            Tìm
-          </Button>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input type="text" value={groupName} onChange={e => setGroupName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleLookup(); }}
+              placeholder="Nhập tên nhóm Zalo..."
+              className="flex-1 text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
+            <Button size="sm" variant="outline" onClick={handleLookup}
+              disabled={!groupName.trim() || looking || !selectedBldg}
+              className="text-xs gap-1 text-purple-600 border-purple-200 hover:bg-purple-50">
+              {looking ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              Tìm
+            </Button>
+          </div>
+          {lookupResults.length > 0 && (
+            <div className="flex gap-2">
+              <input type="number" value={groupTang} onChange={e => setGroupTang(e.target.value)}
+                placeholder="Tầng (nếu có)"
+                className="w-1/3 text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
+              <input type="text" value={groupLabel} onChange={e => setGroupLabel(e.target.value)}
+                placeholder="Nhãn (tùy chọn)"
+                className="flex-1 text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
+            </div>
+          )}
         </div>
         {!selectedBldg && <p className="text-[11px] text-amber-500">⚠ Vui lòng chọn tòa nhà trước</p>}
 

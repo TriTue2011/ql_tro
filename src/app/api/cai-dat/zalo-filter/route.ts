@@ -119,8 +119,15 @@ export async function PUT(req: NextRequest) {
       if (existing) {
         // Cập nhật threadId cho account này
         existing.threadIds = { ...(existing.threadIds || {}), [accountId]: threadId };
+        if (body.tang !== undefined) existing.tang = body.tang;
+        if (body.label !== undefined) existing.label = body.label;
       } else {
-        groups.push({ name, threadIds: { [accountId]: threadId } });
+        groups.push({ 
+          name, 
+          threadIds: { [accountId]: threadId },
+          tang: body.tang,
+          label: body.label
+        });
       }
 
       // Đồng thời cập nhật groupWhitelist của user (per-user filter)
