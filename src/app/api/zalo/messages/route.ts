@@ -22,23 +22,8 @@ export const dynamic = "force-dynamic";
  *  - chuNha/dongChuTro/admin: chỉ ownId của chính họ
  *  - quanLy/nhanVien: ownId của các chủ trọ trong tòa nhà họ quản lý
  */
-async function resolveOwnIds(userId: string, role: string, zaloAccountId: string | null | undefined): Promise<string[]> {
+async function resolveOwnIds(userId: string, zaloAccountId: string | null | undefined): Promise<string[]> {
   const base = zaloAccountId || userId;
-
-  if (role === 'quanLy' || role === 'nhanVien') {
-    // Lấy zaloAccountId + id của tất cả chủ trọ mà họ quản lý tòa nhà
-    const managed = await prisma.toaNhaNguoiQuanLy.findMany({
-      where: { nguoiDungId: userId },
-      select: { toaNha: { select: { chuSoHuuId: true, chuSoHuu: { select: { zaloAccountId: true } } } } },
-    });
-    const ownerIds = new Set<string>();
-    for (const m of managed) {
-      if (m.toaNha.chuSoHuu.zaloAccountId) ownerIds.add(m.toaNha.chuSoHuu.zaloAccountId);
-      ownerIds.add(m.toaNha.chuSoHuuId); // fallback nếu chưa set zaloAccountId
-    }
-    if (ownerIds.size > 0) return [...new Set([base, ...Array.from(ownerIds)])];
-  }
-
   return [base];
 }
 
@@ -88,7 +73,7 @@ export async function GET(request: NextRequest) {
     select: { zaloAccountId: true, vaiTro: true },
   });
   const effectiveRole = nguoiDung?.vaiTro || role;
-  const ownIds = await resolveOwnIds(userId, effectiveRole, nguoiDung?.zaloAccountId);
+  const ownIds = await resolveOwnIds(userId, nguoiDung?.zaloAccountId);
   const ownIdsJoined = Prisma.join(ownIds);
 
   // ── Danh sách cuộc hội thoại ────────────────────────────────────────────────
@@ -202,8 +187,7 @@ export async function DELETE(request: NextRequest) {
     where: { id: userId },
     select: { zaloAccountId: true, vaiTro: true },
   });
-  const effectiveRole = nguoiDung?.vaiTro || role;
-  const ownIds = await resolveOwnIds(userId, effectiveRole, nguoiDung?.zaloAccountId);
+  const ownIds = await resolveOwnIds(userId, nguoiDung?.zaloAccountId);
   const ownIdsJoined = Prisma.join(ownIds);
 
   // Xóa 1 tin nhắn theo id (chỉ admin/chuNha)
