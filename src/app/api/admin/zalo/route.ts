@@ -52,6 +52,7 @@ export async function GET() {
     select: {
       id: true,
       tenToaNha: true,
+      zaloNhomChat: true,
       chuSoHuu: {
         select: {
           id: true, ten: true, email: true, soDienThoai: true, vaiTro: true,
@@ -169,6 +170,7 @@ export async function GET() {
     select: {
       id: true,
       tenToaNha: true,
+      zaloNhomChat: true,
       chuSoHuu: {
         select: {
           id: true, ten: true, email: true, soDienThoai: true, vaiTro: true,

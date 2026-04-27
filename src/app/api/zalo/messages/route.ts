@@ -22,9 +22,33 @@ export const dynamic = "force-dynamic";
  *  - chuNha/dongChuTro/admin: chỉ ownId của chính họ
  *  - quanLy/nhanVien: ownId của các chủ trọ trong tòa nhà họ quản lý
  */
-async function resolveOwnIds(userId: string, zaloAccountId: string | null | undefined): Promise<string[]> {
+async function resolveOwnIds(userId: string, role: string, zaloAccountId?: string | null): Promise<string[]> {
+  const ids = new Set<string>();
   const base = zaloAccountId || userId;
-  return [base];
+  ids.add(base);
+
+  if (role === 'admin') {
+    const owners = await prisma.nguoiDung.findMany({
+      where: { zaloAccountId: { not: null } },
+      select: { zaloAccountId: true }
+    });
+    owners.forEach(o => o.zaloAccountId && ids.add(o.zaloAccountId));
+  } else if (role === 'quanLy' || role === 'nhanVien') {
+    const managed = await prisma.toaNhaNguoiQuanLy.findMany({
+      where: { nguoiDungId: userId },
+      select: { toaNha: { select: { chuSoHuu: { select: { zaloAccountId: true } } } } }
+    });
+    managed.forEach(m => m.toaNha.chuSoHuu.zaloAccountId && ids.add(m.toaNha.chuSoHuu.zaloAccountId));
+    
+    // Thêm cả ownId của các tòa nhà mình được gán trực tiếp (nếu có)
+    const owned = await prisma.toaNha.findMany({
+      where: { chuSoHuuId: userId },
+      select: { chuSoHuu: { select: { zaloAccountId: true } } }
+    });
+    owned.forEach(o => o.chuSoHuu.zaloAccountId && ids.add(o.chuSoHuu.zaloAccountId));
+  }
+
+  return [...ids];
 }
 
 /** Lấy whitelist nhóm của user (hoặc kế thừa từ chủ trọ nếu là quanLy) */
@@ -138,8 +162,7 @@ export async function GET(request: NextRequest) {
     where: { id: userId },
     select: { zaloAccountId: true, vaiTro: true },
   });
-  const effectiveRole = nguoiDung?.vaiTro || role;
-  const ownIds = await resolveOwnIds(userId, nguoiDung?.zaloAccountId);
+  const ownIds = await resolveOwnIds(userId, effectiveRole, nguoiDung?.zaloAccountId);
   const ownIdsJoined = Prisma.join(ownIds);
 
   // ── Danh sách cuộc hội thoại ────────────────────────────────────────────────
@@ -213,22 +236,28 @@ export async function GET(request: NextRequest) {
       } else {
         // DM filtering
         const myBldgs = contactBldgsMap.get(row.chatId);
-        if (!myBldgs || myBldgs.size === 0) {
-          // If not in any building, follow global DM filter
-          if (globalDmFilter === 'system_only') return false; // Hide non-system DMs if global is system_only
+        
+        // Kiểm tra xem có phải người trong hệ thống không (được tìm thấy trong getContactBuildings)
+        const isInSystem = myBldgs !== undefined;
+
+        if (!isInSystem || !myBldgs || myBldgs.size === 0) {
+          // Nếu không thuộc tòa nhà nào, hoặc không có trong hệ thống
+          if (globalDmFilter === 'system_only') {
+            // Nếu lọc "Chỉ trong hệ thống" -> chỉ hiện nếu isInSystem = true
+            return isInSystem;
+          }
           return true;
         }
 
-        // If in one or more buildings, check if ANY of them have it enabled
+        // Nếu thuộc một hoặc nhiều tòa nhà, kiểm tra xem CÓ tòa nhà nào BẬT Monitor không
         const matchedBldgs = Array.from(myBldgs).map(id => bldgConfigs[id]).filter(c => !!c);
         const isEnabled = matchedBldgs.some(c => c.enabled !== false);
         if (!isEnabled) return false;
 
-        // Check dmFilter: if ALL matched buildings have system_only, then it's system_only
-        // (If ANY has 'none', then show all)
+        // Nếu tất cả các tòa nhà liên quan đều để 'system_only'
         const allSystemOnly = matchedBldgs.every(c => c.dmFilter === 'system_only');
         if (allSystemOnly) {
-          // Since we found the contact in getContactBuildings, it's definitely in the system
+          // Vì isInSystem = true nên hiện
           return true;
         }
         return true;
