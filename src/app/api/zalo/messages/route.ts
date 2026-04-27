@@ -127,8 +127,6 @@ export async function GET(request: NextRequest) {
       const payload = (row.rawPayload || {}) as any;
       const isGroup = !!payload.threadId || payload.type === 1 || payload.type === '1';
 
-      if (!isGroup && dmFilter === 'system_only') return false;
-
       if (isGroup && whitelistLower.length > 0) {
         const groupName = (row.displayName || '').toLowerCase();
         return whitelistLower.some(w => groupName.includes(w));
