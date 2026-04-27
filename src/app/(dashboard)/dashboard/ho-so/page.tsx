@@ -37,6 +37,7 @@ import {
   Building2,
   ChevronDown,
   ChevronRight,
+  Bot,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
