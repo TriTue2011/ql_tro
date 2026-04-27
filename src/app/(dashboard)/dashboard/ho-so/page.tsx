@@ -738,7 +738,10 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
       const res = await fetch('/api/admin/zalo/danh-ba-ngoai');
       const data = await res.json();
       if (data.ok) setExternalContacts(data.contacts.map((c: any) => ({
-        id: c.id, ten: c.ten, soDienThoai: c.soDienThoai || '', threadId: c.threadId || '',
+        id: String(c.id || ''), 
+        ten: typeof c.ten === 'object' ? JSON.stringify(c.ten) : String(c.ten || ''), 
+        soDienThoai: typeof c.soDienThoai === 'object' ? JSON.stringify(c.soDienThoai) : String(c.soDienThoai || ''), 
+        threadId: typeof c.threadId === 'object' ? JSON.stringify(c.threadId) : String(c.threadId || ''),
       })));
     } catch { /* ignore */ }
   }, []);
@@ -812,7 +815,12 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
           return p.vaiTro !== 'admin' && p.id !== currentUserId;
         });
 
-        const mapP = (p: any) => ({ id: p.id, ten: p.ten, soDienThoai: p.soDienThoai, zaloChatId: resolveThreadId(p) });
+        const mapP = (p: any) => ({ 
+          id: String(p.id || ''), 
+          ten: typeof p.ten === 'object' ? JSON.stringify(p.ten) : String(p.ten || ''), 
+          soDienThoai: typeof p.soDienThoai === 'object' ? JSON.stringify(p.soDienThoai) : String(p.soDienThoai || ''), 
+          zaloChatId: resolveThreadId(p) 
+        });
         const chuNha = unique.filter((p: any) => p.vaiTro === 'chuNha').map(mapP);
         const dongChuTro = unique.filter((p: any) => p.vaiTro === 'dongChuTro').map(mapP);
         const quanLy = unique.filter((p: any) => p.vaiTro === 'quanLy').map(mapP);
@@ -825,8 +833,12 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
           const ktData = await ktRes.json();
           if (ktData.ok) {
             khachThue = (ktData.khachThues || []).map((kt: any) => ({
-              id: kt.id, ten: kt.hoTen, soDienThoai: kt.soDienThoai, zaloChatId: kt.zaloChatId,
-              phong: kt.phong?.maPhong, tang: kt.phong?.tang,
+              id: String(kt.id || ''), 
+              ten: typeof kt.hoTen === 'object' ? JSON.stringify(kt.hoTen) : String(kt.hoTen || ''), 
+              soDienThoai: typeof kt.soDienThoai === 'object' ? JSON.stringify(kt.soDienThoai) : String(kt.soDienThoai || ''), 
+              zaloChatId: typeof kt.zaloChatId === 'object' && kt.zaloChatId ? JSON.stringify(kt.zaloChatId) : (kt.zaloChatId ? String(kt.zaloChatId) : ''),
+              phong: typeof kt.phong?.maPhong === 'object' ? JSON.stringify(kt.phong?.maPhong) : (kt.phong?.maPhong ? String(kt.phong?.maPhong) : undefined), 
+              tang: kt.phong?.tang,
             }));
           }
         } catch { /* ignore */ }
@@ -1182,9 +1194,9 @@ function DirGroupGroup({ groups, currentBotAccountId, onUpdate }: { groups: any[
                 if (threadId && typeof threadId !== 'string') threadId = JSON.stringify(threadId);
                 return (
                   <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-2 py-1.5 font-medium text-gray-800">{g?.name || '—'}</td>
+                    <td className="px-2 py-1.5 font-medium text-gray-800">{typeof g?.name === 'object' && g?.name ? JSON.stringify(g.name) : String(g?.name || '—')}</td>
                     <td className="px-2 py-1.5 text-gray-600">{g?.tang != null ? `Tầng ${g.tang}` : '—'}</td>
-                    <td className="px-2 py-1.5 text-gray-600">{g?.label || '—'}</td>
+                    <td className="px-2 py-1.5 text-gray-600">{typeof g?.label === 'object' && g?.label ? JSON.stringify(g.label) : String(g?.label || '—')}</td>
                     <td className="px-2 py-1.5">
                       {onUpdate ? (
                         <DirEditableCell value={threadId || ''} placeholder="Chưa có" onSave={v => onUpdate(idx, v)} />
