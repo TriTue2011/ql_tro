@@ -21,28 +21,18 @@ export const dynamic = "force-dynamic";
 /**
  * Lấy danh sách ownId mà user có quyền xem tin nhắn trong Monitor.
  *
- * Mỗi người dùng (Chủ trọ / Quản lý) có tài khoản Zalo riêng chạy bot.
+ * Mỗi người dùng (Admin / Chủ trọ / Quản lý) có tài khoản Zalo riêng chạy bot.
  * Tin nhắn khách gửi đến bot ai → lưu vào ZaloMessage với ownId = zaloAccountId người đó.
  * → Mỗi người CHỈ thấy tin nhắn của bot MÌNH.
  *
- * - admin       : thấy tất cả bot accounts trong hệ thống
- * - chuNha/quanLy/dongChuTro : chỉ thấy ownId = zaloAccountId của chính họ
+ * - admin/chuNha/quanLy/dongChuTro : chỉ thấy ownId = zaloAccountId của chính họ
  * - nhanVien    : không có quyền xem Monitor → trả về []
  */
 async function resolveOwnIds(userId: string, role: string, zaloAccountId?: string | null): Promise<string[]> {
   // Nhân viên không có quyền xem Monitor
   if (role === 'nhanVien') return [];
 
-  // Admin thấy tất cả bot accounts
-  if (role === 'admin') {
-    const owners = await prisma.nguoiDung.findMany({
-      where: { zaloAccountId: { not: null } },
-      select: { zaloAccountId: true },
-    });
-    return owners.map(o => o.zaloAccountId!).filter(Boolean);
-  }
-
-  // Chủ trọ / Quản lý / Đồng chủ trọ: chỉ thấy bot của chính mình
+  // Admin / Chủ trọ / Quản lý / Đồng chủ trọ: chỉ thấy bot của chính mình
   // zaloAccountId = ID tài khoản Zalo họ đã kết nối làm bot
   const ownId = zaloAccountId || userId;
   return [ownId];
