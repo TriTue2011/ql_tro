@@ -108,29 +108,8 @@ export async function PUT(req: NextRequest) {
     try { groups = (toa.zaloNhomChat as unknown as NhomEntry[]) || []; } catch { groups = []; }
     if (!Array.isArray(groups)) groups = [];
 
-    if (action === 'add') {
-      if (!threadId) return NextResponse.json({ error: 'Thiếu threadId' }, { status: 400 });
-
-      // Lấy zaloAccountId của user hiện tại
-      const nd = await prisma.nguoiDung.findUnique({ where: { id: uid }, select: { zaloAccountId: true } });
-      const accountId = nd?.zaloAccountId || uid;
-
-      const existing = groups.find(g => g.name?.toLowerCase() === name.toLowerCase());
-      if (existing) {
-        // Cập nhật threadId cho account này
-        existing.threadIds = { ...(existing.threadIds || {}), [accountId]: threadId };
-        if (body.tang !== undefined) existing.tang = body.tang;
-        if (body.label !== undefined) existing.label = body.label;
-      } else {
-        groups.push({ 
-          name, 
-          threadIds: { [accountId]: threadId },
-          tang: body.tang,
-          label: body.label
-        });
-      }
-
-      // Đồng thời cập nhật groupWhitelist của user (per-user filter)
+    if (action === 'add' || action === 'add_whitelist_only') {
+      // Cập nhật groupWhitelist của user (per-user filter)
       const gwRow = await prisma.caiDat.findUnique({ where: { khoa: userGroupKey(uid) }, select: { giaTri: true } });
       let wl: string[] = [];
       try { wl = JSON.parse(gwRow?.giaTri || '[]'); } catch { /* ignore */ }
@@ -142,10 +121,7 @@ export async function PUT(req: NextRequest) {
           create: { khoa: userGroupKey(uid), giaTri: JSON.stringify(wl), moTa: `Group whitelist - ${uid}`, nhom: 'zalo', laBiMat: false },
         });
       }
-    } else {
-      // Xóa nhóm khỏi danh sách
-      groups = groups.filter(g => g.name?.toLowerCase() !== name.toLowerCase());
-
+    } else if (action === 'remove' || action === 'remove_whitelist_only') {
       // Xóa khỏi groupWhitelist của user
       const gwRow = await prisma.caiDat.findUnique({ where: { khoa: userGroupKey(uid) }, select: { giaTri: true } });
       let wl: string[] = [];
@@ -158,8 +134,7 @@ export async function PUT(req: NextRequest) {
       });
     }
 
-    await prisma.toaNha.update({ where: { id: toaNhaId }, data: { zaloNhomChat: groups as any } });
-    return NextResponse.json({ success: true, groups });
+    return NextResponse.json({ success: true });
   }
 
   return NextResponse.json({ error: 'Không có gì để cập nhật' }, { status: 400 });

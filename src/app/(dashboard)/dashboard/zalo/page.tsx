@@ -3658,7 +3658,7 @@ function BuildingAccordion({
           {(isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro' || userRole === 'quanLy') && (
             <BuildingZaloGroupsSection
               buildingId={building.id}
-              canEdit={isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro'}
+              canEdit={isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro' || userRole === 'quanLy'}
             />
           )}
           {chuTroGroup.length > 0 && (

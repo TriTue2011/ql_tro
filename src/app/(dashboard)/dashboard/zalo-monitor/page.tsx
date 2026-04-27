@@ -1169,53 +1169,28 @@ function OwnerGroupFilterPanel({
     finally { setLooking(false); }
   }
 
-  async function handleAddGroup(result: { threadId: string; displayName: string }) {
-    if (!selectedBldg) { toast.error('Vui lòng chọn tòa nhà'); return; }
+  async function toggleGroup(name: string, checked: boolean) {
+    if (!selectedBldg) return;
     setSaving(true);
     try {
+      const newWhitelist = checked
+        ? [...groupWhitelist, name]
+        : groupWhitelist.filter(w => w !== name);
+      
       const r = await fetch('/api/cai-dat/zalo-filter', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          action: 'add', 
+          action: checked ? 'add_whitelist_only' : 'remove_whitelist_only', 
           toaNhaId: selectedBldg, 
-          name: result.displayName, 
-          threadId: result.threadId,
-          tang: groupTang ? parseInt(groupTang) : null,
-          label: groupLabel || undefined,
+          name 
         }),
       });
       const d = await r.json();
       if (d.success) {
-        toast.success(`Đã thêm nhóm "${result.displayName}" vào danh bạ tòa nhà`);
-        setGroupName('');
-        setGroupTang('');
-        setGroupLabel('');
-        setLookupResults([]);
-        // Cập nhật whitelist local
-        if (!groupWhitelist.includes(result.displayName)) {
-          onWhitelistChange([...groupWhitelist, result.displayName]);
-        }
-        // Cập nhật buildings local
-        setBuildings(prev => prev.map(b => {
-          if (b.id !== selectedBldg) return b;
-          const existing = b.zaloNhomChat.find(g => g.name.toLowerCase() === result.displayName.toLowerCase());
-          if (existing) {
-            return { ...b, zaloNhomChat: b.zaloNhomChat.map(g => g.name === existing.name ? { 
-              ...g, 
-              threadIds: { ...(g.threadIds || {}), [userId]: result.threadId },
-              tang: groupTang ? parseInt(groupTang) : g.tang,
-              label: groupLabel || g.label,
-            } : g) };
-          }
-          return { ...b, zaloNhomChat: [...b.zaloNhomChat, { 
-            name: result.displayName, 
-            threadIds: { [userId]: result.threadId },
-            tang: groupTang ? parseInt(groupTang) : null,
-            label: groupLabel || undefined,
-          }] };
-        }));
-      } else { toast.error(d.error || 'Lưu thất bại'); }
+        onWhitelistChange(newWhitelist);
+        toast.success(checked ? `Đang theo dõi nhóm "${name}"` : `Đã bỏ theo dõi nhóm "${name}"`);
+      } else { toast.error(d.error || 'Lỗi cập nhật'); }
     } catch { toast.error('Lỗi kết nối'); }
     finally { setSaving(false); }
   }
@@ -1274,63 +1249,47 @@ function OwnerGroupFilterPanel({
           </select>
         )}
 
-        {/* Nhóm đã thêm của tòa đang chọn */}
+        {/* Nhóm từ tòa đang chọn */}
         {currentBldg && currentBldg.zaloNhomChat.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {currentBldg.zaloNhomChat.filter(g => !!g.name).map(g => (
-              <span key={g.name} className="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-full px-2 py-0.5">
-                <Users className="h-3 w-3" /> {g.name}
-                <button type="button" onClick={() => handleRemoveGroup(g.name)} disabled={saving}
-                  className="hover:text-red-500 transition-colors"><X className="h-3 w-3" /></button>
-              </span>
-            ))}
+          <div className="grid grid-cols-2 gap-2 border-t pt-2">
+            {currentBldg.zaloNhomChat.filter(g => !!g.name).map(g => {
+              const isMonitored = groupWhitelist.includes(g.name);
+              return (
+                <label key={g.name} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                  isMonitored ? 'bg-purple-50 border-purple-200' : 'bg-white hover:bg-gray-50'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={isMonitored}
+                    onChange={e => toggleGroup(g.name, e.target.checked)}
+                    disabled={saving}
+                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-400"
+                  />
+                  <div className="min-w-0">
+                    <p className={`text-[11px] font-medium truncate ${isMonitored ? 'text-purple-700' : 'text-gray-700'}`}>{g.name}</p>
+                    {g.label && <p className="text-[9px] text-gray-400 truncate italic">{g.label}</p>}
+                  </div>
+                </label>
+              );
+            })}
           </div>
         )}
         {currentBldg && currentBldg.zaloNhomChat.length === 0 && (
-          <p className="text-[11px] text-gray-400">Tòa nhà này chưa có nhóm Zalo. Thêm nhóm bên dưới.</p>
-        )}
-
-        {/* Nhập tên nhóm + lookup */}
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <input type="text" value={groupName} onChange={e => setGroupName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleLookup(); }}
-              placeholder="Nhập tên nhóm Zalo..."
-              className="flex-1 text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
-            <Button size="sm" variant="outline" onClick={handleLookup}
-              disabled={!groupName.trim() || looking || !selectedBldg}
-              className="text-xs gap-1 text-purple-600 border-purple-200 hover:bg-purple-50">
-              {looking ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              Tìm
+          <div className="text-center py-4 bg-gray-50 rounded-lg border border-dashed">
+            <p className="text-[11px] text-gray-400">Tòa nhà này chưa cấu hình nhóm Zalo.</p>
+            <Button variant="link" size="sm" asChild className="text-[10px] text-blue-600 h-auto p-0 mt-1">
+              <a href="/dashboard/zalo">Đi tới Cài đặt Zalo</a>
             </Button>
           </div>
-          {lookupResults.length > 0 && (
-            <div className="flex gap-2">
-              <input type="number" value={groupTang} onChange={e => setGroupTang(e.target.value)}
-                placeholder="Tầng (nếu có)"
-                className="w-1/3 text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
-              <input type="text" value={groupLabel} onChange={e => setGroupLabel(e.target.value)}
-                placeholder="Nhãn (tùy chọn)"
-                className="flex-1 text-xs border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
-            </div>
-          )}
-        </div>
-        {!selectedBldg && <p className="text-[11px] text-amber-500">⚠ Vui lòng chọn tòa nhà trước</p>}
+        )}
 
-        {/* Kết quả lookup */}
-        {lookupResults.length > 0 && (
-          <div className="space-y-1 border rounded-lg p-2 bg-purple-50">
-            <p className="text-[11px] text-purple-600 font-medium">Tìm thấy {lookupResults.length} nhóm — chọn để thêm vào danh bạ tòa nhà:</p>
-            {lookupResults.map(r => (
-              <button key={r.threadId} type="button" onClick={() => handleAddGroup(r)} disabled={saving}
-                className="w-full text-left flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-purple-100 transition-colors">
-                <div>
-                  <span className="text-xs font-medium text-gray-800">{r.displayName}</span>
-                  <span className="block text-[10px] text-gray-400 font-mono">{r.threadId.slice(0, 16)}…</span>
-                </div>
-                <Badge className="text-[10px] bg-purple-500 shrink-0">+ Thêm</Badge>
-              </button>
-            ))}
+        {currentBldg && (
+          <div className="flex justify-end pt-1">
+             <Button variant="link" size="sm" asChild className="text-[10px] text-gray-400 h-auto p-0">
+               <a href="/dashboard/zalo" className="flex items-center gap-1">
+                 <Settings className="h-3 w-3" /> Quản lý danh sách nhóm
+               </a>
+             </Button>
           </div>
         )}
       </div>

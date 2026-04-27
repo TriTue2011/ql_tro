@@ -27,7 +27,14 @@ async function assertCanEdit(toaNhaId: string, userId: string, role?: string): P
     where: { id: toaNhaId },
     select: { chuSoHuuId: true },
   });
-  return !!toaNha && toaNha.chuSoHuuId === userId;
+  if (toaNha && toaNha.chuSoHuuId === userId) return true;
+
+  // Kiểm tra nếu là quản lý được gán cho tòa nhà này
+  const assigned = await prisma.toaNhaNguoiQuanLy.findFirst({
+    where: { nguoiDungId: userId, toaNhaId },
+    select: { toaNhaId: true },
+  });
+  return !!assigned;
 }
 
 export async function GET(
