@@ -464,8 +464,8 @@ export default function DashboardPage() {
 
         {/* Sự cố */}
         <div className="col-6 col-sm-6 col-lg-3">
-          <Link href="/dashboard/su-co" className="text-decoration-none">
-            <div className="bs-stat-card card-rose">
+          <Link href="/dashboard/su-co" className="text-decoration-none d-block">
+            <div className="bs-stat-card card-rose" style={{ cursor: 'pointer' }}>
               <div className="d-flex align-items-start justify-content-between">
                 <div>
                   <div className="bs-stat-label">Sự cố cần xử lý</div>
