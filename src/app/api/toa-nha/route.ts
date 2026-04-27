@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getToaNhaRepo } from '@/lib/repositories';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
-import { sseEmit } from '@/lib/sse';
+import { sseEmit } from '@/lib/sse-emitter';
 
 const toaNghiEnum = z.enum(['wifi', 'camera', 'baoVe', 'giuXe', 'thangMay', 'sanPhoi', 'nhaVeSinhChung', 'khuBepChung']);
 
