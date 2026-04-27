@@ -839,7 +839,9 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
           quanLy, 
           nhanVien, 
           khachThue,
-          zaloNhomChat: b.zaloNhomChat || []
+          zaloNhomChat: Array.isArray(b.zaloNhomChat) 
+            ? b.zaloNhomChat 
+            : (typeof b.zaloNhomChat === 'string' ? JSON.parse(b.zaloNhomChat || '[]') : [])
         });
       }
       setBuildings(result);
@@ -1175,13 +1177,13 @@ function DirGroupGroup({ groups, currentBotAccountId, onUpdate }: { groups: any[
               <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
             </tr></thead>
             <tbody className="divide-y">
-              {groups.map((g, idx) => {
-                const threadId = currentBotAccountId && g.threadIds && g.threadIds[currentBotAccountId] ? g.threadIds[currentBotAccountId] : g.threadId;
+              {(Array.isArray(groups) ? groups : []).map((g, idx) => {
+                const threadId = currentBotAccountId && g?.threadIds && g.threadIds[currentBotAccountId] ? g.threadIds[currentBotAccountId] : g?.threadId;
                 return (
                   <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-2 py-1.5 font-medium text-gray-800">{g.name || '—'}</td>
-                    <td className="px-2 py-1.5 text-gray-600">{g.tang != null ? `Tầng ${g.tang}` : '—'}</td>
-                    <td className="px-2 py-1.5 text-gray-600">{g.label || '—'}</td>
+                    <td className="px-2 py-1.5 font-medium text-gray-800">{g?.name || '—'}</td>
+                    <td className="px-2 py-1.5 text-gray-600">{g?.tang != null ? `Tầng ${g.tang}` : '—'}</td>
+                    <td className="px-2 py-1.5 text-gray-600">{g?.label || '—'}</td>
                     <td className="px-2 py-1.5">
                       {onUpdate ? (
                         <DirEditableCell value={threadId || ''} placeholder="Chưa có" onSave={v => onUpdate(idx, v)} />
