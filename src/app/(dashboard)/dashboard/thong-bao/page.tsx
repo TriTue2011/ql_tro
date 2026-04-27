@@ -180,16 +180,18 @@ export default function ThongBaoPage() {
   };
 
   const getPhongNames = (phongIds: string[]) => {
-    if (phongIds.length === 0) return 'Tất cả phòng';
+    if (!phongIds || phongIds.length === 0) return 'Tất cả phòng';
+    if (phongIds.length === phongList.length && phongList.length > 0) return 'Tất cả phòng';
     const names = phongIds.map(id => phongList.find(p => p.id === id)?.maPhong || '—');
-    if (names.length > 2) return `${names.slice(0, 2).join(', ')}... +${names.length - 2}`;
+    if (names.length > 2) return `${names.slice(0, 2).join(', ')}... (+${names.length - 2} phòng)`;
     return names.join(', ');
   };
 
   const getKhachThueNames = (khachThueIds: string[]) => {
-    if (khachThueIds.length === 0) return 'Tất cả khách thuê';
+    if (!khachThueIds || khachThueIds.length === 0) return 'Tất cả khách thuê';
+    if (khachThueIds.length === khachThueList.length && khachThueList.length > 0) return 'Tất cả khách thuê';
     const names = khachThueIds.map(id => khachThueList.find(k => k.id === id)?.hoTen || '—');
-    if (names.length > 2) return `${names.slice(0, 2).join(', ')}... +${names.length - 2}`;
+    if (names.length > 2) return `${names.slice(0, 2).join(', ')}... (+${names.length - 2} người)`;
     return names.join(', ');
   };
 
