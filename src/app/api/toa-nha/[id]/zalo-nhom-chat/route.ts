@@ -132,11 +132,16 @@ export async function PUT(
     });
 
     return NextResponse.json({ success: true, data: updated.zaloNhomChat });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: error.issues[0].message }, { status: 400 });
-    }
+  } catch (error: any) {
     console.error('[toa-nha zalo-nhom-chat PUT]', error);
-    return NextResponse.json({ message: error instanceof Error ? error.message : 'Internal server error' }, { status: 500 });
+    
+    // Kiểm tra lỗi validation từ Zod một cách an toàn
+    if (error?.name === 'ZodError' && Array.isArray(error.issues)) {
+      return NextResponse.json({ message: error.issues[0]?.message || 'Dữ liệu không hợp lệ' }, { status: 400 });
+    }
+
+    return NextResponse.json({ 
+      message: error instanceof Error ? error.message : 'Lỗi hệ thống không xác định' 
+    }, { status: 500 });
   }
 }
