@@ -28,42 +28,55 @@ export async function GET(req: NextRequest) {
   const dbUser = await prisma.nguoiDung.findUnique({ where: { id: uid }, select: { vaiTro: true } });
   const effectiveRole = dbUser?.vaiTro || role;
 
-  // Admin dmFilter (global)
-  const dmRow = await prisma.caiDat.findUnique({ where: { khoa: KEY_DM_FILTER }, select: { giaTri: true } });
-  const dmFilter = dmRow?.giaTri === 'system_only' ? 'system_only' : 'none';
+  // Tìm tất cả tòa nhà mà user có quyền truy cập
+  const buildings = await prisma.toaNha.findMany({
+    where: effectiveRole === 'admin' ? {} : {
+      OR: [
+        { chuSoHuuId: uid },
+        { nguoiQuanLy: { some: { nguoiDungId: uid } } }
+      ]
+    },
+    select: { id: true, zaloNhomChat: true }
+  });
 
-  // Group whitelist
-  let groupWhitelist: string[] = [];
-  if (['chuNha', 'dongChuTro'].includes(effectiveRole)) {
-    const buildings = await prisma.toaNha.findMany({
-      where: { chuSoHuuId: uid },
-      select: { zaloNhomChat: true },
-    });
-    const merged: string[] = [];
-    for (const b of buildings) {
+  const mergedGroups: string[] = [];
+  
+  // DM Filter: Mặc định lấy theo setting toàn cục của Admin
+  const globalDmRow = await prisma.caiDat.findUnique({ where: { khoa: KEY_DM_FILTER }, select: { giaTri: true } });
+  let finalDmFilter: 'none' | 'system_only' = globalDmRow?.giaTri === 'system_only' ? 'system_only' : 'none';
+
+  // Duyệt qua từng tòa nhà để gộp whitelist và cập nhật dmFilter
+  for (const b of buildings) {
+    const configRow = await prisma.caiDat.findUnique({ where: { khoa: `zalo_monitor_config_${b.id}` } });
+    const config = configRow ? JSON.parse(configRow.giaTri || '{}') : { enabled: true, dmFilter: 'none' };
+
+    if (config.enabled !== false) {
+      // Thêm nhóm vào whitelist
       if (Array.isArray(b.zaloNhomChat)) {
-        b.zaloNhomChat.forEach((g: any) => { if (g?.name) merged.push(g.name); });
+        b.zaloNhomChat.forEach((g: any) => { if (g?.name) mergedGroups.push(g.name); });
+      }
+      
+      // Nếu có bất kỳ tòa nhà nào đang bật Monitor và để 'none' (tất cả tin nhắn), 
+      // thì UI Monitor nên hiển thị tất cả (để không bỏ lỡ tin của tòa đó).
+      if (config.dmFilter === 'none') {
+        finalDmFilter = 'none';
       }
     }
-    groupWhitelist = [...new Set(merged)];
-  } else if (effectiveRole === 'quanLy' || effectiveRole === 'nhanVien') {
-    const managed = await prisma.toaNhaNguoiQuanLy.findMany({
-      where: { nguoiDungId: uid },
-      select: { toaNha: { select: { zaloNhomChat: true } } },
-    });
-    const merged: string[] = [];
-    for (const m of managed) {
-      if (Array.isArray(m.toaNha.zaloNhomChat)) {
-        m.toaNha.zaloNhomChat.forEach((g: any) => { if (g?.name) merged.push(g.name); });
-      }
-    }
-    groupWhitelist = [...new Set(merged)];
-  } else if (effectiveRole === 'admin') {
-    const gwRow = await prisma.caiDat.findUnique({ where: { khoa: KEY_GROUP_WL }, select: { giaTri: true } });
-    try { groupWhitelist = JSON.parse(gwRow?.giaTri || '[]'); } catch { /* ignore */ }
   }
 
-  return NextResponse.json({ dmFilter, groupWhitelist });
+  // Admin fallback for global whitelist (legacy)
+  if (effectiveRole === 'admin') {
+    const gwRow = await prisma.caiDat.findUnique({ where: { khoa: KEY_GROUP_WL }, select: { giaTri: true } });
+    try {
+      const globalWl = JSON.parse(gwRow?.giaTri || '[]');
+      if (Array.isArray(globalWl)) mergedGroups.push(...globalWl);
+    } catch {}
+  }
+
+  return NextResponse.json({ 
+    dmFilter: finalDmFilter, 
+    groupWhitelist: [...new Set(mergedGroups)] 
+  });
 }
 
 export async function PUT(req: NextRequest) {

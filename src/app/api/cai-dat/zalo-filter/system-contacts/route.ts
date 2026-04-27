@@ -12,14 +12,46 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const [khachThues, nguoiDungs] = await Promise.all([
-    prisma.khachThue.findMany({ select: { zaloChatId: true, soDienThoai: true }, where: { zaloChatId: { not: null } } }),
-    prisma.nguoiDung.findMany({ select: { zaloChatId: true }, where: { zaloChatId: { not: null } } }),
+  const [khachThues, nguoiDungs, danhBaNgoaiRow] = await Promise.all([
+    prisma.khachThue.findMany({ select: { zaloChatId: true, zaloChatIds: true } }),
+    prisma.nguoiDung.findMany({ select: { zaloChatId: true, zaloChatIds: true } }),
+    prisma.caiDat.findUnique({ where: { khoa: 'zalo_danh_ba_ngoai' } }),
   ]);
 
   const chatIds = new Set<string>();
-  for (const k of khachThues) if (k.zaloChatId) chatIds.add(k.zaloChatId);
-  for (const n of nguoiDungs) if (n.zaloChatId) chatIds.add(n.zaloChatId);
+
+  const processEntity = (e: any) => {
+    if (e.zaloChatId) chatIds.add(e.zaloChatId);
+    if (e.zaloChatIds) {
+      try {
+        const parsed = typeof e.zaloChatIds === 'string' ? JSON.parse(e.zaloChatIds) : e.zaloChatIds;
+        if (Array.isArray(parsed)) {
+          parsed.forEach((item: any) => {
+            if (item.threadId) chatIds.add(item.threadId);
+          });
+        } else if (typeof parsed === 'object' && parsed !== null) {
+          // If it's a map { [botId]: threadId }
+          Object.values(parsed).forEach((tid: any) => {
+            if (typeof tid === 'string') chatIds.add(tid);
+          });
+        }
+      } catch {}
+    }
+  };
+
+  khachThues.forEach(processEntity);
+  nguoiDungs.forEach(processEntity);
+
+  if (danhBaNgoaiRow?.giaTri) {
+    try {
+      const parsed = JSON.parse(danhBaNgoaiRow.giaTri);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((c: any) => {
+          if (c.threadId) chatIds.add(c.threadId);
+        });
+      }
+    } catch {}
+  }
 
   return NextResponse.json({ chatIds: [...chatIds] });
 }

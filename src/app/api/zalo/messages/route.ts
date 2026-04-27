@@ -28,39 +28,101 @@ async function resolveOwnIds(userId: string, zaloAccountId: string | null | unde
 }
 
 /** Lấy whitelist nhóm của user (hoặc kế thừa từ chủ trọ nếu là quanLy) */
+/** Lấy whitelist nhóm của user (hoặc kế thừa từ chủ trọ nếu là quanLy) — CHỈ lấy từ các tòa đã BẬT Monitor */
 async function resolveGroupWhitelist(userId: string, role: string): Promise<string[]> {
-  if (role === 'admin') {
-    const row = await prisma.caiDat.findUnique({ where: { khoa: 'zalo_monitor_group_whitelist' }, select: { giaTri: true } });
-    try { return JSON.parse(row?.giaTri || '[]'); } catch { return []; }
-  }
-
-  if (role === 'quanLy' || role === 'nhanVien') {
-    // Kế thừa whitelist từ các tòa nhà mà họ quản lý
-    const managed = await prisma.toaNhaNguoiQuanLy.findMany({
-      where: { nguoiDungId: userId },
-      select: { toaNha: { select: { zaloNhomChat: true } } },
-    });
-    const merged: string[] = [];
-    for (const m of managed) {
-      if (Array.isArray(m.toaNha.zaloNhomChat)) {
-        m.toaNha.zaloNhomChat.forEach((g: any) => { if (g?.name) merged.push(g.name); });
-      }
-    }
-    return [...new Set(merged)];
-  }
-
-  // chuNha / dongChuTro: whitelist từ các tòa nhà của chính mình
   const buildings = await prisma.toaNha.findMany({
-    where: { chuSoHuuId: userId },
-    select: { zaloNhomChat: true },
+    where: role === 'admin' ? {} : {
+      OR: [
+        { chuSoHuuId: userId },
+        { nguoiQuanLy: { some: { nguoiDungId: userId } } }
+      ]
+    },
+    select: { id: true, zaloNhomChat: true }
   });
+
   const merged: string[] = [];
   for (const b of buildings) {
-    if (Array.isArray(b.zaloNhomChat)) {
-      b.zaloNhomChat.forEach((g: any) => { if (g?.name) merged.push(g.name); });
+    const configRow = await prisma.caiDat.findUnique({ where: { khoa: `zalo_monitor_config_${b.id}` } });
+    const config = configRow ? JSON.parse(configRow.giaTri || '{}') : { enabled: true };
+
+    if (config.enabled !== false) {
+      if (Array.isArray(b.zaloNhomChat)) {
+        b.zaloNhomChat.forEach((g: any) => { if (g?.name) merged.push(g.name); });
+      }
     }
   }
+
+  // Admin: merge thêm whitelist toàn cục (nếu có)
+  if (role === 'admin') {
+    const row = await prisma.caiDat.findUnique({ where: { khoa: 'zalo_monitor_group_whitelist' }, select: { giaTri: true } });
+    try {
+      const globalWhitelist = JSON.parse(row?.giaTri || '[]');
+      if (Array.isArray(globalWhitelist)) merged.push(...globalWhitelist);
+    } catch {}
+  }
+
   return [...new Set(merged)];
+}
+
+/** 
+ * Map chatId -> set of building IDs 
+ */
+async function getContactBuildings(chatIds: string[]) {
+  const map = new Map<string, Set<string>>();
+  
+  // From KhachThue
+  const kts = await prisma.khachThue.findMany({
+    where: {
+      OR: [
+        { zaloChatId: { in: chatIds } },
+        { zaloChatIds: { not: null } }
+      ]
+    },
+    select: { id: true, zaloChatId: true, zaloChatIds: true, hopDong: { select: { toaNhaId: true } } }
+  });
+
+  // From NguoiDung
+  const nds = await prisma.nguoiDung.findMany({
+    where: {
+      OR: [
+        { zaloChatId: { in: chatIds } },
+        { zaloChatIds: { not: null } }
+      ]
+    },
+    select: { id: true, zaloChatId: true, zaloChatIds: true, toaNha: { select: { id: true } }, toaNhaQuanLy: { select: { toaNhaId: true } } }
+  });
+
+  const add = (chatId: string, buildingId: string) => {
+    if (!chatId || !buildingId) return;
+    if (!map.has(chatId)) map.set(chatId, new Set());
+    map.get(chatId)!.add(buildingId);
+  };
+
+  const processChatIds = (cid: string | null, cids: any, bIds: string[]) => {
+    if (cid) bIds.forEach(bid => add(cid, bid));
+    if (cids) {
+      try {
+        const parsed = typeof cids === 'string' ? JSON.parse(cids) : cids;
+        if (Array.isArray(parsed)) parsed.forEach((i: any) => i.threadId && bIds.forEach(bid => add(i.threadId, bid)));
+        else if (typeof parsed === 'object' && parsed !== null) Object.values(parsed).forEach((tid: any) => typeof tid === 'string' && bIds.forEach(bid => add(tid, bid)));
+      } catch {}
+    }
+  };
+
+  kts.forEach(k => {
+    const bIds = k.hopDong.map(h => h.toaNhaId).filter(id => !!id) as string[];
+    processChatIds(k.zaloChatId, k.zaloChatIds, bIds);
+  });
+
+  nds.forEach(n => {
+    const bIds = [
+      ...n.toaNha.map(t => t.id),
+      ...n.toaNhaQuanLy.map(t => t.toaNhaId)
+    ];
+    processChatIds(n.zaloChatId, n.zaloChatIds, bIds);
+  });
+
+  return map;
 }
 
 export async function GET(request: NextRequest) {
@@ -117,22 +179,60 @@ export async function GET(request: NextRequest) {
     `;
 
     // ── Lọc theo Whitelist & DM Filter ──────────────────────────────────────
-    const dmRow = await prisma.caiDat.findUnique({ where: { khoa: 'zalo_monitor_dm_filter' }, select: { giaTri: true } });
-    const dmFilter = dmRow?.giaTri || 'none';
-
     const whitelist = await resolveGroupWhitelist(userId, effectiveRole);
     const whitelistLower = whitelist.map(w => w.toLowerCase());
+
+    // Fetch contact -> buildings mapping for DM filtering
+    const dmChatIds = rows.filter(r => {
+      const p = (r.rawPayload || {}) as any;
+      return !(!!p.threadId || p.type === 1 || p.type === '1');
+    }).map(r => r.chatId);
+    
+    const contactBldgsMap = await getContactBuildings(dmChatIds);
+    const bldgIds = new Set<string>();
+    contactBldgsMap.forEach(bSet => bSet.forEach(id => bldgIds.add(id)));
+    
+    // Cache building configs
+    const bldgConfigs: Record<string, { enabled: boolean; dmFilter: string }> = {};
+    for (const bid of Array.from(bldgIds)) {
+      const row = await prisma.caiDat.findUnique({ where: { khoa: `zalo_monitor_config_${bid}` } });
+      bldgConfigs[bid] = row ? JSON.parse(row.giaTri || '{}') : { enabled: true, dmFilter: 'none' };
+    }
+
+    const globalDmRow = await prisma.caiDat.findUnique({ where: { khoa: 'zalo_monitor_dm_filter' }, select: { giaTri: true } });
+    const globalDmFilter = globalDmRow?.giaTri || 'none';
 
     const filteredRows = rows.filter(row => {
       const payload = (row.rawPayload || {}) as any;
       const isGroup = !!payload.threadId || payload.type === 1 || payload.type === '1';
 
-      if (isGroup && whitelistLower.length > 0) {
+      if (isGroup) {
+        if (whitelistLower.length === 0) return false; // Hide all groups if none are whitelisted
         const groupName = (row.displayName || '').toLowerCase();
-        return whitelistLower.some(w => groupName.includes(w));
-      }
+        return whitelistLower.some(w => groupName === w || groupName.includes(w));
+      } else {
+        // DM filtering
+        const myBldgs = contactBldgsMap.get(row.chatId);
+        if (!myBldgs || myBldgs.size === 0) {
+          // If not in any building, follow global DM filter
+          if (globalDmFilter === 'system_only') return false; // Hide non-system DMs if global is system_only
+          return true;
+        }
 
-      return true;
+        // If in one or more buildings, check if ANY of them have it enabled
+        const matchedBldgs = Array.from(myBldgs).map(id => bldgConfigs[id]).filter(c => !!c);
+        const isEnabled = matchedBldgs.some(c => c.enabled !== false);
+        if (!isEnabled) return false;
+
+        // Check dmFilter: if ALL matched buildings have system_only, then it's system_only
+        // (If ANY has 'none', then show all)
+        const allSystemOnly = matchedBldgs.every(c => c.dmFilter === 'system_only');
+        if (allSystemOnly) {
+          // Since we found the contact in getContactBuildings, it's definitely in the system
+          return true;
+        }
+        return true;
+      }
     });
 
     const rowsWithRoomInfo = await attachRoomInfo(filteredRows);

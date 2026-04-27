@@ -3655,8 +3655,16 @@ function BuildingAccordion({
       {open && (
         <div className="bg-gray-50 border-t p-3 space-y-2">
           {/* Nhóm Zalo tòa nhà — mỗi tòa 1 hoặc nhiều nhóm, dùng cho thông báo/nhắc nhở */}
-          {(isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro') && (
+          {(userRole === 'chuNha' || userRole === 'dongChuTro') && (
             <BuildingZaloGroupsSection
+              buildingId={building.id}
+              canEdit={userRole === 'chuNha' || userRole === 'dongChuTro'}
+            />
+          )}
+
+          {/* Bộ lọc Zalo Monitor per tòa nhà */}
+          {(isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro') && (
+            <BuildingZaloMonitorSection
               buildingId={building.id}
               canEdit={isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro'}
             />
@@ -3918,7 +3926,137 @@ function BuildingZaloGroupsSection({ buildingId, canEdit }: {
   );
 }
 
+// ─── Building Zalo Monitor Filter ──────────────────────────────────────────
+
+function BuildingZaloMonitorSection({ buildingId, canEdit }: {
+  buildingId: string;
+  canEdit: boolean;
+}) {
+  const [config, setConfig] = useState<{ enabled: boolean; dmFilter: 'none' | 'system_only' }>({
+    enabled: true,
+    dmFilter: 'none',
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/toa-nha/${buildingId}/zalo-monitor-config`);
+      const j = await r.json();
+      if (j.success && j.data) setConfig(j.data);
+    } catch {
+      toast.error('Lỗi tải cấu hình bộ lọc');
+    } finally {
+      setLoading(false);
+    }
+  }, [buildingId]);
+
+  useEffect(() => { if (open) load(); }, [open, load]);
+
+  const save = async (patch: Partial<typeof config>) => {
+    const next = { ...config, ...patch };
+    setSaving(true);
+    try {
+      const r = await fetch(`/api/toa-nha/${buildingId}/zalo-monitor-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      });
+      const j = await r.json();
+      if (j.success) {
+        setConfig(next);
+        toast.success('Đã lưu cấu hình bộ lọc');
+      } else {
+        toast.error(j.message || 'Lưu thất bại');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="border rounded-md bg-white overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {open ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+          <Eye className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+          <span className="text-sm font-medium text-gray-700">Bộ lọc Zalo Monitor</span>
+          <span className="text-[10px] text-gray-400">— cài đặt hiển thị trên Monitor</span>
+          <Badge variant={config.enabled ? 'default' : 'secondary'} className="text-[9px] h-4 ml-1">
+            {config.enabled ? 'Đang bật' : 'Đang tắt'}
+          </Badge>
+        </div>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 pt-2 border-t bg-gray-50/50 space-y-4">
+          {loading ? (
+            <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải...
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-semibold">Hiển thị trên Monitor</Label>
+                  <p className="text-[10px] text-gray-500">Nếu tắt, mọi tin nhắn của tòa nhà này sẽ không hiện trên Zalo Monitor</p>
+                </div>
+                <Switch
+                  checked={config.enabled}
+                  onCheckedChange={v => save({ enabled: v })}
+                  disabled={saving || !canEdit}
+                />
+              </div>
+
+              {config.enabled && (
+                <div className="space-y-2 pt-2 border-t">
+                  <Label className="text-xs font-semibold">Bộ lọc tin nhắn cá nhân (DM)</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={saving || !canEdit}
+                      onClick={() => save({ dmFilter: 'none' })}
+                      className={`px-3 py-1.5 rounded-md text-xs border transition-all ${
+                        config.dmFilter === 'none'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      Tất cả tin nhắn
+                    </button>
+                    <button
+                      type="button"
+                      disabled={saving || !canEdit}
+                      onClick={() => save({ dmFilter: 'system_only' })}
+                      className={`px-3 py-1.5 rounded-md text-xs border transition-all ${
+                        config.dmFilter === 'system_only'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      Chỉ số trong hệ thống
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 italic">
+                    * "Chỉ số trong hệ thống" giúp ẩn các tin nhắn từ người lạ không có trong danh bạ tòa nhà.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
+
 
 export default function ZaloSettingsPage() {
   const { data: session } = useSession();
