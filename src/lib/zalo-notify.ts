@@ -81,16 +81,16 @@ async function resolveBotConfig(toaNhaId?: string, senderId?: string): Promise<B
   return getBotConfig();
 }
 
-async function sendZalo(chatId: string, text: string, toaNhaId?: string, senderId?: string): Promise<void> {
+async function sendZalo(chatId: string, text: string, toaNhaId?: string, senderId?: string, threadType: 0 | 1 = 0): Promise<void> {
   try {
     const botConfig = await resolveBotConfig(toaNhaId, senderId);
     const { getActiveMode } = await import('@/lib/zalo-bot-client');
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendMessage: directSendMessage } = await import('@/lib/zalo-direct/service');
-      await directSendMessage(chatId, text, 0, botConfig?.ttl ?? 0, null, undefined);
+      await directSendMessage(chatId, text, threadType, botConfig?.ttl ?? 0, null, undefined);
     } else {
-      await sendMessageViaBotServer(chatId, text, 0, undefined, botConfig);
+      await sendMessageViaBotServer(chatId, text, threadType, undefined, botConfig);
     }
   } catch (e) { 
     console.error('[zalo-notify] sendZalo error:', e);
@@ -205,7 +205,7 @@ async function sendToGroup(toaNhaId: string, text: string, tang?: number, sender
   }
 
   if (!threadId) threadId = await getSetting('bot_forward_thread_id') || null;
-  if (threadId) await sendZalo(threadId, text, toaNhaId, senderId);
+  if (threadId) await sendZalo(threadId, text, toaNhaId, senderId, 1);
 }
 
 /**
@@ -266,18 +266,28 @@ export async function broadcastThongBao(opts: {
   const botAccountId = botConfig?.accountId || '';
 
   function resolveGroup(idOrName: string): string {
-    // Nếu là ID (số hoặc bắt đầu bằng g), trả về luôn
-    if (/^\d+$/.test(idOrName) || idOrName.startsWith('g')) return idOrName;
-    
-    // Thử tìm trong danh sách nhóm tòa nhà theo tên
-    const matched = groups.find(g => (g.name || '').toLowerCase() === idOrName.toLowerCase());
+    // Thử tìm trong danh sách nhóm tòa nhà
+    const matched = groups.find(g => 
+      (g.name || '').toLowerCase() === idOrName.toLowerCase() ||
+      (g.label || '').toLowerCase() === idOrName.toLowerCase() ||
+      g.threadId === idOrName ||
+      (g.threadIds && typeof g.threadIds === 'object' && Object.values(g.threadIds).includes(idOrName))
+    );
+
     if (matched) {
-      if (matched.threadId) return matched.threadId; // chuẩn cũ
+      // Ưu tiên threadId của bot đang dùng
+      if (botAccountId && matched.threadIds && matched.threadIds[botAccountId]) {
+        return matched.threadIds[botAccountId];
+      }
+      // Fallback chuẩn cũ
+      if (matched.threadId) return matched.threadId;
+      // Fallback threadId đầu tiên tìm thấy
       if (matched.threadIds && typeof matched.threadIds === 'object') {
-        if (botAccountId && matched.threadIds[botAccountId]) return matched.threadIds[botAccountId];
-        return Object.values(matched.threadIds)[0] as string || idOrName;
+        const firstId = Object.values(matched.threadIds)[0];
+        if (typeof firstId === 'string') return firstId;
       }
     }
+    
     return idOrName;
   }
 
@@ -285,7 +295,7 @@ export async function broadcastThongBao(opts: {
 
   const sendAllTo = async (chatId: string, threadType: 0 | 1) => {
     try {
-      if (text) await sendZalo(chatId, text, toaNhaId, senderId);
+      if (text) await sendZalo(chatId, text, toaNhaId, senderId, threadType);
       for (const url of fileUrls) {
         await sendAttachmentToChat(chatId, url, toaNhaId, threadType, senderId).catch(e =>
           console.error('[broadcastThongBao] attachment error:', e),
@@ -412,7 +422,7 @@ export async function notifyNewInvoice(hoaDonId: string, senderId?: string): Pro
 }
 
 /** Tạo PDF hóa đơn rồi gửi qua Zalo */
-async function sendInvoicePdf(hd: any, chatId: string, toaNhaId: string, senderId?: string): Promise<void> {
+async function sendInvoicePdf(hd: any, chatId: string, toaNhaId: string, senderId?: string, threadType: 0 | 1 = 0): Promise<void> {
   const fs = await import('fs');
   const path = await import('path');
   const { buildInvoiceHTML } = await import('@/lib/invoice-pdf-template');
@@ -440,9 +450,9 @@ async function sendInvoicePdf(hd: any, chatId: string, toaNhaId: string, senderI
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendFile: directSendFile } = await import('@/lib/zalo-direct/service');
-      await directSendFile(chatId, tempPath, caption, 0, 0);
+      await directSendFile(chatId, tempPath, caption, threadType, 0);
     } else {
-      await sendFileViaBotServer(chatId, tempPath, caption, 0, undefined, botConfig);
+      await sendFileViaBotServer(chatId, tempPath, caption, threadType, undefined, botConfig);
     }
   } finally {
     try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
@@ -450,7 +460,7 @@ async function sendInvoicePdf(hd: any, chatId: string, toaNhaId: string, senderI
 }
 
 /** Tải ảnh QR về rồi gửi kèm qua Zalo (vì URL vietqr.io có thể không ổn định với bot server) */
-async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string, caption = '📲 Quét QR để thanh toán', senderId?: string): Promise<void> {
+async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string, caption = '📲 Quét QR để thanh toán', senderId?: string, threadType: 0 | 1 = 0): Promise<void> {
   const fs = await import('fs');
   const path = await import('path');
   const { sendImageViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
@@ -469,9 +479,9 @@ async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string, capt
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
-      await directSendImage(chatId, tempPath, caption, 0, 0);
+      await directSendImage(chatId, tempPath, caption, threadType, 0);
     } else {
-      await sendImageViaBotServer(chatId, tempPath, caption, 0, undefined, botConfig);
+      await sendImageViaBotServer(chatId, tempPath, caption, threadType, undefined, botConfig);
     }
   } finally {
     try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
@@ -483,7 +493,7 @@ async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string, capt
  * Bot server có thể không gửi được qua URL trực tiếp (CDN yêu cầu auth/redirect),
  * nên tải về file tạm sẽ ổn định hơn.
  */
-async function sendLocalImage(chatId: string, imageUrl: string, toaNhaId: string, caption = '', senderId?: string): Promise<void> {
+async function sendLocalImage(chatId: string, imageUrl: string, toaNhaId: string, caption = '', senderId?: string, threadType: 0 | 1 = 0): Promise<void> {
   const fs = await import('fs');
   const path = await import('path');
   const { sendImageViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
@@ -508,9 +518,9 @@ async function sendLocalImage(chatId: string, imageUrl: string, toaNhaId: string
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
-      await directSendImage(chatId, tempPath, caption, 0, 0);
+      await directSendImage(chatId, tempPath, caption, threadType, 0);
     } else {
-      await sendImageViaBotServer(chatId, tempPath, caption, 0, undefined, botConfig);
+      await sendImageViaBotServer(chatId, tempPath, caption, threadType, undefined, botConfig);
     }
   } finally {
     if (tempPath && /^https?:\/\//i.test(imageUrl)) {
