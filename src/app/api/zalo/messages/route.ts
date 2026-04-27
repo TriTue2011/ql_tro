@@ -110,22 +110,27 @@ async function resolveGroupWhitelist(userId: string, role: string): Promise<stri
 
 /**
  * Build a Set of all system chatIds (from KhachThue + NguoiDung + DanhBaNgoai)
+ * Bao gồm cả:
+ * - zaloChatId (đã xác nhận)
+ * - zaloChatIds JSON array (multi-bot)
+ * - pendingZaloChatId (đang chờ xác nhận — khách mới nhắn tin lần đầu)
  */
 async function getSystemChatIds(): Promise<Set<string>> {
   const ids = new Set<string>();
 
   const [kts, nds, danhBaNgoaiRow] = await Promise.all([
-    prisma.khachThue.findMany({ select: { zaloChatId: true, zaloChatIds: true } }),
-    prisma.nguoiDung.findMany({ select: { zaloChatId: true, zaloChatIds: true } }),
+    prisma.khachThue.findMany({ select: { zaloChatId: true, zaloChatIds: true, pendingZaloChatId: true } }),
+    prisma.nguoiDung.findMany({ select: { zaloChatId: true, zaloChatIds: true, pendingZaloChatId: true } }),
     prisma.caiDat.findUnique({ where: { khoa: 'zalo_danh_ba_ngoai' } }),
   ]);
 
   const processEntry = (e: any) => {
     if (e.zaloChatId) ids.add(e.zaloChatId);
+    if (e.pendingZaloChatId) ids.add(e.pendingZaloChatId); // khách mới, chưa xác nhận
     if (e.zaloChatIds) {
       try {
         const parsed = typeof e.zaloChatIds === 'string' ? JSON.parse(e.zaloChatIds) : e.zaloChatIds;
-        if (Array.isArray(parsed)) parsed.forEach((i: any) => { if (i.threadId) ids.add(i.threadId); });
+        if (Array.isArray(parsed)) parsed.forEach((i: any) => { if (i.threadId) ids.add(i.threadId); if (i.userId) ids.add(i.userId); });
         else if (typeof parsed === 'object' && parsed !== null) Object.values(parsed).forEach((tid: any) => { if (typeof tid === 'string') ids.add(tid); });
       } catch {}
     }

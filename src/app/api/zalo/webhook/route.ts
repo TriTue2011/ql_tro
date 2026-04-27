@@ -13,6 +13,7 @@ import { notifyHomeAssistant, handleZaloAutoReply } from '@/lib/zalo-message-han
 import { storeChatIdForAccount } from '@/lib/zalo-auto-link';
 import { handlePendingConfirmation } from '@/lib/zalo-pending-confirm';
 import { getUserInfoViaBotServer, getGroupInfoFromBotServer } from '@/lib/zalo-bot-client';
+import { autoMatchGroupThread } from '@/lib/zalo-group-auto-match';
 
 // ─── Group name — in-memory cache + CaiDat persistence ───────────────────────
 const _groupNameCache = new Map<string, { name: string; ts: number }>();
@@ -313,7 +314,13 @@ export async function POST(request: NextRequest) {
       const accountId = String(update._accountId || update.data?.idTo || '');
       if (groupId) {
         const groupName = await fetchGroupName(groupId, accountId);
-        if (groupName) update._groupName = groupName;
+        if (groupName) {
+          update._groupName = groupName;
+          // Tự động gán threadId vào zaloNhomChat nếu tên nhóm khớp
+          if (accountId) {
+            autoMatchGroupThread(groupId, groupName, accountId).catch(() => {});
+          }
+        }
         // Tự động gộp tin nhắn cũ của nhóm này (chatId sai = senderId)
         prisma.$executeRaw`
           UPDATE "ZaloMessage"

@@ -13,8 +13,8 @@ export async function GET() {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const [khachThues, nguoiDungs, danhBaNgoaiRow] = await Promise.all([
-    prisma.khachThue.findMany({ select: { zaloChatId: true, zaloChatIds: true } }),
-    prisma.nguoiDung.findMany({ select: { zaloChatId: true, zaloChatIds: true } }),
+    prisma.khachThue.findMany({ select: { zaloChatId: true, zaloChatIds: true, pendingZaloChatId: true } }),
+    prisma.nguoiDung.findMany({ select: { zaloChatId: true, zaloChatIds: true, pendingZaloChatId: true } }),
     prisma.caiDat.findUnique({ where: { khoa: 'zalo_danh_ba_ngoai' } }),
   ]);
 
@@ -22,12 +22,14 @@ export async function GET() {
 
   const processEntity = (e: any) => {
     if (e.zaloChatId) chatIds.add(e.zaloChatId);
+    if (e.pendingZaloChatId) chatIds.add(e.pendingZaloChatId); // khách mới chưa xác nhận
     if (e.zaloChatIds) {
       try {
         const parsed = typeof e.zaloChatIds === 'string' ? JSON.parse(e.zaloChatIds) : e.zaloChatIds;
         if (Array.isArray(parsed)) {
           parsed.forEach((item: any) => {
             if (item.threadId) chatIds.add(item.threadId);
+            if (item.userId) chatIds.add(item.userId); // userId cũng là 1 dạng chatId
           });
         } else if (typeof parsed === 'object' && parsed !== null) {
           // If it's a map { [botId]: threadId }

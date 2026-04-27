@@ -16,6 +16,7 @@ import { handlePendingConfirmation } from "@/lib/zalo-pending-confirm";
 import { getUserInfoViaBotServer } from "@/lib/zalo-bot-client";
 import { getGroupInfo } from "@/lib/zalo-direct/service";
 import { uploadFile } from "@/lib/storage";
+import { autoMatchGroupThread } from "@/lib/zalo-group-auto-match";
 
 /** Tải ảnh từ Zalo CDN và lưu vào storage vĩnh viễn. Fire-and-forget — không ném lỗi. */
 async function persistAttachmentUrl(cdnUrl: string, ext = '.jpg'): Promise<string | null> {
@@ -219,6 +220,11 @@ export async function handleIncomingMessage(
       // Lấy tên nhóm (cache → CaiDat → API)
       const groupName = await resolveGroupName(threadId, ownId);
       saveDisplayName = groupName || null;
+
+      // Tự động gán threadId vào zaloNhomChat nếu tên nhóm khớp
+      if (groupName && ownId) {
+        autoMatchGroupThread(threadId, groupName, ownId).catch(() => {});
+      }
     }
 
     // Lưu tin nhắn vào DB (chatId = threadId cho nhóm)

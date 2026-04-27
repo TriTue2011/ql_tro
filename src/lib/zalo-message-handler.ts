@@ -640,13 +640,45 @@ async function handleStrangerRentalInquiry(
 }
 
 /**
- * Tự động nhận diện và liên kết người lạ bằng cách duyệt các SĐT chưa có zaloChatId.
+ * Tự động nhận diện và liên kết người lạ.
+ *
+ * Ưu tiên (O(1) — nhanh, đáng tin):
+ *   getUserInfo(chatId) → lấy phoneNumber → so khớp SĐT với DB → gán zaloChatId
+ *
+ * Fallback (O(N) — chỉ dùng khi getUserInfo không trả về SĐT):
+ *   Duyệt từng người chưa liên kết → findUser(sdt) → so chatId trả về
+ *
  * Chỉ chạy khi đang ở bot server mode.
  * Trả về true nếu đã liên kết thành công (bỏ qua stranger flow).
  */
 async function tryAutoLinkByPhone(token: string, chatId: string, accountSelection?: string): Promise<boolean> {
-
   try {
+    let defaultBotAccountId = accountSelection || 'default';
+    try {
+      const { getAccountsFromBotServer } = await import('@/lib/zalo-bot-client');
+      const { accounts } = await getAccountsFromBotServer();
+      if (accounts?.[0]) defaultBotAccountId = String(accounts[0].id || accounts[0].name || 'default');
+    } catch { /* dùng 'default' */ }
+
+    // ── Bước 1: Reverse lookup — getUserInfo(chatId) → lấy SĐT → so DB ──────
+    try {
+      const info = await getUserInfoViaBotServer(chatId, accountSelection);
+      if (info.ok && info.data) {
+        const d = info.data as any;
+        const profile = d.changed_profiles?.[chatId] ?? d;
+        const rawPhone = profile.phoneNumber || profile.phone || d.phoneNumber || d.phone || '';
+
+        if (rawPhone) {
+          const phone = rawPhone.replace(/^\+84/, '0').replace(/^84/, '0').replace(/\D/g, '');
+          console.log(`[zalo-handler] autoLink reverse: chatId=${chatId} → SĐT=${phone}`);
+
+          const linked = await linkByPhone(phone, chatId, defaultBotAccountId, token, accountSelection);
+          if (linked) return true;
+        }
+      }
+    } catch { /* getUserInfo thất bại → thử forward lookup */ }
+
+    // ── Bước 2: Forward lookup — duyệt từng SĐT chưa liên kết ───────────────
     const [unlinkedKt, unlinkedNd] = await Promise.all([
       prisma.khachThue.findMany({
         where: { zaloChatId: null },
@@ -663,15 +695,7 @@ async function tryAutoLinkByPhone(token: string, chatId: string, accountSelectio
     const candidates = [
       ...unlinkedKt.map(k => ({ type: 'kt' as const, id: k.id, ten: k.hoTen, phone: k.soDienThoai! })),
       ...unlinkedNd.map(n => ({ type: 'nd' as const, id: n.id, ten: n.ten, phone: n.soDienThoai! })),
-    ];
-
-    // Lấy default accountId của bot server để lưu vào zaloChatIds
-    let defaultBotAccountId = 'default';
-    try {
-      const { getAccountsFromBotServer } = await import('@/lib/zalo-bot-client');
-      const { accounts } = await getAccountsFromBotServer();
-      if (accounts?.[0]) defaultBotAccountId = String(accounts[0].id || accounts[0].name || 'default');
-    } catch { /* dùng 'default' */ }
+    ].filter(c => !!c.phone);
 
     for (const c of candidates) {
       try {
@@ -681,7 +705,8 @@ async function tryAutoLinkByPhone(token: string, chatId: string, accountSelectio
         const ownerUid = String(d.userId ?? d.uid ?? d.id ?? '');
         if (!ownerUid || ownerUid !== chatId) continue;
 
-        // Khớp → liên kết (kể cả lưu vào zaloChatIds cho account hiện tại)
+        // Khớp → liên kết
+        console.log(`[zalo-handler] autoLink forward: phone=${c.phone} → chatId=${chatId} matched`);
         const { storeChatIdForAccount } = await import('@/lib/zalo-auto-link');
         if (c.type === 'kt') {
           const repo = await getKhachThueRepo();
@@ -706,6 +731,58 @@ async function tryAutoLinkByPhone(token: string, chatId: string, accountSelectio
       } catch { continue; }
     }
   } catch { /* bỏ qua lỗi */ }
+
+  return false;
+}
+
+/**
+ * Helper: gán zaloChatId cho KhachThue hoặc NguoiDung theo SĐT.
+ * Trả về true nếu tìm thấy và gán thành công.
+ */
+async function linkByPhone(
+  phone: string,
+  chatId: string,
+  botAccountId: string,
+  token: string,
+  accountSelection?: string,
+): Promise<boolean> {
+  // Kiểm tra KhachThue
+  const kt = await prisma.khachThue.findFirst({
+    where: { soDienThoai: phone },
+    select: { id: true, hoTen: true, zaloChatId: true },
+  });
+  if (kt && kt.zaloChatId !== chatId) {
+    const repo = await getKhachThueRepo();
+    await repo.update(kt.id, { zaloChatId: chatId, pendingZaloChatId: '', nhanThongBaoZalo: true });
+    const { storeChatIdForAccount } = await import('@/lib/zalo-auto-link');
+    storeChatIdForAccount('khachThue', kt.id, botAccountId, chatId).catch(() => {});
+    console.log(`[zalo-handler] linkByPhone: KhachThue ${kt.id} (${phone}) → chatId=${chatId}`);
+    await sendReply(token, chatId,
+      `✅ Đăng ký thành công!\n\n` +
+      `Xin chào ${kt.hoTen}, từ giờ bạn sẽ nhận thông báo hóa đơn và hợp đồng qua Zalo này.\n\n` +
+      'Để điều chỉnh cài đặt, đăng nhập cổng thông tin khách thuê → Thông tin cá nhân.',
+      accountSelection,
+    );
+    return true;
+  }
+
+  // Kiểm tra NguoiDung
+  const nd = await prisma.nguoiDung.findFirst({
+    where: { soDienThoai: phone, trangThai: 'hoatDong' },
+    select: { id: true, ten: true, zaloChatId: true },
+  });
+  if (nd && nd.zaloChatId !== chatId) {
+    await prisma.nguoiDung.update({ where: { id: nd.id }, data: { zaloChatId: chatId, pendingZaloChatId: '' } });
+    const { storeChatIdForAccount } = await import('@/lib/zalo-auto-link');
+    storeChatIdForAccount('nguoiDung', nd.id, botAccountId, chatId).catch(() => {});
+    console.log(`[zalo-handler] linkByPhone: NguoiDung ${nd.id} (${phone}) → chatId=${chatId}`);
+    await sendReply(token, chatId,
+      `✅ Liên kết thành công!\n\n` +
+      `Xin chào ${nd.ten}, tài khoản của bạn đã được liên kết với Zalo này.`,
+      accountSelection,
+    );
+    return true;
+  }
 
   return false;
 }
@@ -959,11 +1036,11 @@ export async function handleZaloUpdate(update: any, token: string): Promise<void
   const rentalHandled = await handleStrangerRentalInquiry(token, chatId, text, attachmentUrl);
   if (rentalHandled) return;
 
-  // 7. Không nhận diện được → lời chào + forward + detect pending
-  await Promise.all([
-    handleStranger(token, chatId, displayName, text),
-    detectAndStorePending(update),
-  ]);
+  // 7. Không nhận diện được → lời chào + forward
+  // Lưu ý: detectAndStorePending (so khớp tên Zalo với tên DB) đã bị loại bỏ
+  // vì tên hiển thị Zalo có thể là biệt danh, không đáng tin. 
+  // Việc nhận diện khách mới CHỈ nên qua số điện thoại (bước 5 đã xử lý).
+  await handleStranger(token, chatId, displayName, text);
 }
 
 /**
