@@ -47,7 +47,8 @@ function getThreadId(msg: ZaloMsg): string {
 }
 
 function isGroup(msg: ZaloMsg): boolean {
-  return (msg.rawPayload as any)?.type === 1;
+  const payload = msg.rawPayload as any;
+  return !!payload?.threadId || payload?.type === 1 || payload?.type === '1';
 }
 
 function senderName(msg: ZaloMsg): string {
