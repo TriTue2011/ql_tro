@@ -69,6 +69,7 @@ export interface Phong {
   _id?: string;
   maPhong: string;
   toaNha: string; // ObjectId ref ToaNha
+  toaNhaId?: string; // Prisma compatibility
   tang: number;
   dienTich: number;
   giaThue: number;

@@ -17,11 +17,42 @@ export async function GET(request: NextRequest) {
       currentYear + 1
     );
 
+    const userId = session.user.id;
+    const role = session.user.role;
+
+    // 1. Lấy danh sách tòa nhà của user (Scoping)
+    const myBuildingIds = await prisma.toaNha.findMany({
+      where: role === 'admin' ? {} : {
+        OR: [
+          { chuSoHuuId: userId },
+          { nguoiQuanLy: { some: { nguoiDungId: userId } } },
+        ],
+      },
+      select: { id: true },
+    }).then(rows => rows.map(r => r.id));
+
+    if (myBuildingIds.length === 0 && role !== 'admin') {
+      return NextResponse.json({
+        success: true,
+        year,
+        months: Array(12).fill(0).map((_, i) => ({ month: i + 1, revenue: 0 })),
+      });
+    }
+
     const startOfYear = new Date(year, 0, 1);
     const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
 
+    // 2. Query ThanhToan có scope tòa nhà và trạng thái hóa đơn "đã thanh toán"
+    const buildingFilter = role === 'admin' ? {} : { toaNhaId: { in: myBuildingIds } };
+
     const payments = await prisma.thanhToan.findMany({
-      where: { ngayThanhToan: { gte: startOfYear, lte: endOfYear } },
+      where: { 
+        ngayThanhToan: { gte: startOfYear, lte: endOfYear },
+        hoaDon: { 
+          phong: buildingFilter,
+          trangThai: 'daThanhToan' // Theo yêu cầu: chỉ lấy khi hóa đơn đã thanh toán
+        }
+      },
       select: { soTien: true, ngayThanhToan: true },
     });
 

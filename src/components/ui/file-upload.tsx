@@ -10,6 +10,7 @@ interface FileUploadProps {
   className?: string;
   label?: string;
   folder?: string;
+  toaNhaId?: string;
   /** Accepted MIME types — defaults to images + PDF */
   accept?: string;
 }
@@ -35,6 +36,7 @@ export function FileUpload({
   className = '',
   label = 'File',
   folder,
+  toaNhaId,
   accept = 'image/jpeg,image/png,image/webp,image/heic,application/pdf',
 }: FileUploadProps) {
   const [uploadState, setUploadState] = useState<UploadState>('idle');
@@ -55,6 +57,7 @@ export function FileUpload({
       fd.append('file', file);
       fd.append('type', 'file');
       if (folder) fd.append('folder', folder);
+      if (toaNhaId) fd.append('toaNhaId', toaNhaId);
 
       const response = await fetch('/api/upload', { method: 'POST', body: fd });
       if (!response.ok) throw new Error('Upload failed');
@@ -76,7 +79,7 @@ export function FileUpload({
     } finally {
       if (inputRef.current) inputRef.current.value = '';
     }
-  }, [onFileChange, folder]);
+  }, [onFileChange, folder, toaNhaId]);
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

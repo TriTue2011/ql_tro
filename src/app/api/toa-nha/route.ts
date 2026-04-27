@@ -62,15 +62,6 @@ export async function GET(request: NextRequest) {
 
     const result = await repo.findMany({ page, limit, search: search || undefined, ownerId, managerId });
 
-    // Nếu là Landlord (chuNha) và không thấy tòa nhà nào qua assignment table, 
-    // thử tìm qua chuSoHuuId để tránh lỗi "0 tòa" cho các tài khoản cũ chưa được migrate.
-    if (role === 'chuNha' && result.data.length === 0 && !search) {
-       const legacyResult = await repo.findMany({ page, limit, ownerId: userId });
-       if (legacyResult.data.length > 0) {
-          return NextResponse.json(legacyResult);
-       }
-    }
-
     const toaNhaIds = result.data.map(t => t.id).filter(Boolean) as string[];
     const phongGroups = await prisma.phong.groupBy({
       by: ['toaNhaId', 'trangThai'],

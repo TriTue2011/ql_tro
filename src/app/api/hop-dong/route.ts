@@ -192,10 +192,14 @@ export async function POST(request: NextRequest) {
     // Cập nhật trạng thái khách thuê thành 'dangThue'
     const ktIds = validatedData.khachThueId as string[];
     if (ktIds?.length) {
-      await prisma.khachThue.updateMany({
-        where: { id: { in: ktIds } },
-        data: { trangThai: 'dangThue' },
-      });
+      try {
+        await prisma.khachThue.updateMany({
+          where: { id: { in: ktIds } },
+          data: { trangThai: 'dangThue' },
+        });
+      } catch (err) {
+        console.error('Error updating khach thue status:', err);
+      }
     }
 
     // Tự động liên kết zaloChatId cho các KhachThue trong hợp đồng (fire-and-forget)
@@ -206,14 +210,19 @@ export async function POST(request: NextRequest) {
         select: { id: true, soDienThoai: true },
       }).then(list => {
         for (const kt of list) {
-          autoLinkZaloChatIds('khachThue', kt.id, kt.soDienThoai!, toaNhaId).catch(() => {});
+          if (kt.soDienThoai) {
+            autoLinkZaloChatIds('khachThue', kt.id, kt.soDienThoai, toaNhaId).catch(() => {});
+          }
         }
-      }).catch(() => {});
+      }).catch(err => {
+        console.error('Error in autoLinkZaloChatIds fire-and-forget:', err);
+      });
     }
 
     sseEmit('hop-dong', { action: 'created' });
     sseEmit('phong', { action: 'updated' }); // phòng đổi sang dangThue
     sseEmit('khach-thue', { action: 'updated' }); // khách thuê đổi sang dangThue
+    
     return NextResponse.json({
       success: true,
       data: newHopDong,
@@ -228,9 +237,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('Error creating hop dong:', error);
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: `Lỗi hệ thống: ${errorMsg}` },
       { status: 500 }
     );
   }

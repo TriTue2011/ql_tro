@@ -24,17 +24,19 @@ export async function GET(request: NextRequest) {
     let myBuildingIds: string[] | undefined = undefined;
     
     if (!isAdmin) {
-      myBuildingIds = await prisma.toaNhaNguoiQuanLy.findMany({
+      const rows = await prisma.toaNhaNguoiQuanLy.findMany({
         where: { nguoiDungId: userId },
         select: { toaNhaId: true },
-      }).then(rows => rows.map(r => r.toaNhaId));
+      });
+      myBuildingIds = rows.map(r => r.toaNhaId);
 
       // Fallback cho Landlord nếu bảng assignment trống (dữ liệu cũ chưa migrate)
       if (myBuildingIds.length === 0 && role === 'chuNha') {
-         myBuildingIds = await prisma.toaNha.findMany({
+         const legacyRows = await prisma.toaNha.findMany({
            where: { chuSoHuuId: userId },
            select: { id: true },
-         }).then(rows => rows.map(r => r.id));
+         });
+         myBuildingIds = legacyRows.map(r => r.id);
       }
 
       // Nếu vẫn không có tòa nhà nào → trả 0 tất cả

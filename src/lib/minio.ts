@@ -57,58 +57,82 @@ function parseEndpoint(raw: string, fallbackPort: number, fallbackSSL: boolean):
 }
 
 /** Đọc cấu hình MinIO từ DB (CaiDat), fallback CaiDatToaNha, fallback env vars. Cache 30s. */
-export async function getMinioConfig(): Promise<MinioConfig> {
-  if (_dbConfig && Date.now() < _cacheExpiry) return _dbConfig;
+export async function getMinioConfig(toaNhaId?: string): Promise<MinioConfig> {
+  // Nếu có toaNhaId, không dùng cache global vì mỗi tòa nhà có config riêng
+  if (!toaNhaId && _dbConfig && Date.now() < _cacheExpiry) return _dbConfig;
 
   const env = getEnvConfig();
   try {
     const { default: prisma } = await import('./prisma');
 
-    // 1. Đọc từ global CaiDat
-    const settings = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
-    let get = (key: string) => settings.find((s) => s.khoa === key)?.giaTri ?? '';
+    let endpointRaw = '';
+    let accessKey = '';
+    let secretKey = '';
+    let bucket = '';
 
-    let endpointRaw = get('minio_endpoint');
+    // 1. Ưu tiên đọc từ CaiDatToaNha nếu có toaNhaId
+    if (toaNhaId) {
+      const toaNhaConfig = await prisma.caiDatToaNha.findUnique({
+        where: { toaNhaId },
+      });
+      if (toaNhaConfig && toaNhaConfig.minioEndpoint) {
+        endpointRaw = toaNhaConfig.minioEndpoint;
+        accessKey = toaNhaConfig.minioAccessKey || '';
+        secretKey = toaNhaConfig.minioSecretKey || '';
+        bucket = toaNhaConfig.minioBucket || '';
+      }
+    }
 
-    // 2. Nếu global không có config MinIO → thử đọc từ CaiDatToaNha (tòa nhà đầu tiên có cấu hình)
+    // 2. Nếu không có toaNhaId hoặc tòa nhà không có config riêng → đọc từ global CaiDat
     if (!endpointRaw) {
-      try {
-        const toaNhaConfig = await prisma.caiDatToaNha.findFirst({
-          where: { storageProvider: { in: ['minio', 'both'] }, minioEndpoint: { not: '' } },
-        });
-        if (toaNhaConfig?.minioEndpoint) {
-          // Override get function với dữ liệu từ CaiDatToaNha
-          const toaNhaMap: Record<string, string> = {
-            minio_endpoint: toaNhaConfig.minioEndpoint || '',
-            minio_access_key: toaNhaConfig.minioAccessKey || '',
-            minio_secret_key: toaNhaConfig.minioSecretKey || '',
-            minio_bucket: toaNhaConfig.minioBucket || '',
-          };
-          get = (key: string) => toaNhaMap[key] ?? '';
-          endpointRaw = toaNhaMap['minio_endpoint'];
-        }
-      } catch { /* ignore */ }
+      const settings = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
+      const get = (key: string) => settings.find((s) => s.khoa === key)?.giaTri ?? '';
+      
+      endpointRaw = get('minio_endpoint');
+      accessKey = get('minio_access_key');
+      secretKey = get('minio_secret_key');
+      bucket = get('minio_bucket');
+    }
+
+    // 3. Nếu vẫn không có config → fallback tìm tòa nhà đầu tiên có config (legacy behavior)
+    if (!endpointRaw) {
+      const toaNhaConfig = await prisma.caiDatToaNha.findFirst({
+        where: { storageProvider: { in: ['minio', 'both'] }, minioEndpoint: { not: '' } },
+      });
+      if (toaNhaConfig?.minioEndpoint) {
+        endpointRaw = toaNhaConfig.minioEndpoint;
+        accessKey = toaNhaConfig.minioAccessKey || '';
+        secretKey = toaNhaConfig.minioSecretKey || '';
+        bucket = toaNhaConfig.minioBucket || '';
+      }
     }
 
     const { endpoint, port, useSSL } = endpointRaw
       ? parseEndpoint(endpointRaw, env.port, env.useSSL)
       : { endpoint: env.endpoint, port: env.port, useSSL: env.useSSL };
 
-    _dbConfig = {
+    const config: MinioConfig = {
       endpoint,
       port,
       useSSL,
-      accessKey: get('minio_access_key') || env.accessKey,
-      secretKey: get('minio_secret_key') || env.secretKey,
-      bucket: get('minio_bucket') || env.bucket,
+      accessKey: accessKey || env.accessKey,
+      secretKey: secretKey || env.secretKey,
+      bucket: bucket || env.bucket,
     };
-    _cacheExpiry = Date.now() + 30_000;
-  } catch {
-    _dbConfig = env;
-    _cacheExpiry = Date.now() + 5_000;
-  }
 
-  return _dbConfig!;
+    if (!toaNhaId) {
+      _dbConfig = config;
+      _cacheExpiry = Date.now() + 30_000;
+    }
+    return config;
+  } catch {
+    const config = env;
+    if (!toaNhaId) {
+      _dbConfig = config;
+      _cacheExpiry = Date.now() + 5_000;
+    }
+    return config;
+  }
 }
 
 /** Tạo MinIO client từ config */

@@ -707,6 +707,7 @@ export default function ThemMoiHopDongPage() {
               onFileChange={(url) => setFormData(prev => ({ ...prev, fileHopDong: url }))}
               label="File hợp đồng đã ký"
               folder="hop-dong"
+              toaNhaId={phongList.find(p => p.id === formData.phong)?.toaNhaId}
             />
 
             <div className="space-y-2">

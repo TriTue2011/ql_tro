@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
     const folderRaw = formData.get('folder') as string | null;
     const folder = folderRaw?.slice(0, 200).replace(/\.\./g, '') || undefined;
     const uploadType = (formData.get('type') as string | null) || 'image'; // 'image' | 'file'
+    const toaNhaId = formData.get('toaNhaId') as string | null;
 
     if (!file) {
       return NextResponse.json({ message: 'Không có file được chọn' }, { status: 400 });
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload (truyền buffer để storage layer không cần đọc lại)
-    const result = await uploadFileFromBuffer(buffer, file.name, file.type, folder);
+    const result = await uploadFileFromBuffer(buffer, file.name, file.type, folder, toaNhaId || undefined);
 
     return NextResponse.json({
       success: true,
@@ -152,27 +153,39 @@ async function uploadFileFromBuffer(
   originalName: string,
   mimeType: string,
   folder?: string,
+  toaNhaId?: string,
 ): Promise<{ public_id: string; secure_url: string }> {
   // Lấy storage config
   const { buildFolderPath } = await import('@/lib/storage');
   const normalizedFolder = folder ? buildFolderPath(folder) : undefined;
 
   // Lấy provider từ DB / env
-  const provider = await getProvider();
+  const provider = await getProvider(toaNhaId);
 
   if (provider === 'cloudinary') {
     return uploadBufferToCloudinary(buffer, originalName, mimeType, normalizedFolder);
   }
   if (provider === 'minio' || provider === 'both') {
-    return uploadBufferToMinio(buffer, originalName, mimeType, normalizedFolder);
+    return uploadBufferToMinio(buffer, originalName, mimeType, normalizedFolder, toaNhaId);
   }
   return uploadBufferToLocal(buffer, originalName, normalizedFolder);
 }
 
-async function getProvider(): Promise<string> {
+async function getProvider(toaNhaId?: string): Promise<string> {
   const envProvider = process.env.STORAGE_PROVIDER || 'local';
   try {
     const { default: prisma } = await import('@/lib/prisma');
+
+    // 1. Ưu tiên đọc provider từ tòa nhà nếu có toaNhaId
+    if (toaNhaId) {
+      const toaNhaConfig = await prisma.caiDatToaNha.findUnique({
+        where: { toaNhaId },
+        select: { storageProvider: true }
+      });
+      if (toaNhaConfig?.storageProvider) return toaNhaConfig.storageProvider;
+    }
+
+    // 2. Fallback đọc từ global CaiDat
     const settings = await prisma.caiDat.findMany({ where: { nhom: 'luuTru' } });
     const get = (key: string) => settings.find(s => s.khoa === key)?.giaTri ?? '';
     return get('storage_provider') || envProvider;
@@ -203,10 +216,10 @@ async function uploadBufferToLocal(buffer: Buffer, originalName: string, folder?
   return { public_id: relativePath, secure_url: `/${relativePath}` };
 }
 
-async function uploadBufferToMinio(buffer: Buffer, originalName: string, mimeType: string, folder?: string) {
+async function uploadBufferToMinio(buffer: Buffer, originalName: string, mimeType: string, folder?: string, toaNhaId?: string) {
   const { getMinioConfig, createMinioClient, ensureBucketExists } = await import('@/lib/minio');
 
-  const config = await getMinioConfig();
+  const config = await getMinioConfig(toaNhaId);
   const client = createMinioClient(config);
   await ensureBucketExists(client, config.bucket);
 
