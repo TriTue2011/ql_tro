@@ -146,13 +146,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Kiểm tra trùng mã hợp đồng
+    // Kiểm tra trùng mã hợp đồng TRONG CÙNG TÒA NHÀ
     const existingMa = await prisma.hopDong.findFirst({
-      where: { maHopDong: validatedData.maHopDong }
+      where: { maHopDong: validatedData.maHopDong, toaNhaId: phong.toaNhaId }
     });
     if (existingMa) {
       return NextResponse.json(
-        { message: `Mã hợp đồng "${validatedData.maHopDong}" đã tồn tại. Vui lòng chọn mã khác.` },
+        { message: `Mã hợp đồng "${validatedData.maHopDong}" đã tồn tại trong tòa nhà này. Vui lòng chọn mã khác.` },
         { status: 400 }
       );
     }
@@ -191,6 +191,7 @@ export async function POST(request: NextRequest) {
       chiSoNuocBanDau: validatedData.chiSoNuocBanDau,
       phiDichVu: validatedData.phiDichVu || [],
       fileHopDong: validatedData.fileHopDong,
+      toaNhaId: phong.toaNhaId,
     } as any);
 
     // Cập nhật trạng thái phòng thành 'dangThue' + đồng bộ giá thuê, tiền cọc từ hợp đồng

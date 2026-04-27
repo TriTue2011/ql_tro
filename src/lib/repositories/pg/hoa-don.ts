@@ -144,6 +144,7 @@ export default class HoaDonRepository {
         ...(data.anhChiSoDien !== undefined && { anhChiSoDien: data.anhChiSoDien }),
         ...(data.anhChiSoNuoc !== undefined && { anhChiSoNuoc: data.anhChiSoNuoc }),
         ...(data.nguoiTaoId !== undefined && { nguoiTaoId: data.nguoiTaoId }),
+        toaNhaId: data.toaNhaId,
       },
       include: includeRelations,
     });

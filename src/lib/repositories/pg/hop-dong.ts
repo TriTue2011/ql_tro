@@ -132,6 +132,7 @@ export default class HopDongRepository {
         chiSoNuocBanDau: data.chiSoNuocBanDau ?? 0,
         phiDichVu: (data.phiDichVu ?? []) as object[],
         fileHopDong: data.fileHopDong,
+        toaNhaId: data.toaNhaId,
       },
       include: includeRelations,
     });

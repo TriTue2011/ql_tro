@@ -180,9 +180,10 @@ model KhachThue {
 
 model HopDong {
   id                 String    @id @default(cuid())
-  maHopDong          String    @unique
+  maHopDong          String
   phongId            String
   phong              Phong     @relation(fields: [phongId], references: [id])
+  toaNhaId           String?
   nguoiDaiDienId     String
   nguoiDaiDien       KhachThue @relation("NguoiDaiDien", fields: [nguoiDaiDienId], references: [id])
   ngayBatDau         DateTime
@@ -206,6 +207,8 @@ model HopDong {
 
   khachThue KhachThue[]
   hoaDon    HoaDon[]
+
+  @@unique([maHopDong, toaNhaId])
 }
 
 model ChiSoDienNuoc {
@@ -232,11 +235,12 @@ model ChiSoDienNuoc {
 
 model HoaDon {
   id              String     @id @default(cuid())
-  maHoaDon        String     @unique
+  maHoaDon        String
   hopDongId       String
   hopDong         HopDong    @relation(fields: [hopDongId], references: [id])
   phongId         String
   phong           Phong      @relation(fields: [phongId], references: [id])
+  toaNhaId        String?
   khachThueId     String?
   khachThue       KhachThue? @relation(fields: [khachThueId], references: [id], onDelete: SetNull)
   thang           Int
@@ -268,6 +272,7 @@ model HoaDon {
 
   thanhToan ThanhToan[]
 
+  @@unique([maHoaDon, toaNhaId])
   @@index([nguoiTaoId])
 }
 

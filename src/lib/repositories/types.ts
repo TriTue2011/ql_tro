@@ -285,6 +285,7 @@ export interface CreateHopDongInput {
   chiSoNuocBanDau?: number;
   phiDichVu?: PhiDichVu[];
   fileHopDong?: string;
+  toaNhaId?: string;
 }
 
 export interface UpdateHopDongInput {
@@ -421,6 +422,7 @@ export interface CreateHoaDonInput {
   anhChiSoDien?: string;
   anhChiSoNuoc?: string;
   nguoiTaoId?: string | null;
+  toaNhaId?: string;
 }
 
 export interface HoaDonQueryOptions extends QueryOptions {
