@@ -197,7 +197,7 @@ export async function PUT(request: NextRequest) {
   });
 
   // Thông báo Zalo cho khách thuê về kết quả phê duyệt (theo cài đặt auto_zalo_yeu_cau_phe_duyet)
-  notifyYeuCauPheDuyet(id, trangThai as 'daPheduyet' | 'tuChoi', ghiChuPheDuyet).catch(() => {});
+  notifyYeuCauPheDuyet(id, trangThai as 'daPheduyet' | 'tuChoi', ghiChuPheDuyet, session.user.id).catch(() => {});
 
   return NextResponse.json({
     success: true,

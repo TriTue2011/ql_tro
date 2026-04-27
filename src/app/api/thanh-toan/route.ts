@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
     // Cập nhật hóa đơn (cộng thêm số tiền đã thanh toán)
     const updatedHoaDon = await hoaDonRepo.addPayment(hoaDonId, soTien);
 
-    notifyPaymentConfirmed(hoaDonId, soTien).catch(() => {});
+    notifyPaymentConfirmed(hoaDonId, soTien, session.user.id).catch(() => {});
 
     sseEmit('thanh-toan', { action: 'created' });
     sseEmit('hoa-don', { action: 'updated' }); // hóa đơn cập nhật trạng thái thanh toán

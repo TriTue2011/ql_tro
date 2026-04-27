@@ -108,7 +108,7 @@ export async function PUT(
 
     // Gửi Zalo thông báo cho khách thuê khi trạng thái thay đổi (theo cài đặt auto_zalo_su_co_*)
     if (validatedData.trangThai && suCoCu && validatedData.trangThai !== suCoCu.trangThai) {
-      notifyIncidentUpdate(suCo.id, validatedData.trangThai, validatedData.ghiChuXuLy).catch(() => {});
+      notifyIncidentUpdate(suCo.id, validatedData.trangThai, validatedData.ghiChuXuLy, session.user.id).catch(() => {});
     }
 
     sseEmit('su-co', { action: 'updated' });

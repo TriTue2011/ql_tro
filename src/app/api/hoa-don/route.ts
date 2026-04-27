@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Thông báo Zalo đầy đủ (kèm QR thanh toán) cho khách thuê về hóa đơn mới
-    notifyNewInvoice(hoaDon.id).catch(() => {});
+    notifyNewInvoice(hoaDon.id, session.user.id).catch(() => {});
 
     sseEmit('hoa-don', { action: 'created' });
     return NextResponse.json({
@@ -462,7 +462,7 @@ export async function PUT(request: NextRequest) {
     });
 
     if (trangThai === 'daHuy') {
-      notifyInvoiceCanceled(id).catch(e => console.error('Lỗi khi gửi Zalo hủy hóa đơn:', e));
+      notifyInvoiceCanceled(id, session.user.id).catch(e => console.error('Lỗi khi gửi Zalo hủy hóa đơn:', e));
     }
 
     sseEmit('hoa-don', { action: 'updated' });
@@ -515,7 +515,7 @@ export async function PATCH(request: NextRequest) {
     });
 
     if (trangThai === 'daHuy') {
-      notifyInvoiceCanceled(id).catch(e => console.error('Lỗi khi gửi Zalo hủy hóa đơn:', e));
+      notifyInvoiceCanceled(id, session.user.id).catch(e => console.error('Lỗi khi gửi Zalo hủy hóa đơn:', e));
     }
 
     sseEmit('hoa-don', { action: 'updated' });

@@ -127,8 +127,8 @@ export async function POST(request: NextRequest) {
       mucDoUuTien: validatedData.mucDoUuTien || 'trungBinh',
     });
 
-    notifyIncidentGhiNhan(newSuCo.id).catch(() => {});
-    notifyNewIncident(newSuCo.id).catch(() => {});
+    notifyIncidentGhiNhan(newSuCo.id, session.user.id).catch(() => {});
+    notifyNewIncident(newSuCo.id, session.user.id).catch(() => {});
 
     sseEmit('su-co', { action: 'created' });
     return NextResponse.json({
