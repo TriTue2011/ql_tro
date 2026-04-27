@@ -846,20 +846,24 @@ function ThongBaoForm({
       const nextIds = allSelected ? current.filter(id => !ids.includes(id)) : Array.from(new Set([...current, ...ids]));
 
       if (field === 'phong') {
-        // Tự động tích/bỏ tích khách thuê trong các phòng này
-        const tenantsInRooms = filteredKhachThue.filter((kt: any) => {
-          const pid = kt.hopDongHienTai?.phong?.id ?? (typeof kt.phong === 'string' ? kt.phong : kt.phong?.id);
-          return ids.includes(pid);
-        }).map((kt: any) => kt.id!);
-
         let nextNguoiNhan = prev.nguoiNhan;
-        if (!allSelected) {
-          // Add all tenants from these rooms
-          nextNguoiNhan = Array.from(new Set([...prev.nguoiNhan, ...tenantsInRooms]));
-        } else {
-          // Remove all tenants from these rooms
-          nextNguoiNhan = prev.nguoiNhan.filter(id => !tenantsInRooms.includes(id));
-        }
+        
+        // Mô phỏng chính xác logic của checkbox thủ công cho từng phòng
+        ids.forEach(phongId => {
+          const tenantsInRoom = filteredKhachThue.filter((kt: any) => {
+            const pid = kt.hopDongHienTai?.phong?.id ?? (typeof kt.phong === 'string' ? kt.phong : kt.phong?.id);
+            return pid === phongId;
+          }).map((kt: any) => kt.id!);
+
+          if (!allSelected) {
+            // Tương đương với checked = true
+            nextNguoiNhan = Array.from(new Set([...nextNguoiNhan, ...tenantsInRoom]));
+          } else {
+            // Tương đương với checked = false
+            nextNguoiNhan = nextNguoiNhan.filter(id => !tenantsInRoom.includes(id));
+          }
+        });
+        
         return { ...prev, phong: nextIds, nguoiNhan: nextNguoiNhan };
       }
 
