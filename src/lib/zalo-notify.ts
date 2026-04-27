@@ -46,9 +46,9 @@ async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null
       },
     });
     const owner = toaNha?.chuSoHuu;
-    if (owner?.zaloBotServerUrl) {
+    if (owner?.zaloBotServerUrl || owner?.zaloAccountId) {
       return {
-        serverUrl: owner.zaloBotServerUrl.replace(/\/$/, ''),
+        serverUrl: owner.zaloBotServerUrl?.replace(/\/$/, '') || '',
         username: owner.zaloBotUsername || 'admin',
         password: owner.zaloBotPassword || 'admin',
         accountId: owner.zaloAccountId || '',
@@ -60,25 +60,42 @@ async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null
 }
 
 async function resolveBotConfig(toaNhaId?: string, senderId?: string): Promise<BotConfig | null> {
+  // 1) Ưu tiên bot riêng của người thực hiện (senderId)
   if (senderId) {
     try {
       const user = await prisma.nguoiDung.findUnique({
         where: { id: senderId },
-        select: { zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloAccountId: true },
+        select: { id: true, ten: true, vaiTro: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloAccountId: true },
       });
-      if (user?.zaloBotServerUrl) {
+      if (user?.zaloBotServerUrl || user?.zaloAccountId) {
+        console.log(`[zalo-notify] Using bot of SENDER: ${user.ten} (${user.vaiTro}, ID: ${user.id}), accountId: ${user.zaloAccountId}`);
         return {
-          serverUrl: user.zaloBotServerUrl.replace(/\/$/, ''),
+          serverUrl: user.zaloBotServerUrl?.replace(/\/$/, '') || '',
           username: user.zaloBotUsername || 'admin',
           password: user.zaloBotPassword || 'admin',
           accountId: user.zaloAccountId || '',
           ttl: user.zaloBotTtl ?? 0,
         };
       }
-    } catch { /* ignore */ }
+      console.log(`[zalo-notify] SENDER ${user?.ten} has no bot config, falling back to building/global...`);
+    } catch (e) {
+      console.error(`[zalo-notify] Error resolving sender bot:`, e);
+    }
   }
-  if (toaNhaId) return getBotConfigForToaNha(toaNhaId);
-  return getBotConfig();
+
+  // 2) Fallback: Bot của chủ tòa nhà
+  if (toaNhaId) {
+    const config = await getBotConfigForToaNha(toaNhaId);
+    if (config) {
+      console.log(`[zalo-notify] Using bot of BUILDING OWNER (toaNhaId: ${toaNhaId}), accountId: ${config.accountId}`);
+      return config;
+    }
+  }
+
+  // 3) Cuối cùng: Bot mặc định hệ thống
+  const globalConfig = await getBotConfig();
+  console.log(`[zalo-notify] Using GLOBAL bot config, accountId: ${globalConfig?.accountId || 'none'}`);
+  return globalConfig;
 }
 
 async function sendZalo(chatId: string, text: string, toaNhaId?: string, senderId?: string, threadType: 0 | 1 = 0): Promise<void> {
@@ -88,9 +105,9 @@ async function sendZalo(chatId: string, text: string, toaNhaId?: string, senderI
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendMessage: directSendMessage } = await import('@/lib/zalo-direct/service');
-      await directSendMessage(chatId, text, threadType, botConfig?.ttl ?? 0, null, undefined);
+      await directSendMessage(chatId, text, threadType, botConfig?.ttl ?? 0, null, botConfig?.accountId || undefined);
     } else {
-      await sendMessageViaBotServer(chatId, text, threadType, undefined, botConfig);
+      await sendMessageViaBotServer(chatId, text, threadType, botConfig?.accountId || undefined, botConfig);
     }
   } catch (e) { 
     console.error('[zalo-notify] sendZalo error:', e);
@@ -228,16 +245,16 @@ async function sendAttachmentToChat(
   if (isImage) {
     if (activeMode === 'direct') {
       const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
-      await directSendImage(chatId, fileUrl, '', threadType, 0);
+      await directSendImage(chatId, fileUrl, '', threadType, botConfig?.ttl ?? 0, botConfig?.accountId || undefined);
     } else {
-      await sendImageViaBotServer(chatId, fileUrl, '', threadType, undefined, botConfig);
+      await sendImageViaBotServer(chatId, fileUrl, '', threadType, botConfig?.accountId || undefined, botConfig);
     }
   } else {
     if (activeMode === 'direct') {
       const { sendFile: directSendFile } = await import('@/lib/zalo-direct/service');
-      await directSendFile(chatId, fileUrl, '', threadType, 0);
+      await directSendFile(chatId, fileUrl, '', threadType, botConfig?.ttl ?? 0, botConfig?.accountId || undefined);
     } else {
-      await sendFileViaBotServer(chatId, fileUrl, '', threadType, undefined, botConfig);
+      await sendFileViaBotServer(chatId, fileUrl, '', threadType, botConfig?.accountId || undefined, botConfig);
     }
   }
 }
@@ -450,9 +467,9 @@ async function sendInvoicePdf(hd: any, chatId: string, toaNhaId: string, senderI
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendFile: directSendFile } = await import('@/lib/zalo-direct/service');
-      await directSendFile(chatId, tempPath, caption, threadType, 0);
+      await directSendFile(chatId, tempPath, caption, threadType, botConfig?.ttl ?? 0, botConfig?.accountId || undefined);
     } else {
-      await sendFileViaBotServer(chatId, tempPath, caption, threadType, undefined, botConfig);
+      await sendFileViaBotServer(chatId, tempPath, caption, threadType, botConfig?.accountId || undefined, botConfig);
     }
   } finally {
     try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
@@ -479,9 +496,9 @@ async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string, capt
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
-      await directSendImage(chatId, tempPath, caption, threadType, 0);
+      await directSendImage(chatId, tempPath, caption, threadType, botConfig?.ttl ?? 0, botConfig?.accountId || undefined);
     } else {
-      await sendImageViaBotServer(chatId, tempPath, caption, threadType, undefined, botConfig);
+      await sendImageViaBotServer(chatId, tempPath, caption, threadType, botConfig?.accountId || undefined, botConfig);
     }
   } finally {
     try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
@@ -518,9 +535,9 @@ async function sendLocalImage(chatId: string, imageUrl: string, toaNhaId: string
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
-      await directSendImage(chatId, tempPath, caption, threadType, 0);
+      await directSendImage(chatId, tempPath, caption, threadType, botConfig?.ttl ?? 0, botConfig?.accountId || undefined);
     } else {
-      await sendImageViaBotServer(chatId, tempPath, caption, threadType, undefined, botConfig);
+      await sendImageViaBotServer(chatId, tempPath, caption, threadType, botConfig?.accountId || undefined, botConfig);
     }
   } finally {
     if (tempPath && /^https?:\/\//i.test(imageUrl)) {
