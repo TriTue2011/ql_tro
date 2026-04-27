@@ -20,20 +20,24 @@ export async function GET(request: NextRequest) {
     const currentYear = currentDate.getFullYear();
 
     // ── Bước 1: Lấy danh sách tòa nhà của user (scope tất cả stats) ──────────
+    // QUY TẮC MỚI: Chỉ lấy từ bảng ToaNhaNguoiQuanLy cho mọi vai trò trừ Admin
     let myBuildingIds: string[] | undefined = undefined;
     
     if (!isAdmin) {
-      myBuildingIds = await prisma.toaNha.findMany({
-        where: {
-          OR: [
-            { chuSoHuuId: userId },
-            { nguoiQuanLy: { some: { nguoiDungId: userId } } },
-          ],
-        },
-        select: { id: true },
-      }).then(rows => rows.map(r => r.id));
+      myBuildingIds = await prisma.toaNhaNguoiQuanLy.findMany({
+        where: { nguoiDungId: userId },
+        select: { toaNhaId: true },
+      }).then(rows => rows.map(r => r.toaNhaId));
 
-      // Nếu user (không phải admin) không có tòa nhà nào → trả 0 tất cả
+      // Fallback cho Landlord nếu bảng assignment trống (dữ liệu cũ chưa migrate)
+      if (myBuildingIds.length === 0 && role === 'chuNha') {
+         myBuildingIds = await prisma.toaNha.findMany({
+           where: { chuSoHuuId: userId },
+           select: { id: true },
+         }).then(rows => rows.map(r => r.id));
+      }
+
+      // Nếu vẫn không có tòa nhà nào → trả 0 tất cả
       if (myBuildingIds.length === 0) {
         return NextResponse.json({
           success: true,
