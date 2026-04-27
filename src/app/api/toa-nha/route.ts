@@ -54,8 +54,9 @@ export async function GET(request: NextRequest) {
     // - chuNha: thấy tòa nhà mình sở hữu (chuSoHuuId) HOẶC được gán qua ToaNhaNguoiQuanLy
     // - dongChuTro / quanLy / nhanVien: chỉ thấy tòa nhà được gán qua ToaNhaNguoiQuanLy
     const ownerId = role === 'chuNha' ? userId : undefined;
-    // chuNha chỉ lọc theo chuSoHuuId — KHÔNG dùng managerId để tránh lộ tòa nhà qua ToaNhaNguoiQuanLy còn dư
-    const managerId = (role === 'dongChuTro' || role === 'quanLy' || role === 'nhanVien') ? userId : undefined;
+    // chuNha / dongChuTro / quanLy / nhanVien: thấy tòa nhà được gán qua ToaNhaNguoiQuanLy
+    // Riêng chuNha thấy thêm tòa nhà mình sở hữu (ownerId)
+    const managerId = (role === 'chuNha' || role === 'dongChuTro' || role === 'quanLy' || role === 'nhanVien') ? userId : undefined;
 
     const result = await repo.findMany({ page, limit, search: search || undefined, ownerId, managerId });
 

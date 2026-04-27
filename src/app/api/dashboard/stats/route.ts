@@ -13,31 +13,39 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
     const role = session.user.role;
+    const isAdmin = role === 'admin';
 
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
 
     // ── Bước 1: Lấy danh sách tòa nhà của user (scope tất cả stats) ──────────
-    const myBuildingIds = await prisma.toaNha.findMany({
-      where: role === 'chuNha'
-        ? { chuSoHuuId: userId }
-        : { nguoiQuanLy: { some: { nguoiDungId: userId } } },
-      select: { id: true },
-    }).then(rows => rows.map(r => r.id));
-
-    // Nếu user không có tòa nhà nào → trả 0 tất cả
-    if (myBuildingIds.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          tongSoPhong: 0, phongTrong: 0, phongDangThue: 0, phongBaoTri: 0,
-          doanhThuThang: 0, doanhThuNam: 0, hoaDonSapDenHan: 0,
-          suCoCanXuLy: 0, hopDongSapHetHan: 0,
-          tongQuanLy: 0, tongNhanVien: 0, tongDongChuTro: 0,
-          tongKhachThue: 0, khachThueCoTaiKhoan: 0,
+    let myBuildingIds: string[] | undefined = undefined;
+    
+    if (!isAdmin) {
+      myBuildingIds = await prisma.toaNha.findMany({
+        where: {
+          OR: [
+            { chuSoHuuId: userId },
+            { nguoiQuanLy: { some: { nguoiDungId: userId } } },
+          ],
         },
-      });
+        select: { id: true },
+      }).then(rows => rows.map(r => r.id));
+
+      // Nếu user (không phải admin) không có tòa nhà nào → trả 0 tất cả
+      if (myBuildingIds.length === 0) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            tongSoPhong: 0, phongTrong: 0, phongDangThue: 0, phongBaoTri: 0,
+            doanhThuThang: 0, doanhThuNam: 0, hoaDonSapDenHan: 0,
+            suCoCanXuLy: 0, hopDongSapHetHan: 0,
+            tongQuanLy: 0, tongNhanVien: 0, tongDongChuTro: 0,
+            tongKhachThue: 0, khachThueCoTaiKhoan: 0,
+          },
+        });
+      }
     }
 
     const phongRepo = await getPhongRepo();
@@ -63,6 +71,8 @@ export async function GET(request: NextRequest) {
     const nextMonth = new Date(); nextMonth.setDate(nextMonth.getDate() + 30);
 
     // ── Bước 3: Tài chính + cảnh báo — scope theo myBuildingIds ──────────────
+    const buildingFilter = myBuildingIds ? { toaNhaId: { in: myBuildingIds } } : {};
+    
     const [
       doanhThuThangResult,
       doanhThuNamResult,
@@ -74,73 +84,66 @@ export async function GET(request: NextRequest) {
         _sum: { soTien: true },
         where: {
           ngayThanhToan: { gte: startOfMonth, lte: endOfMonth },
-          hoaDon: { phong: { toaNhaId: { in: myBuildingIds } } },
+          hoaDon: { phong: buildingFilter },
         },
       }),
       prisma.thanhToan.aggregate({
         _sum: { soTien: true },
         where: {
           ngayThanhToan: { gte: startOfYear, lte: endOfYear },
-          hoaDon: { phong: { toaNhaId: { in: myBuildingIds } } },
+          hoaDon: { phong: buildingFilter },
         },
       }),
       prisma.hoaDon.count({
         where: {
           hanThanhToan: { lte: nextWeek },
           trangThai: { in: ['chuaThanhToan', 'daThanhToanMotPhan'] },
-          phong: { toaNhaId: { in: myBuildingIds } },
+          phong: buildingFilter,
         },
       }),
       prisma.suCo.count({
         where: {
           trangThai: { in: ['moi', 'dangXuLy'] },
-          phong: { toaNhaId: { in: myBuildingIds } },
+          phong: buildingFilter,
         },
       }),
       prisma.hopDong.count({
         where: {
           trangThai: 'hoatDong',
           ngayKetThuc: { lte: nextMonth },
-          phong: { toaNhaId: { in: myBuildingIds } },
+          phong: buildingFilter,
         },
       }),
     ]);
 
-    // ── Bước 4: Nhân sự + khách thuê (chỉ chuNha/dongChuTro) ─────────────────
+    // ── Bước 4: Nhân sự + khách thuê (chỉ chuNha/dongChuTro/admin) ───────────
     let nhanSuStats = {
       tongQuanLy: 0, tongNhanVien: 0, tongDongChuTro: 0,
       tongKhachThue: 0, khachThueCoTaiKhoan: 0,
     };
 
-    if (role === 'chuNha' || role === 'dongChuTro') {
+    if (isAdmin || role === 'chuNha' || role === 'dongChuTro') {
+      const staffFilter = myBuildingIds ? { toaNhaQuanLy: { some: { toaNhaId: { in: myBuildingIds } } } } : {};
+      const tenantFilter = myBuildingIds ? { some: { trangThai: 'hoatDong', phong: { toaNhaId: { in: myBuildingIds } } } } : { some: { trangThai: 'hoatDong' } };
+
       const [staffByRole, tongKhachThue, khachThueCoTaiKhoan] = await Promise.all([
         prisma.nguoiDung.groupBy({
           by: ['vaiTro'],
           where: {
             vaiTro: { in: ['quanLy', 'nhanVien', 'dongChuTro'] },
-            toaNhaQuanLy: { some: { toaNhaId: { in: myBuildingIds } } },
+            ...staffFilter,
           },
           _count: { id: true },
         }),
         prisma.khachThue.count({
           where: {
-            hopDong: {
-              some: {
-                trangThai: 'hoatDong',
-                phong: { toaNhaId: { in: myBuildingIds } },
-              },
-            },
+            hopDong: tenantFilter,
           },
         }),
         prisma.khachThue.count({
           where: {
             matKhau: { not: null },
-            hopDong: {
-              some: {
-                trangThai: 'hoatDong',
-                phong: { toaNhaId: { in: myBuildingIds } },
-              },
-            },
+            hopDong: tenantFilter,
           },
         }),
       ]);
