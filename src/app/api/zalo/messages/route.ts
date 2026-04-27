@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
   // ── Danh sách cuộc hội thoại ────────────────────────────────────────────────
   if (searchParams.get("conversations") === "1") {
     const rows = await prisma.$queryRaw<any[]>`
-      WITH latest_user AS (
+      WITH latest_msgs AS (
         SELECT DISTINCT ON (COALESCE("rawPayload"->>'threadId', "chatId"))
           "id",
           COALESCE("rawPayload"->>'threadId', "chatId") AS "chatId",
@@ -161,22 +161,10 @@ export async function GET(request: NextRequest) {
           ) AS "displayName",
           "content", "attachmentUrl", "role", "createdAt", "rawPayload", "eventName"
         FROM "ZaloMessage"
-        WHERE "role" = 'user' AND "ownId" IN (${ownIdsJoined})
-        ORDER BY COALESCE("rawPayload"->>'threadId', "chatId"), "createdAt" DESC
-      ),
-      latest_bot AS (
-        SELECT DISTINCT ON (COALESCE("rawPayload"->>'threadId', "chatId"))
-          COALESCE("rawPayload"->>'threadId', "chatId") AS "chatId",
-          "content" AS "botContent",
-          "createdAt" AS "botCreatedAt"
-        FROM "ZaloMessage"
-        WHERE "role" = 'bot' AND "ownId" IN (${ownIdsJoined})
+        WHERE "ownId" IN (${ownIdsJoined})
         ORDER BY COALESCE("rawPayload"->>'threadId', "chatId"), "createdAt" DESC
       )
-      SELECT u.*, b."botContent", b."botCreatedAt"
-      FROM latest_user u
-      LEFT JOIN latest_bot b ON u."chatId" = b."chatId"
-      ORDER BY u."createdAt" DESC
+      SELECT * FROM latest_msgs ORDER BY "createdAt" DESC
     `;
 
     // ── Lọc theo Whitelist & DM Filter ──────────────────────────────────────
