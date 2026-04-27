@@ -82,9 +82,9 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
-  // ── Thêm/xóa nhóm vào ToaNha.zaloNhomChat ────────────────────────────────
-  // body: { action: 'add' | 'remove', toaNhaId, name, threadId? }
-  if ('action' in body && (body.action === 'add' || body.action === 'remove')) {
+  // ── Thêm/xóa nhóm vào ToaNha.zaloNhomChat / Whitelist ───────────────
+  // body: { action: 'add' | 'remove' | 'add_whitelist_only' | 'remove_whitelist_only', toaNhaId, name, threadId? }
+  if ('action' in body && ['add', 'remove', 'add_whitelist_only', 'remove_whitelist_only'].includes(body.action)) {
     const allowed = ['chuNha', 'dongChuTro', 'quanLy'].includes(role);
     if (!allowed) return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
 
