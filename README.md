@@ -519,66 +519,19 @@ Vào **Dashboard → Cài đặt → Tab Hệ thống**.
 
 ---
 
-## Zalo Bot — Hướng dẫn từ đầu đến cuối
+## Zalo Bot — Tích hợp Zalo tự động
 
-Hệ thống dùng **Zalo Bot API** (`bot-api.zaloplatforms.com`), **không phải** Zalo OA API.
+Hệ thống hiện tại **KHÔNG** sử dụng Zalo Bot Platform (Official Account / Bot API) yêu cầu Webhook hay Access Token 3 tháng.
+Thay vào đó, hệ thống sử dụng cơ chế **Bot Server / Login trực tiếp** (thông qua `zca-js` hoặc API nội bộ).
 
-### Bước 1 — Tạo Zalo Bot
+### Cách hoạt động
+1. Quản trị viên không cần cấu hình Webhook hay gia hạn Access Token định kỳ.
+2. Tin nhắn Zalo (gửi hóa đơn, nhắc nợ, sự cố) sẽ được đẩy trực tiếp qua Session/Cookie của tài khoản Zalo đã login trên Bot Server.
+3. Không yêu cầu public `NEXTAUTH_URL` chỉ để nhận Webhook như trước đây.
 
-1. Truy cập [https://botplatform.zalo.me](https://botplatform.zalo.me)
-2. Đăng nhập bằng tài khoản Zalo
-3. **Tạo Bot mới** → đặt tên → tạo
-4. Vào **Access Token** → copy token
-
-### Bước 2 — Lưu token vào hệ thống
-
-**Cài đặt → Thông báo → Zalo Bot Access Token** → dán token → **Lưu**
-
-### Bước 3 — Đặt Webhook Secret
-
-Tự đặt chuỗi bí mật ≥ 16 ký tự, ví dụ: `ql-tro-secret-2024`
-
-**Cài đặt → Thông báo → Zalo Webhook Secret Token** → dán chuỗi → **Lưu**
-
-> ⚠️ **Lưu secret TRƯỚC** khi đăng ký webhook.
-
-### Bước 4 — Kiểm tra NEXTAUTH_URL
-
-`NEXTAUTH_URL` trong `.env` phải là URL **public** (Zalo sẽ gọi vào `NEXTAUTH_URL/api/zalo/webhook`).
-
-### Bước 5 — Đăng ký Webhook trong UI
-
-**Cài đặt → Card Zalo Webhook** → kiểm tra URL hiển thị badge xanh `✓ từ NEXTAUTH_URL` → nhấn **Đăng ký Webhook**
-
-### Bước 6 — Đăng ký Webhook trên Zalo Bot Platform
-
-[botplatform.zalo.me](https://botplatform.zalo.me) → bot → **Webhook Settings**:
-- **Webhook URL:** `https://your-domain.com/api/zalo/webhook`
-- **Secret Token:** chuỗi bí mật ở Bước 3
-
-### Luồng liên kết Chat ID tự động
-
-```
-Khách thuê nhắn tin vào Zalo Bot
-        ↓
-Zalo POST → /api/zalo/webhook (validate secret)
-        ↓
-Fuzzy match tên người gửi với danh sách khách thuê
-        ↓
-Lưu vào pendingZaloChatId (chờ admin xác nhận)
-        ↓
-Admin: Cài đặt → Liên kết Zalo → Xác nhận
-        ↓
-zaloChatId lưu xong → gửi thông báo tự động hoạt động
-```
-
-### Lưu ý
-
-| Vấn đề | Giải pháp |
-|--------|-----------|
-| Token hết hạn (~3 tháng) | Lấy token mới → lưu vào UI → **không cần rebuild** |
-| Webhook không nhận tin | Kiểm tra `NEXTAUTH_URL` public, Tunnel đang chạy |
-| Gửi tin thất bại 401 | Token hết hạn, cập nhật token mới trong UI |
+### Lưu ý khi phát triển
+- Các file xử lý logic Zalo nằm trong `src/lib/zalo-*.ts`.
+- Mọi thay đổi liên quan đến việc gửi tin nhắn Zalo cần được test trực tiếp với số điện thoại thử nghiệm để tránh spam khách thuê thực tế.
 
 ---
 
