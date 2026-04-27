@@ -99,7 +99,7 @@ async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null
   return getBotConfig();
 }
 
-async function resolveBotConfig(toaNhaId?: string, senderId?: string): Promise<BotConfig | null> {
+async function resolveBotConfig(toaNhaId?: string, senderId?: string, category?: NotifCategory): Promise<BotConfig | null> {
   let userBot: BotConfig | null = null;
   let useOwnerFallback = false;
 
@@ -114,6 +114,7 @@ async function resolveBotConfig(toaNhaId?: string, senderId?: string): Promise<B
       if (user) {
         // Kiểm tra quyền nếu là quản lý/nhân viên
         if (toaNhaId && (user.vaiTro === 'quanLy' || user.vaiTro === 'nhanVien')) {
+          // A) Kiểm tra tính năng Zalo có bị ẩn không (CaiDatToaNha)
           const caiDatToaNha = await prisma.caiDatToaNha.findUnique({
             where: { toaNhaId },
             select: { zaloQuyenTinhNang: true }
@@ -121,9 +122,28 @@ async function resolveBotConfig(toaNhaId?: string, senderId?: string): Promise<B
           if (caiDatToaNha?.zaloQuyenTinhNang) {
             const quyen = JSON.parse(caiDatToaNha.zaloQuyenTinhNang as string);
             const roleKey = user.vaiTro === 'quanLy' ? 'quanLy' : 'nhanVien';
-            // Nếu không có quyền dùng botServer/trucTiep hoặc ẩn tính năng -> lấy của chủ trọ
             if (quyen[roleKey] && (quyen[roleKey].botServer === false && quyen[roleKey].trucTiep === false)) {
               useOwnerFallback = true;
+            }
+          }
+
+          // B) Kiểm tra quyền hạn hành động cụ thể (ToaNhaNguoiQuanLy)
+          if (!useOwnerFallback && category) {
+            const nql = await prisma.toaNhaNguoiQuanLy.findUnique({
+              where: { toaNhaId_nguoiDungId: { toaNhaId, nguoiDungId: senderId } }
+            });
+            if (nql) {
+              const permMap: Record<string, keyof typeof nql> = {
+                'HoaDon': 'quyenHoaDon',
+                'ThanhToan': 'quyenThanhToan',
+                'SuCo': 'quyenSuCo',
+                'HopDong': 'quyenHopDong',
+              };
+              const permKey = permMap[category];
+              if (permKey && nql[permKey] === false) {
+                console.log(`[zalo-notify] Manager ${user.ten} lacks permission ${permKey}, falling back to owner bot.`);
+                useOwnerFallback = true;
+              }
             }
           }
         }
@@ -165,9 +185,9 @@ async function resolveBotConfig(toaNhaId?: string, senderId?: string): Promise<B
   return globalConfig;
 }
 
-async function sendZalo(chatId: string, text: string, toaNhaId?: string, senderId?: string, threadType: 0 | 1 = 0): Promise<void> {
+async function sendZalo(chatId: string, text: string, toaNhaId?: string, senderId?: string, threadType: 0 | 1 = 0, category?: NotifCategory): Promise<void> {
   try {
-    const botConfig = await resolveBotConfig(toaNhaId, senderId);
+    const botConfig = await resolveBotConfig(toaNhaId, senderId, category);
     const { getActiveMode } = await import('@/lib/zalo-bot-client');
     const activeMode = await getActiveMode();
 
@@ -327,9 +347,10 @@ async function sendAttachmentToChat(
   toaNhaId: string | undefined,
   threadType: 0 | 1 = 0,
   senderId?: string,
+  category?: NotifCategory,
 ): Promise<void> {
   const { sendImageViaBotServer, sendFileViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
-  const botConfig = await resolveBotConfig(toaNhaId, senderId);
+  const botConfig = await resolveBotConfig(toaNhaId, senderId, category);
   const lower = fileUrl.toLowerCase().split('?')[0];
   const isImage = /\.(jpe?g|png|gif|webp|bmp|avif|heic)$/.test(lower);
   const activeMode = await getActiveMode();
@@ -404,9 +425,9 @@ export async function broadcastThongBao(opts: {
 
   const sendAllTo = async (chatId: string, threadType: 0 | 1) => {
     try {
-      if (text) await sendZalo(chatId, text, toaNhaId, senderId, threadType);
+      if (text) await sendZalo(chatId, text, toaNhaId, senderId, threadType, 'Khac' as any);
       for (const url of fileUrls) {
-        await sendAttachmentToChat(chatId, url, toaNhaId, threadType, senderId).catch(e =>
+        await sendAttachmentToChat(chatId, url, toaNhaId, threadType, senderId, 'Khac' as any).catch(e =>
           console.error('[broadcastThongBao] attachment error:', e),
         );
       }
@@ -423,7 +444,7 @@ export async function broadcastThongBao(opts: {
 
 // ─── Notification Router ──────────────────────────────────────────────────────
 
-type NotifCategory = 'SuCo' | 'HoaDon' | 'TinKhach' | 'NguoiLa' | 'NhacNho';
+type NotifCategory = 'SuCo' | 'HoaDon' | 'TinKhach' | 'NguoiLa' | 'NhacNho' | 'HopDong' | 'ThanhToan';
 
 interface NotifTarget { chatId: string }
 
@@ -502,11 +523,11 @@ export async function notifyNewInvoice(hoaDonId: string, senderId?: string): Pro
   const toaNhaId = hd.phong.toaNhaId;
   if (!await isAutoEnabled('auto_zalo_hoa_don_tao', toaNhaId)) return;
 
+  try {
     const nguoiNhan = hd.hopDong?.nguoiDaiDien;
     if (!nguoiNhan?.nhanThongBaoZalo || !nguoiNhan.zaloChatId) return;
 
     const chatId = nguoiNhan.zaloChatId;
-    const toaNhaId = hd.phong.toaNhaId;
 
     const message = buildInvoiceMessage(hd, nguoiNhan.hoTen);
 
@@ -514,18 +535,18 @@ export async function notifyNewInvoice(hoaDonId: string, senderId?: string): Pro
       const qrUrl = await buildQrUrl(hd);
       if (qrUrl) {
         // Còn nợ → gửi QR kèm caption là toàn bộ thông báo tiền phòng
-        await sendQrImage(chatId, qrUrl, toaNhaId, `${message}\n\n📲 Quét QR để thanh toán`, senderId)
+        await sendQrImage(chatId, qrUrl, toaNhaId, `${message}\n\n📲 Quét QR để thanh toán`, senderId, 0, 'HoaDon')
           .catch(e => console.error('[zalo-notify] sendQrImage error:', e));
       } else {
-        await sendZalo(chatId, message, toaNhaId, senderId);
+        await sendZalo(chatId, message, toaNhaId, senderId, 0, 'HoaDon');
       }
     } else {
       // Đã thanh toán đầy đủ → gửi text
-      await sendZalo(chatId, message, toaNhaId, senderId);
+      await sendZalo(chatId, message, toaNhaId, senderId, 0, 'HoaDon');
     }
 
     // Gửi PDF sau (Puppeteer sinh file cần thời gian) — fire-and-forget
-    sendInvoicePdf(hd, chatId, toaNhaId, senderId).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
+    sendInvoicePdf(hd, chatId, toaNhaId, senderId, 0, 'HoaDon').catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
   } catch (e) {
     console.error('[zalo-notify] notifyNewInvoice error:', e);
   }
@@ -570,7 +591,7 @@ async function sendInvoicePdf(hd: any, chatId: string, toaNhaId: string, senderI
 }
 
 /** Tải ảnh QR về rồi gửi kèm qua Zalo (vì URL vietqr.io có thể không ổn định với bot server) */
-async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string, caption = '📲 Quét QR để thanh toán', senderId?: string, threadType: 0 | 1 = 0): Promise<void> {
+async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string, caption = '📲 Quét QR để thanh toán', senderId?: string, threadType: 0 | 1 = 0, category?: NotifCategory): Promise<void> {
   const fs = await import('fs');
   const path = await import('path');
   const { sendImageViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
@@ -585,7 +606,7 @@ async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string, capt
   fs.writeFileSync(tempPath, buf);
 
   try {
-    const botConfig = await resolveBotConfig(toaNhaId, senderId);
+    const botConfig = await resolveBotConfig(toaNhaId, senderId, category);
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
@@ -603,7 +624,7 @@ async function sendQrImage(chatId: string, qrUrl: string, toaNhaId: string, capt
  * Bot server có thể không gửi được qua URL trực tiếp (CDN yêu cầu auth/redirect),
  * nên tải về file tạm sẽ ổn định hơn.
  */
-async function sendLocalImage(chatId: string, imageUrl: string, toaNhaId: string, caption = '', senderId?: string, threadType: 0 | 1 = 0): Promise<void> {
+async function sendLocalImage(chatId: string, imageUrl: string, toaNhaId: string, caption = '', senderId?: string, threadType: 0 | 1 = 0, category?: NotifCategory): Promise<void> {
   const fs = await import('fs');
   const path = await import('path');
   const { sendImageViaBotServer, getActiveMode } = await import('@/lib/zalo-bot-client');
@@ -624,7 +645,7 @@ async function sendLocalImage(chatId: string, imageUrl: string, toaNhaId: string
       tempPath = imageUrl;
     }
 
-    const botConfig = await resolveBotConfig(toaNhaId, senderId);
+    const botConfig = await resolveBotConfig(toaNhaId, senderId, category);
     const activeMode = await getActiveMode();
     if (activeMode === 'direct') {
       const { sendImage: directSendImage } = await import('@/lib/zalo-direct/service');
@@ -1091,8 +1112,16 @@ export async function notifyYeuCauPheDuyet(
 ): Promise<void> {
   try {
     const yc = await prisma.yeuCauThayDoi.findUnique({
-...
+      where: { id: yeuCauId },
+      select: {
+        loai: true,
+        khachThueId: true,
+        khachThue: { select: { hoTen: true, zaloChatId: true } },
+      },
+    });
+
     if (!yc || !yc.khachThue?.zaloChatId) {
+      console.warn('[zalo-notify] notifyYeuCauPheDuyet skipped: no yc or no zaloChatId', { yeuCauId });
       return;
     }
 
@@ -1109,17 +1138,6 @@ export async function notifyYeuCauPheDuyet(
     const toaNhaId = hopDong?.phong.toaNhaId;
 
     if (!await isAutoEnabled('auto_zalo_yeu_cau_phe_duyet', toaNhaId)) return;
-      where: { id: yeuCauId },
-      select: {
-        loai: true,
-        khachThueId: true,
-        khachThue: { select: { hoTen: true, zaloChatId: true } },
-      },
-    });
-    if (!yc || !yc.khachThue?.zaloChatId) {
-      console.warn('[zalo-notify] notifyYeuCauPheDuyet skipped: no zaloChatId', { yeuCauId });
-      return;
-    }
 
     const loaiLabel: Record<string, string> = {
       thongTin: 'thông tin cá nhân',
@@ -1149,20 +1167,7 @@ export async function notifyYeuCauPheDuyet(
       ].filter(Boolean).join('\n');
     }
 
-    // Lấy tòa nhà theo hợp đồng đang hoạt động để chọn bot config đúng chủ
-    const now = new Date();
-    const hopDong = await prisma.hopDong.findFirst({
-      where: {
-        khachThue: { some: { id: yc.khachThueId } },
-        trangThai: 'hoatDong',
-        ngayBatDau: { lte: now },
-        ngayKetThuc: { gte: now },
-      },
-      select: { phong: { select: { toaNhaId: true } } },
-    });
-    const toaNhaId = hopDong?.phong.toaNhaId;
-
-    await sendZalo(yc.khachThue.zaloChatId, msg, toaNhaId, senderId);
+    await sendZalo(yc.khachThue.zaloChatId, msg, toaNhaId, senderId, 0, 'HopDong');
   } catch (e) {
     console.error('[zalo-notify] notifyYeuCauPheDuyet error:', e);
   }
