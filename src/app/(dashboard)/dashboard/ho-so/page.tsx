@@ -785,13 +785,13 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
     } catch { toast.error('Lỗi kết nối'); }
   };
 
-  // Resolve threadId: tìm trong zaloChatIds entry khớp với bot account của user đang đăng nhập
   function resolveThreadId(person: any): string | null {
     if (currentBotAccountId && Array.isArray(person.zaloChatIds)) {
       const entry = person.zaloChatIds.find((e: any) => e.ten === currentBotAccountId);
-      if (entry?.threadId) return entry.threadId;
+      if (entry?.threadId) return typeof entry.threadId === 'string' ? entry.threadId : JSON.stringify(entry.threadId);
     }
-    return person.zaloChatId || null;
+    if (person.zaloChatId) return typeof person.zaloChatId === 'string' ? person.zaloChatId : JSON.stringify(person.zaloChatId);
+    return null;
   }
 
   const load = useCallback(async () => {
@@ -1178,7 +1178,8 @@ function DirGroupGroup({ groups, currentBotAccountId, onUpdate }: { groups: any[
             </tr></thead>
             <tbody className="divide-y">
               {(Array.isArray(groups) ? groups : []).map((g, idx) => {
-                const threadId = currentBotAccountId && g?.threadIds && g.threadIds[currentBotAccountId] ? g.threadIds[currentBotAccountId] : g?.threadId;
+                let threadId = currentBotAccountId && g?.threadIds && g.threadIds[currentBotAccountId] ? g.threadIds[currentBotAccountId] : g?.threadId;
+                if (threadId && typeof threadId !== 'string') threadId = JSON.stringify(threadId);
                 return (
                   <tr key={idx} className="hover:bg-gray-50">
                     <td className="px-2 py-1.5 font-medium text-gray-800">{g?.name || '—'}</td>
