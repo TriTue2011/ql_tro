@@ -29,34 +29,38 @@ async function resolveOwnIds(userId: string, zaloAccountId: string | null | unde
 
 /** Lấy whitelist nhóm của user (hoặc kế thừa từ chủ trọ nếu là quanLy) */
 async function resolveGroupWhitelist(userId: string, role: string): Promise<string[]> {
-  const userGroupKey = (uid: string) => `zalo_group_whitelist_${uid}`;
-
   if (role === 'admin') {
     const row = await prisma.caiDat.findUnique({ where: { khoa: 'zalo_monitor_group_whitelist' }, select: { giaTri: true } });
     try { return JSON.parse(row?.giaTri || '[]'); } catch { return []; }
   }
 
   if (role === 'quanLy' || role === 'nhanVien') {
-    // Kế thừa whitelist từ tất cả chủ trọ mà họ quản lý
+    // Kế thừa whitelist từ các tòa nhà mà họ quản lý
     const managed = await prisma.toaNhaNguoiQuanLy.findMany({
       where: { nguoiDungId: userId },
-      select: { toaNha: { select: { chuSoHuuId: true } } },
+      select: { toaNha: { select: { zaloNhomChat: true } } },
     });
-    const ownerIds = [...new Set(managed.map(m => m.toaNha.chuSoHuuId))];
     const merged: string[] = [];
-    for (const oid of ownerIds) {
-      const row = await prisma.caiDat.findUnique({ where: { khoa: userGroupKey(oid) }, select: { giaTri: true } });
-      try {
-        const wl = JSON.parse(row?.giaTri || '[]');
-        if (Array.isArray(wl)) merged.push(...wl);
-      } catch { /* ignore */ }
+    for (const m of managed) {
+      if (Array.isArray(m.toaNha.zaloNhomChat)) {
+        m.toaNha.zaloNhomChat.forEach((g: any) => { if (g?.name) merged.push(g.name); });
+      }
     }
     return [...new Set(merged)];
   }
 
-  // chuNha / dongChuTro: whitelist của chính mình
-  const row = await prisma.caiDat.findUnique({ where: { khoa: userGroupKey(userId) }, select: { giaTri: true } });
-  try { return JSON.parse(row?.giaTri || '[]'); } catch { return []; }
+  // chuNha / dongChuTro: whitelist từ các tòa nhà của chính mình
+  const buildings = await prisma.toaNha.findMany({
+    where: { chuSoHuuId: userId },
+    select: { zaloNhomChat: true },
+  });
+  const merged: string[] = [];
+  for (const b of buildings) {
+    if (Array.isArray(b.zaloNhomChat)) {
+      b.zaloNhomChat.forEach((g: any) => { if (g?.name) merged.push(g.name); });
+    }
+  }
+  return [...new Set(merged)];
 }
 
 export async function GET(request: NextRequest) {

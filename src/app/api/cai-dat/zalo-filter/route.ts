@@ -35,22 +35,27 @@ export async function GET(req: NextRequest) {
   // Group whitelist
   let groupWhitelist: string[] = [];
   if (['chuNha', 'dongChuTro'].includes(effectiveRole)) {
-    const gwRow = await prisma.caiDat.findUnique({ where: { khoa: userGroupKey(uid) }, select: { giaTri: true } });
-    try { groupWhitelist = JSON.parse(gwRow?.giaTri || '[]'); } catch { /* ignore */ }
+    const buildings = await prisma.toaNha.findMany({
+      where: { chuSoHuuId: uid },
+      select: { zaloNhomChat: true },
+    });
+    const merged: string[] = [];
+    for (const b of buildings) {
+      if (Array.isArray(b.zaloNhomChat)) {
+        b.zaloNhomChat.forEach((g: any) => { if (g?.name) merged.push(g.name); });
+      }
+    }
+    groupWhitelist = [...new Set(merged)];
   } else if (effectiveRole === 'quanLy' || effectiveRole === 'nhanVien') {
-    // Kế thừa whitelist của các chủ trọ mà họ quản lý tòa nhà
     const managed = await prisma.toaNhaNguoiQuanLy.findMany({
       where: { nguoiDungId: uid },
-      select: { toaNha: { select: { chuSoHuuId: true } } },
+      select: { toaNha: { select: { zaloNhomChat: true } } },
     });
-    const ownerIds = [...new Set(managed.map(m => m.toaNha.chuSoHuuId))];
     const merged: string[] = [];
-    for (const oid of ownerIds) {
-      const gwRow = await prisma.caiDat.findUnique({ where: { khoa: userGroupKey(oid) }, select: { giaTri: true } });
-      try {
-        const wl = JSON.parse(gwRow?.giaTri || '[]');
-        if (Array.isArray(wl)) merged.push(...wl);
-      } catch { /* ignore */ }
+    for (const m of managed) {
+      if (Array.isArray(m.toaNha.zaloNhomChat)) {
+        m.toaNha.zaloNhomChat.forEach((g: any) => { if (g?.name) merged.push(g.name); });
+      }
     }
     groupWhitelist = [...new Set(merged)];
   } else if (effectiveRole === 'admin') {
@@ -78,80 +83,6 @@ export async function PUT(req: NextRequest) {
       update: { giaTri: val },
       create: { khoa: KEY_DM_FILTER, giaTri: val, moTa: 'Bộ lọc DM Zalo Monitor', nhom: 'zalo', laBiMat: false },
     });
-    return NextResponse.json({ success: true });
-  }
-
-  // ── groupWhitelist: chuNha + dongChuTro (per-user) ───────────────────────
-  if ('groupWhitelist' in body) {
-    const allowed = ['admin', 'chuNha', 'dongChuTro'].includes(role);
-    if (!allowed) return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
-    if (!Array.isArray(body.groupWhitelist)) return NextResponse.json({ error: 'groupWhitelist phải là mảng' }, { status: 400 });
-
-    const list: string[] = (body.groupWhitelist as unknown[])
-      .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
-      .map(s => s.trim());
-
-    const key = role === 'admin' ? KEY_GROUP_WL : userGroupKey(uid);
-    await prisma.caiDat.upsert({
-      where: { khoa: key },
-      update: { giaTri: JSON.stringify(list) },
-      create: { khoa: key, giaTri: JSON.stringify(list), moTa: `Group whitelist - ${uid}`, nhom: 'zalo', laBiMat: false },
-    });
-    return NextResponse.json({ success: true });
-  }
-
-  // ── Thêm/xóa nhóm vào ToaNha.zaloNhomChat / Whitelist ───────────────
-  // body: { action: 'add' | 'remove' | 'add_whitelist_only' | 'remove_whitelist_only', toaNhaId, name, threadId? }
-  if ('action' in body && ['add', 'remove', 'add_whitelist_only', 'remove_whitelist_only'].includes(body.action)) {
-    const allowed = ['chuNha', 'dongChuTro', 'quanLy'].includes(role);
-    if (!allowed) return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
-
-    const { action, toaNhaId, name, threadId } = body;
-    if (!toaNhaId || !name) return NextResponse.json({ error: 'Thiếu toaNhaId hoặc name' }, { status: 400 });
-
-    // Kiểm tra user có quyền với tòa nhà này
-    const toa = await prisma.toaNha.findUnique({
-      where: { id: toaNhaId },
-      select: { id: true, chuSoHuuId: true, zaloNhomChat: true, nguoiQuanLy: { select: { nguoiDungId: true } } },
-    });
-    if (!toa) return NextResponse.json({ error: 'Tòa nhà không tồn tại' }, { status: 404 });
-
-    const isOwner = toa.chuSoHuuId === uid;
-    const isManager = toa.nguoiQuanLy.some(m => m.nguoiDungId === uid);
-    if (!isOwner && !isManager) return NextResponse.json({ error: 'Không có quyền với tòa nhà này' }, { status: 403 });
-
-    // Lấy danh sách nhóm hiện tại
-    type NhomEntry = { name: string; threadIds: Record<string, string>; tang?: number | null; label?: string };
-    let groups: NhomEntry[] = [];
-    try { groups = (toa.zaloNhomChat as unknown as NhomEntry[]) || []; } catch { groups = []; }
-    if (!Array.isArray(groups)) groups = [];
-
-    if (action === 'add' || action === 'add_whitelist_only') {
-      // Cập nhật groupWhitelist của user (per-user filter)
-      const gwRow = await prisma.caiDat.findUnique({ where: { khoa: userGroupKey(uid) }, select: { giaTri: true } });
-      let wl: string[] = [];
-      try { wl = JSON.parse(gwRow?.giaTri || '[]'); } catch { /* ignore */ }
-      if (!wl.includes(name)) {
-        wl.push(name);
-        await prisma.caiDat.upsert({
-          where: { khoa: userGroupKey(uid) },
-          update: { giaTri: JSON.stringify(wl) },
-          create: { khoa: userGroupKey(uid), giaTri: JSON.stringify(wl), moTa: `Group whitelist - ${uid}`, nhom: 'zalo', laBiMat: false },
-        });
-      }
-    } else if (action === 'remove' || action === 'remove_whitelist_only') {
-      // Xóa khỏi groupWhitelist của user
-      const gwRow = await prisma.caiDat.findUnique({ where: { khoa: userGroupKey(uid) }, select: { giaTri: true } });
-      let wl: string[] = [];
-      try { wl = JSON.parse(gwRow?.giaTri || '[]'); } catch { /* ignore */ }
-      wl = wl.filter(w => w.toLowerCase() !== name.toLowerCase());
-      await prisma.caiDat.upsert({
-        where: { khoa: userGroupKey(uid) },
-        update: { giaTri: JSON.stringify(wl) },
-        create: { khoa: userGroupKey(uid), giaTri: JSON.stringify(wl), moTa: `Group whitelist - ${uid}`, nhom: 'zalo', laBiMat: false },
-      });
-    }
-
     return NextResponse.json({ success: true });
   }
 

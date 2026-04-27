@@ -1485,12 +1485,12 @@ export default function ZaloMonitorPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Nút cài đặt bộ lọc — admin + chủ trọ */}
-          {(isAdmin || ['chuNha', 'dongChuTro'].includes(session?.user?.role || '')) && (
+          {/* Nút cài đặt bộ lọc — admin only */}
+          {isAdmin && (
             <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setShowFilterPanel(p => !p)}>
               <Settings className="h-3.5 w-3.5" />
               Bộ lọc
-              {(dmFilter === 'system_only' || groupWhitelist.length > 0) && (
+              {(dmFilter === 'system_only') && (
                 <Badge className="ml-1 h-4 px-1 text-[10px] bg-blue-500">ON</Badge>
               )}
             </Button>
@@ -1541,16 +1541,6 @@ export default function ZaloMonitorPage() {
             </div>
           )}
 
-          {/* Group filter — chủ trọ / đồng chủ trọ (không phải admin) */}
-          {!isAdmin && ['chuNha', 'dongChuTro'].includes(session?.user?.role || '') && (
-            <OwnerGroupFilterPanel
-              userId={session?.user?.id || ''}
-              dmFilterGlobal={dmFilter}
-              systemChatIdsCount={systemChatIds.size}
-              groupWhitelist={groupWhitelist}
-              onWhitelistChange={setGroupWhitelist}
-            />
-          )}
         </div>
       )}
 
