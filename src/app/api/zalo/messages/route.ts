@@ -67,7 +67,35 @@ export async function GET(request: NextRequest) {
       LEFT JOIN latest_bot b ON u."chatId" = b."chatId"
       ORDER BY u."createdAt" DESC
     `;
-    const rowsWithRoomInfo = await attachRoomInfo(rows);
+
+    // ── Lọc theo Whitelist & DM Filter (JS side for simplicity with group names) ──
+    // 1. Lấy cấu hình
+    const dmRow = await prisma.caiDat.findUnique({ where: { khoa: 'zalo_monitor_dm_filter' }, select: { giaTri: true } });
+    const dmFilter = dmRow?.giaTri || 'none';
+    
+    const gwKey = session.user.role === 'admin' ? 'zalo_monitor_group_whitelist' : `zalo_group_whitelist_${userId}`;
+    const gwRow = await prisma.caiDat.findUnique({ where: { khoa: gwKey }, select: { giaTri: true } });
+    let whitelist: string[] = [];
+    try { whitelist = JSON.parse(gwRow?.giaTri || '[]'); } catch { whitelist = []; }
+    const whitelistLower = whitelist.map(w => w.toLowerCase());
+
+    // 2. Lọc danh sách
+    const filteredRows = rows.filter(row => {
+      const isGroup = !!(row.rawPayload as any)?.threadId;
+      
+      // Lọc DM cá nhân
+      if (!isGroup && dmFilter === 'system_only') return false;
+
+      // Lọc Group theo whitelist (nếu whitelist không rỗng)
+      if (isGroup && whitelistLower.length > 0) {
+        const groupName = (row.displayName || '').toLowerCase();
+        return whitelistLower.includes(groupName);
+      }
+
+      return true;
+    });
+
+    const rowsWithRoomInfo = await attachRoomInfo(filteredRows);
     return NextResponse.json({ data: rowsWithRoomInfo });
   }
 
