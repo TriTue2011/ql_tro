@@ -22,26 +22,33 @@ const payloadSchema = z.object({
 });
 
 async function assertCanEdit(toaNhaId: string, userId: string, role?: string): Promise<boolean> {
+  if (!toaNhaId || !userId) return false;
   if (role === 'admin') return true;
+  
   // Quản lý và nhân viên không có quyền sửa (theo yêu cầu người dùng)
   if (role === 'quanLy' || role === 'nhanVien') return false;
 
-  const toaNha = await prisma.toaNha.findUnique({
-    where: { id: toaNhaId },
-    select: { chuSoHuuId: true },
-  });
-  if (!toaNha) return false;
-
-  // Là chủ sở hữu chính
-  if (toaNha.chuSoHuuId === userId) return true;
-
-  // Nếu là tài khoản có vai trò chuNha hoặc dongChuTro được gán cho tòa nhà này
-  if (role === 'chuNha' || role === 'dongChuTro') {
-    const assigned = await prisma.toaNhaNguoiQuanLy.findFirst({
-      where: { nguoiDungId: userId, toaNhaId },
-      select: { toaNhaId: true },
+  try {
+    const toaNha = await prisma.toaNha.findUnique({
+      where: { id: toaNhaId },
+      select: { chuSoHuuId: true },
     });
-    return !!assigned;
+    if (!toaNha) return false;
+
+    // Là chủ sở hữu chính
+    if (toaNha.chuSoHuuId === userId) return true;
+
+    // Nếu là tài khoản có vai trò chuNha hoặc dongChuTro được gán cho tòa nhà này
+    if (role === 'chuNha' || role === 'dongChuTro') {
+      const assigned = await prisma.toaNhaNguoiQuanLy.findFirst({
+        where: { nguoiDungId: userId, toaNhaId },
+        select: { toaNhaId: true },
+      });
+      return !!assigned;
+    }
+  } catch (e) {
+    console.error('[assertCanEdit error]', e);
+    return false;
   }
 
   return false;
@@ -120,7 +127,7 @@ export async function PUT(
 
     const updated = await prisma.toaNha.update({
       where: { id },
-      data: { zaloNhomChat: normalized },
+      data: { zaloNhomChat: normalized as any },
       select: { zaloNhomChat: true },
     });
 
@@ -130,6 +137,6 @@ export async function PUT(
       return NextResponse.json({ message: error.issues[0].message }, { status: 400 });
     }
     console.error('[toa-nha zalo-nhom-chat PUT]', error);
-    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ message: error instanceof Error ? error.message : 'Internal server error' }, { status: 500 });
   }
 }
