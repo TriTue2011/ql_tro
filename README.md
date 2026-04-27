@@ -112,8 +112,15 @@ services:
 
   # ── Zalo Bot Server ─────────────────────────────────────────────────────────
   # Bot Zalo Web (đăng nhập cá nhân bằng QR, không cần OA).
-  # Truy cập: http://localhost:3001  (admin/admin)
-  # Đăng nhập lần đầu: vào Cài đặt → tab Thông báo → "Lấy QR code" rồi quét.
+  # Tài khoản đăng nhập UI: admin / admin
+  # Truy cập: http://localhost:3001
+  # Đăng nhập Zalo lần đầu: vào Cài đặt → tab Thông báo → "Lấy QR code" rồi quét.
+  # 
+  # Lưu ý về phiên bản image (đổi tag `-amd64` tùy theo kiến trúc CPU của server):
+  # - AMD64:  ghcr.io/smarthomeblack/zalobot-amd64:latest
+  # - ARM64:  ghcr.io/smarthomeblack/zalobot-aarch64:latest
+  # - ARMv7:  ghcr.io/smarthomeblack/zalobot-armv7:latest
+  # - ARMhf:  ghcr.io/smarthomeblack/zalobot-armhf:latest
   zalo:
     image: ghcr.io/smarthomeblack/zalobot-amd64:latest
     container_name: zalo
