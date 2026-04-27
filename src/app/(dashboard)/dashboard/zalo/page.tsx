@@ -3655,10 +3655,10 @@ function BuildingAccordion({
       {open && (
         <div className="bg-gray-50 border-t p-3 space-y-2">
           {/* Nhóm Zalo tòa nhà — mỗi tòa 1 hoặc nhiều nhóm, dùng cho thông báo/nhắc nhở */}
-          {(isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro' || userRole === 'quanLy') && (
+          {(isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro') && (
             <BuildingZaloGroupsSection
               buildingId={building.id}
-              canEdit={isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro' || userRole === 'quanLy'}
+              canEdit={isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro'}
             />
           )}
           {chuTroGroup.length > 0 && (

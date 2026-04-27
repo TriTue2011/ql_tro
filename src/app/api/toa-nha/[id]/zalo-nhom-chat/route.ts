@@ -23,18 +23,28 @@ const payloadSchema = z.object({
 
 async function assertCanEdit(toaNhaId: string, userId: string, role?: string): Promise<boolean> {
   if (role === 'admin') return true;
+  // Quản lý và nhân viên không có quyền sửa (theo yêu cầu người dùng)
+  if (role === 'quanLy' || role === 'nhanVien') return false;
+
   const toaNha = await prisma.toaNha.findUnique({
     where: { id: toaNhaId },
     select: { chuSoHuuId: true },
   });
-  if (toaNha && toaNha.chuSoHuuId === userId) return true;
+  if (!toaNha) return false;
 
-  // Kiểm tra nếu là quản lý được gán cho tòa nhà này
-  const assigned = await prisma.toaNhaNguoiQuanLy.findFirst({
-    where: { nguoiDungId: userId, toaNhaId },
-    select: { toaNhaId: true },
-  });
-  return !!assigned;
+  // Là chủ sở hữu chính
+  if (toaNha.chuSoHuuId === userId) return true;
+
+  // Nếu là tài khoản có vai trò chuNha hoặc dongChuTro được gán cho tòa nhà này
+  if (role === 'chuNha' || role === 'dongChuTro') {
+    const assigned = await prisma.toaNhaNguoiQuanLy.findFirst({
+      where: { nguoiDungId: userId, toaNhaId },
+      select: { toaNhaId: true },
+    });
+    return !!assigned;
+  }
+
+  return false;
 }
 
 export async function GET(
