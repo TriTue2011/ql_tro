@@ -18,58 +18,36 @@ import { attachRoomInfo } from "@/lib/zalo-room-info";
 // Tắt cache Next.js — tin nhắn cần luôn fresh
 export const dynamic = "force-dynamic";
 
-/** Lấy danh sách ownId mà user có quyền xem tin nhắn.
- *  - chuNha/dongChuTro/admin: chỉ ownId của chính họ
- *  - quanLy/nhanVien: ownId của các chủ trọ trong tòa nhà họ quản lý
+/**
+ * Lấy danh sách ownId mà user có quyền xem tin nhắn trong Monitor.
+ *
+ * Mỗi người dùng (Chủ trọ / Quản lý) có tài khoản Zalo riêng chạy bot.
+ * Tin nhắn khách gửi đến bot ai → lưu vào ZaloMessage với ownId = zaloAccountId người đó.
+ * → Mỗi người CHỈ thấy tin nhắn của bot MÌNH.
+ *
+ * - admin       : thấy tất cả bot accounts trong hệ thống
+ * - chuNha/quanLy/dongChuTro : chỉ thấy ownId = zaloAccountId của chính họ
+ * - nhanVien    : không có quyền xem Monitor → trả về []
  */
 async function resolveOwnIds(userId: string, role: string, zaloAccountId?: string | null): Promise<string[]> {
-  const ids = new Set<string>();
-  const base = zaloAccountId || userId;
-  ids.add(base);
+  // Nhân viên không có quyền xem Monitor
+  if (role === 'nhanVien') return [];
 
+  // Admin thấy tất cả bot accounts
   if (role === 'admin') {
     const owners = await prisma.nguoiDung.findMany({
       where: { zaloAccountId: { not: null } },
-      select: { zaloAccountId: true }
+      select: { zaloAccountId: true },
     });
-    owners.forEach(o => o.zaloAccountId && ids.add(o.zaloAccountId));
-  } else if (role === 'quanLy' || role === 'nhanVien') {
-    const managed = await prisma.toaNhaNguoiQuanLy.findMany({
-      where: { nguoiDungId: userId },
-      select: { 
-        toaNha: { 
-          select: { 
-            chuSoHuu: { select: { zaloAccountId: true } },
-            nguoiQuanLy: { select: { nguoiDung: { select: { zaloAccountId: true } } } }
-          } 
-        } 
-      }
-    });
-    managed.forEach(m => {
-      if (m.toaNha.chuSoHuu.zaloAccountId) ids.add(m.toaNha.chuSoHuu.zaloAccountId);
-      m.toaNha.nguoiQuanLy.forEach(q => {
-        if (q.nguoiDung.zaloAccountId) ids.add(q.nguoiDung.zaloAccountId);
-      });
-    });
-    
-    // Thêm cả ownId của các tòa nhà mình được gán trực tiếp (nếu có)
-    const owned = await prisma.toaNha.findMany({
-      where: { chuSoHuuId: userId },
-      select: { 
-        chuSoHuu: { select: { zaloAccountId: true } },
-        nguoiQuanLy: { select: { nguoiDung: { select: { zaloAccountId: true } } } }
-      }
-    });
-    owned.forEach(o => {
-      if (o.chuSoHuu.zaloAccountId) ids.add(o.chuSoHuu.zaloAccountId);
-      o.nguoiQuanLy.forEach(q => {
-        if (q.nguoiDung.zaloAccountId) ids.add(q.nguoiDung.zaloAccountId);
-      });
-    });
+    return owners.map(o => o.zaloAccountId!).filter(Boolean);
   }
 
-  return [...ids];
+  // Chủ trọ / Quản lý / Đồng chủ trọ: chỉ thấy bot của chính mình
+  // zaloAccountId = ID tài khoản Zalo họ đã kết nối làm bot
+  const ownId = zaloAccountId || userId;
+  return [ownId];
 }
+
 
 /** Lấy whitelist nhóm của user (hoặc kế thừa từ chủ trọ nếu là quanLy) */
 /** Lấy whitelist nhóm của user (hoặc kế thừa từ chủ trọ nếu là quanLy) — CHỈ lấy từ các tòa đã BẬT Monitor */
@@ -163,7 +141,16 @@ export async function GET(request: NextRequest) {
     select: { zaloAccountId: true, vaiTro: true },
   });
   const effectiveRole = nguoiDung?.vaiTro || role;
+
+  if (effectiveRole === "nhanVien") {
+    return NextResponse.json({ error: "Forbidden: Nhân viên không có quyền xem tin nhắn Zalo" }, { status: 403 });
+  }
+
   const ownIds = await resolveOwnIds(userId, effectiveRole, nguoiDung?.zaloAccountId);
+  if (ownIds.length === 0) {
+    return NextResponse.json({ error: "Không tìm thấy tài khoản Zalo liên kết để xem tin nhắn" }, { status: 403 });
+  }
+
   const ownIdsJoined = Prisma.join(ownIds);
 
   // ── Danh sách cuộc hội thoại ────────────────────────────────────────────────
