@@ -355,7 +355,8 @@ export default function DashboardPage() {
         </div>
       </div>
       {/* ── Quick Actions (Top Horizontal) ────────────────────────────── */}
-      <div className="bs-card mb-4" style={{ border: 'none', background: 'transparent', boxShadow: 'none' }}>
+      {/* ── Quick Actions (Top Horizontal) ────────────────────────────── */}
+      <div className="mb-4">
         <div className="row g-2">
           {[
             { href: '/dashboard/hoa-don/them-moi', icon: 'bi-receipt-cutoff', label: 'Tạo hóa đơn', color: '#6366f1', count: stats?.hoaDonSapDenHan },
@@ -366,14 +367,41 @@ export default function DashboardPage() {
             { href: '/dashboard/su-co', icon: 'bi-tools', label: 'Báo sự cố', color: '#ef4444', count: stats?.suCoCanXuLy },
           ].map((item) => (
             <div key={item.href} className="col-4 col-sm-2">
-              <Link href={item.href} className="bs-quick-btn h-100 position-relative" style={{ padding: '12px 8px' }}>
+              <Link 
+                href={item.href} 
+                className="bs-quick-btn d-flex flex-column align-items-center justify-content-center h-100 position-relative text-decoration-none"
+                style={{ 
+                  padding: '16px 8px',
+                  background: '#fff',
+                  borderRadius: 12,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s ease',
+                  border: '1px solid #f3f4f6',
+                  zIndex: 1
+                }}
+              >
                 <i
                   className={`bi ${item.icon}`}
-                  style={{ color: item.color, fontSize: 22 }}
+                  style={{ color: item.color, fontSize: 24, marginBottom: 6 }}
                 />
-                <span style={{ fontSize: 11, fontWeight: 600, marginTop: 4 }}>{item.label}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{item.label}</span>
+                
                 {item.count ? (
-                  <span className="position-absolute translate-middle badge rounded-pill bg-danger" style={{ top: '20%', right: '5%', fontSize: 10 }}>
+                  <span 
+                    className="position-absolute badge rounded-pill bg-danger" 
+                    style={{ 
+                      top: 8, 
+                      right: 8, 
+                      fontSize: 10,
+                      minWidth: 18,
+                      height: 18,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      pointerEvents: 'none',
+                      zIndex: 2
+                    }}
+                  >
                     {item.count}
                   </span>
                 ) : null}
