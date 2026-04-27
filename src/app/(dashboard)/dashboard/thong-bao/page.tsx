@@ -181,20 +181,16 @@ export default function ThongBaoPage() {
 
   const getPhongNames = (phongIds: string[]) => {
     if (phongIds.length === 0) return 'Tất cả phòng';
-    const phongNames = phongIds.map(id => {
-      const phong = phongList.find(p => p.id === id);
-      return phong?.maPhong || 'Không xác định';
-    });
-    return phongNames.join(', ');
+    const names = phongIds.map(id => phongList.find(p => p.id === id)?.maPhong || '—');
+    if (names.length > 2) return `${names.slice(0, 2).join(', ')}... +${names.length - 2}`;
+    return names.join(', ');
   };
 
   const getKhachThueNames = (khachThueIds: string[]) => {
     if (khachThueIds.length === 0) return 'Tất cả khách thuê';
-    const khachThueNames = khachThueIds.map(id => {
-      const khachThue = khachThueList.find(k => k.id === id);
-      return khachThue?.hoTen || 'Không xác định';
-    });
-    return khachThueNames.join(', ');
+    const names = khachThueIds.map(id => khachThueList.find(k => k.id === id)?.hoTen || '—');
+    if (names.length > 2) return `${names.slice(0, 2).join(', ')}... +${names.length - 2}`;
+    return names.join(', ');
   };
 
   // Lấy 2 nút hành động phù hợp theo loại thông báo
@@ -960,12 +956,27 @@ function ThongBaoForm({
               <input
                 type="checkbox"
                 checked={formData.phong.includes(phong.id!)}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  phong: e.target.checked
-                    ? [...prev.phong, phong.id!]
-                    : prev.phong.filter(id => id !== phong.id),
-                }))}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setFormData(prev => {
+                    let nextPhong = checked ? [...prev.phong, phong.id!] : prev.phong.filter(id => id !== phong.id);
+                    
+                    // Tự động tích/bỏ tích khách thuê trong phòng này
+                    const tenantsInRoom = filteredKhachThue.filter(kt => {
+                      const pid = kt.hopDongHienTai?.phong?.id ?? (typeof kt.phong === 'string' ? kt.phong : kt.phong?.id);
+                      return pid === phong.id;
+                    }).map(kt => kt.id!);
+
+                    let nextNguoiNhan = prev.nguoiNhan;
+                    if (checked) {
+                      nextNguoiNhan = Array.from(new Set([...prev.nguoiNhan, ...tenantsInRoom]));
+                    } else {
+                      nextNguoiNhan = prev.nguoiNhan.filter(id => !tenantsInRoom.includes(id));
+                    }
+
+                    return { ...prev, phong: nextPhong, nguoiNhan: nextNguoiNhan };
+                  });
+                }}
                 className="rounded border-gray-300"
               />
               <span className="text-xs truncate">{phong.maPhong}</span>
@@ -1009,7 +1020,7 @@ function ThongBaoForm({
         <div className="flex items-center justify-between">
           <Label className="text-xs md:text-sm">Nhóm Zalo ({formData.nhomChatIds.length}/{nhomChatList.length})</Label>
           <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs"
-            onClick={() => toggleAll('nhomChatIds', nhomChatList.map(g => g.threadId))}>
+            onClick={() => toggleAll('nhomChatIds', nhomChatList.map(g => g.name || Object.values(g.threadIds || {})[0]))}>
             Chọn tất cả / Bỏ chọn
           </Button>
         </div>

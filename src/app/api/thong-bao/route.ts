@@ -244,6 +244,35 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ message: 'Không tìm thấy thông báo' }, { status: 404 });
     }
 
+    // Nếu trạng thái là daXuLy và có bật auto_zalo_thong_bao_da_xu_ly -> gửi Zalo
+    (async () => {
+      try {
+        if (body.trangThaiXuLy === 'daXuLy') {
+          const autoSend = await prisma.caiDat.findUnique({ where: { khoa: 'auto_zalo_thong_bao_da_xu_ly' } });
+          if (autoSend?.giaTri === 'true') {
+            const khachThues = await prisma.khachThue.findMany({
+              where: { id: { in: updated.nguoiNhan }, zaloChatId: { not: null } },
+              select: { zaloChatId: true },
+            });
+            const chatIds = khachThues.map(k => k.zaloChatId!).filter(Boolean);
+            const groupThreadIds = (updated as any).nhomChatIds || [];
+
+            if (chatIds.length > 0 || groupThreadIds.length > 0) {
+              const text = `✅ ĐÃ XỬ LÝ: ${updated.tieuDe}\n━━━━━━━━━━━━━━━━━━━━\nThông báo này đã được đánh dấu là hoàn thành.`;
+              await broadcastThongBao({
+                text,
+                chatIds,
+                groupThreadIds,
+                toaNhaId: updated.toaNhaId || undefined,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[thong-bao PATCH auto-send] error:', e);
+      }
+    })();
+
     return NextResponse.json({
       success: true,
       data: updated,

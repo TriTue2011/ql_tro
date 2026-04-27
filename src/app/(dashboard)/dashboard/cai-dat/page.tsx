@@ -472,9 +472,12 @@ function AutoZaloCard({
       keys: ["auto_zalo_su_co_ghi_nhan", "auto_zalo_su_co_tiep_nhan", "auto_zalo_su_co_xu_ly_xong", "auto_zalo_su_co_huy", "auto_zalo_su_co_huy_kem_ly_do"],
     },
     {
-      label: "Yêu cầu phê duyệt",
-      icon: <CheckCircle className="h-3.5 w-3.5 text-green-500" />,
       keys: ["auto_zalo_yeu_cau_phe_duyet"],
+    },
+    {
+      label: "Thông báo & Cảnh báo",
+      icon: <Bell className="h-3.5 w-3.5 text-yellow-500" />,
+      keys: ["auto_zalo_thong_bao_da_xu_ly"],
     },
   ];
 
@@ -553,6 +556,7 @@ const AUTO_ZALO_KEYS = [
   "auto_zalo_su_co_huy",
   "auto_zalo_su_co_huy_kem_ly_do",
   "auto_zalo_yeu_cau_phe_duyet",
+  "auto_zalo_thong_bao_da_xu_ly",
 ];
 
 

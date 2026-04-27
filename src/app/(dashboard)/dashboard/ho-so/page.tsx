@@ -831,7 +831,16 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
           }
         } catch { /* ignore */ }
 
-        result.push({ id: b.id, tenToaNha: b.tenToaNha, chuNha, dongChuTro, quanLy, nhanVien, khachThue });
+        result.push({ 
+          id: b.id, 
+          tenToaNha: b.tenToaNha, 
+          chuNha, 
+          dongChuTro, 
+          quanLy, 
+          nhanVien, 
+          khachThue,
+          zaloNhomChat: b.zaloNhomChat || []
+        });
       }
       setBuildings(result);
     } catch { /* ignore */ } finally {
@@ -999,6 +1008,9 @@ function DirBuilding({ building, onUpdate }: { building: any; onUpdate: (id: str
           {building.khachThue?.length > 0 && (
             <DirTenantGroup tenants={building.khachThue} onUpdate={(id, v) => onUpdate(id, 'khachThue', v)} />
           )}
+          {building.zaloNhomChat?.length > 0 && (
+            <DirGroupGroup groups={building.zaloNhomChat} />
+          )}
         </div>
       )}
     </div>
@@ -1109,6 +1121,45 @@ function DirFloorGroup({ tang, tenants, onUpdate }: { tang: number; tenants: Con
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirGroupGroup({ groups }: { groups: any[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border rounded-md overflow-hidden bg-white">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-1.5 text-purple-600">
+          <Bot className="h-3 w-3" />
+          <span className="text-xs font-medium">Nhóm Zalo tòa nhà</span>
+          <span className="text-[10px] opacity-70">({groups.length})</span>
+        </div>
+        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="border-t overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead><tr className="bg-gray-100 text-gray-600">
+              <th className="text-left px-2 py-1.5 font-medium">Tên nhóm</th>
+              <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
+            </tr></thead>
+            <tbody className="divide-y">
+              {groups.map((g, idx) => {
+                const label = g.label || g.name || (g.tang != null ? `Tầng ${g.tang}` : 'Toàn tòa');
+                const threadId = typeof g.threadIds === 'object' ? Object.values(g.threadIds)[0] : g.threadId;
+                return (
+                  <tr key={idx} className="hover:bg-gray-50">
+                    <td className="px-2 py-1.5 font-medium text-gray-800">{label}</td>
+                    <td className="px-2 py-1.5 font-mono text-gray-500">{threadId || '—'}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
