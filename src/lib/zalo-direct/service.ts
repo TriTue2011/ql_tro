@@ -120,14 +120,20 @@ function getStore(): GlobalStore {
 
 function findAccount(accountSelection?: string): ZaloAccount | null {
   const store = getStore();
+  
+  // Nếu không chỉ định tài khoản, lấy tài khoản đầu tiên (tài khoản hệ thống)
   if (!accountSelection) return store.accounts[0] ?? null;
-  return (
-    store.accounts.find((a) => a.ownId === accountSelection) ??
-    store.accounts.find((a) => a.name === accountSelection) ??
-    store.accounts.find((a) => a.phone === accountSelection) ??
-    store.accounts[0] ??
-    null
+
+  // Nếu có chỉ định, tìm đúng tài khoản đó
+  const matched = store.accounts.find((a) => 
+    a.ownId === accountSelection || 
+    a.name === accountSelection || 
+    a.phone === accountSelection
   );
+
+  // QUAN TRỌNG: Nếu có chỉ định mà không tìm thấy, TRẢ VỀ NULL 
+  // thay vì lấy đại accounts[0] để tránh gửi nhầm bot người khác.
+  return matched ?? null;
 }
 
 function getApi(accountSelection?: string): ZcaAPI | null {

@@ -29,9 +29,49 @@ async function getSetting(khoa: string): Promise<string> {
   return row?.giaTri?.trim() ?? '';
 }
 
-async function isAutoEnabled(khoa: string): Promise<boolean> {
-  const val = await getSetting(khoa);
-  return val === 'true' || val === '1';
+async function isAutoEnabled(key: string, toaNhaId?: string): Promise<boolean> {
+  const value = await getSetting(key);
+  if (value !== 'true' && value !== '1') return false;
+
+  // Nếu có toaNhaId, kiểm tra thêm quyền 'tinTuDong' trong CaiDatToaNha
+  if (toaNhaId) {
+    try {
+      const caiDat = await prisma.caiDatToaNha.findUnique({
+        where: { toaNhaId },
+        select: { zaloQuyenTinhNang: true }
+      });
+      if (caiDat?.zaloQuyenTinhNang) {
+        const quyen = JSON.parse(caiDat.zaloQuyenTinhNang as string);
+        // Kiểm tra quyền của chủ trọ
+        // Cấu trúc JSON dự kiến: { "chuNha": { "tinTuDong": true/false }, ... }
+        if (quyen.chuNha && quyen.chuNha.tinTuDong === false) {
+          return false;
+        }
+      }
+    } catch (e) {
+      console.error('[zalo-notify] Error checking per-building auto-send permission:', e);
+    }
+  }
+
+  return true;
+}
+
+/** Gửi thông báo nội bộ (in-app) cho người dùng */
+async function sendInternalNotification(userId: string, title: string, content: string, toaNhaId?: string) {
+  try {
+    await prisma.thongBao.create({
+      data: {
+        tieuDe: title,
+        noiDung: content,
+        loai: 'chung',
+        nguoiGuiId: userId, // Hệ thống gửi hoặc chính họ gửi cho mình
+        nguoiNhan: [userId],
+        toaNhaId: toaNhaId || null,
+      }
+    });
+  } catch (e) {
+    console.error('[zalo-notify] Error creating internal notification:', e);
+  }
 }
 
 /** Lấy bot config riêng từ chủ sở hữu tòa nhà, fallback sang global */
@@ -60,28 +100,55 @@ async function getBotConfigForToaNha(toaNhaId: string): Promise<BotConfig | null
 }
 
 async function resolveBotConfig(toaNhaId?: string, senderId?: string): Promise<BotConfig | null> {
-  // 1) Ưu tiên bot riêng của người thực hiện (senderId)
+  let userBot: BotConfig | null = null;
+  let useOwnerFallback = false;
+
+  // 1) Kiểm tra bot riêng của người thực hiện (senderId)
   if (senderId) {
     try {
       const user = await prisma.nguoiDung.findUnique({
         where: { id: senderId },
         select: { id: true, ten: true, vaiTro: true, zaloBotServerUrl: true, zaloBotUsername: true, zaloBotPassword: true, zaloBotTtl: true, zaloAccountId: true },
       });
-      if (user?.zaloBotServerUrl || user?.zaloAccountId) {
-        console.log(`[zalo-notify] Using bot of SENDER: ${user.ten} (${user.vaiTro}, ID: ${user.id}), accountId: ${user.zaloAccountId}`);
-        return {
-          serverUrl: user.zaloBotServerUrl?.replace(/\/$/, '') || '',
-          username: user.zaloBotUsername || 'admin',
-          password: user.zaloBotPassword || 'admin',
-          accountId: user.zaloAccountId || '',
-          ttl: user.zaloBotTtl ?? 0,
-        };
+
+      if (user) {
+        // Kiểm tra quyền nếu là quản lý/nhân viên
+        if (toaNhaId && (user.vaiTro === 'quanLy' || user.vaiTro === 'nhanVien')) {
+          const caiDatToaNha = await prisma.caiDatToaNha.findUnique({
+            where: { toaNhaId },
+            select: { zaloQuyenTinhNang: true }
+          });
+          if (caiDatToaNha?.zaloQuyenTinhNang) {
+            const quyen = JSON.parse(caiDatToaNha.zaloQuyenTinhNang as string);
+            const roleKey = user.vaiTro === 'quanLy' ? 'quanLy' : 'nhanVien';
+            // Nếu không có quyền dùng botServer/trucTiep hoặc ẩn tính năng -> lấy của chủ trọ
+            if (quyen[roleKey] && (quyen[roleKey].botServer === false && quyen[roleKey].trucTiep === false)) {
+              useOwnerFallback = true;
+            }
+          }
+        }
+
+        // Nếu có bot riêng và không bị buộc dùng bot chủ
+        if (!useOwnerFallback && (user.zaloBotServerUrl || user.zaloAccountId)) {
+          console.log(`[zalo-notify] Using bot of SENDER: ${user.ten} (${user.vaiTro}, ID: ${user.id}), accountId: ${user.zaloAccountId}`);
+          userBot = {
+            serverUrl: user.zaloBotServerUrl?.replace(/\/$/, '') || '',
+            username: user.zaloBotUsername || 'admin',
+            password: user.zaloBotPassword || 'admin',
+            accountId: user.zaloAccountId || '',
+            ttl: user.zaloBotTtl ?? 0,
+          };
+        } else if (!useOwnerFallback) {
+          console.log(`[zalo-notify] SENDER ${user.ten} has no bot config, checking owner fallback...`);
+          useOwnerFallback = true;
+        }
       }
-      console.log(`[zalo-notify] SENDER ${user?.ten} has no bot config, falling back to building/global...`);
     } catch (e) {
       console.error(`[zalo-notify] Error resolving sender bot:`, e);
     }
   }
+
+  if (userBot) return userBot;
 
   // 2) Fallback: Bot của chủ tòa nhà
   if (toaNhaId) {
@@ -103,14 +170,39 @@ async function sendZalo(chatId: string, text: string, toaNhaId?: string, senderI
     const botConfig = await resolveBotConfig(toaNhaId, senderId);
     const { getActiveMode } = await import('@/lib/zalo-bot-client');
     const activeMode = await getActiveMode();
+
+    // Kiểm tra online nếu là chế độ direct
     if (activeMode === 'direct') {
-      const { sendMessage: directSendMessage } = await import('@/lib/zalo-direct/service');
-      await directSendMessage(chatId, text, threadType, botConfig?.ttl ?? 0, null, botConfig?.accountId || undefined);
+      const { sendMessage: directSendMessage, getAccountDetails } = await import('@/lib/zalo-direct/service');
+      const botId = botConfig?.accountId;
+      
+      // Kiểm tra xem bot có thực sự online không
+      const acc = botId ? await getAccountDetails(botId) : null;
+      if (!acc || !acc.ok || !acc.data?.loggedIn) {
+        if (senderId) {
+          await sendInternalNotification(senderId, '⚠️ Lỗi gửi Zalo', 'Bạn đang chưa đăng nhập zalo (Bot đang offline hoặc chưa cấu hình).', toaNhaId);
+        }
+        console.warn(`[zalo-notify] Bot ${botId} is NOT logged in or not found. skipping sendZalo.`);
+        return;
+      }
+
+      const res = await directSendMessage(chatId, text, threadType, botConfig?.ttl ?? 0, null, botId);
+      if (!res.ok && senderId) {
+        await sendInternalNotification(senderId, '⚠️ Lỗi gửi Zalo', `Gửi tin thất bại: ${res.error}`, toaNhaId);
+      }
     } else {
+      // Chế độ Bot Server
+      if (!botConfig?.serverUrl) {
+        if (senderId) await sendInternalNotification(senderId, '⚠️ Lỗi gửi Zalo', 'Bạn đang chưa đăng nhập zalo (Chưa cấu hình Server Bot).', toaNhaId);
+        return;
+      }
       await sendMessageViaBotServer(chatId, text, threadType, botConfig?.accountId || undefined, botConfig);
     }
   } catch (e) { 
     console.error('[zalo-notify] sendZalo error:', e);
+    if (senderId) {
+      await sendInternalNotification(senderId, '⚠️ Lỗi hệ thống Zalo', 'Đã xảy ra lỗi khi kết nối với dịch vụ Zalo.', toaNhaId);
+    }
   }
 }
 
@@ -394,20 +486,21 @@ async function getTargets(toaNhaId: string, category: NotifCategory): Promise<No
  *   - Nếu đã thanh toán đầy đủ: gửi text tóm tắt + PDF (không cần QR).
  */
 export async function notifyNewInvoice(hoaDonId: string, senderId?: string): Promise<void> {
-  if (!await isAutoEnabled('auto_zalo_hoa_don_tao')) return;
-  try {
-    const hd = await prisma.hoaDon.findUnique({
-      where: { id: hoaDonId },
-      select: {
-        id: true, maHoaDon: true, thang: true, nam: true,
-        tienPhong: true, tienDien: true, tienNuoc: true, soDien: true, soNuoc: true, phiDichVu: true,
-        tongTien: true, conLai: true, daThanhToan: true, hanThanhToan: true, nguoiTaoId: true,
-        phong: { select: { id: true, maPhong: true, tang: true, dienTich: true, giaThue: true, toaNhaId: true, toaNha: { select: { tenToaNha: true, diaChi: true } } } },
-        khachThue: { select: { hoTen: true, soDienThoai: true, zaloChatId: true, nhanThongBaoZalo: true } },
-        hopDong: { select: { nguoiDaiDien: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } } } },
-      },
-    });
-    if (!hd) return;
+  const hd = await prisma.hoaDon.findUnique({
+    where: { id: hoaDonId },
+    select: {
+      id: true, maHoaDon: true, thang: true, nam: true,
+      tienPhong: true, tienDien: true, tienNuoc: true, soDien: true, soNuoc: true, phiDichVu: true,
+      tongTien: true, conLai: true, daThanhToan: true, hanThanhToan: true, nguoiTaoId: true,
+      phong: { select: { id: true, maPhong: true, tang: true, dienTich: true, giaThue: true, toaNhaId: true, toaNha: { select: { tenToaNha: true, diaChi: true } } } },
+      khachThue: { select: { hoTen: true, soDienThoai: true, zaloChatId: true, nhanThongBaoZalo: true } },
+      hopDong: { select: { nguoiDaiDien: { select: { hoTen: true, zaloChatId: true, nhanThongBaoZalo: true } } } },
+    },
+  });
+  if (!hd) return;
+
+  const toaNhaId = hd.phong.toaNhaId;
+  if (!await isAutoEnabled('auto_zalo_hoa_don_tao', toaNhaId)) return;
 
     const nguoiNhan = hd.hopDong?.nguoiDaiDien;
     if (!nguoiNhan?.nhanThongBaoZalo || !nguoiNhan.zaloChatId) return;
@@ -588,9 +681,7 @@ export async function notifyInvoiceOverdue(hoaDonId: string, senderId?: string):
  * không gate thêm cờ cá nhân nhanThongBaoZalo để tránh tắt ngầm.
  */
 export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanhToan?: number, senderId?: string): Promise<void> {
-  if (!await isAutoEnabled('auto_zalo_hoa_don_thanh_toan')) return;
-  try {
-    const hd = await prisma.hoaDon.findUnique({
+  const hd = await prisma.hoaDon.findUnique({
       where: { id: hoaDonId },
       select: {
         id: true, maHoaDon: true, thang: true, nam: true,
@@ -607,8 +698,11 @@ export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanh
         hopDong: { select: { nguoiDaiDien: { select: { hoTen: true, zaloChatId: true } } } },
       },
     });
-    if (!hd) return;
-
+  if (!hd) return;
+  const toaNhaId = hd.phong.toaNhaId;
+  if (!await isAutoEnabled('auto_zalo_hoa_don_thanh_toan', toaNhaId)) return;
+  
+  try {
     // Ưu tiên người đại diện hợp đồng, fallback khách thuê tạo hóa đơn
     const nguoiNhan = hd.hopDong?.nguoiDaiDien?.zaloChatId
       ? hd.hopDong.nguoiDaiDien
@@ -621,7 +715,6 @@ export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanh
     }
 
     const chatId = nguoiNhan.zaloChatId;
-    const toaNhaId = hd.phong.toaNhaId;
 
     // Dùng cùng format THÔNG BÁO TIỀN PHÒNG như khi tạo hóa đơn, footer tự đổi thành
     // "✅ Đã thanh toán đầy đủ" khi conLai <= 0
@@ -650,7 +743,6 @@ export async function notifyPaymentConfirmed(hoaDonId: string, _soTienVừaThanh
  * Hủy hóa đơn — gửi cho khách thuê nếu cài đặt auto_zalo_hoa_don_huy = true.
  */
 export async function notifyInvoiceCanceled(hoaDonId: string, senderId?: string): Promise<void> {
-  if (!await isAutoEnabled('auto_zalo_hoa_don_huy')) return;
   try {
     const hd = await prisma.hoaDon.findUnique({
       where: { id: hoaDonId },
@@ -665,6 +757,9 @@ export async function notifyInvoiceCanceled(hoaDonId: string, senderId?: string)
     });
     if (!hd) return;
 
+    const toaNhaId = hd.phong.toaNhaId;
+    if (!await isAutoEnabled('auto_zalo_hoa_don_huy', toaNhaId)) return;
+
     const nguoiNhan = hd.hopDong?.nguoiDaiDien?.zaloChatId
       ? hd.hopDong.nguoiDaiDien
       : hd.khachThue?.zaloChatId
@@ -673,10 +768,9 @@ export async function notifyInvoiceCanceled(hoaDonId: string, senderId?: string)
     if (!nguoiNhan?.zaloChatId) return;
 
     const chatId = nguoiNhan.zaloChatId;
-    const toaNhaId = hd.phong.toaNhaId;
 
     const phongFormatted = formatPhongName(hd.phong.maPhong, hd.phong.tang);
-    const kemLyDo = await isAutoEnabled('auto_zalo_hoa_don_huy_kem_ly_do');
+    const kemLyDo = await isAutoEnabled('auto_zalo_hoa_don_huy_kem_ly_do', toaNhaId);
     
     // Ghi chú của hóa đơn có thể chứa cả ghi chú cũ và lý do hủy mới, nhưng thông thường lý do hủy sẽ nằm ở cuối.
     // Nếu thiết lập kèm lý do, ta in toàn bộ ghi chú (hoặc khách thuê tự xem).
@@ -731,7 +825,6 @@ async function resolveSuCoRecipient(sc: {
  * Chỉ gửi nếu auto_zalo_su_co_ghi_nhan = true.
  */
 export async function notifyIncidentGhiNhan(suCoId: string, senderId?: string): Promise<void> {
-  if (!await isAutoEnabled('auto_zalo_su_co_ghi_nhan')) return;
   try {
     const sc = await prisma.suCo.findUnique({
       where: { id: suCoId },
@@ -742,6 +835,9 @@ export async function notifyIncidentGhiNhan(suCoId: string, senderId?: string): 
       },
     });
     if (!sc) return;
+
+    const toaNhaId = sc.phong.toaNhaId;
+    if (!await isAutoEnabled('auto_zalo_su_co_ghi_nhan', toaNhaId)) return;
 
     const chatId = await resolveSuCoRecipient(sc);
     // Admin đã bật cờ auto toàn cục → chỉ cần có zaloChatId là gửi,
@@ -853,7 +949,19 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string, gh
     daHuy: 'auto_zalo_su_co_huy',
   };
   const key = settingKey[newStatus];
-  if (!key || !await isAutoEnabled(key)) return;
+  if (!key) return;
+
+  const sc = await prisma.suCo.findUnique({
+    where: { id: suCoId },
+    select: {
+      phongId: true,
+      phong: { select: { toaNhaId: true } },
+    },
+  });
+  if (!sc) return;
+  const toaNhaId = sc.phong.toaNhaId;
+
+  if (!await isAutoEnabled(key, toaNhaId)) return;
 
   try {
     const sc = await prisma.suCo.findUnique({
@@ -884,7 +992,7 @@ export async function notifyIncidentUpdate(suCoId: string, newStatus: string, gh
       daHuy: `❌ ĐÃ HỦY SỰ CỐ`,
     };
 
-    const kemLyDoHuy = newStatus === 'daHuy' ? await isAutoEnabled('auto_zalo_su_co_huy_kem_ly_do') : true;
+    const kemLyDoHuy = newStatus === 'daHuy' ? await isAutoEnabled('auto_zalo_su_co_huy_kem_ly_do', toaNhaId) : true;
 
     const lines = [
       headerMap[newStatus],
@@ -981,9 +1089,26 @@ export async function notifyYeuCauPheDuyet(
   ghiChuPheDuyet?: string | null,
   senderId?: string
 ): Promise<void> {
-  if (!await isAutoEnabled('auto_zalo_yeu_cau_phe_duyet')) return;
   try {
     const yc = await prisma.yeuCauThayDoi.findUnique({
+...
+    if (!yc || !yc.khachThue?.zaloChatId) {
+      return;
+    }
+
+    const now = new Date();
+    const hopDong = await prisma.hopDong.findFirst({
+      where: {
+        khachThue: { some: { id: yc.khachThueId } },
+        trangThai: 'hoatDong',
+        ngayBatDau: { lte: now },
+        ngayKetThuc: { gte: now },
+      },
+      select: { phong: { select: { toaNhaId: true } } },
+    });
+    const toaNhaId = hopDong?.phong.toaNhaId;
+
+    if (!await isAutoEnabled('auto_zalo_yeu_cau_phe_duyet', toaNhaId)) return;
       where: { id: yeuCauId },
       select: {
         loai: true,
