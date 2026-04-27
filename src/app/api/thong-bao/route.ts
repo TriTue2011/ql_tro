@@ -191,6 +191,14 @@ export async function PUT(request: NextRequest) {
         toaNhaId,
         nhomChatIds: validatedData.nhomChatIds || [],
         fileDinhKem: validatedData.fileDinhKem || [],
+        ...(validatedData.phong
+          ? {
+              phong: {
+                deleteMany: {},
+                create: validatedData.phong.map((phongId) => ({ phongId })),
+              },
+            }
+          : { phong: { deleteMany: {} } }),
       },
     });
 

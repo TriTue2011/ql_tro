@@ -479,14 +479,14 @@ export default function ThongBaoPage() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        {getPhongNames(thongBao.phong || [])}
+                        {getPhongNames(thongBao.phong || (thongBao as any).phongIds || [])}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-gray-400" />
                         <span className="text-sm">
-                          {getToaNhaName(thongBao.toaNha)}
+                          {getToaNhaName(thongBao.toaNha || (thongBao as any).toaNhaId)}
                         </span>
                       </div>
                     </TableCell>
@@ -632,16 +632,16 @@ export default function ThongBaoPage() {
 
                   {/* Recipients info */}
                   <div className="space-y-1 text-xs border-t pt-2">
-                    {thongBao.toaNha && (
+                    {(thongBao.toaNha || (thongBao as any).toaNhaId) && (
                       <div className="flex items-center gap-2 text-gray-500">
                         <Building2 className="h-3 w-3" />
-                        <span>{getToaNhaName(thongBao.toaNha)}</span>
+                        <span>{getToaNhaName(thongBao.toaNha || (thongBao as any).toaNhaId)}</span>
                       </div>
                     )}
-                    {thongBao.phong && thongBao.phong.length > 0 && (
+                    {(thongBao.phong || (thongBao as any).phongIds)?.length > 0 && (
                       <div className="flex items-center gap-2 text-gray-500">
                         <Home className="h-3 w-3" />
-                        <span className="truncate">{getPhongNames(thongBao.phong)}</span>
+                        <span className="truncate">{getPhongNames(thongBao.phong || (thongBao as any).phongIds)}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-gray-500">
@@ -760,8 +760,8 @@ function ThongBaoForm({
     noiDung: thongBao?.noiDung || '',
     loai: thongBao?.loai || 'chung',
     nguoiNhan: thongBao?.nguoiNhan || [],
-    phong: thongBao?.phong || [],
-    toaNha: thongBao?.toaNha || '',
+    phong: thongBao?.phong || (thongBao as any)?.phongIds || [],
+    toaNha: thongBao?.toaNha || (thongBao as any)?.toaNhaId || '',
     nhomChatIds: (thongBao as any)?.nhomChatIds || [],
     fileDinhKem: (thongBao as any)?.fileDinhKem || [],
   });
