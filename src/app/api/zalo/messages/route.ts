@@ -36,16 +36,36 @@ async function resolveOwnIds(userId: string, role: string, zaloAccountId?: strin
   } else if (role === 'quanLy' || role === 'nhanVien') {
     const managed = await prisma.toaNhaNguoiQuanLy.findMany({
       where: { nguoiDungId: userId },
-      select: { toaNha: { select: { chuSoHuu: { select: { zaloAccountId: true } } } } }
+      select: { 
+        toaNha: { 
+          select: { 
+            chuSoHuu: { select: { zaloAccountId: true } },
+            nguoiQuanLy: { select: { nguoiDung: { select: { zaloAccountId: true } } } }
+          } 
+        } 
+      }
     });
-    managed.forEach(m => m.toaNha.chuSoHuu.zaloAccountId && ids.add(m.toaNha.chuSoHuu.zaloAccountId));
+    managed.forEach(m => {
+      if (m.toaNha.chuSoHuu.zaloAccountId) ids.add(m.toaNha.chuSoHuu.zaloAccountId);
+      m.toaNha.nguoiQuanLy.forEach(q => {
+        if (q.nguoiDung.zaloAccountId) ids.add(q.nguoiDung.zaloAccountId);
+      });
+    });
     
     // Thêm cả ownId của các tòa nhà mình được gán trực tiếp (nếu có)
     const owned = await prisma.toaNha.findMany({
       where: { chuSoHuuId: userId },
-      select: { chuSoHuu: { select: { zaloAccountId: true } } }
+      select: { 
+        chuSoHuu: { select: { zaloAccountId: true } },
+        nguoiQuanLy: { select: { nguoiDung: { select: { zaloAccountId: true } } } }
+      }
     });
-    owned.forEach(o => o.chuSoHuu.zaloAccountId && ids.add(o.chuSoHuu.zaloAccountId));
+    owned.forEach(o => {
+      if (o.chuSoHuu.zaloAccountId) ids.add(o.chuSoHuu.zaloAccountId);
+      o.nguoiQuanLy.forEach(q => {
+        if (q.nguoiDung.zaloAccountId) ids.add(q.nguoiDung.zaloAccountId);
+      });
+    });
   }
 
   return [...ids];
@@ -162,6 +182,7 @@ export async function GET(request: NextRequest) {
     where: { id: userId },
     select: { zaloAccountId: true, vaiTro: true },
   });
+  const effectiveRole = nguoiDung?.vaiTro || role;
   const ownIds = await resolveOwnIds(userId, effectiveRole, nguoiDung?.zaloAccountId);
   const ownIdsJoined = Prisma.join(ownIds);
 
