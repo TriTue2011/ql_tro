@@ -233,6 +233,7 @@ export async function GET() {
   const result = updatedBuildings.map(b => ({
     id: b.id,
     tenToaNha: b.tenToaNha,
+    zaloNhomChat: b.zaloNhomChat ?? [],
     chuTro: {
       ...omit(b.chuSoHuu, 'zaloThongBaoCaiDat'),
       settings: b.chuSoHuu.zaloThongBaoCaiDat.find(s => s.toaNhaId === b.id) ?? null,
