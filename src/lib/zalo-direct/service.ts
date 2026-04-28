@@ -1207,6 +1207,22 @@ export async function leaveGroup(groupId: string, accountSelection?: string): Pr
   }
 }
 
+export async function getMessages(
+  threadId: string,
+  count = 20,
+  accountSelection?: string,
+): Promise<DataResult> {
+  const api = getApi(accountSelection);
+  if (!api) return { ok: false, error: "Không có tài khoản Zalo" };
+
+  try {
+    const data = await (api as any).getMessages?.(threadId, count);
+    return { ok: true, data };
+  } catch (err: any) {
+    return { ok: false, error: err.message };
+  }
+}
+
 // ─── Conversation utils ──────────────────────────────────────────────────────
 
 export async function sendSeenEvent(
