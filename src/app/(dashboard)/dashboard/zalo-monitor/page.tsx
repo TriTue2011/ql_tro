@@ -815,35 +815,9 @@ function MessageThread({
             </button>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 text-blue-600 hover:bg-blue-50 gap-1.5"
-            onClick={async () => {
-              const loading = toast.loading('Đang đồng bộ lịch sử...');
-              try {
-                const r = await fetch(`/api/zalo/messages/sync?chatId=${encodeURIComponent(chatId)}`, { method: 'POST' });
-                const d = await r.json();
-                if (d.ok) {
-                  toast.success(`Đã đồng bộ ${d.synced} tin nhắn mới`, { id: loading });
-                  load();
-                } else {
-                  toast.error(d.error || 'Đồng bộ thất bại', { id: loading });
-                }
-              } catch {
-                toast.error('Lỗi kết nối', { id: loading });
-              }
-            }}
-            title="Lấy tin nhắn mới nhất từ Zalo"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span className="text-xs">Đồng bộ</span>
-          </Button>
-          <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={handleDeleteAll} title="Xóa hội thoại">
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={handleDeleteAll} title="Xóa hội thoại">
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
       {/* messages */}

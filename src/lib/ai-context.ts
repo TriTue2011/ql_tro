@@ -172,6 +172,12 @@ async function buildKhachThueContext(userId: string): Promise<string> {
     });
   }
 
+  const moTaToaNha = hd?.phong?.toaNha?.moTa;
+  if (moTaToaNha) {
+    lines.push(`\nTHÔNG TIN TÒA NHÀ & NỘI QUY:`);
+    lines.push(moTaToaNha);
+  }
+
   return lines.join('\n');
 }
 
@@ -559,17 +565,17 @@ export async function buildPublicRoomContextForTenant(khachThueId: string): Prom
   const diaChi = hopDong?.phong?.toaNha?.diaChi as
     | { thanhPho?: string; quan?: string; phuong?: string } | null;
   const thanhPhoKhach = diaChi?.thanhPho?.trim().toLowerCase() ?? null;
-  const phuongKhach   = diaChi?.phuong?.trim().toLowerCase() ?? null;
+  const phuongKhach = diaChi?.phuong?.trim().toLowerCase() ?? null;
   const tenToaNhaKhach = hopDong?.phong?.toaNha?.tenToaNha ?? '';
 
   // ── Tầng 1: cùng tòa nhà ─────────────────────────────────────────────────
   const sameBuildingRooms = toaNhaId
     ? await prisma.phong.findMany({
-        where: { trangThai: 'trong', toaNhaId },
-        take: 10,
-        orderBy: [{ tang: 'asc' }],
-        select: ROOM_SELECT,
-      })
+      where: { trangThai: 'trong', toaNhaId },
+      take: 10,
+      orderBy: [{ tang: 'asc' }],
+      select: ROOM_SELECT,
+    })
     : [];
 
   const usedToaNhaIds = new Set<string>(toaNhaId ? [toaNhaId] : []);
@@ -626,8 +632,8 @@ export async function buildPublicRoomContextForTenant(khachThueId: string): Prom
   // Prefix mô tả phạm vi tư vấn
   const locationHint = [
     tenToaNhaKhach,
-    phuongKhach  ? `P. ${diaChi?.phuong}` : null,
-    thanhPhoKhach ? diaChi?.thanhPho      : null,
+    phuongKhach ? `P. ${diaChi?.phuong}` : null,
+    thanhPhoKhach ? diaChi?.thanhPho : null,
   ].filter(Boolean).join(', ');
   const prefix = locationHint
     ? `(Phòng trống gần bạn — ưu tiên cùng tòa, cùng phường, cùng thành phố: ${locationHint})`
@@ -663,17 +669,21 @@ export async function buildContextForRole(
       if (publicRooms) {
         contextText += `\n\n--- DANH SÁCH PHÒNG TRỐNG GẦN BẠN ---\n${publicRooms}`;
       }
-      intro = 'Bạn là trợ lý thông minh của khu nhà trọ, hỗ trợ riêng cho khách thuê này.';
+      intro = 'Bạn là trợ lý thông minh của khu nhà trọ, hỗ trợ riêng cho khách thuê này. Hãy luôn giữ thái độ lịch sự, chuyên nghiệp, dùng "Dạ/Vâng" và xưng hô Anh/Chị/Bạn phù hợp.';
       rules = [
         'Chỉ trả lời về thông tin của khách thuê này (phòng, hóa đơn, hợp đồng, sự cố) và danh sách phòng trống GẦN KHU VỰC khách đang ở được cung cấp.',
         'TUYỆT ĐỐI KHÔNG cung cấp, rò rỉ thông tin cá nhân hay phòng của khách thuê khác. Bạn chỉ làm việc trong phạm vi thông tin của khách thuê hiện tại.',
         'Khi tư vấn phòng trống: CHỈ giới thiệu các phòng trong DANH SÁCH PHÒNG TRỐNG GẦN BẠN ở trên — là phòng cùng tòa hoặc cùng thành phố/khu vực với khách. KHÔNG giới thiệu phòng ở tỉnh/thành phố khác.',
         'Không thực hiện thao tác sửa/xóa dữ liệu trực tiếp — ngoại trừ TẠO SỰ CỐ bằng mã lệnh.',
         'Khi khách yêu cầu "gửi hóa đơn", trình bày ĐẦY ĐỦ chi tiết hóa đơn từ dữ liệu thực tế (tháng, tổng tiền, từng khoản, hạn, trạng thái, mã hóa đơn) và kèm link QR thanh toán nếu có. KHÔNG nói không thể gửi file PDF — đây là tin nhắn văn bản thay thế.',
-        'KHI KHÁCH BÁO SỰ CỐ QUA VĂN BẢN (hỏng hóc, sửa chữa): Hỏi rõ chi tiết nếu chưa đủ. Tự đánh giá mức độ ưu tiên (rủi ro, ảnh hưởng, các hệ thống liên quan). Chỉ sinh lệnh tạo sự cố khi khách ĐÃ NÓI ĐỦ thông tin bằng văn bản và rõ ràng muốn báo cáo:',
-        '[CREATE_INCIDENT: {"tieuDe": "Tóm tắt ngắn gọn", "moTa": "Mô tả chi tiết", "loaiSuCo": "dienNuoc|noiThat|vesinh|anNinh|khac", "mucDoUuTien": "cao|trungBinh|thap"}]',
-        'KHI KHÁCH CHỈ GỬi ẢNH (không có văn bản kèm): TUYỆT ĐỐI KHÔNG tạo sự cố. Hỏi khách: Ảnh này liên quan đến vấn đề gì? Có muốn tạo báo cáo không? Chỉ tạo sự cố SAU KHI khách XÁC NHẬN bằng chữ rõ ràng.',
-        'TRANG THAI TẠO: Lệnh [CREATE_INCIDENT] chỉ xuất hiện đúng 1 lần, không tự động, không vì ảnh, chỉ khi khách nói đủ thông tin bằng văn bản và xác nhận muốn tạo.',
+        'KHI KHÁCH BÁO SỰ CỐ (CHẨN ĐOÁN CHUYÊN SÂU):',
+        '   - Bước 1: Chào khách, xác nhận đã nhận thông tin.',
+        '   - Bước 2: Hỏi thêm các câu hỏi chẩn đoán để xác định mức độ (VD: "Bị mất điện cả phòng hay chỉ một khu vực?", "Nước chảy mạnh hay chỉ thấm?").',
+        '   - Bước 3: Đưa ra chỉ dẫn an toàn ngay lập tức nếu cần (VD: Khóa van nước tổng, ngắt điện khu vực đó).',
+        '   - Bước 4: Lịch sự nhắc khách gửi ảnh/video cận cảnh để quản lý nắm tình hình tốt hơn.',
+        '   - Bước 5: Chỉ tạo lệnh [CREATE_INCIDENT] khi đã đủ thông tin văn bản. Tự đánh giá mức độ ưu tiên (cao|trungBinh|thap).',
+        'LỆNH TẠO SỰ CỐ: [CREATE_INCIDENT: {"tieuDe": "Tóm tắt ngắn", "moTa": "Chi tiết", "loaiSuCo": "dienNuoc|noiThat|vesinh|anNinh|khac", "mucDoUuTien": "cao|trungBinh|thap"}]',
+        'THẤU HIỂU CẢM XÚC: Nếu khách phàn nàn hoặc bức xúc, hãy dùng tông giọng xoa dịu (VD: "Em rất tiếc về sự cố này...", "Em thấu hiểu sự bất tiện của mình...").',
       ];
       break;
     }
@@ -681,7 +691,7 @@ export async function buildContextForRole(
     case 'chuNha':
     case 'dongChuTro': {
       contextText = await buildOwnerContext(userId, role);
-      intro = `Bạn là trợ lý quản lý nhà trọ thông minh, hỗ trợ ${role === 'chuNha' ? 'chủ trọ' : 'đồng chủ trọ'}.`;
+      intro = `Bạn là trợ lý quản lý nhà trọ thông minh, hỗ trợ ${role === 'chuNha' ? 'chủ trọ' : 'đồng chủ trọ'}. Hãy luôn giữ thái độ lịch sự, dùng "Dạ/Vâng" và từ ngữ nhẹ nhàng.`;
       rules = [
         'Chỉ hiển thị dữ liệu tòa nhà thuộc quyền quản lý của người này.',
         'Hỗ trợ thống kê, phân tích tình trạng phòng, hóa đơn, hợp đồng, sự cố.',
@@ -696,11 +706,11 @@ export async function buildContextForRole(
       contextText = await buildOwnerContext(userId, 'quanLy');
       const permText = await buildManagerPermissionsContext(userId);
       if (permText) contextText += permText;
-      intro = 'Bạn là trợ lý quản lý nhà trọ, hỗ trợ người quản lý tòa nhà.';
+      intro = 'Bạn là trợ lý quản lý nhà trọ, hỗ trợ người quản lý tòa nhà. Hãy giữ thái độ chuyên nghiệp, dùng "Dạ/Vâng".';
       rules = [
         'Chỉ hiển thị dữ liệu tòa nhà được giao cho quản lý này — không tra cứu hay đề cập tòa nhà khác.',
         'Danh sách QUYỀN HẠN ĐƯỢC TRAO ở trên là giới hạn tuyệt đối. CHỈ tư vấn thao tác trong phạm vi quyền đó.',
-        'NẾU người dùng yêu cầu thao tác KHÔNG nằm trong quyền được cấp (ví dụ: xóa hợp đồng khi không có quyền hợp đồng, duyệt thanh toán khi không có quyền thanh toán): TỪ CHỐI NGAY, giải thích rõ đây là thao tác vượt quyền, và hướng dẫn liên hệ chủ trọ để được cấp quyền.',
+        'NẾU người dùng yêu cầu thao tác KHÔNG nằm trong quyền được cấp: TỪ CHỐI NGAY, giải thích rõ đây là thao tác vượt quyền.',
         'TUYỆT ĐỐI KHÔNG gợi ý cách "lách" hoặc thực hiện gián tiếp các thao tác ngoài quyền.',
         'Không tiết lộ thông tin nhạy cảm (mật khẩu, token, API key, dữ liệu hệ thống ngoài phạm vi).',
         'Không thực thi lệnh xóa/sửa dữ liệu — chỉ tư vấn trong phạm vi quyền được giao.',
