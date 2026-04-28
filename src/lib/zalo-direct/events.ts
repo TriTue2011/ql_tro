@@ -198,7 +198,15 @@ export async function handleIncomingMessage(
   // threadId: ID hội thoại (zca-js v2 cung cấp sẵn trong msg.threadId)
   // Đối với nhóm: threadId = groupId
   // Đối với DM: threadId = đối phương (nếu là tin nhắn đến) hoặc người nhận (nếu là isSelf)
-  const threadId = msg?.threadId || (isGroupMessage ? String(raw.idTo || senderUid) : (isSelf ? String(raw.idTo) : senderUid));
+  // Logic fallback robust: ưu tiên msg.threadId -> sau đó là idTo/toId của tin nhắn tự gửi -> cuối cùng là senderUid
+  const threadId = msg?.threadId || 
+                   (isGroupMessage ? String(raw.idTo || senderUid || "") : 
+                   (isSelf ? String(raw.idTo || raw.toId || "") : senderUid));
+
+  if (!threadId) {
+    console.warn("[ZaloDirect] Không xác định được threadId/chatId:", JSON.stringify(msg).slice(0, 500));
+    return;
+  }
 
   // chatId: Luôn dùng threadId làm định danh cuộc hội thoại chính
   const chatId = threadId;

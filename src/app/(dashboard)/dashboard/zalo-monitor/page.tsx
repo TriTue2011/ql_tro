@@ -223,10 +223,10 @@ function ConversationList({
           const selected = selectedId === msg.chatId;
           const previewText = isImageMsg(msg) ? '📷 Hình ảnh'
             : isFileMsg(msg) ? '📎 File'
-            : isVideoMsg(msg) ? '🎥 Video'
-            : isReactionMsg(msg) ? '😊 Reaction'
-            : isRawJsonContent(msg.content) ? '📷 Hình ảnh'
-            : msg.content;
+              : isVideoMsg(msg) ? '🎥 Video'
+                : isReactionMsg(msg) ? '😊 Reaction'
+                  : isRawJsonContent(msg.content) ? '📷 Hình ảnh'
+                    : msg.content;
           const groupSender = group ? msgSenderInGroup(msg) : '';
           return (
             <button key={msg.chatId} type="button"
@@ -309,13 +309,12 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
   return (
     <div className={`flex items-end gap-1.5 group ${isOutgoing ? 'flex-row' : 'flex-row-reverse'}`}>
       {/* avatar */}
-      <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mb-0.5 ${
-        isOwner ? 'bg-indigo-100' : isBot ? 'bg-slate-100' : group ? 'bg-purple-100' : 'bg-blue-100'
-      }`}>
+      <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mb-0.5 ${isOwner ? 'bg-indigo-100' : isBot ? 'bg-slate-100' : group ? 'bg-purple-100' : 'bg-blue-100'
+        }`}>
         {isOwner ? <Shield className="h-3.5 w-3.5 text-indigo-600" />
-         : isBot  ? <Bot className="h-3.5 w-3.5 text-slate-500" />
-         : group  ? <Users className="h-3.5 w-3.5 text-purple-600" />
-                  : <User className="h-3.5 w-3.5 text-blue-500" />}
+          : isBot ? <Bot className="h-3.5 w-3.5 text-slate-500" />
+            : group ? <Users className="h-3.5 w-3.5 text-purple-600" />
+              : <User className="h-3.5 w-3.5 text-blue-500" />}
       </div>
 
       {/* bubble wrapper */}
@@ -395,9 +394,9 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
               {msg.content === '[hình ảnh]' || (typeof msg.content === 'string' && msg.content.startsWith('{'))
                 ? '📷 Hình ảnh (không tải được)'
                 : msg.content === '[sticker]' ? '🎨 Sticker'
-                : msg.content === '[đính kèm]' ? '📎 Đính kèm'
-                : msg.content === '[video]' ? '🎥 Video'
-                : '(nội dung không hiển thị được)'}
+                  : msg.content === '[đính kèm]' ? '📎 Đính kèm'
+                    : msg.content === '[video]' ? '🎥 Video'
+                      : '(nội dung không hiển thị được)'}
             </span>
           )}
 
@@ -816,9 +815,35 @@ function MessageThread({
             </button>
           </div>
         </div>
-        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={handleDeleteAll} title="Xóa hội thoại">
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-blue-600 hover:bg-blue-50 gap-1.5"
+            onClick={async () => {
+              const loading = toast.loading('Đang đồng bộ lịch sử...');
+              try {
+                const r = await fetch(`/api/zalo/messages/sync?chatId=${encodeURIComponent(chatId)}`, { method: 'POST' });
+                const d = await r.json();
+                if (d.ok) {
+                  toast.success(`Đã đồng bộ ${d.synced} tin nhắn mới`, { id: loading });
+                  load();
+                } else {
+                  toast.error(d.error || 'Đồng bộ thất bại', { id: loading });
+                }
+              } catch {
+                toast.error('Lỗi kết nối', { id: loading });
+              }
+            }}
+            title="Lấy tin nhắn mới nhất từ Zalo"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span className="text-xs">Đồng bộ</span>
+          </Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={handleDeleteAll} title="Xóa hội thoại">
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {/* messages */}
@@ -894,7 +919,7 @@ function CompactContactDir({ onSelectThread }: { onSelectThread: (threadId: stri
   useEffect(() => {
     fetch('/api/user/profile').then(r => r.json()).then(d => {
       if (d.zaloAccountId) setBotAccountId(d.zaloAccountId);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const loadExternal = useCallback(async () => {
@@ -1093,9 +1118,8 @@ function CompactPersonItem({ person, showRoom, onSelectThread }: {
       type="button"
       disabled={!hasThread}
       onClick={() => hasThread && onSelectThread(person.threadId!)}
-      className={`w-full text-left rounded-md px-2 py-1.5 transition-colors ${
-        hasThread ? 'hover:bg-blue-50 cursor-pointer' : 'opacity-60 cursor-default'
-      }`}
+      className={`w-full text-left rounded-md px-2 py-1.5 transition-colors ${hasThread ? 'hover:bg-blue-50 cursor-pointer' : 'opacity-60 cursor-default'
+        }`}
     >
       <div className="flex items-center gap-1.5">
         {showRoom && person.phong && (
@@ -1144,7 +1168,7 @@ function OwnerGroupFilterPanel({
       }));
       setBuildings(list);
       if (list.length === 1) setSelectedBldg(list[0].id);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Tất cả group của tất cả buildings của user này
@@ -1177,14 +1201,14 @@ function OwnerGroupFilterPanel({
       const newWhitelist = checked
         ? [...groupWhitelist, name]
         : groupWhitelist.filter(w => w !== name);
-      
+
       const r = await fetch('/api/cai-dat/zalo-filter', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: checked ? 'add_whitelist_only' : 'remove_whitelist_only', 
-          toaNhaId: selectedBldg, 
-          name 
+        body: JSON.stringify({
+          action: checked ? 'add_whitelist_only' : 'remove_whitelist_only',
+          toaNhaId: selectedBldg,
+          name
         }),
       });
       const d = await r.json();
@@ -1256,9 +1280,8 @@ function OwnerGroupFilterPanel({
             {currentBldg.zaloNhomChat.filter(g => !!g.name).map(g => {
               const isMonitored = groupWhitelist.includes(g.name);
               return (
-                <label key={g.name} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
-                  isMonitored ? 'bg-purple-50 border-purple-200' : 'bg-white hover:bg-gray-50'
-                }`}>
+                <label key={g.name} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${isMonitored ? 'bg-purple-50 border-purple-200' : 'bg-white hover:bg-gray-50'
+                  }`}>
                   <input
                     type="checkbox"
                     checked={isMonitored}
@@ -1286,11 +1309,11 @@ function OwnerGroupFilterPanel({
 
         {currentBldg && (
           <div className="flex justify-end pt-1">
-             <Button variant="link" size="sm" asChild className="text-[10px] text-gray-400 h-auto p-0">
-               <a href="/dashboard/zalo" className="flex items-center gap-1">
-                 <Settings className="h-3 w-3" /> Quản lý danh sách nhóm
-               </a>
-             </Button>
+            <Button variant="link" size="sm" asChild className="text-[10px] text-gray-400 h-auto p-0">
+              <a href="/dashboard/zalo" className="flex items-center gap-1">
+                <Settings className="h-3 w-3" /> Quản lý danh sách nhóm
+              </a>
+            </Button>
           </div>
         )}
       </div>
@@ -1357,10 +1380,10 @@ export default function ZaloMonitorPage() {
     fetch('/api/cai-dat/zalo-filter').then(r => r.json()).then(d => {
       setDmFilter(d.dmFilter || 'none');
       setGroupWhitelist(d.groupWhitelist || []);
-    }).catch(() => {});
+    }).catch(() => { });
     fetch('/api/cai-dat/zalo-filter/system-contacts').then(r => r.json()).then(d => {
       if (Array.isArray(d.chatIds)) setSystemChatIds(new Set(d.chatIds));
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Hội thoại đã lọc: DM theo dmFilter, Group theo groupWhitelist
@@ -1419,7 +1442,7 @@ export default function ZaloMonitorPage() {
     fetch('/api/zalo/migrate-groups', { method: 'POST' })
       .then(r => r.json())
       .then(d => { if (d.updatedMessages > 0) loadConvs(); })
-      .catch(() => {});
+      .catch(() => { });
   }, [loadConvs, checkConnection]);
   useRealtimeEvents(['zalo-message'], () => { void loadConvs(); });
 
@@ -1433,10 +1456,10 @@ export default function ZaloMonitorPage() {
         .then(d => {
           if (!d.name) {
             // Chưa có tên → trigger fetch từ bot server qua webhook route (fire-and-forget)
-            fetch(`/api/zalo/fetch-group-name?groupId=${tid}`).catch(() => {});
+            fetch(`/api/zalo/fetch-group-name?groupId=${tid}`).catch(() => { });
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [convs]);
 

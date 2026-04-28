@@ -120,14 +120,14 @@ function getStore(): GlobalStore {
 
 function findAccount(accountSelection?: string): ZaloAccount | null {
   const store = getStore();
-  
+
   // Nếu không chỉ định tài khoản, lấy tài khoản đầu tiên (tài khoản hệ thống)
   if (!accountSelection) return store.accounts[0] ?? null;
 
   // Nếu có chỉ định, tìm đúng tài khoản đó
-  const matched = store.accounts.find((a) => 
-    a.ownId === accountSelection || 
-    a.name === accountSelection || 
+  const matched = store.accounts.find((a) =>
+    a.ownId === accountSelection ||
+    a.name === accountSelection ||
     a.phone === accountSelection
   );
 
