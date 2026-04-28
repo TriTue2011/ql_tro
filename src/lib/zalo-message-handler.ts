@@ -244,17 +244,30 @@ async function getHoTroMessage(): Promise<string> {
 
 /** Tìm người dùng (Chủ nhà/Quản lý) hoặc khách thuê theo Zalo ChatId */
 async function findUserByZaloChatId(chatId: string): Promise<{ id: string; ten: string; vaiTro: string } | null> {
+  if (!chatId) return null;
+  const sId = String(chatId).trim();
+
   try {
     // 1. Kiểm tra NguoiDung (Chủ nhà / Quản lý)
     const nd = await prisma.nguoiDung.findFirst({
-      where: { zaloChatId: chatId },
+      where: { 
+        OR: [
+          { zaloChatId: sId },
+          { zaloChatId: chatId } // Phòng trường hợp lưu kiểu khác
+        ]
+      },
       select: { id: true, ten: true, vaiTro: true },
     });
     if (nd) return { id: nd.id, ten: nd.ten, vaiTro: nd.vaiTro };
 
     // 2. Kiểm tra KhachThue
     const kt = await prisma.khachThue.findFirst({
-      where: { zaloChatId: chatId },
+      where: { 
+        OR: [
+          { zaloChatId: sId },
+          { zaloChatId: chatId }
+        ]
+      },
       select: { id: true, hoTen: true },
     });
     if (kt) return { id: kt.id, ten: kt.hoTen, vaiTro: 'khachThue' };
@@ -603,9 +616,9 @@ async function isRentalDomainQuery(text: string): Promise<boolean> {
         'Nhiệm vụ: phân loại tin nhắn có liên quan đến việc THUÊ PHÒNG TRỌ hay không. ' +
         '\n\nTRẢ VỀ "yes" KHI tin nhắn: ' +
         '- Đang hỏi về: còn phòng không, giá thuê, xem phòng, đặt cọc, tiện nghi, vị trí... ' +
-        '- Là lời CHÀO HỎI mở đầu lịch sự (VD: "Xin chào", "Chào bạn", "Alo", "Hi shop") — để AI có thể chào lại và bắt đầu tư vấn. ' +
+        '- Là lời CHÀO HỎI mở đầu (VD: "Xin chào", "Chào bạn", "Alo", "Hi", "Hello", "Ad ơi"). ' +
         '\n\nTRẢ VỀ "no" VỚI CÁC TRƯỜNG HỢP: ' +
-        '- Câu ngắn vô nghĩa, không rõ ý định (VD: "Ok", "Vâng", "Dạ", "Ừ", "Hehe", "Thế à"). ' +
+        '- Câu trả lời ngắn (VD: "Ok", "Vâng", "Dạ", "Ừ", "Hehe", "Thế à"). ' +
         '- Câu không liên quan nhà trọ, link URL, ảnh sticker đơn lẻ. ' +
         '\n\nChỉ trả về đúng 1 từ: "yes" hoặc "no". Không giải thích.',
     },
