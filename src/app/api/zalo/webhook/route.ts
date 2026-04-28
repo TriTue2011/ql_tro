@@ -160,10 +160,11 @@ async function saveMessage(update: any): Promise<void> {
 
     // Khi bot gửi tin nhắn ra (direct mode), Zalo gửi webhook với uidFrom = bot's own ID.
     // Cần swap chatId sang idTo (đới tượng nhận) để lưu đúng thread.
-    const isBotOwnMessage = ownId && rawChatId === ownId;
+    const isBotOwnMessage = ownId && String(rawChatId) === String(ownId);
     const chatId = isBotOwnMessage
       ? (data?.idTo ? String(data.idTo) :
          data?.toId ? String(data.toId) :
+         update?.threadId ? String(update.threadId) :
          update?.idTo ? String(update.idTo) :
          update?.toId ? String(update.toId) : rawChatId)
       : rawChatId;
