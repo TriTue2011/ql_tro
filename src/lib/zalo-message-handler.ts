@@ -461,26 +461,35 @@ async function handleRegisteredUser(
     if (match && match[1]) {
       try {
         const incidentData = JSON.parse(match[1]);
-        const phongId = kt.hopDong[0]?.phongId;
         
-        if (phongId && incidentData.tieuDe) {
-          // Tạo sự cố tự động
-          await prisma.suCo.create({
-            data: {
-              tieuDe: incidentData.tieuDe,
-              moTa: incidentData.moTa || 'Báo cáo từ Zalo AI',
-              loaiSuCo: incidentData.loaiSuCo || 'khac',
-              mucDoUuTien: incidentData.mucDoUuTien || 'trungBinh',
-              trangThai: 'moi',
-              phongId,
-              khachThueId: kt.id,
-            }
+        // Chỉ khách thuê mới có thể tự động tạo sự cố cho phòng của họ
+        if (user.vaiTro === 'khachThue') {
+          // Tìm hợp đồng đang hoạt động của khách thuê để lấy phongId
+          const ktDetails = await prisma.khachThue.findUnique({
+            where: { id: user.id },
+            include: { hopDong: { where: { trangThai: 'hoatDong' }, take: 1 } }
           });
           
-          // Xóa đoạn mã JSON khỏi tin nhắn gửi đi và thêm dòng xác nhận
-          finalReply = aiReply.replace(incidentRegex, '').trim();
-          finalReply += '\n\n✅ Đã tự động tạo sự cố trên hệ thống thành công. Quản lý sẽ sớm kiểm tra và hỗ trợ bạn!';
+          const phongId = ktDetails?.hopDong[0]?.phongId;
+          if (phongId && incidentData.tieuDe) {
+            await prisma.suCo.create({
+              data: {
+                tieuDe: incidentData.tieuDe,
+                moTa: incidentData.moTa || 'Báo cáo từ Zalo AI',
+                loaiSuCo: incidentData.loaiSuCo || 'khac',
+                mucDoUuTien: incidentData.mucDoUuTien || 'trungBinh',
+                trangThai: 'moi',
+                phongId,
+                khachThueId: user.id,
+              }
+            });
+            finalReply = aiReply.replace(incidentRegex, '').trim();
+            finalReply += '\n\n✅ Đã tự động tạo sự cố trên hệ thống thành công. Quản lý sẽ sớm kiểm tra và hỗ trợ bạn!';
+          } else {
+            finalReply = aiReply.replace(incidentRegex, '').trim();
+          }
         } else {
+          // Nếu không phải khách thuê (Chủ trọ/Quản lý), chỉ xóa tag lệnh
           finalReply = aiReply.replace(incidentRegex, '').trim();
         }
       } catch (e) {
