@@ -425,8 +425,49 @@ async function handleRegisteredUser(
   let aiReply: string | null = null;
 
   if (ctxResult) {
-    // Đưa tên người dùng vào system prompt để AI chào hỏi đích danh
-    const systemPrompt = `Bạn đang trò chuyện với ${user.ten} (${user.vaiTro}). Hãy chào hỏi đích danh nếu phù hợp.\n\n${ctxResult.systemPrompt}`;
+    // Xây dựng câu chào mẫu dựa trên vai trò và tòa nhà
+    let greetingInstruction = '';
+    if (user.vaiTro === 'khachThue') {
+      const ktDetails = await prisma.khachThue.findUnique({
+        where: { id: user.id },
+        include: { hopDong: { where: { trangThai: 'hoatDong' }, include: { phong: { include: { toaNha: true } } }, take: 1 } }
+      });
+      const phong = ktDetails?.hopDong[0]?.phong;
+      const toaNha = phong?.toaNha;
+      const roomInfo = phong ? `Phòng ${phong.maPhong}${phong.tang > 0 ? ` Tầng ${phong.tang}` : ''}` : '';
+      const toaInfo = toaNha ? ` của tòa nhà ${toaNha.tenToaNha}` : '';
+      
+      greetingInstruction = `Bạn đang trò chuyện với Khách thuê: ${user.ten}${roomInfo ? ` (${roomInfo}${toaInfo})` : ''}. 
+MẪU CHÀO (Quan trọng): "Dạ, em chào Anh/Chị ${user.ten} ở ${roomInfo}${toaInfo} ạ, em có thể giúp được gì cho mình không ạ?"`;
+    } else {
+      const roleLabel = user.vaiTro === 'chuNha' ? 'Chủ trọ' : user.vaiTro === 'quanLy' ? 'Quản lý' : 'Cộng tác viên';
+      
+      // Tìm tên tòa nhà liên quan
+      let buildingInfo = '';
+      if (user.vaiTro === 'quanLy') {
+        const managedBuilding = await prisma.toaNhaNguoiQuanLy.findFirst({
+          where: { nguoiDungId: user.id },
+          include: { toaNha: { select: { tenToaNha: true } } }
+        });
+        if (managedBuilding) buildingInfo = ` của tòa nhà ${managedBuilding.toaNha.tenToaNha}`;
+      } else if (user.vaiTro === 'chuNha') {
+        const ownBuildings = await prisma.toaNha.findMany({
+          where: { chuSoHuuId: user.id },
+          select: { tenToaNha: true },
+          take: 2
+        });
+        if (ownBuildings.length === 1) {
+          buildingInfo = ` sở hữu tòa nhà ${ownBuildings[0].tenToaNha}`;
+        } else if (ownBuildings.length > 1) {
+          buildingInfo = ` quản lý hệ thống tòa nhà`;
+        }
+      }
+
+      greetingInstruction = `Bạn đang trò chuyện với ${roleLabel}: ${user.ten}.
+MẪU CHÀO (Quan trọng): "Dạ, em chào Anh/Chị ${roleLabel} ${user.ten}${buildingInfo} ạ, Anh/Chị cần em giúp gì cho hệ thống của mình hôm nay ạ?"`;
+    }
+
+    const systemPrompt = `${greetingInstruction}\n\n${ctxResult.systemPrompt}`;
     const historyMsgs = history.map(m => ({ role: m.role, content: m.content }));
 
     if (attachmentUrl) {
@@ -591,9 +632,8 @@ async function handleStrangerRentalInquiry(
   // Không có nội dung → bỏ qua
   if (!text && !attachmentUrl) return false;
 
-  // Bạn bè đã kết nối → không áp dụng luồng người lạ
-  const alreadyFriend = await isFriend(chatId, undefined, accountSelection).catch(() => false);
-  if (alreadyFriend) return false;
+  // Xử lý tất cả những ai chưa được nhận diện trong DB (kể cả đã là bạn bè Zalo)
+  // để bắt đầu luồng tư vấn thuê phòng.
 
   // Nếu nội dung là chuỗi số thuần túy → kiểm tra SĐT nhà mạng VN
   // Nếu không phải SĐT VN hợp lệ → im lặng (không phản hồi)
