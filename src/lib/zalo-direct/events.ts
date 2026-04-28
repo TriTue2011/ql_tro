@@ -146,7 +146,7 @@ export async function handleIncomingMessage(
   const senderUid = String(raw?.uidFrom || msg?.uidFrom || "");
   if (!senderUid) return;
 
-  const isSelf = !!msg?.isSelf;
+  const isSelf = !!msg?.isSelf || (ownId && String(senderUid) === String(ownId));
 
   const displayName = raw.dName || raw.fromD || "";
   const contentRaw = raw.content || raw.msg || "";
@@ -242,7 +242,7 @@ export async function handleIncomingMessage(
       data: {
         chatId,
         ownId,
-        displayName: saveDisplayName,
+        displayName: isSelf ? "Bạn" : saveDisplayName,
         content,
         attachmentUrl: attachmentUrl || null,
         role: isSelf ? "owner" : "user",

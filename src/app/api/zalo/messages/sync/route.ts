@@ -22,17 +22,18 @@ export async function POST(request: NextRequest) {
   if (!ownId) return NextResponse.json({ error: "Chưa liên kết tài khoản Zalo" }, { status: 403 });
 
   // Lấy tin nhắn từ SDK
-  const result = await zaloDirect.getMessages(chatId, 20, ownId);
+  const result = await zaloDirect.getMessages(chatId, 30, ownId);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
 
   const sdkMessages = Array.isArray(result.data) ? result.data : (result.data?.data || []);
   let count = 0;
 
   for (const m of sdkMessages) {
-    // Ưu tiên threadId từ SDK làm chatId
     const currentChatId = m.threadId || chatId;
+    const senderUid = String(m.uidFrom || "");
+    const isSelf = m.isSelf || (ownId && senderUid === String(ownId));
     
-    // Kiểm tra xem đã tồn tại chưa (heuristic: thời gian + nội dung)
+    // Kiểm tra xem đã tồn tại chưa
     const existing = await prisma.zaloMessage.findFirst({
       where: {
         chatId: currentChatId,
@@ -46,7 +47,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (!existing) {
-      const isSelf = m.isSelf || m.uidFrom === ownId;
       await prisma.zaloMessage.create({
         data: {
           chatId: currentChatId,
