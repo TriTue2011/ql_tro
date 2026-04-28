@@ -142,6 +142,10 @@ export async function handleIncomingMessage(
   ownId: string,
   msg: any
 ): Promise<void> {
+  const raw = msg?.data ?? msg;
+  const senderUid = String(raw?.uidFrom || msg?.uidFrom || "");
+  if (!senderUid) return;
+
   const isSelf = !!msg?.isSelf;
 
   const displayName = raw.dName || raw.fromD || "";
@@ -242,8 +246,8 @@ export async function handleIncomingMessage(
 
     cleanupOldMessages().catch(() => {});
 
-    // Bỏ qua tin nhắn nhóm (không auto-reply)
-    if (isGroupMessage) return;
+    // Bỏ qua tin nhắn nhóm hoặc tin nhắn từ chính mình (không auto-reply)
+    if (isGroupMessage || isSelf) return;
 
     // Lưu threadId cho bot account
     captureThreadId(ownId, chatId).catch(() => {});
