@@ -195,12 +195,13 @@ export async function handleIncomingMessage(
     if (content.startsWith('{') && content.includes('"catId"')) content = '[sticker]';
   }
 
-  // threadId: group thread ID cho nhóm, hoặc sender ID cho DM
-  // Nếu là chính mình gửi (isSelf), chatId đối với DM phải là người nhận (idTo)
+  // threadId: ID hội thoại (zca-js v2 cung cấp sẵn trong msg.threadId)
+  // Đối với nhóm: threadId = groupId
+  // Đối với DM: threadId = đối phương (nếu là tin nhắn đến) hoặc người nhận (nếu là isSelf)
   const threadId = msg?.threadId || (isGroupMessage ? String(raw.idTo || senderUid) : (isSelf ? String(raw.idTo) : senderUid));
 
-  // chatId: dùng threadId cho nhóm (1 nhóm = 1 hội thoại), dùng đối phương cho DM
-  const chatId = isGroupMessage ? threadId : (isSelf ? String(raw.idTo) : senderUid);
+  // chatId: Luôn dùng threadId làm định danh cuộc hội thoại chính
+  const chatId = threadId;
 
   const update = {
     data: raw,

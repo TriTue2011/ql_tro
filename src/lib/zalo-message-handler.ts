@@ -481,9 +481,21 @@ async function handleRegisteredTenant(
     }
 
     await sendReply(token, chatId, finalReply, accountSelection);
-    await prisma.zaloMessage.create({
-      data: { chatId, content: finalReply, role: 'bot', eventName: 'bot_reply', rawPayload: {} },
-    }).catch(() => {});
+    const botSaved = await prisma.zaloMessage.create({
+      data: {
+        chatId,
+        ownId: accountSelection || null,
+        content: finalReply,
+        role: 'bot',
+        eventName: 'bot_reply',
+        rawPayload: {}
+      },
+    }).catch(() => null);
+    if (botSaved) {
+      const { sseEmit } = await import('@/lib/sse-emitter');
+      emitNewMessage({ ...botSaved, eventName: botSaved.eventName ?? 'bot_reply' });
+      sseEmit('zalo-message', { chatId: botSaved.chatId });
+    }
     return true;
   }
 
@@ -633,9 +645,21 @@ async function handleStrangerRentalInquiry(
   if (!aiReply) return false;
 
   await sendReply(token, chatId, aiReply, accountSelection);
-  await prisma.zaloMessage.create({
-    data: { chatId, content: aiReply, role: 'bot', eventName: 'bot_rental_reply', rawPayload: {} },
-  }).catch(() => {});
+  const botSaved = await prisma.zaloMessage.create({
+    data: {
+      chatId,
+      ownId: accountSelection || null,
+      content: aiReply,
+      role: 'bot',
+      eventName: 'bot_rental_reply',
+      rawPayload: {}
+    },
+  }).catch(() => null);
+  if (botSaved) {
+    const { sseEmit } = await import('@/lib/sse-emitter');
+    emitNewMessage({ ...botSaved, eventName: botSaved.eventName ?? 'bot_rental_reply' });
+    sseEmit('zalo-message', { chatId: botSaved.chatId });
+  }
   return true;
 }
 
