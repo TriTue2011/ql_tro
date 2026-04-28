@@ -405,25 +405,18 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
       lines.push(`- ${sc.tieuDe} — Phòng ${sc.phong.maPhong} (${sc.phong.toaNha.tenToaNha}) [Xong lúc ${gio}]`);
     });
   } else {
-    lines.push(`\nSỰ CỐ ĐÃ XỬ LÝ HÔM NAY: Chưa có sự cố nào được xử lý xong trong hôm nay.`);
+    lines.push(`\nSỰ CỐ ĐÃ XỬ LÝ HÔM NAY: 0 (Hiện chưa có sự cố nào hoàn thành hôm nay).`);
   }
 
-  if (recentPaidInvoices.length > 0) {
-    lines.push(`\nHÓA ĐƠN ĐÃ THANH TOÁN (7 ngày gần đây — ${recentPaidInvoices.length} hóa đơn):`);
-    recentPaidInvoices.forEach(inv => {
-      const khach = inv.khachThue?.hoTen ? ` (${inv.khachThue.hoTen})` : '';
-      const ngay = fmtDate(inv.ngayCapNhat);
-      lines.push(`- T${inv.thang}/${inv.nam} | P.${inv.phong.maPhong} - ${inv.phong.toaNha.tenToaNha}${khach} | ${fmtMoney(inv.tongTien)} | Ngày TT: ${ngay}`);
-    });
-  }
+  lines.push(`\nHÓA ĐƠN ĐÃ THANH TOÁN (7 ngày qua): ${recentPaidInvoices.length}`);
+  recentPaidInvoices.forEach(inv => {
+    lines.push(`- ${inv.maHoaDon} | T${inv.thang}/${inv.nam} | P.${inv.phong.maPhong} | ${fmtMoney(inv.tongTien)} | Xong: ${fmtDate(inv.ngayCapNhat)}`);
+  });
 
-  if (recentExpiredContracts.length > 0) {
-    lines.push(`\nHỢP ĐỒNG VỪA HẾT HẠN (30 ngày qua — ${recentExpiredContracts.length}):`);
-    recentExpiredContracts.forEach(hd => {
-      const tenKhach = hd.nguoiDaiDien?.hoTen || 'Chưa rõ';
-      lines.push(`- ${hd.maHopDong} | P.${hd.phong.maPhong} - ${hd.phong.toaNha.tenToaNha} | Khách: ${tenKhach} | Hết hạn: ${fmtDate(hd.ngayKetThuc)}`);
-    });
-  }
+  lines.push(`\nHỢP ĐỒNG MỚI HẾT HẠN (30 ngày qua): ${recentExpiredContracts.length}`);
+  recentExpiredContracts.forEach(hd => {
+    lines.push(`- ${hd.maHopDong} | P.${hd.phong.maPhong} | Khách: ${hd.nguoiDaiDien?.hoTen} | Hết hạn: ${fmtDate(hd.ngayKetThuc)}`);
+  });
 
   return lines.join('\n');
 }
@@ -750,15 +743,18 @@ export async function buildContextForRole(
   }
 
   const systemPrompt = [
-    `${intro} Trả lời bằng tiếng Việt tự nhiên, thân thiện, ngắn gọn và chính xác.`,
+    `${intro} Trả lời bằng tiếng Việt tự nhiên, thân thiện, súc tích và chính xác.`,
+    'XƯNG HÔ: Luôn xưng là "Em" và gọi người dùng là "Anh/Chị" hoặc "Bạn" (tùy ngữ cảnh). Tuyệt đối không xưng "Con" hoặc "Trợ lý" một cách máy móc.',
     `Hôm nay: ${today}.`,
     '',
-    contextText ? `--- DỮ LIỆU THỰC TẾ ---\n${contextText}\n--- HẾT DỮ LIỆU ---` : '',
+    contextText ? `--- DỮ LIỆU HỆ THỐNG THỰC TẾ ---\n${contextText}\n--- HẾT DỮ LIỆU ---` : '',
     '',
-    'QUY TẮC TRẢ LỜI:',
-    ...rules.map((r, i) => `${i + 1}. ${r}`),
+    'QUY TẮC QUAN TRỌNG:',
+    '1. Bạn có QUYỀN TRUY CẬP TOÀN BỘ dữ liệu được cung cấp ở trên. Nếu một danh mục trong "DỮ LIỆU HỆ THỐNG THỰC TẾ" có giá trị là 0 hoặc không có danh sách, điều đó có nghĩa là TRONG THỰC TẾ KHÔNG CÓ BẢN GHI NÀO, chứ không phải bạn không có quyền xem.',
+    '2. Tuyệt đối không trả lời "Tôi không có dữ liệu về..." hoặc "Tôi chỉ quản lý..." đối với những thứ thuộc nghiệp vụ nhà trọ. Hãy dựa vào số liệu 0 để trả lời: "Dạ, hiện tại chưa có...".',
+    ...rules.map((r, i) => `${i + 3}. ${r}`),
     '',
-    'Luôn dựa trên dữ liệu thực tế ở trên. Nếu không có thông tin, thành thật nói không rõ.',
+    'Luôn dựa trên dữ liệu thực tế ở trên để trả lời một cách tự tin và chuyên nghiệp.',
   ]
     .filter(l => l !== undefined)
     .join('\n');
