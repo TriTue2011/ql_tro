@@ -423,11 +423,12 @@ async function handleRegisteredTenant(
     const historyMsgs = history.map(m => ({ role: m.role, content: m.content }));
 
     if (attachmentUrl) {
-      // Phân tích ảnh + văn bản
+      console.log(`[zalo-handler] [Tenant] Processing image + text for ${chatId}`);
       aiReply = await askAIWithImage(systemPrompt, text, attachmentUrl, historyMsgs).catch(() => null);
     }
 
     if (!aiReply && (text || attachmentUrl)) {
+      console.log(`[zalo-handler] [Tenant] Calling askAI for ${chatId}`);
       // Chỉ văn bản (hoặc fallback nếu vision thất bại)
       const fallbackUserContent = attachmentUrl
         ? (text
@@ -444,6 +445,7 @@ async function handleRegisteredTenant(
   }
 
   if (aiReply) {
+    console.log(`[zalo-handler] [Tenant] AI Replied for ${chatId}`);
     // Xử lý chặn mã lệnh CREATE_INCIDENT (dùng [\s\S] thay cho cờ s để tương thích với ES cũ)
     const incidentRegex = /\[CREATE_INCIDENT:\s*({[\s\S]*?})\s*\]/;
     const match = aiReply.match(incidentRegex);
@@ -601,6 +603,7 @@ async function handleStrangerRentalInquiry(
 
   // Phân tích ngữ nghĩa: nội dung có THỰC SỰ hỏi về phòng trọ không?
   const relevant = await isRentalDomainQuery(text || '').catch(() => false);
+  console.log(`[zalo-handler] [Stranger] Rental query check for "${text}": ${relevant}`);
   if (!relevant) {
     // Không liên quan phòng trọ → im lặng hoàn toàn, không greeting, không forward
     return false;
@@ -1125,6 +1128,7 @@ export async function handleZaloAutoReply(update: any, token = '', accountSelect
   const rentalHandled = await handleStrangerRentalInquiry(token, chatId, text, attachmentUrl, accountSelection);
   if (rentalHandled) return;
 
+  console.log(`[zalo-handler] No AI handler matched for message: "${text}" from ${chatId}`);
   // Người lạ → lời chào + forward
   await handleStranger(token, chatId, displayName, text, accountSelection);
 }
