@@ -200,8 +200,8 @@ export async function handleIncomingMessage(
   // Đối với DM: threadId = đối phương (nếu là tin nhắn đến) hoặc người nhận (nếu là isSelf)
   // Logic fallback robust: ưu tiên msg.threadId -> sau đó là idTo/toId của tin nhắn tự gửi -> cuối cùng là senderUid
   const threadId = msg?.threadId || 
-                   (isGroupMessage ? String(raw.idTo || senderUid || "") : 
-                   (isSelf ? String(raw.idTo || raw.toId || "") : senderUid));
+                   (isGroupMessage ? String(raw.idTo || raw.toId || senderUid || "") : 
+                   (isSelf ? String(raw.idTo || raw.toId || raw.receiverId || raw.to_id || "") : senderUid));
 
   if (!threadId) {
     console.warn("[ZaloDirect] Không xác định được threadId/chatId:", JSON.stringify(msg).slice(0, 500));
@@ -235,6 +235,24 @@ export async function handleIncomingMessage(
       if (groupName && ownId) {
         autoMatchGroupThread(threadId, groupName, ownId).catch(() => {});
       }
+    } else {
+      // Nếu là DM, ưu tiên lấy tên từ hệ thống (Khách thuê / Người dùng)
+      try {
+        const [kt, nd] = await Promise.all([
+          prisma.khachThue.findFirst({
+            where: { OR: [{ zaloChatId: threadId }, { zaloChatIds: { contains: threadId } }, { pendingZaloChatId: threadId }] },
+            select: { hoTen: true }
+          }),
+          prisma.nguoiDung.findFirst({
+            where: { OR: [{ zaloChatId: threadId }, { zaloChatIds: { contains: threadId } }, { pendingZaloChatId: threadId }] },
+            select: { hoTen: true }
+          })
+        ]);
+        const systemName = kt?.hoTen || nd?.hoTen;
+        if (systemName) {
+          saveDisplayName = systemName;
+        }
+      } catch { /* ignore */ }
     }
 
     // Lưu tin nhắn vào DB (chatId = threadId cho nhóm)
