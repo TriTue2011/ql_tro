@@ -292,36 +292,36 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
     && !isRawJsonContent(msg.content)
     && !(typeof msg.content === 'string' && msg.content.startsWith('[reaction:'));
 
-  // Màu bubble:
-  // - Bot auto-reply (outgoing)  → xanh lam  (bg-blue-500)
-  // - Owner gửi tay (outgoing)   → tím indigo (bg-indigo-500)
-  // - Khách thuê (incoming)      → xám       (bg-gray-100)
+  // Màu bubble theo yêu cầu mới:
+  // - Khách thuê (incoming - bên phải) → xanh lam     (bg-blue-600)
+  // - Bot hệ thống (outgoing - bên trái) → xanh xám   (bg-slate-200)
+  // - Owner (outgoing - bên trái)        → tím indigo (bg-indigo-600)
   const bubbleColor = isOwner
-    ? 'bg-indigo-500 text-white rounded-br-sm'
+    ? 'bg-indigo-600 text-white rounded-bl-sm'
     : isBot
-      ? 'bg-blue-500 text-white rounded-br-sm'
-      : 'bg-gray-100 text-gray-800 rounded-bl-sm';
+      ? 'bg-slate-200 text-slate-800 rounded-bl-sm'
+      : 'bg-blue-600 text-white rounded-br-sm';
 
-  const timestampColor = isOutgoing ? 'text-white/70' : 'text-gray-400';
-  const fallbackTextColor = isOutgoing ? 'text-white/70' : 'text-gray-500';
-  const mediaOverlayColor = isOutgoing ? 'bg-white/20 hover:bg-white/30' : 'bg-black/5 hover:bg-black/10';
+  const timestampColor = (isOwner || !isOutgoing) ? 'text-white/70' : 'text-gray-400';
+  const fallbackTextColor = (isOwner || !isOutgoing) ? 'text-white/70' : 'text-gray-500';
+  const mediaOverlayColor = (isOwner || !isOutgoing) ? 'bg-white/20 hover:bg-white/30' : 'bg-black/5 hover:bg-black/10';
 
   return (
-    <div className={`flex items-end gap-1.5 group ${isOutgoing ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex items-end gap-1.5 group ${isOutgoing ? 'flex-row' : 'flex-row-reverse'}`}>
       {/* avatar */}
       <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mb-0.5 ${
-        isOwner ? 'bg-indigo-100' : isBot ? 'bg-blue-100' : group ? 'bg-purple-100' : 'bg-gray-200'
+        isOwner ? 'bg-indigo-100' : isBot ? 'bg-slate-100' : group ? 'bg-purple-100' : 'bg-blue-100'
       }`}>
         {isOwner ? <Shield className="h-3.5 w-3.5 text-indigo-600" />
-         : isBot  ? <Bot className="h-3.5 w-3.5 text-blue-500" />
+         : isBot  ? <Bot className="h-3.5 w-3.5 text-slate-500" />
          : group  ? <Users className="h-3.5 w-3.5 text-purple-600" />
-                  : <User className="h-3.5 w-3.5 text-gray-500" />}
+                  : <User className="h-3.5 w-3.5 text-blue-500" />}
       </div>
 
       {/* bubble wrapper */}
-      <div className={`flex flex-col max-w-[72%] ${isOutgoing ? 'items-end' : 'items-start'}`}>
+      <div className={`flex flex-col max-w-[72%] ${isOutgoing ? 'items-start' : 'items-end'}`}>
         {groupSender && (
-          <div className={`flex flex-col mb-0.5 px-1 ${isOutgoing ? 'items-end' : 'items-start'}`}>
+          <div className={`flex flex-col mb-0.5 px-1 ${isOutgoing ? 'items-start' : 'items-end'}`}>
             <span className="text-[10px] text-purple-600 font-medium">{groupSender}</span>
             {groupSenderUid && (
               <span className="text-[9px] text-gray-400 font-mono">{groupSenderUid}</span>
@@ -330,7 +330,7 @@ function MessageBubble({ msg, onDelete }: { msg: ZaloMsg; onDelete: (id: string)
         )}
         {/* label nhỏ phân biệt bot vs owner */}
         {isOutgoing && (
-          <span className={`text-[9px] mb-0.5 px-1 ${isOwner ? 'text-indigo-400' : 'text-blue-400'}`}>
+          <span className={`text-[9px] mb-0.5 px-1 ${isOwner ? 'text-indigo-400' : 'text-slate-400'}`}>
             {isOwner ? '🛡️ Bạn' : '🤖 Bot'}
           </span>
         )}

@@ -142,17 +142,12 @@ export async function handleIncomingMessage(
   ownId: string,
   msg: any
 ): Promise<void> {
-  // zca-js v2: msg = { type, data: TMessage, threadId, isSelf }
-  const raw = msg?.data ?? msg;
-  const senderUid = String(raw?.uidFrom || msg?.uidFrom || "");
-  if (!senderUid) return;
-
-  if (msg?.isSelf) return;
+  const isSelf = !!msg?.isSelf;
 
   const displayName = raw.dName || raw.fromD || "";
   const contentRaw = raw.content || raw.msg || "";
   const msgType: string = raw.msgType || raw.type_msg || "";
-  const isGroupMessage = msg?.type === 1 || (raw.idTo && raw.idTo !== ownId);
+  const isGroupMessage = msg?.type === 1 || (raw.idTo && raw.idTo !== ownId && !isSelf);
 
   // Bỏ qua reaction events (không lưu vào ZaloMessage)
   if (msgType === 'reaction' || (typeof contentRaw === 'string' && contentRaw.startsWith('[reaction:'))) return;
@@ -197,10 +192,11 @@ export async function handleIncomingMessage(
   }
 
   // threadId: group thread ID cho nhóm, hoặc sender ID cho DM
-  const threadId = msg?.threadId || (isGroupMessage ? String(raw.idTo || senderUid) : senderUid);
+  // Nếu là chính mình gửi (isSelf), chatId đối với DM phải là người nhận (idTo)
+  const threadId = msg?.threadId || (isGroupMessage ? String(raw.idTo || senderUid) : (isSelf ? String(raw.idTo) : senderUid));
 
-  // chatId: dùng threadId cho nhóm (1 nhóm = 1 hội thoại), dùng senderUid cho DM
-  const chatId = isGroupMessage ? threadId : senderUid;
+  // chatId: dùng threadId cho nhóm (1 nhóm = 1 hội thoại), dùng đối phương cho DM
+  const chatId = isGroupMessage ? threadId : (isSelf ? String(raw.idTo) : senderUid);
 
   const update = {
     data: raw,
@@ -211,6 +207,7 @@ export async function handleIncomingMessage(
     idTo: raw.idTo,
     type: isGroupMessage ? 1 : 0,
     threadId,
+    isSelf,
   };
 
   try {
@@ -235,7 +232,7 @@ export async function handleIncomingMessage(
         displayName: saveDisplayName,
         content,
         attachmentUrl: attachmentUrl || null,
-        role: "user",
+        role: isSelf ? "owner" : "user",
         eventName: isGroupMessage ? "group_message" : "message",
         rawPayload: update as any,
       },

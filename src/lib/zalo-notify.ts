@@ -21,8 +21,30 @@
 import prisma from '@/lib/prisma';
 import { sendMessageViaBotServer, getBotConfig, BotConfig } from '@/lib/zalo-bot-client';
 import { formatPhongName } from '@/lib/utils';
+import { emitNewMessage } from '@/lib/zalo-message-events';
+import { sseEmit } from '@/lib/sse-emitter';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Lưu tin nhắn bot gửi đi vào DB để Monitor có thể theo dõi */
+async function logSentBotMessage(chatId: string, content: string, attachmentUrl?: string, ownId?: string) {
+  try {
+    const saved = await prisma.zaloMessage.create({
+      data: {
+        chatId,
+        ownId: ownId || null,
+        content: content || "[media]",
+        attachmentUrl: attachmentUrl || null,
+        role: "bot",
+        eventName: "send",
+      },
+    });
+    emitNewMessage({ ...saved, eventName: saved.eventName ?? "send" });
+    sseEmit("zalo-message", { chatId });
+  } catch (e) {
+    console.error('[zalo-notify] Error logging bot message:', e);
+  }
+}
 
 async function getSetting(khoa: string): Promise<string> {
   const row = await prisma.caiDat.findFirst({ where: { khoa } });
@@ -218,6 +240,8 @@ async function sendZalo(chatId: string, text: string, toaNhaId?: string, senderI
       }
       await sendMessageViaBotServer(chatId, text, threadType, botConfig?.accountId || undefined, botConfig);
     }
+    // Log tin nhắn gửi đi
+    await logSentBotMessage(chatId, text, undefined, botConfig?.accountId || undefined);
   } catch (e) { 
     console.error('[zalo-notify] sendZalo error:', e);
     if (senderId) {
@@ -369,6 +393,8 @@ async function sendAttachmentToChat(
     } else {
       await sendFileViaBotServer(chatId, fileUrl, '', threadType, botConfig?.accountId || undefined, botConfig);
     }
+    // Log tin nhắn gửi kèm đính kèm
+    await logSentBotMessage(chatId, '', fileUrl, botConfig?.accountId || undefined);
   }
 }
 
