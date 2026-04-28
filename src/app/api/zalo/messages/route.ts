@@ -158,14 +158,29 @@ export async function GET(request: NextRequest) {
                WHERE "khoa" = 'zalo_group_name_' || ("rawPayload"->>'threadId')
                LIMIT 1)
             END,
-            -- 2. Lấy tên hiển thị tốt nhất từ lịch sử hội thoại (không phải "Bạn" hay "Ẩn danh")
-            (SELECT "displayName" FROM "ZaloMessage" sub
-             WHERE COALESCE(sub."rawPayload"->>'threadId', sub."chatId") = COALESCE("ZaloMessage"."rawPayload"->>'threadId', "ZaloMessage"."chatId")
-               AND "displayName" IS NOT NULL 
-               AND "displayName" <> 'Bạn' 
-               AND "displayName" <> 'Ẩn danh'
-             ORDER BY "createdAt" DESC LIMIT 1),
-            -- 3. Fallback về displayName của chính tin nhắn đó
+            -- 2. Thử tìm tên từ bảng Khách thuê kèm số phòng
+            (SELECT 
+               COALESCE('Phòng ' || p."maPhong" || ' ', '') ||
+               CASE 
+                 WHEN kt."hoTen" ILIKE '% văn %' THEN 'Anh ' || split_part(kt."hoTen", ' ', array_length(string_to_array(kt."hoTen", ' '), 1))
+                 WHEN kt."hoTen" ILIKE '% thị %' THEN 'Chị ' || split_part(kt."hoTen", ' ', array_length(string_to_array(kt."hoTen", ' '), 1))
+                 ELSE kt."hoTen"
+               END
+             FROM "KhachThue" kt
+             LEFT JOIN "_HopDongToKhachThue" hdtkt ON kt."id" = hdtkt."B"
+             LEFT JOIN "HopDong" hd ON hdtkt."A" = hd."id" AND hd."trangThai" = 'hoatDong'
+             LEFT JOIN "Phong" p ON hd."phongId" = p."id"
+             WHERE kt."zaloChatId" = COALESCE("ZaloMessage"."rawPayload"->>'threadId', "ZaloMessage"."chatId")
+                OR kt."pendingZaloChatId" = COALESCE("ZaloMessage"."rawPayload"->>'threadId', "ZaloMessage"."chatId")
+                OR kt."zaloChatIds"::text LIKE '%' || COALESCE("ZaloMessage"."rawPayload"->>'threadId', "ZaloMessage"."chatId") || '%'
+             ORDER BY hd."ngayTao" DESC NULLS LAST
+             LIMIT 1),
+            -- 3. Thử tìm từ bảng NguoiDung
+            (SELECT "hoTen" FROM "NguoiDung" nd
+             WHERE nd."zaloChatId" = COALESCE("ZaloMessage"."rawPayload"->>'threadId', "ZaloMessage"."chatId")
+                OR nd."zaloChatIds"::text LIKE '%' || COALESCE("ZaloMessage"."rawPayload"->>'threadId', "ZaloMessage"."chatId") || '%'
+             LIMIT 1),
+            -- 4. Cuối cùng mới lấy displayName từ message
             "displayName"
           ) AS "displayName",
           "content", "attachmentUrl", "role", "createdAt", "rawPayload", "eventName"
