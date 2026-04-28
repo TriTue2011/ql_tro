@@ -152,11 +152,20 @@ export async function GET(request: NextRequest) {
           COALESCE("rawPayload"->>'threadId', "chatId") AS "chatId",
           "ownId",
           COALESCE(
+            -- 1. Nếu là nhóm, ưu tiên lấy tên từ CaiDat (nếu đã cache)
             CASE WHEN "rawPayload"->>'threadId' IS NOT NULL THEN
               (SELECT "giaTri" FROM "CaiDat"
                WHERE "khoa" = 'zalo_group_name_' || ("rawPayload"->>'threadId')
                LIMIT 1)
             END,
+            -- 2. Lấy tên hiển thị tốt nhất từ lịch sử hội thoại (không phải "Bạn" hay "Ẩn danh")
+            (SELECT "displayName" FROM "ZaloMessage" sub
+             WHERE COALESCE(sub."rawPayload"->>'threadId', sub."chatId") = COALESCE("ZaloMessage"."rawPayload"->>'threadId', "ZaloMessage"."chatId")
+               AND "displayName" IS NOT NULL 
+               AND "displayName" <> 'Bạn' 
+               AND "displayName" <> 'Ẩn danh'
+             ORDER BY "createdAt" DESC LIMIT 1),
+            -- 3. Fallback về displayName của chính tin nhắn đó
             "displayName"
           ) AS "displayName",
           "content", "attachmentUrl", "role", "createdAt", "rawPayload", "eventName"
