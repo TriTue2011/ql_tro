@@ -242,21 +242,24 @@ async function getHoTroMessage(): Promise<string> {
   }
 }
 
-/** Kiểm tra chatId có phải khách thuê đã đăng ký không */
-async function findKhachThueByZaloChatId(chatId: string) {
+/** Tìm người dùng (Chủ nhà/Quản lý) hoặc khách thuê theo Zalo ChatId */
+async function findUserByZaloChatId(chatId: string): Promise<{ id: string; ten: string; vaiTro: string } | null> {
   try {
-    return await prisma.khachThue.findFirst({
+    // 1. Kiểm tra NguoiDung (Chủ nhà / Quản lý)
+    const nd = await prisma.nguoiDung.findFirst({
       where: { zaloChatId: chatId },
-      select: {
-        id: true,
-        hoTen: true,
-        hopDong: {
-          where: { trangThai: 'hoatDong' },
-          select: { phongId: true },
-          take: 1
-        }
-      },
+      select: { id: true, ten: true, vaiTro: true },
     });
+    if (nd) return { id: nd.id, ten: nd.ten, vaiTro: nd.vaiTro };
+
+    // 2. Kiểm tra KhachThue
+    const kt = await prisma.khachThue.findFirst({
+      where: { zaloChatId: chatId },
+      select: { id: true, hoTen: true },
+    });
+    if (kt) return { id: kt.id, ten: kt.hoTen, vaiTro: 'khachThue' };
+
+    return null;
   } catch {
     return null;
   }
@@ -400,30 +403,34 @@ async function getRecentHistory(chatId: string, limit = 6): Promise<{ role: 'use
  * - Fallback: liên hệ phụ trách hoặc zalo_tin_nhan_ho_tro
  * Trả về true nếu đã xử lý.
  */
-async function handleRegisteredTenant(
+/** Xử lý người dùng đã đăng ký (Chủ nhà/Quản lý/Khách thuê) → AI reply 
+ * Trả về true nếu đã xử lý.
+ */
+async function handleRegisteredUser(
   token: string,
   chatId: string,
   text: string,
   attachmentUrl: string | null,
   accountSelection?: string,
 ): Promise<boolean> {
-  const kt = await findKhachThueByZaloChatId(chatId);
-  if (!kt) return false;
+  const user = await findUserByZaloChatId(chatId);
+  if (!user) return false;
 
   // Lấy context DB đầy đủ + lịch sử gần đây
   const [ctxResult, history] = await Promise.all([
-    buildContextForRole(kt.id, 'khachThue').catch(() => null),
+    buildAIContext(user.id, user.vaiTro as any).catch(() => null),
     getRecentHistory(chatId),
   ]);
 
   let aiReply: string | null = null;
 
   if (ctxResult) {
-    const { systemPrompt } = ctxResult;
+    // Đưa tên người dùng vào system prompt để AI chào hỏi đích danh
+    const systemPrompt = `Bạn đang trò chuyện với ${user.ten} (${user.vaiTro}). Hãy chào hỏi đích danh nếu phù hợp.\n\n${ctxResult.systemPrompt}`;
     const historyMsgs = history.map(m => ({ role: m.role, content: m.content }));
 
     if (attachmentUrl) {
-      console.log(`[zalo-handler] [Tenant] Processing image + text for ${chatId}`);
+      console.log(`[zalo-handler] [Registered] Processing image + text for ${user.ten} (${chatId})`);
       aiReply = await askAIWithImage(systemPrompt, text, attachmentUrl, historyMsgs).catch(() => null);
     }
 
@@ -1044,8 +1051,8 @@ export async function handleZaloUpdate(update: any, token: string): Promise<void
     if (handled) return;
   }
 
-  // 4. Khách thuê đã đăng ký → AI reply (hỗ trợ ảnh)
-  const isRegistered = await handleRegisteredTenant(token, chatId, text, attachmentUrl);
+  // 4. Người dùng đã đăng ký (Chủ nhà / Quản lý / Khách thuê) → AI reply
+  const isRegistered = await handleRegisteredUser(token, chatId, text, attachmentUrl);
   if (isRegistered) return;
 
   // 5. Người lạ → thử tự nhận diện qua SĐT chưa liên kết
@@ -1110,8 +1117,8 @@ export async function handleZaloAutoReply(update: any, token = '', accountSelect
     if (handled) return;
   }
 
-  // Khách thuê đã đăng ký → AI reply (hỗ trợ ảnh)
-  const isRegistered = await handleRegisteredTenant(token, chatId, text, attachmentUrl, accountSelection);
+  // Người dùng đã đăng ký (Chủ nhà / Quản lý / Khách thuê) → AI reply
+  const isRegistered = await handleRegisteredUser(token, chatId, text, attachmentUrl, accountSelection);
   if (isRegistered) return;
 
   // Người lạ hỏi thuê phòng → AI tư vấn phòng trống
