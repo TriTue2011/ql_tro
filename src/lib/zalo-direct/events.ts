@@ -146,7 +146,7 @@ export async function handleIncomingMessage(
   const senderUid = String(raw?.uidFrom || msg?.uidFrom || "");
   if (!senderUid) return;
 
-  const isSelf = !!msg?.isSelf || (ownId && String(senderUid) === String(ownId));
+  const isSelf = !!msg?.isSelf;
 
   const displayName = raw.dName || raw.fromD || "";
   const contentRaw = raw.content || raw.msg || "";
@@ -198,15 +198,7 @@ export async function handleIncomingMessage(
   // threadId: ID hội thoại (zca-js v2 cung cấp sẵn trong msg.threadId)
   // Đối với nhóm: threadId = groupId
   // Đối với DM: threadId = đối phương (nếu là tin nhắn đến) hoặc người nhận (nếu là isSelf)
-  // Logic fallback robust: ưu tiên msg.threadId -> sau đó là idTo/toId của tin nhắn tự gửi -> cuối cùng là senderUid
-  const threadId = msg?.threadId || 
-                   (isGroupMessage ? String(raw.idTo || raw.toId || senderUid || "") : 
-                   (isSelf ? String(raw.idTo || raw.toId || raw.receiverId || raw.to_id || "") : senderUid));
-
-  if (!threadId) {
-    console.warn("[ZaloDirect] Không xác định được threadId/chatId:", JSON.stringify(msg).slice(0, 500));
-    return;
-  }
+  const threadId = msg?.threadId || (isGroupMessage ? String(raw.idTo || senderUid) : (isSelf ? String(raw.idTo) : senderUid));
 
   // chatId: Luôn dùng threadId làm định danh cuộc hội thoại chính
   const chatId = threadId;
@@ -235,53 +227,6 @@ export async function handleIncomingMessage(
       if (groupName && ownId) {
         autoMatchGroupThread(threadId, groupName, ownId).catch(() => {});
       }
-    } else {
-      // Nếu là DM, ưu tiên lấy tên từ hệ thống (Khách thuê / Người dùng)
-      try {
-        const kt = await prisma.khachThue.findFirst({
-          where: { OR: [{ zaloChatId: threadId }, { zaloChatIds: { contains: threadId } }, { pendingZaloChatId: threadId }] },
-          include: {
-            hopDong: {
-              where: { trangThai: 'hoatDong' },
-              include: { phong: true },
-              orderBy: { ngayTao: 'desc' },
-              take: 1
-            },
-            daiDienHopDong: {
-              where: { trangThai: 'hoatDong' },
-              include: { phong: true },
-              orderBy: { ngayTao: 'desc' },
-              take: 1
-            }
-          }
-        });
-
-        if (kt) {
-          const hd = kt.daiDienHopDong?.[0] || kt.hopDong?.[0];
-          const maPhong = hd?.phong?.maPhong;
-          const hoTen = kt.hoTen;
-          
-          let formattedName = hoTen;
-          const nameParts = hoTen.split(' ');
-          const lastName = nameParts[nameParts.length - 1];
-          
-          if (hoTen.toLowerCase().includes(' văn ')) {
-            formattedName = `Anh ${lastName}`;
-          } else if (hoTen.toLowerCase().includes(' thị ')) {
-            formattedName = `Chị ${lastName}`;
-          }
-
-          saveDisplayName = maPhong ? `Phòng ${maPhong} ${formattedName}` : formattedName;
-        } else {
-          const nd = await prisma.nguoiDung.findFirst({
-            where: { OR: [{ zaloChatId: threadId }, { zaloChatIds: { contains: threadId } }, { pendingZaloChatId: threadId }] },
-            select: { hoTen: true }
-          });
-          if (nd?.hoTen) saveDisplayName = nd.hoTen;
-        }
-      } catch (err) { 
-        console.error("[ZaloDirect] Error resolving system name:", err);
-      }
     }
 
     // Lưu tin nhắn vào DB (chatId = threadId cho nhóm)
@@ -289,7 +234,7 @@ export async function handleIncomingMessage(
       data: {
         chatId,
         ownId,
-        displayName: isSelf ? "Bạn" : saveDisplayName,
+        displayName: saveDisplayName,
         content,
         attachmentUrl: attachmentUrl || null,
         role: isSelf ? "owner" : "user",
