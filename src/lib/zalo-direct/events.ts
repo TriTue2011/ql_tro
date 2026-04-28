@@ -238,21 +238,50 @@ export async function handleIncomingMessage(
     } else {
       // Nếu là DM, ưu tiên lấy tên từ hệ thống (Khách thuê / Người dùng)
       try {
-        const [kt, nd] = await Promise.all([
-          prisma.khachThue.findFirst({
+        const kt = await prisma.khachThue.findFirst({
+          where: { OR: [{ zaloChatId: threadId }, { zaloChatIds: { contains: threadId } }, { pendingZaloChatId: threadId }] },
+          include: {
+            hopDong: {
+              where: { trangThai: 'hoatDong' },
+              include: { phong: true },
+              orderBy: { ngayTao: 'desc' },
+              take: 1
+            },
+            daiDienHopDong: {
+              where: { trangThai: 'hoatDong' },
+              include: { phong: true },
+              orderBy: { ngayTao: 'desc' },
+              take: 1
+            }
+          }
+        });
+
+        if (kt) {
+          const hd = kt.daiDienHopDong?.[0] || kt.hopDong?.[0];
+          const maPhong = hd?.phong?.maPhong;
+          const hoTen = kt.hoTen;
+          
+          let formattedName = hoTen;
+          const nameParts = hoTen.split(' ');
+          const lastName = nameParts[nameParts.length - 1];
+          
+          if (hoTen.toLowerCase().includes(' văn ')) {
+            formattedName = `Anh ${lastName}`;
+          } else if (hoTen.toLowerCase().includes(' thị ')) {
+            formattedName = `Chị ${lastName}`;
+          }
+
+          saveDisplayName = maPhong ? `Phòng ${maPhong} ${formattedName}` : formattedName;
+        } else {
+          const nd = await prisma.nguoiDung.findFirst({
             where: { OR: [{ zaloChatId: threadId }, { zaloChatIds: { contains: threadId } }, { pendingZaloChatId: threadId }] },
             select: { hoTen: true }
-          }),
-          prisma.nguoiDung.findFirst({
-            where: { OR: [{ zaloChatId: threadId }, { zaloChatIds: { contains: threadId } }, { pendingZaloChatId: threadId }] },
-            select: { hoTen: true }
-          })
-        ]);
-        const systemName = kt?.hoTen || nd?.hoTen;
-        if (systemName) {
-          saveDisplayName = systemName;
+          });
+          if (nd?.hoTen) saveDisplayName = nd.hoTen;
         }
-      } catch { /* ignore */ }
+      } catch (err) { 
+        console.error("[ZaloDirect] Error resolving system name:", err);
+      }
     }
 
     // Lưu tin nhắn vào DB (chatId = threadId cho nhóm)
