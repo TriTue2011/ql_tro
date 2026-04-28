@@ -185,25 +185,33 @@ async function buildKhachThueContext(userId: string): Promise<string> {
 
 async function buildOwnerContext(userId: string, role: UserRole): Promise<string> {
   let buildingIds: string[] = [];
+  console.log(`[ai-context] buildOwnerContext: userId=${userId}, role=${role}`);
 
   if (role === 'admin') {
     const all = await prisma.toaNha.findMany({ select: { id: true }, take: 50 });
     buildingIds = all.map(b => b.id);
-  } else if (role === 'chuNha' || role === 'dongChuTro') {
-    const own = await prisma.toaNha.findMany({
-      where: { chuSoHuuId: userId },
-      select: { id: true },
-    });
-    buildingIds = own.map(b => b.id);
   } else {
-    const managed = await prisma.toaNhaNguoiQuanLy.findMany({
-      where: { nguoiDungId: userId },
-      select: { toaNhaId: true },
-    });
-    buildingIds = managed.map(m => m.toaNhaId);
+    // Tìm cả tòa nhà sở hữu và tòa nhà được gán quản lý để chắc chắn không sót
+    const [own, managed] = await Promise.all([
+      prisma.toaNha.findMany({
+        where: { chuSoHuuId: userId },
+        select: { id: true },
+      }),
+      prisma.toaNhaNguoiQuanLy.findMany({
+        where: { nguoiDungId: userId },
+        select: { toaNhaId: true },
+      })
+    ]);
+    
+    buildingIds = Array.from(new Set([
+      ...own.map(b => b.id),
+      ...managed.map(m => m.toaNhaId)
+    ]));
   }
 
-  if (buildingIds.length === 0) return '(Chưa được gán tòa nhà nào)';
+  console.log(`[ai-context] Found ${buildingIds.length} buildings for user ${userId}`);
+
+  if (buildingIds.length === 0) return '(Bạn chưa có tòa nhà nào trong danh sách quản lý hoặc sở hữu)';
 
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
