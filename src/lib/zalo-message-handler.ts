@@ -533,9 +533,7 @@ async function handleRegisteredTenant(
  */
 async function isRentalDomainQuery(text: string): Promise<boolean> {
   const cleaned = text.trim();
-
-  // Quá ngắn → chắc chắn không phải hỏi thuê phòng
-  if (cleaned.length < 8) return false;
+  if (!cleaned) return false;
 
   // Nếu TOÀN là số/ký hiệu → không phải câu hỏi thuê phòng
   if (/^[\d\s+\-().]+$/.test(cleaned)) return false;
@@ -546,20 +544,12 @@ async function isRentalDomainQuery(text: string): Promise<boolean> {
       content:
         'Bạn là bộ lọc TIN NHẮN CỦA NGƯỜI LẠ cho hệ thống cho thuê phòng trọ. ' +
         'Nhiệm vụ: phân loại tin nhắn có liên quan đến việc THUÊ PHÒNG TRỌ hay không. ' +
-        '\n\nTRẢ VỀ "yes" CHỈ KHI tin nhắn RÕ RÀNG đang hỏi về: ' +
-        'còn phòng trống không, giá thuê phòng bao nhiêu, muốn xem phòng, ' +
-        'đặt cọc, diện tích phòng, tiện nghi phòng trọ, địa chỉ/vị trí nhà trọ, ' +
-        'điều kiện thuê, hỏi về phòng trọ. ' +
-        '\n\nTRẢ VỀ "no" VỚI TẤT CẢ CÁC TRƯỜNG HỢP KHÁC: ' +
-        'chào hỏi, trò chuyện xã giao ("hi", "hello", "ok", "ừ", "vâng", "dạ"), ' +
-        'câu ngắn mơ hồ không rõ ý định ("thế à", "oke", "hiểu rồi", "thế thôi", "để xem"), ' +
-        'câu không liên quan nhà trọ, bình luận chung ("đắt quá", "rẻ thế"), ' +
-        'số điện thoại đơn thuần, link URL, ảnh sticker, emoji đơn lẻ. ' +
-        '\n\nVÍ DỤ "yes": "Cho tôi hỏi còn phòng trống không ạ?", "Giá thuê bao nhiêu/tháng?", ' +
-        '"Tôi muốn thuê phòng", "Phòng có điều hòa không?", "Đặt cọc bao nhiêu?", ' +
-        '"Nhà trọ ở đâu vậy?", "Mình muốn xem phòng được không?". ' +
-        '\n\nVÍ DỤ "no": "Hi", "Ok", "Vâng", "Dạ", "Ừ", "Hehe", "Thế à", "Đắt vậy", ' +
-        '"Để em xem", "Oke bạn", "0912345678", "Lấy cái nào", "Rẻ quá", bất kỳ tin ngắn mơ hồ. ' +
+        '\n\nTRẢ VỀ "yes" KHI tin nhắn: ' +
+        '- Đang hỏi về: còn phòng không, giá thuê, xem phòng, đặt cọc, tiện nghi, vị trí... ' +
+        '- Là lời CHÀO HỎI mở đầu lịch sự (VD: "Xin chào", "Chào bạn", "Alo", "Hi shop") — để AI có thể chào lại và bắt đầu tư vấn. ' +
+        '\n\nTRẢ VỀ "no" VỚI CÁC TRƯỜNG HỢP: ' +
+        '- Câu ngắn vô nghĩa, không rõ ý định (VD: "Ok", "Vâng", "Dạ", "Ừ", "Hehe", "Thế à"). ' +
+        '- Câu không liên quan nhà trọ, link URL, ảnh sticker đơn lẻ. ' +
         '\n\nChỉ trả về đúng 1 từ: "yes" hoặc "no". Không giải thích.',
     },
     { role: 'user', content: cleaned },
