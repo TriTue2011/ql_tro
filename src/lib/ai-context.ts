@@ -523,15 +523,35 @@ const ROOM_SELECT = {
 
 /**
  * Trả về danh sách phòng đang còn trống — chỉ thông tin công khai.
- * Dùng cho AI tư vấn người lạ có nhu cầu thuê (không biết họ ở đâu).
+ * Dùng cho AI tư vấn người lạ có nhu cầu thuê.
+ * @param managerId Nếu có: chỉ lấy phòng thuộc các tòa nhà mà người này sở hữu hoặc quản lý.
  */
-export async function buildPublicRoomContext(): Promise<string> {
+export async function buildPublicRoomContext(managerId?: string): Promise<string> {
+  const where: any = { trangThai: 'trong' };
+
+  if (managerId) {
+    const [owned, managed] = await Promise.all([
+      prisma.toaNha.findMany({ where: { chuSoHuuId: managerId }, select: { id: true } }),
+      prisma.toaNhaNguoiQuanLy.findMany({ where: { nguoiDungId: managerId }, select: { toaNhaId: true } }),
+    ]);
+    const allowedIds = Array.from(new Set([
+      ...owned.map(b => b.id),
+      ...managed.map(m => m.toaNhaId),
+    ]));
+    if (allowedIds.length > 0) {
+      where.toaNhaId = { in: allowedIds };
+    } else {
+      return 'Hiện tại chưa có thông tin phòng trống cụ thể.';
+    }
+  }
+
   const rooms = await prisma.phong.findMany({
-    where: { trangThai: 'trong' },
+    where,
     take: 20,
     orderBy: [{ toaNhaId: 'asc' }, { tang: 'asc' }],
     select: ROOM_SELECT,
   });
+  if (rooms.length === 0) return 'Hiện tại chưa có thông tin phòng trống cụ thể.';
   return formatRoomsContext(rooms as Parameters<typeof formatRoomsContext>[0]);
 }
 

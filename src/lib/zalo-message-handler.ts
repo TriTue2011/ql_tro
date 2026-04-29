@@ -431,7 +431,7 @@ async function handleRegisteredUser(
 
   // Lấy context DB đầy đủ + lịch sử gần đây
   const [ctxResult, history] = await Promise.all([
-    buildAIContext(user.id, user.vaiTro as any).catch(() => null),
+    buildContextForRole(user.id, user.vaiTro as any).catch(() => null),
     getRecentHistory(chatId),
   ]);
 
@@ -628,6 +628,8 @@ async function isRentalDomainQuery(text: string): Promise<boolean> {
         'TRẢ VỀ "no" VỚI:\n' +
         '- Lời chào hỏi đơn thuần: "Xin chào", "Alo", "Hi", "Hello", "Chào bạn", "Ad ơi"\n' +
         '- Phản hồi ngắn: "Ok", "Vâng", "Dạ", "Ừ", "Hehe", "Thế à"\n' +
+        '- Hỏi về hóa đơn/thanh toán: "Tôi có hóa đơn không", "tiền tháng này"\n' +
+        '- Hỏi về sự cố/bảo trì: "điện hỏng", "nước mất", "hỏng", "sửa chữa"\n' +
         '- Nội dung không liên quan đến nhà trọ, link URL, sticker\n\n' +
         'Chỉ trả về đúng 1 từ: "yes" hoặc "no". Không giải thích.',
     },
