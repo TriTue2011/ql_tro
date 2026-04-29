@@ -251,11 +251,17 @@ function ConversationList({
                   {msg.roomInfo && (
                     <div className="flex gap-1 mt-1">
                       <Badge variant="outline" className="text-[10px] px-1 border-green-300 text-green-700">
-                        <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{msg.roomInfo.maPhong}{msg.roomInfo.tang > 0 ? ` (Tầng ${msg.roomInfo.tang})` : ''}
+                        <DoorOpen className="h-2.5 w-2.5 mr-0.5" />Phòng {msg.roomInfo.maPhong}
                       </Badge>
                     </div>
                   )}
-                  <p className="text-[10px] text-gray-400 mt-0.5 font-mono truncate">ID: {tid}</p>
+                  {msg.roomInfo ? (
+                    <p className="text-[10px] text-gray-500 mt-0.5 truncate flex items-center gap-1">
+                      <Building2 className="h-2.5 w-2.5 text-gray-400" /> {msg.roomInfo.tenToaNha}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-gray-400 mt-0.5 font-mono truncate">ID: {tid}</p>
+                  )}
                 </div>
               </div>
             </button>
@@ -802,7 +808,7 @@ function MessageThread({
               )}
               {info && (
                 <Badge variant="outline" className="text-[10px] px-1.5 border-green-300 text-green-700 bg-green-50 shrink-0">
-                  <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{info.maPhong}{info.tang > 0 ? ` (Tầng ${info.tang})` : ''}
+                  <DoorOpen className="h-2.5 w-2.5 mr-0.5" />Phòng {info.maPhong}
                 </Badge>
               )}
               {info && (
