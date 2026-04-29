@@ -202,7 +202,7 @@ async function buildOwnerContext(userId: string, role: UserRole): Promise<string
         select: { toaNhaId: true },
       })
     ]);
-    
+
     buildingIds = Array.from(new Set([
       ...own.map(b => b.id),
       ...managed.map(m => m.toaNhaId)
