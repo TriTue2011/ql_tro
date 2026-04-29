@@ -251,7 +251,7 @@ function ConversationList({
                   {msg.roomInfo && (
                     <div className="flex gap-1 mt-1">
                       <Badge variant="outline" className="text-[10px] px-1 border-green-300 text-green-700">
-                        <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{msg.roomInfo.maPhong}
+                        <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{msg.roomInfo.maPhong}{msg.roomInfo.tang > 0 ? ` (Tầng ${msg.roomInfo.tang})` : ''}
                       </Badge>
                     </div>
                   )}
@@ -802,7 +802,7 @@ function MessageThread({
               )}
               {info && (
                 <Badge variant="outline" className="text-[10px] px-1.5 border-green-300 text-green-700 bg-green-50 shrink-0">
-                  <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{info.maPhong}
+                  <DoorOpen className="h-2.5 w-2.5 mr-0.5" />{info.maPhong}{info.tang > 0 ? ` (Tầng ${info.tang})` : ''}
                 </Badge>
               )}
               {info && (
