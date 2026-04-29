@@ -54,6 +54,7 @@ function isGroup(msg: ZaloMsg): boolean {
 function senderName(msg: ZaloMsg): string {
   // Groups: displayName = group name; DMs: rawPayload.data.dName = sender name
   if (isGroup(msg)) return msg.displayName || getThreadId(msg);
+  if (msg.roomInfo?.tenKhach) return msg.roomInfo.tenKhach;
   const d = (msg.rawPayload as any)?.data;
   return d?.dName || d?.fromD || msg.displayName || 'Ẩn danh';
 }
