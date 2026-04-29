@@ -608,19 +608,28 @@ async function isRentalDomainQuery(text: string): Promise<boolean> {
   // Nếu TOÀN là số/ký hiệu → không phải câu hỏi thuê phòng
   if (/^[\d\s+\-().]+$/.test(cleaned)) return false;
 
+  // ── Blacklist cứng: chào hỏi xã giao thuần túy → im lặng ngay, không gọi AI ──
+  const socialOnlyPatterns = /^(alo+|xin chào|chào|hello+|hi+|hey+|ờ|ừ|ok|okay|vâng|dạ|đúng|haha|hehe|hihi|thế à|vậy à|oke+|👋|😊|🙂|😄)\s*[!?.]*$/i;
+  if (socialOnlyPatterns.test(cleaned)) {
+    console.log(`[isRentalDomainQuery] Blocked social greeting: "${cleaned}"`);
+    return false;
+  }
+
   const result = await askAI([
     {
       role: 'system',
       content:
-        'Bạn là bộ lọc TIN NHẮN CỦA NGƯỜI LẠ cho hệ thống cho thuê phòng trọ. ' +
-        'Nhiệm vụ: phân loại tin nhắn có liên quan đến việc THUÊ PHÒNG TRỌ hay không. ' +
-        '\n\nTRẢ VỀ "yes" KHI tin nhắn: ' +
-        '- Đang hỏi về: còn phòng không, giá thuê, xem phòng, đặt cọc, tiện nghi, vị trí... ' +
-        '- Là lời CHÀO HỎI mở đầu (VD: "Xin chào", "Chào bạn", "Alo", "Hi", "Hello", "Ad ơi"). ' +
-        '\n\nTRẢ VỀ "no" VỚI CÁC TRƯỜNG HỢP: ' +
-        '- Câu trả lời ngắn (VD: "Ok", "Vâng", "Dạ", "Ừ", "Hehe", "Thế à"). ' +
-        '- Câu không liên quan nhà trọ, link URL, ảnh sticker đơn lẻ. ' +
-        '\n\nChỉ trả về đúng 1 từ: "yes" hoặc "no". Không giải thích.',
+        'Bạn là bộ lọc tin nhắn cho hệ thống cho thuê phòng trọ. ' +
+        'Nhiệm vụ: xác định tin nhắn có liên quan đến việc THUÊ PHÒNG TRỌ hay không.\n\n' +
+        'TRẢ VỀ "yes" KHI tin nhắn THỰC SỰ hỏi về:\n' +
+        '- Còn phòng không, giá thuê bao nhiêu, xem phòng, đặt cọc\n' +
+        '- Tiện nghi, vị trí, diện tích, khu vực muốn thuê\n' +
+        '- Bất kỳ câu hỏi cụ thể nào về việc tìm/thuê phòng\n\n' +
+        'TRẢ VỀ "no" VỚI:\n' +
+        '- Lời chào hỏi đơn thuần: "Xin chào", "Alo", "Hi", "Hello", "Chào bạn", "Ad ơi"\n' +
+        '- Phản hồi ngắn: "Ok", "Vâng", "Dạ", "Ừ", "Hehe", "Thế à"\n' +
+        '- Nội dung không liên quan đến nhà trọ, link URL, sticker\n\n' +
+        'Chỉ trả về đúng 1 từ: "yes" hoặc "no". Không giải thích.',
     },
     { role: 'user', content: cleaned },
   ], 10).catch(() => null);
