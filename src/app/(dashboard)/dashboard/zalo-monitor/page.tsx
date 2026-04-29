@@ -751,7 +751,11 @@ function MessageThread({
   const info = msgs.find(m => m.roomInfo)?.roomInfo;
   const firstMsg = msgs.length ? msgs[0] : null;
   const group = firstMsg ? isGroup(firstMsg) : false;
-  const resolvedName = customGroupName || (firstMsg ? senderName(firstMsg) : chatId);
+  
+  // Tìm tin nhắn từ khách (role === 'user') để lấy đúng tên, tránh lấy nhầm tên bot
+  const userMsgForName = msgs.slice().reverse().find(m => m.role === 'user') || firstMsg;
+  const resolvedName = customGroupName || (userMsgForName ? senderName(userMsgForName) : chatId);
+  
   const tid = firstMsg ? getThreadId(firstMsg) : chatId;
   const threadType: 0 | 1 = group ? 1 : 0;
 

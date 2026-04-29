@@ -157,6 +157,17 @@ export async function GET(request: NextRequest) {
                WHERE "khoa" = 'zalo_group_name_' || ("rawPayload"->>'threadId')
                LIMIT 1)
             END,
+            (
+              SELECT zm2."displayName"
+              FROM "ZaloMessage" zm2
+              WHERE COALESCE(zm2."rawPayload"->>'threadId', zm2."chatId") = COALESCE("ZaloMessage"."rawPayload"->>'threadId', "ZaloMessage"."chatId")
+                AND zm2."ownId" = "ZaloMessage"."ownId"
+                AND zm2."role" = 'user'
+                AND zm2."displayName" IS NOT NULL
+                AND zm2."displayName" != ''
+              ORDER BY zm2."createdAt" DESC
+              LIMIT 1
+            ),
             "displayName"
           ) AS "displayName",
           "content", "attachmentUrl", "role", "createdAt", "rawPayload", "eventName"
