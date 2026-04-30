@@ -17,6 +17,7 @@ model NguoiDung {
   matKhau           String
   soDienThoai       String?   @unique
   vaiTro            String    @default("nhanVien") // admin | chuNha | dongChuTro | quanLy | nhanVien
+  chucVu            String? // Chức vụ nghiệp vụ con cho quanLy | nhanVien
   anhDaiDien        String?
   trangThai         String    @default("hoatDong") // hoatDong | khoa
   zaloChatId        String? // Zalo bot chat_id đã xác thực (tài khoản bot mặc định)

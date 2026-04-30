@@ -29,7 +29,8 @@ export interface NguoiDung {
   email: string;
   matKhau: string;
   soDienThoai: string;
-  vaiTro: 'admin' | 'chuNha' | 'quanLy' | 'nhanVien';
+  vaiTro: 'admin' | 'chuNha' | 'dongChuTro' | 'quanLy' | 'nhanVien';
+  chucVu?: string | null;
   anhDaiDien?: string;
   trangThai: 'hoatDong' | 'khoa';
   ngayTao: Date;
@@ -281,7 +282,8 @@ export interface RegisterForm {
   email: string;
   matKhau: string;
   soDienThoai: string;
-  vaiTro: 'admin' | 'chuNha' | 'quanLy' | 'nhanVien';
+  vaiTro: 'admin' | 'chuNha' | 'dongChuTro' | 'quanLy' | 'nhanVien';
+  chucVu?: string | null;
 }
 
 // Dashboard stats

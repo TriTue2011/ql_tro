@@ -30,7 +30,8 @@ export interface NguoiDungData {
   ten: string;
   email: string;
   soDienThoai?: string;
-  vaiTro: 'admin' | 'chuNha' | 'nhanVien';
+  vaiTro: 'admin' | 'chuNha' | 'dongChuTro' | 'quanLy' | 'nhanVien';
+  chucVu?: string | null;
   anhDaiDien?: string;
   trangThai: 'hoatDong' | 'khoa';
   zaloChatId?: string;
@@ -45,14 +46,16 @@ export interface CreateNguoiDungInput {
   email?: string | null;
   matKhau: string;
   soDienThoai?: string | null;
-  vaiTro?: 'admin' | 'chuNha' | 'nhanVien';
+  vaiTro?: 'admin' | 'chuNha' | 'dongChuTro' | 'quanLy' | 'nhanVien';
+  chucVu?: string | null;
   anhDaiDien?: string;
 }
 
 export interface UpdateNguoiDungInput {
   ten?: string;
   soDienThoai?: string | null;
-  vaiTro?: 'admin' | 'chuNha' | 'nhanVien';
+  vaiTro?: 'admin' | 'chuNha' | 'dongChuTro' | 'quanLy' | 'nhanVien';
+  chucVu?: string | null;
   anhDaiDien?: string;
   trangThai?: 'hoatDong' | 'khoa';
   matKhau?: string;

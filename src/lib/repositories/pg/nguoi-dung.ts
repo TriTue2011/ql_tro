@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import type { NguoiDung } from '@prisma/client';
 import type {
   NguoiDungData,
   CreateNguoiDungInput,
@@ -6,14 +7,16 @@ import type {
   QueryOptions,
   PaginatedResult,
 } from '../types';
+import { normalizeChucVuForRole } from '@/lib/chuc-vu';
 
-function normalize(raw: any): NguoiDungData {
+function normalize(raw: NguoiDung): NguoiDungData {
   return {
     id: raw.id,
     ten: raw.ten,
-    email: raw.email,
+    email: raw.email ?? '',
     soDienThoai: raw.soDienThoai ?? undefined,
     vaiTro: raw.vaiTro as NguoiDungData['vaiTro'],
+    chucVu: raw.chucVu ?? null,
     anhDaiDien: raw.anhDaiDien ?? undefined,
     trangThai: raw.trangThai as NguoiDungData['trangThai'],
     zaloChatId: raw.zaloChatId ?? undefined,
@@ -72,6 +75,7 @@ export default class NguoiDungRepository {
         matKhau: data.matKhau,
         soDienThoai: data.soDienThoai,
         vaiTro: data.vaiTro ?? 'nhanVien',
+        chucVu: normalizeChucVuForRole(data.vaiTro ?? 'nhanVien', data.chucVu),
         anhDaiDien: data.anhDaiDien,
       },
     });
@@ -83,12 +87,20 @@ export default class NguoiDungRepository {
     data: UpdateNguoiDungInput
   ): Promise<NguoiDungData | null> {
     try {
+      const roleForChucVu = data.vaiTro ?? (
+        data.chucVu !== undefined
+          ? (await prisma.nguoiDung.findUnique({ where: { id }, select: { vaiTro: true } }))?.vaiTro
+          : undefined
+      );
       const raw = await prisma.nguoiDung.update({
         where: { id },
         data: {
           ...(data.ten !== undefined && { ten: data.ten }),
           ...(data.soDienThoai !== undefined && { soDienThoai: data.soDienThoai }),
           ...(data.vaiTro !== undefined && { vaiTro: data.vaiTro }),
+          ...((data.vaiTro !== undefined || data.chucVu !== undefined) && {
+            chucVu: normalizeChucVuForRole(roleForChucVu ?? 'nhanVien', data.chucVu),
+          }),
           ...(data.anhDaiDien !== undefined && { anhDaiDien: data.anhDaiDien }),
           ...(data.trangThai !== undefined && { trangThai: data.trangThai }),
           ...(data.matKhau !== undefined && { matKhau: data.matKhau }),

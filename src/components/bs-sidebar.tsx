@@ -80,6 +80,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         icon: 'bi-shield-lock',
         items: [
           { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
+          { label: 'Phân quyền', href: '/dashboard/phan-quyen' },
           { label: 'Lưu trữ MinIO', href: '/dashboard/luu-tru' },
         ],
       },
@@ -162,6 +163,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         { label: 'Phòng', href: '/dashboard/phong' },
         { label: 'Khách thuê', href: '/dashboard/khach-thue' },
         ...((isChuNha || isDongChuTro || isQuanLy) ? [{ label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' }] : []),
+        ...((isChuNha || isQuanLy) ? [{ label: 'Phân quyền', href: '/dashboard/phan-quyen' }] : []),
       ],
     },
     {
@@ -220,7 +222,6 @@ function roleLabel(role: Role): string {
 
 export function BsSidebar({
   collapsed,
-  onToggle,
   mobileOpen,
   onMobileClose,
 }: {
@@ -231,7 +232,6 @@ export function BsSidebar({
 }) {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   const role: Role = session?.user?.role ?? 'nhanVien';
   const [hiddenPaths, setHiddenPaths] = useState<Set<string>>(new Set());
@@ -272,17 +272,6 @@ export function BsSidebar({
     ...g,
     items: g.items.filter(it => !hiddenPaths.has(it.href)),
   })).filter(g => g.items.length > 0);
-
-  // Auto-open group containing current path
-  useEffect(() => {
-    for (const g of navGroups) {
-      if (g.items.some((it) => pathname.startsWith(it.href))) {
-        setOpenGroup(g.label);
-        break;
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
 
   const userName = session?.user?.name ?? 'User';
 
@@ -375,6 +364,7 @@ function getItemIcon(label: string): string {
     'Thông báo':          'bi-bell',
     'Zalo':               'bi-chat-dots',
     'Quản lý tài khoản': 'bi-person-badge',
+    'Phân quyền':        'bi-shield-check',
     'Yêu cầu duyệt':    'bi-check2-circle',
     'Hồ sơ':             'bi-person-circle',
     'Cài đặt':           'bi-sliders',

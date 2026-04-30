@@ -6,6 +6,7 @@ import { hash } from 'bcryptjs';
 import { autoLinkZaloChatIds, notifyTenantsOfNewManager } from '@/lib/zalo-auto-link';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/sanitize';
+import { validateChucVuForRole } from '@/lib/chuc-vu';
 
 const createUserSchema = z.object({
   name: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
@@ -13,6 +14,7 @@ const createUserSchema = z.object({
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').max(128).optional().or(z.literal('')),
   phone: z.string().regex(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ (10-11 chữ số)').optional().or(z.literal('')),
   role: z.enum(['admin', 'chuNha', 'dongChuTro', 'quanLy', 'nhanVien']),
+  chucVu: z.string().optional().nullable(),
   toaNhaId: z.string().optional().nullable(),
 }).refine(
   data => (data.phone && data.phone.trim() !== '') || (data.email && data.email.trim() !== ''),
@@ -35,6 +37,7 @@ export async function GET() {
       email: true,
       soDienThoai: true,
       vaiTro: true,
+      chucVu: true,
       anhDaiDien: true,
       trangThai: true,
       zaloChatId: true,
@@ -127,12 +130,25 @@ export async function GET() {
       const nguoiTaoId = nguoiTaoIdByUser.get(u.id) ?? null;
       // toaNhaIds: tất cả tòa nhà được gán qua ToaNhaNguoiQuanLy (dùng cho multi-select admin)
       const toaNhaIds = u.toaNhaQuanLy.map(q => q.toaNha.id);
+      const quyenTheoToaNha = Object.fromEntries(
+        u.toaNhaQuanLy.map(q => [
+          q.toaNha.id,
+          {
+            quyenKichHoatTaiKhoan: q.quyenKichHoatTaiKhoan,
+            quyenHopDong: q.quyenHopDong,
+            quyenHoaDon: q.quyenHoaDon,
+            quyenThanhToan: q.quyenThanhToan,
+            quyenSuCo: q.quyenSuCo,
+          },
+        ]),
+      );
       return {
         id: u.id,
         ten: u.ten,
         email: u.email,
         soDienThoai: u.soDienThoai,
         vaiTro: u.vaiTro,
+        chucVu: u.chucVu,
         anhDaiDien: u.anhDaiDien,
         trangThai: u.trangThai,
         zaloChatId: u.zaloChatId,
@@ -146,6 +162,7 @@ export async function GET() {
         toaNhaId: assignedBuilding?.id ?? null,
         toaNhaTen: assignedBuilding?.tenToaNha ?? null,
         toaNhaIds,
+        quyenTheoToaNha,
         quyenKichHoatTaiKhoan: managedEntry?.quyenKichHoatTaiKhoan ?? false,
         quyenHopDong: managedEntry?.quyenHopDong ?? false,
         quyenHoaDon: managedEntry?.quyenHoaDon ?? false,
@@ -180,13 +197,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, email, password, phone, role, toaNhaId } = parsed.data;
+    const { name, email, password, phone, role, chucVu, toaNhaId } = parsed.data;
   // toaNhaIds từ body (không qua zod schema vì không dùng cho chuNha)
   const toaNhaIds: string[] = Array.isArray(body.toaNhaIds) ? body.toaNhaIds : (toaNhaId ? [toaNhaId] : []);
 
     // chuNha/dongChuTro chỉ được tạo dongChuTro/quanLy/nhanVien
     if (callerRole !== 'admin' && ['admin', 'chuNha'].includes(role)) {
       return NextResponse.json({ error: 'Không có quyền tạo tài khoản với vai trò này' }, { status: 403 });
+    }
+
+    const chucVuResult = validateChucVuForRole(role, chucVu);
+    if (!chucVuResult.ok) {
+      return NextResponse.json({ error: chucVuResult.error }, { status: 400 });
     }
 
     // Giới hạn số lượng vai trò trên mỗi tòa nhà (đọc từ cài đặt DB)
@@ -240,6 +262,7 @@ export async function POST(request: NextRequest) {
         matKhau: hashedPassword,
         soDienThoai: cleanPhone,
         vaiTro: role,
+        chucVu: chucVuResult.chucVu,
         ...(body.zaloViTri ? { zaloViTri: body.zaloViTri } : {}),
       },
     });

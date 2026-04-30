@@ -62,6 +62,10 @@ if (!globalForPrisma.migrationDone) {
   prisma.$executeRawUnsafe(`ALTER TABLE "CaiDatToaNha" ADD COLUMN IF NOT EXISTS "haAllowedThreads" TEXT`).catch(() => {});
   prisma.$executeRawUnsafe(`ALTER TABLE "NguoiDung" ADD COLUMN IF NOT EXISTS "nguoiTaoId" TEXT`).catch(() => {});
   prisma.$executeRawUnsafe(`ALTER TABLE "KhachThue" ADD COLUMN IF NOT EXISTS "nguoiTaoId" TEXT`).catch(() => {});
+  prisma.$executeRawUnsafe(`ALTER TABLE "NguoiDung" ADD COLUMN IF NOT EXISTS "chucVu" TEXT`).catch(() => {});
+  prisma.$executeRawUnsafe(`UPDATE "NguoiDung" SET "chucVu" = 'quanLyKiemToanBo' WHERE "vaiTro" = 'quanLy' AND ("chucVu" IS NULL OR "chucVu" = '')`).catch(() => {});
+  prisma.$executeRawUnsafe(`UPDATE "NguoiDung" SET "chucVu" = 'nhanVienKiemToanBo' WHERE "vaiTro" = 'nhanVien' AND ("chucVu" IS NULL OR "chucVu" = '')`).catch(() => {});
+  prisma.$executeRawUnsafe(`UPDATE "NguoiDung" SET "chucVu" = NULL WHERE "vaiTro" NOT IN ('quanLy', 'nhanVien')`).catch(() => {});
 }
 
 export default prisma;

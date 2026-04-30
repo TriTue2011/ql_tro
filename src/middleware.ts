@@ -180,9 +180,10 @@ export default async function middleware(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Đồng chủ trọ không được vào: Quản lý TK, Cài đặt (Zalo/Zalo Monitor đã được mở)
+    // Đồng chủ trọ không được vào: Quản lý TK, Phân quyền, Cài đặt (Zalo/Zalo Monitor đã được mở)
     const DONGCHUTRO_BLOCKED_PATHS = [
       '/dashboard/quan-ly-tai-khoan',
+      '/dashboard/phan-quyen',
       '/dashboard/cai-dat',
     ];
     if (role === 'dongChuTro' && DONGCHUTRO_BLOCKED_PATHS.some(p => pathname.startsWith(p))) {

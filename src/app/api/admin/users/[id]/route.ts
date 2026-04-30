@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { notifyTenantsOfNewManager } from '@/lib/zalo-auto-link';
+import { validateChucVuForRole } from '@/lib/chuc-vu';
 
 async function getMyBuildingIds(userId: string) {
   const rows = await prisma.toaNha.findMany({
@@ -31,7 +32,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, role, isActive, zaloChatId, zaloChatIds, toaNhaId, toaNhaIds, zaloViTri } = body;
+    const { name, phone, role, chucVu, isActive, zaloChatId, zaloChatIds, toaNhaId, toaNhaIds, zaloViTri } = body;
 
     // chuNha/dongChuTro: chỉ được sửa dongChuTro/quanLy/nhanVien thuộc tòa nhà của mình
     if (callerRole !== 'admin') {
@@ -51,10 +52,17 @@ export async function PUT(
         return NextResponse.json({ error: 'Không thể đặt vai trò này' }, { status: 403 });
       }
 
+      const nextRole = role ?? targetUser.vaiTro;
+      const chucVuResult = validateChucVuForRole(nextRole, chucVu);
+      if (!chucVuResult.ok) {
+        return NextResponse.json({ error: chucVuResult.error }, { status: 400 });
+      }
+
       const updateData: Record<string, unknown> = {};
       if (name) updateData.ten = name;
       if (phone !== undefined) updateData.soDienThoai = phone || null;
       if (role) updateData.vaiTro = role;
+      if (role !== undefined || chucVu !== undefined) updateData.chucVu = chucVuResult.chucVu;
       if (isActive !== undefined) updateData.trangThai = isActive ? 'hoatDong' : 'khoa';
       if (Array.isArray(zaloChatIds)) {
         updateData.zaloChatIds = zaloChatIds;
@@ -98,12 +106,23 @@ export async function PUT(
     }
 
     // Admin: full update
+    const currentUser = await prisma.nguoiDung.findUnique({ where: { id }, select: { vaiTro: true } });
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Tài khoản không tồn tại' }, { status: 404 });
+    }
+    const nextRole = role ?? currentUser.vaiTro;
+    const chucVuResult = validateChucVuForRole(nextRole, chucVu);
+    if (!chucVuResult.ok) {
+      return NextResponse.json({ error: chucVuResult.error }, { status: 400 });
+    }
+
     const updateData: Record<string, unknown> = {
       ten: name,
       soDienThoai: phone || null,
       vaiTro: role,
       trangThai: isActive ? 'hoatDong' : 'khoa',
     };
+    if (role !== undefined || chucVu !== undefined) updateData.chucVu = chucVuResult.chucVu;
     if (Array.isArray(zaloChatIds)) {
       updateData.zaloChatIds = zaloChatIds;
       if (zaloChatIds.length > 0) updateData.zaloChatId = zaloChatIds[0].threadId || zaloChatIds[0].userId || null;
@@ -155,12 +174,13 @@ export async function PUT(
     }
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating user:', error);
-    if (error?.code === 'P2002') {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
       return NextResponse.json({ error: 'Số điện thoại đã được sử dụng' }, { status: 400 });
     }
-    return NextResponse.json({ error: error?.message ?? 'Internal server error' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
