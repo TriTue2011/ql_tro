@@ -4,13 +4,18 @@
  *
  * JSON structure in CaiDatToaNha.zaloQuyenTinhNang:
  * {
- *   admin:  { slotKey: {features}, ... },  // Admin sets ceiling
- *   chuNha: { slotKey: {features}, ... },  // ChuNha restricts within admin's ceiling
- *   quanLy: { slotKey: {features}, ... },  // QuanLy restricts within chuNha's effective
+ *   admin:  { slotKey: {features}, ... },  // Admin sets ceiling per position (chức vụ)
+ *   chuNha: { slotKey: {features}, ... },  // ChuNha restricts per-person within admin's ceiling
+ *   quanLy: { slotKey: {features}, ... },  // QuanLy restricts per-person within chuNha's effective
  * }
  *
- * Slot key format: "role" (when limit=1) or "role_N" (when limit>1)
- * Effective = admin AND chuNha AND quanLy
+ * Slot key format:
+ *   - Position level: "chucVu" (e.g., "giamDoc", "keToanTruong") — used by admin for ceiling
+ *   - Person level:   "chucVu__userId" (e.g., "giamDoc__abc123") — used by chuNha/quanLy per-person
+ *
+ * Effective calculation:
+ *   - For position-level slots: admin sets the ceiling
+ *   - For person-level slots: effective = admin[position] AND chuNha[person] AND quanLy[person]
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -52,7 +57,9 @@ export async function GET(req: NextRequest) {
   const chuNhaLevel = data?.chuNha || {};
   const quanLyLevel = data?.quanLy || {};
 
-  // Build effective: admin AND chuNha AND quanLy
+  // Build effective permissions
+  // For position-level slots (admin ceiling): just admin value
+  // For person-level slots: admin[position] AND chuNha[person] AND (quanLy[person] if applicable)
   const allKeys = new Set([
     ...Object.keys(adminLevel),
     ...Object.keys(chuNhaLevel),
@@ -61,20 +68,25 @@ export async function GET(req: NextRequest) {
   const effective: Record<string, Record<ZaloFeature, boolean>> = {};
   for (const key of allKeys) {
     effective[key] = {} as any;
+    
+    // Determine the position key for this slot
+    let positionKey = key;
+    if (key.includes('__')) {
+      positionKey = key.split('__')[0]; // "giamDoc__userId" → "giamDoc"
+    }
+    
     for (const f of ZALO_FEATURES) {
-      const aVal = adminLevel[key]?.[f] ?? true;
-      // chuNha slots: only admin level applies
-      if (key === 'chuNha' || key.startsWith('chuNha_')) {
+      // Admin ceiling is always based on the position key
+      const aVal = adminLevel[positionKey]?.[f] ?? true;
+      
+      if (!key.includes('__')) {
+        // Position-level slot: only admin ceiling applies
         effective[key][f] = aVal;
       } else {
+        // Person-level slot: admin[position] AND chuNha[person] AND (quanLy[person] if exists)
         const cVal = chuNhaLevel[key]?.[f] ?? true;
-        // nhanVien slots: also apply quanLy level
-        if (key === 'nhanVien' || key.startsWith('nhanVien_')) {
-          const qVal = quanLyLevel[key]?.[f] ?? true;
-          effective[key][f] = aVal && cVal && qVal;
-        } else {
-          effective[key][f] = aVal && cVal;
-        }
+        const qVal = quanLyLevel[key]?.[f] ?? true;
+        effective[key][f] = aVal && cVal && qVal;
       }
     }
   }
@@ -140,14 +152,24 @@ export async function PUT(req: NextRequest) {
     if (typeof featureObj !== 'object' || !featureObj) continue;
 
     updated[level][slotKey] = { ...(updated[level][slotKey] || {}) };
+    
+    // Determine the position key for ceiling checks
+    let positionKey = slotKey;
+    if (slotKey.includes('__')) {
+      positionKey = slotKey.split('__')[0];
+    }
+    
     for (const f of ZALO_FEATURES) {
       if (f in (featureObj as any)) {
         let val = !!(featureObj as any)[f];
 
         // Cannot enable what higher level disabled
-        if (level === 'chuNha' && val && updated.admin?.[slotKey]?.[f] === false) val = false;
+        if (level === 'chuNha' && val) {
+          // Check admin ceiling by position key
+          if (updated.admin?.[positionKey]?.[f] === false) val = false;
+        }
         if (level === 'quanLy' && val) {
-          const adminVal = updated.admin?.[slotKey]?.[f] ?? true;
+          const adminVal = updated.admin?.[positionKey]?.[f] ?? true;
           const chuNhaVal = updated.chuNha?.[slotKey]?.[f] ?? true;
           if (!adminVal || !chuNhaVal) val = false;
         }

@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { CHUC_VU_QUAN_LY, CHUC_VU_NHAN_VIEN, getChucVuLabel } from '@/lib/chuc-vu';
+import { CHUC_VU_QUAN_LY, CHUC_VU_NHAN_VIEN, getChucVuLabel, getChucVuOptionsForRole } from '@/lib/chuc-vu';
 import {
   BuildingSelector,
   PageHeader,
@@ -33,6 +33,7 @@ import {
 } from '@/components/dashboard';
 
 type RoleKey = 'chuNha' | 'dongChuTro' | 'quanLy' | 'nhanVien';
+type ChucVuValue = (typeof CHUC_VU_QUAN_LY)[number]['value'] | (typeof CHUC_VU_NHAN_VIEN)[number]['value'];
 type LevelKey = 'admin' | 'chuNha' | 'quanLy';
 type BusinessPermissionKey =
   | 'quyenHopDong'
@@ -84,6 +85,10 @@ interface User {
 
 type ZaloPermissionMap = Record<string, Record<ZaloFeatureKey, boolean>>;
 type ZaloPermsByLevel = Record<LevelKey, ZaloPermissionMap>;
+
+// Slot key format:
+//   For admin level: "chucVu" (e.g., "giamDoc", "keToanTruong")
+//   For chuNha/quanLy level: "chucVu" (position ceiling) or "chucVu__userId" (per-person)
 
 const ROLE_LABELS: Record<RoleKey, string> = {
   chuNha: 'Chủ trọ',
@@ -160,6 +165,17 @@ const DIRECT_MANAGE_TARGETS: Record<string, RoleKey[]> = {
   chuNha: ['dongChuTro', 'quanLy'],
 };
 
+// All positions that can have Zalo permissions, in display order
+const ALL_ZALO_POSITIONS = [
+  ...CHUC_VU_QUAN_LY,
+  ...CHUC_VU_NHAN_VIEN,
+] as const;
+
+// Map position value → role key
+const POSITION_TO_ROLE: Record<string, RoleKey> = {};
+for (const cv of CHUC_VU_QUAN_LY) POSITION_TO_ROLE[cv.value] = 'quanLy';
+for (const cv of CHUC_VU_NHAN_VIEN) POSITION_TO_ROLE[cv.value] = 'nhanVien';
+
 const ROLE_TARGETS_BY_LEVEL: Record<LevelKey, RoleKey[]> = {
   admin: ['chuNha', 'dongChuTro', 'quanLy', 'nhanVien'],
   chuNha: ['dongChuTro', 'quanLy', 'nhanVien'],
@@ -208,7 +224,8 @@ export default function PhanQuyenPage() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState('');
-  const [selectedZaloRole, setSelectedZaloRole] = useState<RoleKey>('quanLy');
+  const [selectedZaloPosition, setSelectedZaloPosition] = useState<string>('');
+  const [expandedPosition, setExpandedPosition] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [globalLimits, setGlobalLimits] = useState<Record<RoleKey, number>>(DEFAULT_ROLE_LIMITS);
   const [perBuildingLimits, setPerBuildingLimits] = useState<Record<string, Partial<Record<RoleKey, number>>>>({});
@@ -234,12 +251,10 @@ export default function PhanQuyenPage() {
   }, [selectedBuildingId]);
 
   useEffect(() => {
-    const allowedTargets = ROLE_TARGETS_BY_LEVEL[level];
-    if (!allowedTargets.includes(selectedZaloRole)) {
-      const firstTarget = allowedTargets[0];
-      if (firstTarget) setSelectedZaloRole(firstTarget);
-    }
-  }, [level, selectedZaloRole]);
+    // Reset selected position when level changes
+    setSelectedZaloPosition('');
+    setExpandedPosition(null);
+  }, [level]);
 
   const selectedBuilding = buildings.find(building => building.id === selectedBuildingId) ?? null;
   const selectedLimits = perBuildingLimits[selectedBuildingId] ?? {};
@@ -425,21 +440,46 @@ export default function PhanQuyenPage() {
     }
   }
 
-  function getSlotKeys(targetRole: RoleKey) {
-    const limit = selectedLimits[targetRole] ?? globalLimits[targetRole] ?? 0;
-    if (limit <= 1) return [targetRole];
-    return Array.from({ length: limit }, (_, i) => `${targetRole}_${i + 1}`);
+  /** Get all positions visible to the current level, grouped by role */
+  function getVisiblePositions() {
+    const allowedRoles = ROLE_TARGETS_BY_LEVEL[level];
+    const positions: Array<{ value: string; label: string; role: RoleKey }> = [];
+    for (const cv of ALL_ZALO_POSITIONS) {
+      const role = POSITION_TO_ROLE[cv.value];
+      if (role && allowedRoles.includes(role)) {
+        positions.push({ value: cv.value, label: cv.label, role });
+      }
+    }
+    return positions;
   }
 
-  function getSlotLabel(slotKey: string) {
-    const [roleKey, slot] = slotKey.split('_') as [RoleKey, string | undefined];
-    if (!slot) return ROLE_LABELS[roleKey] ?? slotKey;
-    const assigned = users.find(user => {
-      if (getUserRole(user) !== roleKey) return false;
-      if (!(user.toaNhaIds ?? []).includes(selectedBuildingId)) return false;
-      return user.zaloViTri?.[selectedBuildingId] === Number(slot);
+  /** Get users in a given position who are assigned to the selected building */
+  function getUsersInPosition(chucVu: string) {
+    return users.filter(u => {
+      if (u.chucVu !== chucVu) return false;
+      if (!(u.toaNhaIds ?? []).includes(selectedBuildingId)) return false;
+      const role = getUserRole(u) as RoleKey;
+      const allowedRoles = ROLE_TARGETS_BY_LEVEL[level];
+      return allowedRoles.includes(role);
     });
-    return `${ROLE_LABELS[roleKey] ?? roleKey} ${slot}${assigned?.ten ? ` - ${assigned.ten}` : ''}`;
+  }
+
+  /** Build slot key for a position (admin/chuNha level) or person (chuNha/quanLy level) */
+  function buildSlotKey(chucVu: string, userId?: string): string {
+    if (userId) return `${chucVu}__${userId}`;
+    return chucVu;
+  }
+
+  function getSlotLabel(slotKey: string): string {
+    // Person-level slot: "chucVu__userId"
+    if (slotKey.includes('__')) {
+      const [chucVu, userId] = slotKey.split('__');
+      const user = users.find(u => u.id === userId);
+      const chucVuLabel = getChucVuLabel(chucVu);
+      return user ? `${chucVuLabel} - ${user.ten || 'Không tên'}` : chucVuLabel;
+    }
+    // Position-level slot: just "chucVu"
+    return getChucVuLabel(slotKey) || slotKey;
   }
 
   function toggleZaloPermission(slotKey: string, featureKey: ZaloFeatureKey, value: boolean) {
@@ -456,23 +496,49 @@ export default function PhanQuyenPage() {
     });
   }
 
-  function isZaloFeatureVisible(featureKey: ZaloFeatureKey) {
+  function isZaloFeatureVisible(featureKey: ZaloFeatureKey, slotKey: string) {
     if (featureKey !== 'quanLyQuyen') return true;
-    return (DIRECT_MANAGE_TARGETS[level] ?? []).includes(selectedZaloRole);
+    // Only show "Quản lý quyền" for position-level slots (not person-level)
+    if (slotKey.includes('__')) return false;
+    return (DIRECT_MANAGE_TARGETS[level] ?? []).length > 0;
   }
 
   function getEffectiveZaloChecked(slotKey: string, featureKey: ZaloFeatureKey) {
-    const adminVal = zaloPerms.admin?.[slotKey]?.[featureKey] ?? true;
-    const chuNhaVal = zaloPerms.chuNha?.[slotKey]?.[featureKey] ?? true;
-    const currentVal = zaloPerms[level]?.[slotKey]?.[featureKey] ?? true;
-    if (level === 'admin') return currentVal;
-    if (level === 'chuNha') return adminVal ? currentVal : false;
-    return adminVal && chuNhaVal ? currentVal : false;
+    // For person-level slots ("chucVu__userId"), check the parent position ceiling first
+    let positionSlot = slotKey;
+    if (slotKey.includes('__')) {
+      positionSlot = slotKey.split('__')[0];
+    }
+    
+    const adminVal = zaloPerms.admin?.[positionSlot]?.[featureKey] ?? true;
+    const chuNhaVal = zaloPerms.chuNha?.[positionSlot]?.[featureKey] ?? true;
+    
+    if (level === 'admin') {
+      // Admin sets position ceiling directly
+      const currentVal = zaloPerms.admin?.[slotKey]?.[featureKey] ?? true;
+      return currentVal;
+    }
+    
+    if (level === 'chuNha') {
+      // ChuNha sets per-person within admin's position ceiling
+      if (!adminVal) return false;
+      const currentVal = zaloPerms.chuNha?.[slotKey]?.[featureKey] ?? true;
+      return currentVal;
+    }
+    
+    // quanLy: sets per-person within admin AND chuNha ceiling
+    if (!adminVal || !chuNhaVal) return false;
+    const currentVal = zaloPerms.quanLy?.[slotKey]?.[featureKey] ?? true;
+    return currentVal;
   }
 
   function isDisabledByHigherLevel(slotKey: string, featureKey: ZaloFeatureKey) {
-    const adminVal = zaloPerms.admin?.[slotKey]?.[featureKey] ?? true;
-    const chuNhaVal = zaloPerms.chuNha?.[slotKey]?.[featureKey] ?? true;
+    let positionSlot = slotKey;
+    if (slotKey.includes('__')) {
+      positionSlot = slotKey.split('__')[0];
+    }
+    const adminVal = zaloPerms.admin?.[positionSlot]?.[featureKey] ?? true;
+    const chuNhaVal = zaloPerms.chuNha?.[positionSlot]?.[featureKey] ?? true;
     if (level === 'chuNha') return !adminVal;
     if (level === 'quanLy') return !adminVal || !chuNhaVal;
     return false;
@@ -733,22 +799,12 @@ export default function PhanQuyenPage() {
             <div>
               <h2 className="text-base font-semibold text-gray-900">Quyền tính năng Zalo</h2>
               <p className="text-xs text-gray-500">
-                Quyền Zalo có 3 tầng: admin đặt trần, chủ trọ hạn chế thêm, quản lý chỉ được hạn chế cấp nhân viên.
+                {level === 'admin'
+                  ? 'Admin đặt trần quyền Zalo theo chức vụ. Chủ trọ sẽ hạn chế thêm theo từng người.'
+                  : level === 'chuNha'
+                    ? 'Chủ trọ quản lý quyền Zalo theo từng người trong mỗi chức vụ. Click chức vụ để xem danh sách.'
+                    : 'Quản lý quản lý quyền Zalo cho nhân viên theo từng người.'}
               </p>
-            </div>
-            <div className="w-full sm:w-64">
-              <Select value={selectedZaloRole} onValueChange={(value) => setSelectedZaloRole(value as RoleKey)}>
-                <SelectTrigger className="rounded-full border-2 border-gray-200 bg-white shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-200 data-[state=open]:border-blue-400 data-[state=open]:shadow-md">
-                  <SelectValue placeholder="Chọn vai trò" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLE_TARGETS_BY_LEVEL[level].map(target => (
-                    <SelectItem key={target} value={target}>
-                      {ROLE_LABELS[target]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
@@ -760,76 +816,109 @@ export default function PhanQuyenPage() {
 
           <div className="p-4">
             <div className="flex flex-col lg:flex-row gap-4">
-              {/* Left column: slots grouped by role */}
+              {/* Left column: positions grouped by role */}
               <div className="w-full lg:w-80 shrink-0 space-y-3">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 px-1">
-                  Chọn slot để cấu hình
+                  {level === 'admin' ? 'Chọn chức vụ để đặt trần' : 'Chọn chức vụ để xem danh sách'}
                 </p>
                 {(() => {
-                  const slotKeys = getSlotKeys(selectedZaloRole);
-                  // Group slots: single slot (roleKey) vs numbered slots (roleKey_N)
-                  const singleSlots = slotKeys.filter(s => !s.includes('_'));
-                  const numberedSlots = slotKeys.filter(s => s.includes('_'));
+                  const positions = getVisiblePositions();
                   
-                  if (slotKeys.length === 0) {
+                  if (positions.length === 0) {
                     return (
                       <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
                         <Building2 className="mx-auto mb-2 h-6 w-6 text-gray-300" />
-                        Không có slot nào cho vai trò này.
+                        Không có chức vụ nào để cấu hình.
                       </div>
                     );
                   }
 
-                  return (
-                    <>
-                      {/* Single slot group */}
-                      {singleSlots.map(slotKey => {
-                        const isSelected = expandedSlot === slotKey;
-                        return (
-                          <button
-                            key={slotKey}
-                            type="button"
-                            onClick={() => setExpandedSlot(isSelected ? null : slotKey)}
-                            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-full text-left transition-all duration-200 text-sm ${
-                              isSelected
-                                ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
-                                : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
-                            }`}
-                          >
-                            <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isSelected ? 'bg-blue-500 shadow-sm' : 'bg-gray-300'}`} />
-                            <span className="truncate">{getSlotLabel(slotKey)}</span>
-                            <span className="text-[10px] text-gray-400 ml-auto shrink-0">{slotKey}</span>
-                          </button>
-                        );
-                      })}
+                  // Group positions by role
+                  const quanLyPositions = positions.filter(p => p.role === 'quanLy');
+                  const nhanVienPositions = positions.filter(p => p.role === 'nhanVien');
 
-                      {/* Numbered slots group */}
-                      {numberedSlots.length > 0 && (
-                        <div className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-3 space-y-1.5">
-                          <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-1">
-                            {ROLE_LABELS[selectedZaloRole]} — Nhiều slot
-                          </p>
-                          {numberedSlots.map(slotKey => {
-                            const isSelected = expandedSlot === slotKey;
-                            return (
+                  const renderPositionGroup = (roleLabel: string, posList: typeof positions) => {
+                    if (posList.length === 0) return null;
+                    return (
+                      <div className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-3 space-y-1.5">
+                        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-1">
+                          {roleLabel}
+                        </p>
+                        {posList.map(pos => {
+                          const isSelected = expandedSlot === pos.value;
+                          const usersInPos = getUsersInPosition(pos.value);
+                          return (
+                            <div key={pos.value}>
                               <button
-                                key={slotKey}
                                 type="button"
-                                onClick={() => setExpandedSlot(isSelected ? null : slotKey)}
-                                className={`w-full flex items-center gap-2 px-3 py-2 rounded-full text-left transition-all duration-200 text-sm ${
-                                  isSelected
+                                onClick={() => {
+                                  if (level === 'admin') {
+                                    // Admin: select position directly for ceiling
+                                    setExpandedSlot(isSelected ? null : pos.value);
+                                  } else {
+                                    // ChuNha/QuanLy: toggle expanded position to show people
+                                    setExpandedPosition(expandedPosition === pos.value ? null : pos.value);
+                                    setExpandedSlot(null);
+                                  }
+                                }}
+                                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-full text-left transition-all duration-200 text-sm ${
+                                  isSelected || expandedPosition === pos.value
                                     ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
                                     : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
                                 }`}
                               >
-                                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isSelected ? 'bg-blue-500 shadow-sm' : 'bg-gray-300'}`} />
-                                <span className="truncate">{getSlotLabel(slotKey)}</span>
-                                <span className="text-[10px] text-gray-400 ml-auto shrink-0">{slotKey}</span>
+                                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isSelected || expandedPosition === pos.value ? 'bg-blue-500 shadow-sm' : 'bg-gray-300'}`} />
+                                <span className="truncate">{pos.label}</span>
+                                {usersInPos.length > 0 && (
+                                  <span className="text-[10px] text-gray-400 ml-auto shrink-0">
+                                    {usersInPos.length} người
+                                  </span>
+                                )}
                               </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                              
+                              {/* Expanded people list (for chuNha/quanLy level) */}
+                              {expandedPosition === pos.value && level !== 'admin' && (
+                                <div className="ml-4 mt-1.5 space-y-1 border-l-2 border-blue-200 pl-3">
+                                  {usersInPos.length === 0 ? (
+                                    <p className="text-[11px] text-gray-400 italic py-1">
+                                      Chưa có người trong chức vụ này
+                                    </p>
+                                  ) : (
+                                    usersInPos.map(user => {
+                                      const personSlotKey = buildSlotKey(pos.value, user.id);
+                                      const isPersonSelected = expandedSlot === personSlotKey;
+                                      return (
+                                        <button
+                                          key={user.id}
+                                          type="button"
+                                          onClick={() => setExpandedSlot(isPersonSelected ? null : personSlotKey)}
+                                          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-all duration-200 text-xs ${
+                                            isPersonSelected
+                                              ? 'bg-blue-50 border border-blue-200 text-blue-700 font-medium'
+                                              : 'bg-white border border-gray-100 text-gray-600 hover:bg-gray-50 hover:border-gray-200'
+                                          }`}
+                                        >
+                                          <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-semibold bg-blue-100 text-blue-700">
+                                            {(user.ten || '?').charAt(0).toUpperCase()}
+                                          </div>
+                                          <span className="truncate">{user.ten || 'Không tên'}</span>
+                                        </button>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  };
+
+                  return (
+                    <>
+                      {renderPositionGroup('Quản lý', quanLyPositions)}
+                      {renderPositionGroup('Nhân viên', nhanVienPositions)}
                     </>
                   );
                 })()}
@@ -843,15 +932,25 @@ export default function PhanQuyenPage() {
                       <div>
                         <p className="text-sm font-semibold text-gray-900">{getSlotLabel(expandedSlot)}</p>
                         <p className="text-xs text-gray-500">
-                          {level === 'admin' ? 'Tầng admin' : level === 'chuNha' ? 'Tầng chủ trọ' : 'Tầng quản lý'}
+                          {level === 'admin'
+                            ? 'Đặt trần quyền Zalo cho chức vụ này'
+                            : level === 'chuNha'
+                              ? expandedSlot.includes('__')
+                                ? 'Cấu hình quyền Zalo cho người này'
+                                : 'Đặt trần quyền Zalo cho chức vụ này'
+                              : 'Cấu hình quyền Zalo cho người này'}
                         </p>
                       </div>
                       <Badge variant="outline" className="text-xs">
-                        {level === 'admin' ? 'Đặt trần' : level === 'chuNha' ? 'Hạn chế' : 'Chi tiết'}
+                        {level === 'admin'
+                          ? 'Đặt trần'
+                          : expandedSlot.includes('__')
+                            ? 'Cá nhân'
+                            : 'Hạn chế'}
                       </Badge>
                     </div>
                     <div className="space-y-1">
-                      {ZALO_FEATURES.filter(feature => isZaloFeatureVisible(feature.key)).map(feature => {
+                      {ZALO_FEATURES.filter(feature => isZaloFeatureVisible(feature.key, expandedSlot)).map(feature => {
                         const disabledByHigher = isDisabledByHigherLevel(expandedSlot, feature.key);
                         const checked = getEffectiveZaloChecked(expandedSlot, feature.key);
                         return (
@@ -894,7 +993,9 @@ export default function PhanQuyenPage() {
                 ) : (
                   <div className="rounded-lg border border-dashed p-8 text-center text-sm text-gray-500">
                     <Building2 className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                    Chọn một slot bên trái để cấu hình quyền Zalo.
+                    {level === 'admin'
+                      ? 'Chọn một chức vụ bên trái để đặt trần quyền Zalo.'
+                      : 'Chọn một chức vụ, sau đó chọn người để cấu hình quyền Zalo.'}
                   </div>
                 )}
               </div>

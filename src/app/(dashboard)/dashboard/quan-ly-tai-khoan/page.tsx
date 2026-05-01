@@ -649,40 +649,7 @@ export default function AccountManagementPage() {
                 </div>
               </div>
             )}
-            {createUserData.role !== 'admin' && createUserData.toaNhaIds.length > 0 && (
-              <div className="space-y-2">
-                {createUserData.toaNhaIds.map(tid => {
-                  const limit = getRoleLimitForBuilding(tid, createUserData.role);
-                  if (limit <= 1) return null;
-                  const bName = buildings.find(b => b.id === tid)?.tenToaNha || tid;
-                  const taken = getTakenSlots(tid, createUserData.role);
-                  return (
-                    <div key={tid} className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">{bName} — Vị trí</Label>
-                      <Select
-                        value={String(createUserData.zaloViTri[tid] || '')}
-                        onValueChange={(v) => setCreateUserData({ ...createUserData, zaloViTri: { ...createUserData.zaloViTri, [tid]: parseInt(v) } })}
-                      >
-                        <SelectTrigger className="text-sm h-8">
-                          <SelectValue placeholder="Chọn vị trí" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: limit }, (_, i) => {
-                            const n = i + 1;
-                            const takenBy = taken.get(n);
-                            return (
-                              <SelectItem key={n} value={String(n)} disabled={!!takenBy}>
-                                {ROLE_LABELS[createUserData.role] || createUserData.role} {n} {takenBy ? `(${getUserName(takenBy)})` : ''}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Zalo slot selector removed — Zalo permissions are now based on position (chức vụ) */}
           </div>
         </InlineForm>
       )}
@@ -801,40 +768,7 @@ export default function AccountManagementPage() {
                 </div>
               </div>
             )}
-            {editUserData.role !== 'admin' && editUserData.toaNhaIds.length > 0 && (
-              <div className="space-y-2">
-                {editUserData.toaNhaIds.map(tid => {
-                  const limit = getRoleLimitForBuilding(tid, editUserData.role);
-                  if (limit <= 1) return null;
-                  const bName = buildings.find(b => b.id === tid)?.tenToaNha || tid;
-                  const taken = getTakenSlots(tid, editUserData.role, selectedUser?.id ?? selectedUser?._id);
-                  return (
-                    <div key={tid} className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">{bName} — Vị trí</Label>
-                      <Select
-                        value={String(editUserData.zaloViTri[tid] || '')}
-                        onValueChange={(v) => setEditUserData({ ...editUserData, zaloViTri: { ...editUserData.zaloViTri, [tid]: parseInt(v) } })}
-                      >
-                        <SelectTrigger className="text-sm h-8">
-                          <SelectValue placeholder="Chọn vị trí" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: limit }, (_, i) => {
-                            const n = i + 1;
-                            const takenBy = taken.get(n);
-                            return (
-                              <SelectItem key={n} value={String(n)} disabled={!!takenBy}>
-                                {ROLE_LABELS[editUserData.role] || editUserData.role} {n} {takenBy ? `(${getUserName(takenBy)})` : ''}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Zalo slot selector removed — Zalo permissions are now based on position (chức vụ) */}
           </div>
         </InlineForm>
       )}
@@ -844,10 +778,7 @@ export default function AccountManagementPage() {
         {(() => {
           const renderUserRow = (user: User, buildingId?: string, roleKey?: string) => {
             const isCurrentUser = session?.user?.id === user.id;
-            const slotNum = buildingId && user.zaloViTri ? (user.zaloViTri as Record<string, number>)[buildingId] : null;
-            const limit = buildingId && roleKey ? getRoleLimitForBuilding(buildingId, roleKey) : 0;
-            const slotLabel = slotNum && roleKey && limit > 1 ? `${ROLE_LABELS[roleKey] || roleKey} ${slotNum}` : null;
-            const chucVuLabel = getUserChucVuLabel(user);
+            const chucVuLabel = getChucVuLabel(user.chucVu);
             return (
               <div key={user.id ?? user._id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-50">
                 <Avatar className="h-9 w-9 shrink-0">
@@ -859,7 +790,6 @@ export default function AccountManagementPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm text-gray-900 truncate">{getUserName(user)}</span>
-                    {slotLabel && <Badge variant="outline" className="text-[10px] h-4 px-1 text-blue-600 border-blue-200 bg-blue-50">{slotLabel}</Badge>}
                     {chucVuLabel && <Badge variant="outline" className="text-[10px] h-4 px-1 text-emerald-700 border-emerald-200 bg-emerald-50">{chucVuLabel}</Badge>}
                     {isCurrentUser && <Badge variant="outline" className="text-[10px] h-4 px-1">Bạn</Badge>}
                     <Badge variant={getUserIsActive(user) ? 'default' : 'secondary'} className="text-[10px] h-4 px-1">
