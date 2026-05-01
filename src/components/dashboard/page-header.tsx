@@ -46,7 +46,7 @@ export default function PageHeader({
               size="sm"
               onClick={onRefresh}
               disabled={loading}
-              className="text-gray-600"
+              className="text-gray-600 rounded-xl"
             >
               <RefreshCw className={cn('h-4 w-4 mr-1.5', loading && 'animate-spin')} />
               {loading ? 'Đang tải...' : 'Làm mới'}
