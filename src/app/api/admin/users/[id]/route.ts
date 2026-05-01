@@ -18,6 +18,13 @@ async function getMyBuildingIds(userId: string) {
   return rows.map(r => r.id);
 }
 
+/** Lấy nguoiTaoId bằng raw SQL (vì field không có trong Prisma schema) */
+async function getNguoiTaoId(userId: string): Promise<string | null> {
+  const rows = await prisma.$queryRaw<{ nguoiTaoId: string | null }[]>`
+    SELECT "nguoiTaoId" FROM "NguoiDung" WHERE id = ${userId}`;
+  return rows.length > 0 ? rows[0].nguoiTaoId : null;
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,12 +47,16 @@ export async function PUT(
       if (!targetUser || ['admin', 'chuNha'].includes(targetUser.vaiTro)) {
         return NextResponse.json({ error: 'Không có quyền chỉnh sửa tài khoản này' }, { status: 403 });
       }
-      const myBuildingIds = await getMyBuildingIds(session.user.id);
-      const inBuilding = await prisma.toaNhaNguoiQuanLy.findFirst({
-        where: { nguoiDungId: id, toaNhaId: { in: myBuildingIds } },
-      });
-      if (!inBuilding) {
-        return NextResponse.json({ error: 'Không có quyền chỉnh sửa tài khoản này' }, { status: 403 });
+      // Cho phép sửa nếu người dùng do chính mình tạo (kể cả chưa gán tòa nhà)
+      const nguoiTaoId = await getNguoiTaoId(id);
+      if (nguoiTaoId !== session.user.id) {
+        const myBuildingIds = await getMyBuildingIds(session.user.id);
+        const inBuilding = await prisma.toaNhaNguoiQuanLy.findFirst({
+          where: { nguoiDungId: id, toaNhaId: { in: myBuildingIds } },
+        });
+        if (!inBuilding) {
+          return NextResponse.json({ error: 'Không có quyền chỉnh sửa tài khoản này' }, { status: 403 });
+        }
       }
       // Không cho phép đổi vaiTro thành admin/chuNha
       if (role && ['admin', 'chuNha'].includes(role)) {
@@ -78,6 +89,7 @@ export async function PUT(
       const hasArrayIds = Array.isArray(toaNhaIds);
       const hasSingleId = toaNhaId !== undefined;
       if (hasArrayIds || hasSingleId) {
+        const myBuildingIds = await getMyBuildingIds(session.user.id);
         const oldAssignments = await prisma.toaNhaNguoiQuanLy.findMany({
           where: { nguoiDungId: id, toaNhaId: { in: myBuildingIds } },
           select: { toaNhaId: true },
@@ -204,12 +216,16 @@ export async function DELETE(
       if (!targetUser || ['admin', 'chuNha'].includes(targetUser.vaiTro)) {
         return NextResponse.json({ error: 'Không có quyền xóa tài khoản này' }, { status: 403 });
       }
-      const myBuildingIds = await getMyBuildingIds(session.user.id);
-      const inBuilding = await prisma.toaNhaNguoiQuanLy.findFirst({
-        where: { nguoiDungId: id, toaNhaId: { in: myBuildingIds } },
-      });
-      if (!inBuilding) {
-        return NextResponse.json({ error: 'Không có quyền xóa tài khoản này' }, { status: 403 });
+      // Cho phép xóa nếu người dùng do chính mình tạo (kể cả chưa gán tòa nhà)
+      const nguoiTaoId = await getNguoiTaoId(id);
+      if (nguoiTaoId !== session.user.id) {
+        const myBuildingIds = await getMyBuildingIds(session.user.id);
+        const inBuilding = await prisma.toaNhaNguoiQuanLy.findFirst({
+          where: { nguoiDungId: id, toaNhaId: { in: myBuildingIds } },
+        });
+        if (!inBuilding) {
+          return NextResponse.json({ error: 'Không có quyền xóa tài khoản này' }, { status: 403 });
+        }
       }
     }
     await prisma.nguoiDung.delete({ where: { id } });
