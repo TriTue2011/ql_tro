@@ -40,7 +40,7 @@ export default function PillTabs({ tabs, value, onChange, className }: PillTabsP
             disabled={tab.disabled}
             onClick={() => onChange(tab.value)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200',
+              'inline-flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-sm font-medium transition-all duration-200',
               isActive
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-200 hover:bg-blue-500 active:bg-blue-700'
                 : 'bg-white text-gray-600 border-2 border-gray-200 hover:border-blue-300 hover:text-blue-700 hover:shadow-sm hover:shadow-blue-100 active:border-blue-400',
