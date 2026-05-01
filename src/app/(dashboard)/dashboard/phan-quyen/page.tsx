@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { getChucVuLabel } from '@/lib/chuc-vu';
+import { CHUC_VU_QUAN_LY, CHUC_VU_NHAN_VIEN, getChucVuLabel } from '@/lib/chuc-vu';
 import {
   BuildingSelector,
   PageHeader,
@@ -605,42 +605,68 @@ export default function PhanQuyenPage() {
 
           <div className="p-4">
             <div className="flex flex-col lg:flex-row gap-4">
-              {/* Left column: user list (like Zalo slot list) */}
-              <div className="w-full lg:w-80 shrink-0 space-y-1">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 px-1">
+              {/* Left column: positions grouped with people inside */}
+              <div className="w-full lg:w-80 shrink-0 space-y-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 px-1">
                   Chọn quản lý để cấu hình
                 </p>
-                {businessUsers.map(user => {
-                  const isSelected = expandedUser === user.id;
-                  return (
-                    <button
-                      key={user.id}
-                      type="button"
-                      onClick={() => setExpandedUser(isSelected ? null : user.id)}
-                      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-full text-left transition-all duration-200 text-sm ${
-                        isSelected
-                          ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
-                          : 'bg-gray-50 border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
-                      }`}
-                    >
-                      <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${
-                        isSelected ? 'bg-blue-500 text-white shadow-sm' : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {(user.ten || '?').charAt(0).toUpperCase()}
+                {(() => {
+                  // Group users by chucVu, preserving CHUC_VU_QUAN_LY order
+                  const grouped = new Map<string, User[]>();
+                  for (const cv of CHUC_VU_QUAN_LY) {
+                    const usersWithCV = businessUsers.filter(u => u.chucVu === cv.value);
+                    if (usersWithCV.length > 0) grouped.set(cv.value, usersWithCV);
+                  }
+                  // Also catch any users with unknown chucVu
+                  const unknown = businessUsers.filter(u => !Array.from(grouped.values()).flat().includes(u));
+                  if (unknown.length > 0) grouped.set('_unknown', unknown);
+
+                  if (grouped.size === 0) {
+                    return (
+                      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
+                        <Users className="mx-auto mb-2 h-6 w-6 text-gray-300" />
+                        Không có quản lý nào trong tòa nhà này.
                       </div>
-                      <span className="truncate">{user.ten || 'Không có tên'}</span>
-                      {user.chucVu && (
-                        <span className="text-[10px] text-gray-400 ml-auto shrink-0">{getChucVuLabel(user.chucVu)}</span>
-                      )}
-                    </button>
-                  );
-                })}
-                {businessUsers.length === 0 && (
-                  <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
-                    <Users className="mx-auto mb-2 h-6 w-6 text-gray-300" />
-                    Không có quản lý nào trong tòa nhà này.
-                  </div>
-                )}
+                    );
+                  }
+
+                  return Array.from(grouped.entries()).map(([chucVuKey, usersInGroup]) => {
+                    const cvOption = CHUC_VU_QUAN_LY.find(c => c.value === chucVuKey);
+                    const groupLabel = cvOption?.label ?? 'Khác';
+                    return (
+                      <div key={chucVuKey} className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-3 space-y-1.5">
+                        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-1">
+                          {groupLabel}
+                        </p>
+                        {usersInGroup.map(user => {
+                          const isSelected = expandedUser === user.id;
+                          return (
+                            <button
+                              key={user.id}
+                              type="button"
+                              onClick={() => setExpandedUser(isSelected ? null : user.id)}
+                              className={`w-full flex items-center gap-2 px-3 py-2 rounded-full text-left transition-all duration-200 text-sm ${
+                                isSelected
+                                  ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
+                                  : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
+                              }`}
+                            >
+                              <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${
+                                isSelected ? 'bg-blue-500 text-white shadow-sm' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {(user.ten || '?').charAt(0).toUpperCase()}
+                              </div>
+                              <span className="truncate">{user.ten || 'Không có tên'}</span>
+                              {user.chucVu && (
+                                <span className="text-[10px] text-gray-400 ml-auto shrink-0">{getChucVuLabel(user.chucVu)}</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
 
               {/* Right column: permission grid for selected user */}
@@ -733,30 +759,79 @@ export default function PhanQuyenPage() {
 
           <div className="p-4">
             <div className="flex flex-col lg:flex-row gap-4">
-              {/* Left column: slot list */}
-              <div className="w-full lg:w-80 shrink-0 space-y-1">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 px-1">
+              {/* Left column: slots grouped by role */}
+              <div className="w-full lg:w-80 shrink-0 space-y-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 px-1">
                   Chọn slot để cấu hình
                 </p>
-                {getSlotKeys(selectedZaloRole).map(slotKey => {
-                  const isSelected = expandedSlot === slotKey;
+                {(() => {
+                  const slotKeys = getSlotKeys(selectedZaloRole);
+                  // Group slots: single slot (roleKey) vs numbered slots (roleKey_N)
+                  const singleSlots = slotKeys.filter(s => !s.includes('_'));
+                  const numberedSlots = slotKeys.filter(s => s.includes('_'));
+                  
+                  if (slotKeys.length === 0) {
+                    return (
+                      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
+                        <Building2 className="mx-auto mb-2 h-6 w-6 text-gray-300" />
+                        Không có slot nào cho vai trò này.
+                      </div>
+                    );
+                  }
+
                   return (
-                    <button
-                      key={slotKey}
-                      type="button"
-                      onClick={() => setExpandedSlot(isSelected ? null : slotKey)}
-                      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-full text-left transition-all duration-200 text-sm ${
-                        isSelected
-                          ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
-                          : 'bg-gray-50 border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
-                      }`}
-                    >
-                      <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isSelected ? 'bg-blue-500 shadow-sm' : 'bg-gray-300'}`} />
-                      <span className="truncate">{getSlotLabel(slotKey)}</span>
-                      <span className="text-[10px] text-gray-400 ml-auto shrink-0">{slotKey}</span>
-                    </button>
+                    <>
+                      {/* Single slot group */}
+                      {singleSlots.map(slotKey => {
+                        const isSelected = expandedSlot === slotKey;
+                        return (
+                          <button
+                            key={slotKey}
+                            type="button"
+                            onClick={() => setExpandedSlot(isSelected ? null : slotKey)}
+                            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-full text-left transition-all duration-200 text-sm ${
+                              isSelected
+                                ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
+                                : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
+                            }`}
+                          >
+                            <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isSelected ? 'bg-blue-500 shadow-sm' : 'bg-gray-300'}`} />
+                            <span className="truncate">{getSlotLabel(slotKey)}</span>
+                            <span className="text-[10px] text-gray-400 ml-auto shrink-0">{slotKey}</span>
+                          </button>
+                        );
+                      })}
+
+                      {/* Numbered slots group */}
+                      {numberedSlots.length > 0 && (
+                        <div className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-3 space-y-1.5">
+                          <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-1">
+                            {ROLE_LABELS[selectedZaloRole]} — Nhiều slot
+                          </p>
+                          {numberedSlots.map(slotKey => {
+                            const isSelected = expandedSlot === slotKey;
+                            return (
+                              <button
+                                key={slotKey}
+                                type="button"
+                                onClick={() => setExpandedSlot(isSelected ? null : slotKey)}
+                                className={`w-full flex items-center gap-2 px-3 py-2 rounded-full text-left transition-all duration-200 text-sm ${
+                                  isSelected
+                                    ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
+                                    : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
+                                }`}
+                              >
+                                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isSelected ? 'bg-blue-500 shadow-sm' : 'bg-gray-300'}`} />
+                                <span className="truncate">{getSlotLabel(slotKey)}</span>
+                                <span className="text-[10px] text-gray-400 ml-auto shrink-0">{slotKey}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
                   );
-                })}
+                })()}
               </div>
 
               {/* Right column: permission grid for selected slot */}
@@ -843,16 +918,16 @@ export default function PhanQuyenPage() {
           <div className="p-4">
             <div className="grid gap-4 lg:grid-cols-2">
               {/* Global limits */}
-              <div className="rounded-lg border p-4">
+              <div className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <SlidersHorizontal className="h-4 w-4 text-blue-600" />
                   <p className="font-medium text-gray-900 text-sm">Giới hạn chung</p>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => (
-                    <div key={roleKey} className="grid grid-cols-[1fr_80px] gap-3 items-start">
+                    <div key={roleKey} className="rounded-lg border-2 border-gray-200 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-gray-300 transition-colors">
                       <div>
-                        <Label className="text-sm">{ROLE_LABELS[roleKey]}</Label>
+                        <Label className="text-sm font-medium">{ROLE_LABELS[roleKey]}</Label>
                         <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
                         <p className="text-[11px] text-gray-400">Mặc định dùng khi tòa nhà không đặt giới hạn riêng.</p>
                       </div>
@@ -870,18 +945,18 @@ export default function PhanQuyenPage() {
               </div>
 
               {/* Per-building limits */}
-              <div className="rounded-lg border p-4">
+              <div className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Building2 className="h-4 w-4 text-blue-600" />
                   <p className="font-medium text-gray-900 text-sm">Giới hạn riêng của tòa đang chọn</p>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => {
                     const effectiveLimit = selectedLimits[roleKey] ?? globalLimits[roleKey] ?? 0;
                     return (
-                      <div key={roleKey} className="grid grid-cols-[1fr_80px] gap-3 items-start">
+                      <div key={roleKey} className="rounded-lg border-2 border-gray-200 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-gray-300 transition-colors">
                         <div>
-                          <Label className="text-sm">{ROLE_LABELS[roleKey]}</Label>
+                          <Label className="text-sm font-medium">{ROLE_LABELS[roleKey]}</Label>
                           <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
                           <p className="text-[11px] text-gray-400">
                             Đang dùng {roleCounts[roleKey]}/{effectiveLimit || 'không giới hạn'} slot. Nhập 0 để quay về giới hạn chung.

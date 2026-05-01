@@ -17,15 +17,15 @@ interface PillTabsProps {
 }
 
 /**
- * PillTabs — Tab dạng pill bo tròn.
- * Tab active: bg-blue-600 text-white shadow-sm
- * Tab inactive: bg-gray-100 text-gray-600 hover:bg-gray-200
+ * PillTabs — Tab dạng pill bo tròn với hiệu ứng 3D.
+ * Tab active: bg-blue-600 text-white shadow-md, hover chuyển sang xanh nhạt hơn
+ * Tab inactive: bg-white text-gray-600 border-2 border-gray-200, hover border-blue-300 + shadow
  */
 export default function PillTabs({ tabs, value, onChange, className }: PillTabsProps) {
   return (
     <div
       className={cn(
-        'flex flex-wrap gap-1.5',
+        'flex flex-wrap gap-2',
         className,
       )}
       role="tablist"
@@ -42,8 +42,8 @@ export default function PillTabs({ tabs, value, onChange, className }: PillTabsP
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200',
               isActive
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800',
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-200 hover:bg-blue-500 active:bg-blue-700'
+                : 'bg-white text-gray-600 border-2 border-gray-200 hover:border-blue-300 hover:text-blue-700 hover:shadow-sm hover:shadow-blue-100 active:border-blue-400',
               tab.disabled && 'opacity-50 cursor-not-allowed',
             )}
           >
