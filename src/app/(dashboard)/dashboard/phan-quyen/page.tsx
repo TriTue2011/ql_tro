@@ -998,10 +998,10 @@ export default function PhanQuyenPage() {
                                           key={user.id}
                                           type="button"
                                           onClick={() => setExpandedSlot(isPersonSelected ? null : personSlotKey)}
-                                          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-all duration-200 text-xs ${
+                                          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-full text-left transition-all duration-200 text-xs ${
                                             isPersonSelected
-                                              ? 'bg-blue-50 border border-blue-200 text-blue-700 font-medium'
-                                              : 'bg-white border border-gray-100 text-gray-600 hover:bg-gray-50 hover:border-gray-200'
+                                              ? 'bg-blue-50 border-2 border-blue-300 text-blue-700 font-medium shadow-sm'
+                                              : 'bg-white border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
                                           }`}
                                         >
                                           <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-semibold bg-blue-100 text-blue-700">

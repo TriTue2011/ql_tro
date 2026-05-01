@@ -11,8 +11,8 @@ interface PermissionToggleProps {
 
 /**
  * A smaller, rounded toggle switch for permissions.
- * - sm: 20px × 36px (thumb 16px)
- * - md: 24px × 40px (thumb 18px)
+ * - sm: 18px × 34px (thumb 14px)
+ * - md: 20px × 38px (thumb 16px)
  * Green when on, gray when off, with smooth transition.
  */
 export default function PermissionToggle({
@@ -23,8 +23,8 @@ export default function PermissionToggle({
 }: PermissionToggleProps) {
   const dimensions =
     size === 'md'
-      ? { track: 'h-[18px] w-[34px]', thumb: 'h-[18px] w-[18px]', translate: 'translate-x-4' }
-      : { track: 'h-4 w-[30px]', thumb: 'h-4 w-4', translate: 'translate-x-[14px]' };
+      ? { track: 'h-[20px] w-[38px]', thumb: 'h-[16px] w-[16px]', translate: 'translate-x-[18px]' }
+      : { track: 'h-[18px] w-[34px]', thumb: 'h-[14px] w-[14px]', translate: 'translate-x-[16px]' };
 
   return (
     <button
