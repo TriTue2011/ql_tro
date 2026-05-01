@@ -14,6 +14,9 @@ interface PermissionToggleProps {
  * - sm: 18px × 34px (thumb 14px)
  * - md: 20px × 38px (thumb 16px)
  * Green when on, gray when off, with smooth transition.
+ *
+ * OFF: (● ─ ─ ─)  ← circle on the left
+ * ON:  (─ ─ ─ ●)  ← circle on the right
  */
 export default function PermissionToggle({
   checked,

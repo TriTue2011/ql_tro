@@ -25,7 +25,7 @@ export default function PillTabs({ tabs, value, onChange, className }: PillTabsP
   return (
     <div
       className={cn(
-        'flex flex-wrap gap-2',
+        'inline-flex flex-wrap gap-2 rounded-2xl border border-indigo-100 bg-white/60 px-3 py-2 shadow-sm backdrop-blur-sm',
         className,
       )}
       role="tablist"

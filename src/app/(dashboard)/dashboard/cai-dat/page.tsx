@@ -2522,6 +2522,12 @@ export default function CaiDatPage() {
       large: "18px",
       "extra-large": "20px",
     };
+    const fontSizeScaleMap: Record<string, number> = {
+      small: 0.875,
+      medium: 1,
+      large: 1.125,
+      "extra-large": 1.25,
+    };
     const lineHeightMap: Record<string, string> = {
       tight: "1.2",
       normal: "1.5",
@@ -2535,6 +2541,8 @@ export default function CaiDatPage() {
     // Override CSS variables so Tailwind font-sans (var(--font-geist-sans)) also updates
     document.documentElement.style.setProperty("--font-geist-sans", fontValue);
     document.documentElement.style.setProperty("--font-family", fontValue);
+    document.documentElement.style.setProperty("--app-font-size", fontSizeMap[fontSettings.fontSize]);
+    document.documentElement.style.setProperty("--font-size-scale", String(fontSizeScaleMap[fontSettings.fontSize] ?? 1));
     document.body.style.fontFamily = fontValue;
     document.body.style.fontSize = fontSizeMap[fontSettings.fontSize];
     document.body.style.lineHeight = lineHeightMap[fontSettings.lineHeight];

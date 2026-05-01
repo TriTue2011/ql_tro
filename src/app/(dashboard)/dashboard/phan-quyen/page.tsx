@@ -700,10 +700,10 @@ export default function PhanQuyenPage() {
 
       {/* ───── Business Permissions Tab ───── */}
       {activeTab === 'business' && (
-        <div className="rounded-2xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="rounded-full border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
           <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b border-indigo-100">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
                 <Shield className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -741,7 +741,7 @@ export default function PhanQuyenPage() {
           </div>
 
           {!canEditBusiness && (
-            <div className="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
+            <div className="mx-4 mt-3 rounded-full border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
               Tài khoản hiện tại chỉ xem quyền nghiệp vụ. Chỉ admin hoặc chủ trọ có thể bật/tắt nhóm quyền này.
             </div>
           )}
@@ -766,7 +766,7 @@ export default function PhanQuyenPage() {
 
                   if (grouped.size === 0) {
                     return (
-                      <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
+                      <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
                         <Users className="mx-auto mb-2 h-6 w-6 text-indigo-300" />
                         Không có người dùng nào trong tòa nhà này.
                       </div>
@@ -777,7 +777,7 @@ export default function PhanQuyenPage() {
                     const cvOption = [...CHUC_VU_QUAN_LY, ...CHUC_VU_NHAN_VIEN].find(c => c.value === chucVuKey);
                     const groupLabel = cvOption?.label ?? 'Khác';
                     return (
-                      <div key={chucVuKey} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
+                      <div key={chucVuKey} className="rounded-full border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
                         <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider px-1">
                           {groupLabel}
                         </p>
@@ -817,7 +817,7 @@ export default function PhanQuyenPage() {
               {/* Right column: permission grid for selected user */}
               <div className="flex-1 min-w-0">
                 {expandedUser ? (
-                  <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
+                  <div className="rounded-full border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-200">
@@ -858,7 +858,7 @@ export default function PhanQuyenPage() {
                         return (
                           <div
                             key={permission.key}
-                            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-all duration-200 ${
+                            className={`flex items-center gap-3 rounded-full px-3 py-2.5 border transition-all duration-200 ${
                               isPermOn
                                 ? 'bg-gradient-to-r from-indigo-50/80 to-blue-50/80 border-indigo-200 shadow-sm'
                                 : 'bg-white border-indigo-100 hover:border-indigo-200 hover:shadow-sm'
@@ -901,7 +901,7 @@ export default function PhanQuyenPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
+                  <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
                     <Users className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
                     Chọn một người dùng bên trái để cấu hình quyền nghiệp vụ.
                   </div>
@@ -914,10 +914,10 @@ export default function PhanQuyenPage() {
 
       {/* ───── Zalo Permissions Tab ───── */}
       {activeTab === 'zalo' && (
-        <div className="rounded-2xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="rounded-full border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
           <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b border-indigo-100">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
                 <Building2 className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -934,7 +934,7 @@ export default function PhanQuyenPage() {
           </div>
 
           {!canEditZalo && (
-            <div className="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
+            <div className="mx-4 mt-3 rounded-full border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
               Tài khoản hiện tại chỉ xem quyền Zalo, không thể chỉnh sửa.
             </div>
           )}
@@ -951,7 +951,7 @@ export default function PhanQuyenPage() {
                   
                   if (positions.length === 0) {
                     return (
-                      <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
+                      <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
                         <Building2 className="mx-auto mb-2 h-6 w-6 text-indigo-300" />
                         Không có chức vụ nào để cấu hình.
                       </div>
@@ -965,7 +965,7 @@ export default function PhanQuyenPage() {
                   const renderPositionGroup = (roleLabel: string, posList: typeof positions) => {
                     if (posList.length === 0) return null;
                     return (
-                      <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
+                      <div className="rounded-full border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
                         <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider px-1">
                           {roleLabel}
                         </p>
@@ -1054,10 +1054,10 @@ export default function PhanQuyenPage() {
               {/* Right column: permission grid for selected slot */}
               <div className="flex-1 min-w-0">
                 {expandedSlot ? (
-                  <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
+                  <div className="rounded-full border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
                           <Building2 className="h-5 w-5 text-white" />
                         </div>
                         <div>
@@ -1088,7 +1088,7 @@ export default function PhanQuyenPage() {
                         return (
                           <div
                             key={feature.key}
-                            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-all duration-200 ${
+                            className={`flex items-center gap-3 rounded-full px-3 py-2.5 border transition-all duration-200 ${
                               disabledByHigher
                                 ? 'bg-gray-100 border-gray-200 opacity-70'
                                 : checked
@@ -1125,7 +1125,7 @@ export default function PhanQuyenPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
+                  <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
                     <Building2 className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
                     {level === 'admin'
                       ? 'Chọn một chức vụ bên trái để đặt trần quyền Zalo.'
@@ -1140,10 +1140,10 @@ export default function PhanQuyenPage() {
 
       {/* ───── Limits Tab ───── */}
       {activeTab === 'limits' && (
-        <div className="rounded-2xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="rounded-full border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
           <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between border-b border-indigo-100">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
                 <SlidersHorizontal className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -1159,14 +1159,14 @@ export default function PhanQuyenPage() {
           <div className="p-4">
             <div className="grid gap-4 lg:grid-cols-2">
               {/* Global limits */}
-              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
+              <div className="rounded-full border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
                   <p className="font-bold text-indigo-900 text-sm">Giới hạn chung</p>
                 </div>
                 <div className="space-y-2">
                   {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => (
-                    <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
+                    <div key={roleKey} className="rounded-full border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
                       <div>
                         <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
                         <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
@@ -1186,7 +1186,7 @@ export default function PhanQuyenPage() {
               </div>
 
               {/* Per-building limits */}
-              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
+              <div className="rounded-full border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <Building2 className="h-4 w-4 text-indigo-600" />
                   <p className="font-bold text-indigo-900 text-sm">Giới hạn riêng của tòa đang chọn</p>
@@ -1195,7 +1195,7 @@ export default function PhanQuyenPage() {
                   {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => {
                     const effectiveLimit = selectedLimits[roleKey] ?? globalLimits[roleKey] ?? 0;
                     return (
-                      <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
+                      <div key={roleKey} className="rounded-full border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
                         <div>
                           <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
                           <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>

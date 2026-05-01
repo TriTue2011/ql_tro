@@ -487,6 +487,33 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [session]);
 
+  // ── Apply saved font settings globally ──────────────────────────────────
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('fontSettings');
+      if (saved) {
+        const fontSettings = JSON.parse(saved);
+        const fontSizeMap: Record<string, string> = {
+          small: '14px',
+          medium: '16px',
+          large: '18px',
+          'extra-large': '20px',
+        };
+        const fontSizeScaleMap: Record<string, number> = {
+          small: 0.875,
+          medium: 1,
+          large: 1.125,
+          'extra-large': 1.25,
+        };
+        const size = fontSizeMap[fontSettings.fontSize] || '16px';
+        const scale = fontSizeScaleMap[fontSettings.fontSize] ?? 1;
+        document.documentElement.style.setProperty('--app-font-size', size);
+        document.documentElement.style.setProperty('--font-size-scale', String(scale));
+        document.body.style.fontSize = size;
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   if (status === 'loading') {
     return (
       <div

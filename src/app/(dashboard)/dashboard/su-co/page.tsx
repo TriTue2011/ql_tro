@@ -1,20 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -22,55 +14,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
-  Plus,
   Edit,
   Trash2,
   AlertTriangle,
   Calendar,
   Users,
-  Eye,
-  Filter,
   CheckCircle,
   Clock,
-  RefreshCw,
   Home,
   Wrench,
-  X as CloseIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { SuCo, Phong, KhachThue, HopDong } from '@/types';
-import { SuCoImageUpload } from '@/components/ui/su-co-image-upload';
-import { buildUploadFolder } from '@/lib/upload-path';
-import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
+import { SuCo, Phong, KhachThue } from '@/types';
 import { useCanEdit } from '@/hooks/use-can-edit';
 import { SuCoDataTable } from './table';
 import PageHeader from '@/components/dashboard/page-header';
 import SearchInput from '@/components/dashboard/search-input';
-import InlineForm from '@/components/dashboard/inline-form';
 
 export default function SuCoPage() {
+  const router = useRouter();
   const canEdit = useCanEdit();
   const cache = useCache<{
     suCoList: SuCo[];
     phongList: Phong[];
     khachThueList: KhachThue[];
-    hopDongList: HopDong[];
   }>({ key: 'su-co-data', duration: 300000 });
   
   const [suCoList, setSuCoList] = useState<SuCo[]>([]);
   const [phongList, setPhongList] = useState<Phong[]>([]);
   const [khachThueList, setKhachThueList] = useState<KhachThue[]>([]);
-  const [hopDongList, setHopDongList] = useState<HopDong[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingSuCo, setEditingSuCo] = useState<SuCo | null>(null);
 
   useEffect(() => {
     document.title = 'Quản lý Sự cố';
@@ -96,7 +74,6 @@ export default function SuCoPage() {
           setSuCoList(cachedData.suCoList || []);
           setPhongList(cachedData.phongList || []);
           setKhachThueList(cachedData.khachThueList || []);
-          setHopDongList(cachedData.hopDongList || []);
           setLoading(false);
           return;
         }
@@ -119,25 +96,17 @@ export default function SuCoPage() {
       const khachThueData = await khachThueResponse.json();
       const khachThues = khachThueData.success ? khachThueData.data : [];
       setKhachThueList(khachThues);
-
-      // Fetch hợp đồng từ API
-      const hopDongResponse = await fetch('/api/hop-dong');
-      const hopDongData = await hopDongResponse.json();
-      const hopDongs = hopDongData.success ? hopDongData.data : [];
-      setHopDongList(hopDongs);
       
       cache.setCache({
         suCoList: suCos,
         phongList: phongs,
         khachThueList: khachThues,
-        hopDongList: hopDongs,
       });
     } catch (error) {
       console.error('Error fetching data:', error);
       setSuCoList([]);
       setPhongList([]);
       setKhachThueList([]);
-      setHopDongList([]);
     } finally {
       setLoading(false);
     }
@@ -224,8 +193,7 @@ export default function SuCoPage() {
   };
 
   const handleEdit = (suCo: SuCo) => {
-    setEditingSuCo(suCo);
-    setIsDialogOpen(true);
+    router.push(`/dashboard/su-co/${suCo.id}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -313,36 +281,9 @@ export default function SuCoPage() {
         description="Theo dõi và xử lý các sự cố từ khách thuê"
         onRefresh={handleRefresh}
         loading={cache.isRefreshing}
-        onAdd={canEdit ? () => { setEditingSuCo(null); setIsDialogOpen(true); } : undefined}
+        onAdd={canEdit ? () => router.push('/dashboard/su-co/them-moi') : undefined}
         addLabel="Báo cáo sự cố"
       />
-
-      {/* Inline Form for Create/Edit */}
-      {isDialogOpen && (
-        <InlineForm
-          title={editingSuCo ? 'Chỉnh sửa sự cố' : 'Báo cáo sự cố mới'}
-          description={editingSuCo ? 'Cập nhật thông tin sự cố' : 'Nhập thông tin sự cố mới'}
-          onSave={async () => {}}
-          onCancel={() => { setIsDialogOpen(false); setEditingSuCo(null); }}
-          hideSave
-          hideCancel
-        >
-          <SuCoForm
-            suCo={editingSuCo}
-            phongList={phongList}
-            khachThueList={khachThueList}
-            hopDongList={hopDongList}
-            getKhachThueName={getKhachThueName}
-            onClose={() => { setIsDialogOpen(false); setEditingSuCo(null); }}
-            onSuccess={() => {
-              cache.clearCache();
-              setIsDialogOpen(false);
-              setEditingSuCo(null);
-              fetchData(true);
-            }}
-          />
-        </InlineForm>
-      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
@@ -565,267 +506,3 @@ export default function SuCoPage() {
   );
 }
 
-// Form component for adding/editing su co
-function SuCoForm({ 
-  suCo, 
-  phongList,
-  khachThueList,
-  hopDongList,
-  getKhachThueName,
-  onClose, 
-  onSuccess 
-}: { 
-  suCo: SuCo | null;
-  phongList: Phong[];
-  khachThueList: KhachThue[];
-  hopDongList: any[];
-  getKhachThueName: (khachThue: any) => string;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [formData, setFormData] = useState({
-    phong: suCo?.phong || '',
-    khachThue: suCo?.khachThue || '',
-    tieuDe: suCo?.tieuDe || '',
-    moTa: suCo?.moTa || '',
-    loaiSuCo: suCo?.loaiSuCo || 'dienNuoc',
-    mucDoUuTien: suCo?.mucDoUuTien || 'trungBinh',
-    trangThai: suCo?.trangThai || 'moi',
-    ghiChuXuLy: suCo?.ghiChuXuLy || '',
-    anhSuCo: [],
-  });
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedPhong, setSelectedPhong] = useState<any>(null);
-  const [images, setImages] = useState<string[]>(suCo?.anhSuCo || []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validation: phải chọn phòng và có khách thuê
-    if (!formData.phong) {
-      toast.error('Vui lòng chọn phòng');
-      return;
-    }
-    
-    if (!formData.khachThue) {
-      toast.error('Không tìm thấy khách thuê cho phòng này. Vui lòng kiểm tra hợp đồng.');
-      return;
-    }
-    
-    setIsSubmitting(true);
-    try {
-      // Prepare data for API
-      const submitData = {
-        ...formData,
-        anhSuCo: images,
-        ngayBaoCao: suCo ? suCo.ngayBaoCao : new Date().toISOString(),
-      };
-
-      const url = suCo ? `/api/su-co/${suCo.id}` : '/api/su-co';
-      const method = suCo ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast.success(suCo ? 'Cập nhật sự cố thành công' : 'Báo cáo sự cố thành công');
-        onSuccess();
-      } else {
-        console.error('Error submitting form:', result.message);
-        toast.error('Có lỗi xảy ra: ' + result.message);
-      }
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      toast.error('Có lỗi xảy ra khi gửi form');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-
-  const handlePhongChange = async (phongId: string) => {
-    setFormData(prev => ({ ...prev, phong: phongId }));
-    
-    // Tìm thông tin phòng được chọn
-    const phong = phongList.find(p => p.id === phongId);
-    setSelectedPhong(phong);
-    
-    if (phong) {
-      // Tìm hợp đồng đang hoạt động cho phòng này
-      const hopDongHoatDong = hopDongList.find(hd => 
-        hd.phong.id === phongId && hd.trangThai === 'hoatDong'
-      );
-      
-      if (hopDongHoatDong && hopDongHoatDong.nguoiDaiDien) {
-        // Lấy người đại diện làm khách thuê chính
-        setFormData(prev => ({ ...prev, khachThue: hopDongHoatDong.nguoiDaiDien.id || hopDongHoatDong.nguoiDaiDien }));
-      } else {
-        // Nếu không tìm thấy hợp đồng hoạt động, reset khách thuê
-        setFormData(prev => ({ ...prev, khachThue: '' }));
-      }
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="phong" className="text-xs md:text-sm">Phòng</Label>
-          <Select value={formData.phong} onValueChange={handlePhongChange}>
-            <SelectTrigger className="text-sm">
-              <SelectValue placeholder="Chọn phòng" />
-            </SelectTrigger>
-            <SelectContent>
-              {phongList.map((phong) => (
-                <SelectItem key={phong.id} value={phong.id!} className="text-sm">
-                  {phong.maPhong}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="khachThue" className="text-xs md:text-sm">Khách thuê</Label>
-          {formData.khachThue ? (
-            <div className="p-3 bg-gray-50 rounded-md border">
-              <div className="text-sm font-medium">
-                {getKhachThueName(formData.khachThue)}
-              </div>
-              <div className="text-xs text-gray-500">
-                {selectedPhong && `Phòng ${selectedPhong.maPhong}`}
-              </div>
-              <div className="text-xs text-green-600 mt-1">
-                ✓ Tự động lấy từ hợp đồng đang hoạt động
-              </div>
-            </div>
-          ) : (
-            <div className="p-3 bg-yellow-50 rounded-md border border-yellow-200">
-              <div className="text-sm text-yellow-800">
-                Vui lòng chọn phòng để tự động lấy thông tin khách thuê
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="tieuDe" className="text-xs md:text-sm">Tiêu đề</Label>
-        <Input
-          id="tieuDe"
-          value={formData.tieuDe}
-          onChange={(e) => setFormData(prev => ({ ...prev, tieuDe: e.target.value }))}
-          placeholder="Nhập tiêu đề sự cố"
-          required
-          className="text-sm"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="moTa" className="text-xs md:text-sm">Mô tả chi tiết</Label>
-        <Textarea
-          id="moTa"
-          value={formData.moTa}
-          onChange={(e) => setFormData(prev => ({ ...prev, moTa: e.target.value }))}
-          rows={4}
-          placeholder="Mô tả chi tiết về sự cố..."
-          required
-          className="text-sm"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="loaiSuCo" className="text-xs md:text-sm">Loại sự cố</Label>
-          <Select value={formData.loaiSuCo} onValueChange={(value) => setFormData(prev => ({ ...prev, loaiSuCo: value as any }))}>
-            <SelectTrigger className="text-sm">
-              <SelectValue placeholder="Chọn loại sự cố" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dienNuoc" className="text-sm">Điện nước</SelectItem>
-              <SelectItem value="noiThat" className="text-sm">Nội thất</SelectItem>
-              <SelectItem value="vesinh" className="text-sm">Vệ sinh</SelectItem>
-              <SelectItem value="anNinh" className="text-sm">An ninh</SelectItem>
-              <SelectItem value="khac" className="text-sm">Khác</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="mucDoUuTien" className="text-xs md:text-sm">Mức độ ưu tiên</Label>
-          <Select value={formData.mucDoUuTien} onValueChange={(value) => setFormData(prev => ({ ...prev, mucDoUuTien: value as any }))}>
-            <SelectTrigger className="text-sm">
-              <SelectValue placeholder="Chọn mức độ ưu tiên" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="thap" className="text-sm">Thấp</SelectItem>
-              <SelectItem value="trungBinh" className="text-sm">Trung bình</SelectItem>
-              <SelectItem value="cao" className="text-sm">Cao</SelectItem>
-              <SelectItem value="khancap" className="text-sm">Khẩn cấp</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {suCo && (
-        <div className="space-y-2">
-          <Label htmlFor="trangThai" className="text-xs md:text-sm">Trạng thái</Label>
-          <Select value={formData.trangThai} onValueChange={(value) => setFormData(prev => ({ ...prev, trangThai: value as any }))}>
-            <SelectTrigger className="text-sm">
-              <SelectValue placeholder="Chọn trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="moi" className="text-sm">Mới</SelectItem>
-              <SelectItem value="dangXuLy" className="text-sm">Đang xử lý</SelectItem>
-              <SelectItem value="daXong" className="text-sm">Đã xong</SelectItem>
-              <SelectItem value="daHuy" className="text-sm">Đã hủy</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {suCo && (formData.trangThai === 'dangXuLy' || formData.trangThai === 'daXong' || formData.trangThai === 'daHuy') && (
-        <div className="space-y-2">
-          <Label htmlFor="ghiChuXuLy" className="text-xs md:text-sm">
-            {formData.trangThai === 'daHuy' ? 'Lý do hủy (tùy chọn)' : 'Ghi chú xử lý'}
-          </Label>
-          <Textarea
-            id="ghiChuXuLy"
-            value={formData.ghiChuXuLy}
-            onChange={(e) => setFormData(prev => ({ ...prev, ghiChuXuLy: e.target.value }))}
-            rows={3}
-            placeholder={formData.trangThai === 'daHuy' ? 'Ghi chú về lý do hủy sự cố...' : 'Ghi chú về quá trình xử lý...'}
-            className="text-sm"
-          />
-        </div>
-      )}
-
-      <SuCoImageUpload
-        images={images}
-        onImagesChange={setImages}
-        maxImages={5}
-        folder={buildUploadFolder(
-          (selectedPhong?.toaNha as any)?.tenToaNha,
-          selectedPhong?.maPhong,
-        )}
-      />
-
-      <div className="flex flex-col sm:flex-row gap-2 pt-4 md:pt-6 border-t">
-        <Button type="button" variant="outline" size="sm" onClick={onClose} className="w-full sm:w-auto">
-          Hủy
-        </Button>
-        <Button type="submit" size="sm" disabled={isSubmitting} className="w-full sm:w-auto">
-          {isSubmitting ? 'Đang xử lý...' : (suCo ? 'Cập nhật' : 'Báo cáo')}
-        </Button>
-      </div>
-    </form>
-  );
-}
