@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   User,
   Mail,
@@ -670,9 +671,9 @@ export default function ProfilePage() {
                           <p className="text-xs text-gray-500">{item.desc}</p>
                         </div>
                       </div>
-                      <Switch
+                      <Checkbox
                         checked={enabled}
-                        onCheckedChange={v => handleNotifToggle(item.key, v)}
+                        onCheckedChange={v => handleNotifToggle(item.key, v === true)}
                       />
                     </div>
                     {idx < NOTIF_TYPES.length - 1 && <Separator />}

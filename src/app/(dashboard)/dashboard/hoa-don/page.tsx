@@ -555,6 +555,7 @@ ${footer}`;
       <PageHeader
         title="Quản lý hóa đơn"
         description="Danh sách tất cả hóa đơn trong hệ thống"
+        descriptionClassName="text-lg rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-1.5"
         onRefresh={handleRefresh}
         loading={cache.isRefreshing}
         onAdd={canEdit ? () => router.push('/dashboard/hoa-don/them-moi') : undefined}
@@ -942,7 +943,7 @@ ${footer}`;
 
             {/* QR Thanh toán */}
             {viewingHoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang && (
-              <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
+              <div className="border rounded-xl p-4 bg-blue-50 border-blue-200">
                 <h3 className="text-sm md:text-base font-semibold mb-3 text-blue-800 flex items-center gap-2">
                   <CreditCard className="h-4 w-4" />
                   Thanh toán chuyển khoản
@@ -956,7 +957,7 @@ ${footer}`;
                       buildTransferDesc(viewingHoaDon, phongList)
                     )}
                     alt="QR Chuyển khoản"
-                    className="w-48 h-48 rounded-lg border border-blue-200 bg-white"
+                    className="w-48 h-48 rounded-xl border border-blue-200 bg-white"
                   />
                   <div className="space-y-1 text-xs md:text-sm">
                     <div><span className="text-gray-600">Ngân hàng:</span> <strong>{bankSettings.tenNganHang}</strong></div>
@@ -1347,7 +1348,7 @@ function PaymentForm({
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Thông tin hóa đơn */}
-      <div className="bg-gray-50 p-3 md:p-4 rounded-lg">
+      <div className="bg-gray-50 p-3 md:p-4 rounded-xl">
         <h3 className="text-sm md:text-base font-semibold mb-3">Thông tin hóa đơn</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
           <div>
@@ -1407,7 +1408,7 @@ function PaymentForm({
         </div>
 
         {formData.phuongThuc === 'chuyenKhoan' && (
-          <div className="space-y-3 md:space-y-4 p-3 md:p-4 bg-green-50 rounded-lg border border-green-200">
+          <div className="space-y-3 md:space-y-4 p-3 md:p-4 bg-green-50 rounded-xl border border-green-200">
             <h4 className="text-xs md:text-sm font-semibold text-green-800 flex items-center gap-2">
               🏦 Thông tin chuyển khoản
             </h4>

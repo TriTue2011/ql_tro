@@ -705,7 +705,7 @@ export default function ThemMoiHoaDonPage() {
                 </div>
                 
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-200 rounded-lg">
+                  <table className="w-full border-collapse border border-gray-200 rounded-xl">
                     <thead>
                       <tr className="bg-gray-50">
                         <th className="border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-700">Loại</th>
@@ -881,7 +881,7 @@ export default function ThemMoiHoaDonPage() {
                 </div>
                 
                 {/* Tổng kết điện nước */}
-                <div className="grid grid-cols-2 gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border">
+                <div className="grid grid-cols-2 gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border">
                   <div className="text-center">
                     <div className="text-sm text-gray-600 mb-1">Tổng tiền điện</div>
                     <div className="text-lg font-bold text-yellow-600">{formData.tienDien.toLocaleString('vi-VN')} VNĐ</div>
@@ -982,7 +982,7 @@ export default function ThemMoiHoaDonPage() {
 
               <TabsContent value="tong-ket" className="space-y-4 mt-6">
                 <h3 className="text-base font-semibold">💰 Tổng kết</h3>
-                <div className="grid grid-cols-3 gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border">
+                <div className="grid grid-cols-3 gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border">
                   <div className="text-center">
                     <div className="text-xs text-gray-600 mb-1">Tổng tiền</div>
                     <div className="text-lg font-bold text-gray-900">{formData.tongTien.toLocaleString('vi-VN')} VNĐ</div>

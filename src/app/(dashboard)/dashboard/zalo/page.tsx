@@ -15,6 +15,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -3001,9 +3002,9 @@ function ThreadManager({ account, buildingId, canEdit }: {
           <div className="px-3 py-2 flex flex-wrap gap-x-4 gap-y-1.5 items-center">
             {THREAD_CATEGORY_LABELS.map(({ key, label }) => (
               <div key={key} className="flex items-center gap-1">
-                <Switch
+                <Checkbox
                   checked={t[key] as boolean}
-                  onCheckedChange={v => updateLocal(t.id, key, v)}
+                  onCheckedChange={v => updateLocal(t.id, key, v === true)}
                   disabled={!canEdit}
                   className="scale-[0.65]"
                 />
@@ -3064,9 +3065,9 @@ function ThreadManager({ account, buildingId, canEdit }: {
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 items-center">
             {THREAD_CATEGORY_LABELS.map(({ key, label }) => (
               <div key={key} className="flex items-center gap-1">
-                <Switch
+                <Checkbox
                   checked={newThread[key] as boolean}
-                  onCheckedChange={v => setNewThread(p => ({ ...p, [key]: v }))}
+                  onCheckedChange={v => setNewThread(p => ({ ...p, [key]: v === true }))}
                   className="scale-[0.65]"
                 />
                 <span className="text-[11px] text-gray-600">{label}</span>
@@ -3170,9 +3171,9 @@ function AccountSettings({
             <div key={cat.key} className="flex items-center px-3 py-2 gap-4">
               <div className="w-24 text-xs text-gray-700 font-medium">{cat.label}</div>
               <div className="flex items-center gap-1.5">
-                <Switch
+                <Checkbox
                   checked={settings[cat.key] as boolean}
-                  onCheckedChange={v => handleToggle(cat.key, v)}
+                  onCheckedChange={v => handleToggle(cat.key, v === true)}
                   disabled={!canEdit}
                   className="scale-75"
                 />
@@ -3180,9 +3181,9 @@ function AccountSettings({
               </div>
               {isChuTro && !isAdmin && (
                 <div className="flex items-center gap-1.5">
-                  <Switch
+                  <Checkbox
                     checked={settings[cat.chuyenKey] as boolean}
-                    onCheckedChange={v => handleToggle(cat.chuyenKey, v)}
+                    onCheckedChange={v => handleToggle(cat.chuyenKey, v === true)}
                     disabled={!canEdit}
                     className="scale-75"
                   />
@@ -3288,42 +3289,42 @@ function PerAccountCards({ account, isAdmin, userRole, canEdit, buildingId }: {
 
       {/* Expanded card content */}
       {openCard === "botserver" && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-xl overflow-hidden">
           <BotServerCard account={account} canEdit={canEdit} isAdmin={isAdmin} />
         </div>
       )}
       {openCard === "direct" && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-xl overflow-hidden">
           <DirectCard account={account} canEdit={canEdit} isAdmin={isAdmin} />
         </div>
       )}
       {isAdmin && openCard === "proxy" && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-xl overflow-hidden">
           <ProxyCard canEdit={canEdit} />
         </div>
       )}
       {isAdmin && openCard === "webhook" && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-xl overflow-hidden">
           <WebhookCard account={account} />
         </div>
       )}
       {(isAdmin || ((userRole === "chuNha" || userRole === "quanLy") && canEdit)) && openCard === "automsg" && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-xl overflow-hidden">
           <AutoMessageCard account={account} buildingId={buildingId} />
         </div>
       )}
       {(isAdmin || ((userRole === "chuNha" || userRole === "quanLy") && canEdit)) && openCard === "testsend" && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-xl overflow-hidden">
           <TestSendCard account={account} />
         </div>
       )}
       {(isAdmin || ((userRole === "chuNha" || userRole === "quanLy") && canEdit)) && openCard === "friendreq" && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-xl overflow-hidden">
           <FriendRequestCard account={account} buildingId={buildingId} />
         </div>
       )}
       {openCard === "monitor" && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-xl overflow-hidden">
           <MonitorCard account={account} />
         </div>
       )}
@@ -3351,7 +3352,7 @@ function ApiExplorerToggle({ account }: { account: AccountData }) {
         {open ? <ChevronDown className="h-3 w-3 ml-0.5" /> : <ChevronRight className="h-3 w-3 ml-0.5" />}
       </button>
       {open && (
-        <div className="border rounded-lg overflow-hidden mt-2">
+        <div className="border rounded-xl overflow-hidden mt-2">
           <ApiExplorerCard defaultAccountId={account.zaloAccountId ?? ""} />
         </div>
       )}
@@ -3632,7 +3633,7 @@ function BuildingAccordion({
   if (totalPeople === 0 && !isAdmin) return null;
 
   return (
-    <div className="border rounded-lg overflow-hidden shadow-sm">
+    <div className="border rounded-xl overflow-hidden shadow-sm">
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
@@ -4006,9 +4007,9 @@ function BuildingZaloMonitorSection({ buildingId, canEdit }: {
                   <Label className="text-xs font-semibold">Hiển thị trên Monitor</Label>
                   <p className="text-[10px] text-gray-500">Nếu tắt, mọi tin nhắn của tòa nhà này sẽ không hiện trên Zalo Monitor</p>
                 </div>
-                <Switch
+                <Checkbox
                   checked={config.enabled}
-                  onCheckedChange={v => save({ enabled: v })}
+                  onCheckedChange={v => save({ enabled: v === true })}
                   disabled={saving || !canEdit}
                 />
               </div>

@@ -289,7 +289,7 @@ export default function PhongPage() {
             const soDangThue = phongs.filter(p => p.trangThai === 'dangThue').length;
             const soBaoTri = phongs.filter(p => p.trangThai === 'baoTri').length;
             return (
-              <div key={toa.id} className="border rounded-lg overflow-hidden shadow-sm">
+              <div key={toa.id} className="border rounded-xl overflow-hidden shadow-sm">
                 <button
                   type="button"
                   onClick={() => toggleBuilding(toa.id!)}

@@ -593,7 +593,7 @@ export function HoaDonDataTable(props: HoaDonDataTableProps) {
         </div>
       </div>
       
-      <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-hidden rounded-xl border">
         <DndContext
           collisionDetection={closestCenter}
           modifiers={[restrictToVerticalAxis]}

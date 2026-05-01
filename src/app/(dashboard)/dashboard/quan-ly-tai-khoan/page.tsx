@@ -357,7 +357,7 @@ export default function AccountManagementPage() {
             const limit = roleKey && buildingId ? getRoleLimitForBuilding(buildingId, roleKey) : null;
 
             return (
-              <div key={key} className="border rounded-lg overflow-hidden">
+              <div key={key} className="border rounded-xl overflow-hidden">
                 <button
                   type="button"
                   className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-left"

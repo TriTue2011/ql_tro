@@ -419,7 +419,7 @@ export default function KhachThuePage() {
             {buildingGroups.groups.map(bg => {
               const isBuildingOpen = openBuildings.has(bg.toaNhaId);
               return (
-                <div key={bg.toaNhaId} className="border rounded-lg overflow-hidden shadow-sm">
+                <div key={bg.toaNhaId} className="border rounded-xl overflow-hidden shadow-sm">
                   {/* Building header */}
                   <button type="button" onClick={() => toggleBuilding(bg.toaNhaId)}
                     className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
@@ -518,7 +518,7 @@ export default function KhachThuePage() {
 
             {/* Tenants without room */}
             {buildingGroups.noRoom.length > 0 && (
-              <div className="border rounded-lg overflow-hidden shadow-sm">
+              <div className="border rounded-xl overflow-hidden shadow-sm">
                 <button type="button" onClick={() => toggleBuilding('__noRoom__')}
                   className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
                   <div className="flex items-center gap-3">

@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -62,6 +63,7 @@ import {
   Radio,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/dashboard";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -186,7 +188,7 @@ function SettingInput({
     const isOn = value === "true";
     return (
       <div className="flex items-center gap-3 py-1">
-        <Switch
+        <Checkbox
           checked={isOn}
           onCheckedChange={(checked) => onChange(checked ? "true" : "false")}
           id="cloudflare_tunnel_switch"
@@ -207,7 +209,7 @@ function SettingInput({
     const isOn = value === "true";
     return (
       <div className="flex items-center gap-3 py-1">
-        <Switch
+        <Checkbox
           checked={isOn}
           onCheckedChange={(checked) => onChange(checked ? "true" : "false")}
           id="cho_phep_ql_switch"
@@ -507,7 +509,7 @@ function AutoZaloCard({
                 {secItems.map((item) => (
                   <div key={item.khoa} className="flex items-center justify-between gap-3 py-1">
                     <Label className="text-xs text-gray-700 flex-1">{item.moTa}</Label>
-                    <Switch
+                    <Checkbox
                       checked={values[item.khoa] === 'true'}
                       onCheckedChange={(checked) => onChange(item.khoa, checked ? 'true' : 'false')}
                     />
@@ -738,7 +740,7 @@ function ZaloHotlineCard() {
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5 ml-6">{cfg.moTa}</p>
                 </div>
-                <Switch
+                <Checkbox
                   checked={switches[cfg.key]}
                   onCheckedChange={() => handleToggle(cfg.key)}
                   disabled={saving}
@@ -2017,7 +2019,7 @@ function ChuNhaDangNhapKTTab() {
             </div>
           );
           return (
-            <div key={b.id} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
+            <div key={b.id} className="flex items-center justify-between p-3 rounded-xl border bg-gray-50">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">{b.tenToaNha}</Label>
                 <p className="text-xs text-gray-500">
@@ -2025,9 +2027,9 @@ function ChuNhaDangNhapKTTab() {
                   {state.gioiHan !== null && <> / {state.gioiHan} giới hạn</>}
                 </p>
               </div>
-              <Switch
+              <Checkbox
                 checked={state.chuTroBat}
-                onCheckedChange={val => handleToggle(b.id, val)}
+                onCheckedChange={val => handleToggle(b.id, val === true)}
                 disabled={state.saving}
               />
             </div>
@@ -2141,19 +2143,19 @@ function AdminDangNhapKTPanel() {
         ) : (
           <>
             {/* Toggle admin bật đăng nhập KT */}
-            <div className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
+            <div className="flex items-center justify-between p-3 rounded-xl border bg-gray-50">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Cho phép đăng nhập web khách thuê</Label>
                 <p className="text-xs text-gray-500">
                   Bật = khách thuê tòa nhà này được đăng nhập web. Chủ trọ có thể tắt thêm nếu muốn.
                 </p>
               </div>
-              <Switch checked={adminBat} onCheckedChange={setAdminBat} />
+              <Checkbox checked={adminBat} onCheckedChange={(checked) => setAdminBat(checked === true)} />
             </div>
 
             {/* Giới hạn số lượng */}
             {adminBat && (
-              <div className="space-y-2 p-3 rounded-lg border">
+              <div className="space-y-2 p-3 rounded-xl border">
                 <Label className="text-sm font-medium">Giới hạn số khách thuê được đăng nhập</Label>
                 <div className="flex items-center gap-2">
                   <Input
@@ -2177,7 +2179,7 @@ function AdminDangNhapKTPanel() {
 
             {/* Trạng thái */}
             {adminBat && (
-              <div className="flex items-center gap-2 p-3 rounded-lg border bg-green-50">
+              <div className="flex items-center gap-2 p-3 rounded-xl border bg-green-50">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <span className="text-sm text-green-700">
                   Đăng nhập web khách thuê đang hoạt động{!chuTroBat && ' (chủ trọ đã tắt — khách thuê sẽ không đăng nhập được)'}
@@ -2445,7 +2447,7 @@ function AdminAiAccountsPanel() {
                   {list.map(account => (
                     <div
                       key={account.id}
-                      className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 hover:bg-gray-100 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-xl border bg-gray-50 hover:bg-gray-100 transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${account.trangThai === 'hoatDong' ? 'bg-green-500' : 'bg-gray-400'}`} />
@@ -2462,7 +2464,7 @@ function AdminAiAccountsPanel() {
                             AI bật
                           </Badge>
                         )}
-                        <Switch
+                        <Checkbox
                           checked={account.aiEnabled}
                           disabled={saving === account.id}
                           onCheckedChange={() => toggleAi(account.id, account.aiEnabled)}
@@ -3208,14 +3210,11 @@ export default function CaiDatPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
-          Cài đặt
-        </h1>
-        <p className="text-xs md:text-sm text-gray-600">
-          Tùy chỉnh giao diện{canManage ? " và cài đặt hệ thống" : ""}
-        </p>
-      </div>
+      <PageHeader
+        title=""
+        description={`Tùy chỉnh giao diện${canManage ? " và cài đặt hệ thống" : ""}`}
+        descriptionClassName="text-lg rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-1.5"
+      />
 
       <Tabs defaultValue={isAdmin ? "homeAssistant" : isChuNha ? "thanhToan" : isQuanLy ? "bankQL" : "display"}>
         <TabsList className="flex flex-wrap h-auto gap-1 w-full md:w-auto">
@@ -3804,7 +3803,7 @@ export default function CaiDatPage() {
                       <button
                         key={i}
                         type="button"
-                        className="w-full text-left flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 border hover:border-blue-200 transition-colors"
+                        className="w-full text-left flex items-center gap-3 p-2.5 rounded-xl hover:bg-blue-50 border hover:border-blue-200 transition-colors"
                         onClick={() => selectMinioFile(f)}
                       >
                         {isImage ? (

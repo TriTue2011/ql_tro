@@ -707,7 +707,7 @@ export default function ChinhSuaHoaDonPage() {
 
               <TabsContent value="tong-ket" className="space-y-4 mt-6">
                 <h3 className="text-base font-semibold">💰 Tổng kết</h3>
-                <div className="grid grid-cols-3 gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border">
+                <div className="grid grid-cols-3 gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border">
                   <div className="text-center">
                     <div className="text-xs text-gray-600 mb-1">Tổng tiền</div>
                     <div className="text-lg font-bold text-gray-900">{formData.tongTien.toLocaleString('vi-VN')} VNĐ</div>
