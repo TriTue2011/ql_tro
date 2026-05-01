@@ -683,7 +683,7 @@ export default function PhanQuyenPage() {
       <PageHeader
         title=""
         description="Một nơi duy nhất để quản lý quyền nghiệp vụ, quyền Zalo và giới hạn vai trò theo tòa nhà."
-        descriptionClassName="text-2xl rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-1.5"
+        descriptionClassName="text-lg rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-1.5"
         onRefresh={() => void loadInitialData()}
       >
         <BuildingSelector
@@ -1140,8 +1140,8 @@ export default function PhanQuyenPage() {
                     <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
                       <div>
                         <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
-                        <p className="text-sm text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
-                        <p className="text-sm text-indigo-400">Mặc định dùng khi tòa nhà không đặt giới hạn riêng.</p>
+                        <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
+                        <p className="text-[11px] text-indigo-400">Mặc định dùng khi tòa nhà không đặt giới hạn riêng.</p>
                       </div>
                       <Input
                         type="number"
@@ -1169,8 +1169,8 @@ export default function PhanQuyenPage() {
                       <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
                         <div>
                           <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
-                          <p className="text-sm text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
-                          <p className="text-sm text-indigo-400">
+                          <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
+                          <p className="text-[11px] text-indigo-400">
                             Đang dùng {roleCounts[roleKey]}/{effectiveLimit || 'không giới hạn'} slot. Nhập 0 để quay về giới hạn chung.
                           </p>
                         </div>
