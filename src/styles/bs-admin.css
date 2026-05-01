@@ -101,7 +101,7 @@
 }
 
 .bs-sidebar-brand .brand-name {
-  font-size: calc(0.938rem * var(--font-size-scale, 1));
+  font-size: calc(0.844rem * var(--font-size-scale, 1));
   font-weight: 700;
   color: #f0f6fc;
   letter-spacing: -0.3px;

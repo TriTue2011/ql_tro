@@ -43,7 +43,7 @@ export default function PillTabs({ tabs, value, onChange, className }: PillTabsP
               'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200',
               isActive
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-200 hover:bg-blue-500 active:bg-blue-700'
-                : 'bg-white text-gray-600 border-2 border-gray-200 hover:border-blue-300 hover:text-blue-700 hover:shadow-sm hover:shadow-blue-100 active:border-blue-400',
+                : 'bg-indigo-50/60 text-indigo-700 border border-indigo-200/60 hover:bg-indigo-100 hover:border-indigo-300 hover:text-indigo-800 hover:shadow-sm active:bg-indigo-200',
               tab.disabled && 'opacity-50 cursor-not-allowed',
             )}
           >

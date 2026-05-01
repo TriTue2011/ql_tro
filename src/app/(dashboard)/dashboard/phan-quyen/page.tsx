@@ -799,11 +799,11 @@ export default function PhanQuyenPage() {
                               }`}>
                                 {(user.ten || '?').charAt(0).toUpperCase()}
                               </div>
-                              <span className="truncate">{user.ten || 'Không có tên'}</span>
+                              <span className="truncate rounded px-1">{user.ten || 'Không có tên'}</span>
                               {user.chucVu && (
-                                <span className={`text-[10px] ml-auto shrink-0 ${isSelected ? 'text-white/70' : 'text-indigo-400'}`}>
+                                <Badge variant="outline" className={`text-[10px] rounded-full ml-auto shrink-0 ${isSelected ? 'text-white/70 border-white/30 bg-white/10' : 'text-indigo-500 border-indigo-200 bg-indigo-50'}`}>
                                   {getChucVuLabel(user.chucVu)}
-                                </span>
+                                </Badge>
                               )}
                             </button>
                           );
