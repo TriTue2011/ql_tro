@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -14,23 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
-  Plus,
-  Search,
   Edit,
-  Trash2,
   Home,
   Users,
-  Eye,
-  Copy,
-  Info,
   Image,
-  RefreshCw,
+  Building2,
   ChevronDown,
   ChevronRight,
-  Building2,
   X,
 } from 'lucide-react';
 import {
@@ -42,42 +33,34 @@ import {
 } from '@/components/ui/carousel';
 import { Phong, ToaNha } from '@/types';
 import { PhongDataTable } from './table';
-import { PhongImageUpload } from '@/components/ui/phong-image-upload';
-import { buildUploadFolder } from '@/lib/upload-path';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useCanEdit } from '@/hooks/use-can-edit';
 import PageHeader from '@/components/dashboard/page-header';
 import SearchInput from '@/components/dashboard/search-input';
-import InlineForm from '@/components/dashboard/inline-form';
-import ConfirmPopover from '@/components/dashboard/confirm-popover';
 
 export default function PhongPage() {
+  const router = useRouter();
   const canEdit = useCanEdit();
   const cache = useCache<{
     phongList: Phong[];
     toaNhaList: ToaNha[];
-  }>({ key: 'phong-data', duration: 300000 }); // 5 phút
-  
+  }>({ key: 'phong-data', duration: 300000 });
+
   const [phongList, setPhongList] = useState<Phong[]>([]);
   const [toaNhaList, setToaNhaList] = useState<ToaNha[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedToaNha, setSelectedToaNha] = useState('');
   const [selectedTrangThai, setSelectedTrangThai] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [editingPhong, setEditingPhong] = useState<Phong | null>(null);
-  // Image viewer inline
   const [viewingImages, setViewingImages] = useState<string[]>([]);
   const [viewingPhongName, setViewingPhongName] = useState('');
   const [showImageViewer, setShowImageViewer] = useState(false);
-  // Tenants viewer inline
   const [viewingTenants, setViewingTenants] = useState<any[]>([]);
   const [viewingTenantsPhongName, setViewingTenantsPhongName] = useState('');
   const [showTenantsViewer, setShowTenantsViewer] = useState(false);
-  // Accordion: set of toaNhaId đang mở (mặc định tất cả ẩn)
   const [openBuildings, setOpenBuildings] = useState<Set<string>>(new Set());
+
   const toggleBuilding = (id: string) =>
     setOpenBuildings(prev => {
       const next = new Set(prev);
@@ -94,7 +77,6 @@ export default function PhongPage() {
     fetchToaNha();
   }, []);
 
-  // Real-time: tự động refresh khi có thay đổi từ người dùng khác
   useRealtimeEvents(['phong', 'hop-dong'], (_type, _action) => {
     cache.clearCache();
     fetchPhong(true);
@@ -103,8 +85,6 @@ export default function PhongPage() {
   const fetchPhong = async (forceRefresh = false) => {
     try {
       setLoading(true);
-      
-      // Thử load từ cache trước (nếu không force refresh)
       if (!forceRefresh) {
         const cachedData = cache.getCache();
         if (cachedData) {
@@ -114,12 +94,9 @@ export default function PhongPage() {
           return;
         }
       }
-      
       const params = new URLSearchParams();
       if (selectedToaNha && selectedToaNha !== 'all') params.append('toaNha', selectedToaNha);
       if (selectedTrangThai && selectedTrangThai !== 'all') params.append('trangThai', selectedTrangThai);
-      
-      // Fetch phong
       const response = await fetch(`/api/phong?${params.toString()}&limit=100`);
       let phongData: Phong[] = [];
       if (response.ok) {
@@ -129,8 +106,6 @@ export default function PhongPage() {
           setPhongList(phongData);
         }
       }
-      
-      // Fetch toa nha
       const toaNhaResponse = await fetch('/api/toa-nha');
       let toaNhaData: ToaNha[] = [];
       if (toaNhaResponse.ok) {
@@ -140,13 +115,8 @@ export default function PhongPage() {
           setToaNhaList(toaNhaData);
         }
       }
-      
-      // Lưu cache với data mới
       if (phongData.length > 0 || toaNhaData.length > 0) {
-        cache.setCache({
-          phongList: phongData,
-          toaNhaList: toaNhaData,
-        });
+        cache.setCache({ phongList: phongData, toaNhaList: toaNhaData });
       }
     } catch (error) {
       console.error('Error fetching phong:', error);
@@ -160,9 +130,7 @@ export default function PhongPage() {
       const response = await fetch('/api/toa-nha');
       if (response.ok) {
         const result = await response.json();
-        if (result.success) {
-          setToaNhaList(result.data);
-        }
+        if (result.success) setToaNhaList(result.data);
       }
     } catch (error) {
       console.error('Error fetching toa nha:', error);
@@ -171,16 +139,13 @@ export default function PhongPage() {
 
   const handleRefresh = async () => {
     cache.setIsRefreshing(true);
-    await fetchPhong(true); // Force refresh
+    await fetchPhong(true);
     cache.setIsRefreshing(false);
     toast.success('Đã tải dữ liệu mới nhất');
   };
 
   useEffect(() => {
-    // Khi filter thay đổi, cần force refresh để lấy data mới theo filter
-    if (selectedToaNha || selectedTrangThai) {
-      fetchPhong(true);
-    }
+    if (selectedToaNha || selectedTrangThai) fetchPhong(true);
   }, [selectedToaNha, selectedTrangThai]);
 
   const filteredPhong = phongList.filter(phong =>
@@ -188,7 +153,6 @@ export default function PhongPage() {
     phong.moTa?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Helper lấy toaNhaId từ phong (có thể là string hoặc object)
   const getPhongToaNhaId = (phong: Phong): string => {
     const p = phong as any;
     if (p.toaNhaId) return p.toaNhaId;
@@ -197,42 +161,17 @@ export default function PhongPage() {
     return '';
   };
 
-  // Nhóm phòng theo tòa nhà (chỉ tòa có phòng thoả filter)
   const groupedPhong = toaNhaList
-    .map(toa => ({
-      toa,
-      phongs: filteredPhong.filter(p => getPhongToaNhaId(p) === toa.id),
-    }))
+    .map(toa => ({ toa, phongs: filteredPhong.filter(p => getPhongToaNhaId(p) === toa.id) }))
     .filter(g => g.phongs.length > 0);
 
-  const handleOpenCreate = () => {
-    setEditingPhong(null);
-    setShowForm(true);
-  };
+  const handleOpenCreate = () => router.push('/dashboard/phong/them-moi');
 
-  const handleEdit = (phong: Phong) => {
-    setEditingPhong(phong);
-    setShowForm(true);
-  };
-
-  const handleFormSuccess = () => {
-    cache.clearCache();
-    setShowForm(false);
-    setEditingPhong(null);
-    fetchPhong(true);
-  };
-
-  const handleFormClose = () => {
-    setShowForm(false);
-    setEditingPhong(null);
-  };
+  const handleEdit = (phong: Phong) => router.push(`/dashboard/phong/${phong.id}`);
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`/api/phong/${id}`, {
-        method: 'DELETE',
-      });
-      
+      const response = await fetch(`/api/phong/${id}`, { method: 'DELETE' });
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
@@ -265,7 +204,6 @@ export default function PhongPage() {
   const handleViewTenants = (phong: Phong) => {
     const phongData = phong as any;
     const hopDong = phongData.hopDongHienTai;
-    
     if (hopDong && hopDong.khachThue && hopDong.khachThue.length > 0) {
       setViewingTenants(hopDong.khachThue);
       setViewingTenantsPhongName(phong.maPhong);
@@ -279,17 +217,16 @@ export default function PhongPage() {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-          <div className="h-10 bg-gray-200 rounded w-32 animate-pulse"></div>
+          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse" />
+          <div className="h-10 bg-gray-200 rounded w-32 animate-pulse" />
         </div>
-        <div className="h-96 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-96 bg-gray-200 rounded animate-pulse" />
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <PageHeader
         title="Quản lý phòng"
         description="Danh sách tất cả phòng trong hệ thống"
@@ -299,26 +236,6 @@ export default function PhongPage() {
         addLabel="Thêm phòng"
       />
 
-      {/* Inline Form for Create/Edit */}
-      {showForm && (
-        <InlineForm
-          title={editingPhong ? `Chỉnh sửa phòng: ${editingPhong.maPhong}` : 'Thêm phòng mới'}
-          description={editingPhong ? 'Cập nhật thông tin phòng' : 'Nhập thông tin phòng mới'}
-          onSave={async () => {}}
-          onCancel={handleFormClose}
-          hideSave
-          hideCancel
-        >
-          <PhongForm
-            phong={editingPhong}
-            toaNhaList={toaNhaList}
-            onClose={handleFormClose}
-            onSuccess={handleFormSuccess}
-          />
-        </InlineForm>
-      )}
-
-      {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
         <Card className="p-2 md:p-3">
           <div className="flex items-center justify-between">
@@ -329,45 +246,35 @@ export default function PhongPage() {
             <Home className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
           </div>
         </Card>
-
         <Card className="p-2 md:p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] md:text-xs font-medium text-gray-600">Phòng trống</p>
-              <p className="text-lg md:text-xl font-bold text-green-600">
-                {phongList.filter(p => p.trangThai === 'trong').length}
-              </p>
+              <p className="text-lg md:text-xl font-bold text-green-600">{phongList.filter(p => p.trangThai === 'trong').length}</p>
             </div>
             <Users className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
           </div>
         </Card>
-
         <Card className="p-2 md:p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] md:text-xs font-medium text-gray-600">Đang thuê</p>
-              <p className="text-lg md:text-xl font-bold text-blue-600">
-                {phongList.filter(p => p.trangThai === 'dangThue').length}
-              </p>
+              <p className="text-lg md:text-xl font-bold text-blue-600">{phongList.filter(p => p.trangThai === 'dangThue').length}</p>
             </div>
             <Users className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
           </div>
         </Card>
-
         <Card className="p-2 md:p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] md:text-xs font-medium text-gray-600">Bảo trì</p>
-              <p className="text-lg md:text-xl font-bold text-red-600">
-                {phongList.filter(p => p.trangThai === 'baoTri').length}
-              </p>
+              <p className="text-lg md:text-xl font-bold text-red-600">{phongList.filter(p => p.trangThai === 'baoTri').length}</p>
             </div>
             <Users className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
           </div>
         </Card>
       </div>
 
-      {/* Grouped by building — Desktop + Mobile */}
       <div className="space-y-3">
         {groupedPhong.length === 0 ? (
           <Card className="p-6 text-center">
@@ -378,12 +285,11 @@ export default function PhongPage() {
         ) : (
           groupedPhong.map(({ toa, phongs }) => {
             const isOpen = openBuildings.has(toa.id!);
-            const soTrong   = phongs.filter(p => p.trangThai === 'trong').length;
+            const soTrong = phongs.filter(p => p.trangThai === 'trong').length;
             const soDangThue = phongs.filter(p => p.trangThai === 'dangThue').length;
-            const soBaoTri  = phongs.filter(p => p.trangThai === 'baoTri').length;
+            const soBaoTri = phongs.filter(p => p.trangThai === 'baoTri').length;
             return (
               <div key={toa.id} className="border rounded-lg overflow-hidden shadow-sm">
-                {/* Building header — toggle */}
                 <button
                   type="button"
                   onClick={() => toggleBuilding(toa.id!)}
@@ -395,22 +301,16 @@ export default function PhongPage() {
                       <span className="font-semibold text-gray-900 text-sm md:text-base">{toa.tenToaNha}</span>
                       <div className="flex gap-2 mt-0.5 flex-wrap">
                         <span className="text-[10px] text-gray-500">{phongs.length} phòng</span>
-                        {soTrong > 0    && <span className="text-[10px] text-green-600">{soTrong} trống</span>}
+                        {soTrong > 0 && <span className="text-[10px] text-green-600">{soTrong} trống</span>}
                         {soDangThue > 0 && <span className="text-[10px] text-blue-600">{soDangThue} đang thuê</span>}
-                        {soBaoTri > 0   && <span className="text-[10px] text-red-500">{soBaoTri} bảo trì</span>}
+                        {soBaoTri > 0 && <span className="text-[10px] text-red-500">{soBaoTri} bảo trì</span>}
                       </div>
                     </div>
                   </div>
-                  {isOpen
-                    ? <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
-                    : <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />
-                  }
+                  {isOpen ? <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" /> : <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />}
                 </button>
-
-                {/* Building rooms — collapsible */}
                 {isOpen && (
                   <div className="p-3 bg-white">
-                    {/* Desktop table */}
                     <div className="hidden md:block">
                       <PhongDataTable
                         data={phongs}
@@ -429,7 +329,6 @@ export default function PhongPage() {
                         canEdit={canEdit}
                       />
                     </div>
-                    {/* Mobile cards */}
                     <div className="md:hidden grid grid-cols-1 gap-3">
                       {phongs.map((phong) => {
                         const hopDong = (phong as any).hopDongHienTai;
@@ -441,21 +340,14 @@ export default function PhongPage() {
                                   <h3 className="font-semibold text-base">{phong.maPhong}</h3>
                                   <p className="text-xs text-gray-600">Tầng {phong.tang} • {phong.dienTich}m²</p>
                                 </div>
-                                <Badge className={`text-xs ${{
-                                  trong: 'bg-green-100 text-green-800',
-                                  daDat: 'bg-yellow-100 text-yellow-800',
-                                  dangThue: 'bg-green-600 text-white',
-                                  baoTri: 'bg-red-100 text-red-800',
-                                }[phong.trangThai] ?? 'bg-gray-100 text-gray-800'}`}>
-                                  {{ trong:'Trống', daDat:'Đã đặt', dangThue:'Đang thuê', baoTri:'Bảo trì' }[phong.trangThai] ?? phong.trangThai}
+                                <Badge className={`text-xs ${{ trong: 'bg-green-100 text-green-800', daDat: 'bg-yellow-100 text-yellow-800', dangThue: 'bg-green-600 text-white', baoTri: 'bg-red-100 text-red-800' }[phong.trangThai] ?? 'bg-gray-100 text-gray-800'}`}>
+                                  {{ trong: 'Trống', daDat: 'Đã đặt', dangThue: 'Đang thuê', baoTri: 'Bảo trì' }[phong.trangThai] ?? phong.trangThai}
                                 </Badge>
                               </div>
                               <div className="space-y-1 mb-3">
                                 <div className="flex justify-between text-sm">
                                   <span className="text-gray-600">Giá thuê:</span>
-                                  <span className="font-semibold text-green-600">
-                                    {new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(phong.giaThue)}
-                                  </span>
+                                  <span className="font-semibold text-green-600">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(phong.giaThue)}</span>
                                 </div>
                               </div>
                               {hopDong?.khachThue?.length > 0 && (
@@ -466,8 +358,7 @@ export default function PhongPage() {
                                   </div>
                                   <p className="text-sm font-medium">{hopDong.nguoiDaiDien?.hoTen || 'N/A'}</p>
                                   {hopDong.khachThue.length > 1 && (
-                                    <Button variant="link" size="sm" className="text-xs text-blue-600 h-auto p-0 mt-0.5"
-                                      onClick={() => handleViewTenants(phong)}>
+                                    <Button variant="link" size="sm" className="text-xs text-blue-600 h-auto p-0 mt-0.5" onClick={() => handleViewTenants(phong)}>
                                       +{hopDong.khachThue.length - 1} người khác
                                     </Button>
                                   )}
@@ -499,13 +390,8 @@ export default function PhongPage() {
         )}
       </div>
 
-      {/* Mobile filter bar */}
       <div className="md:hidden space-y-2">
-        <SearchInput
-          placeholder="Tìm kiếm phòng..."
-          value={searchTerm}
-          onChange={setSearchTerm}
-        />
+        <SearchInput placeholder="Tìm kiếm phòng..." value={searchTerm} onChange={setSearchTerm} />
         <div className="grid grid-cols-2 gap-2">
           <Select value={selectedToaNha} onValueChange={setSelectedToaNha}>
             <SelectTrigger className="text-sm"><SelectValue placeholder="Tòa nhà" /></SelectTrigger>
@@ -529,7 +415,6 @@ export default function PhongPage() {
         </div>
       </div>
 
-      {/* Inline Image Viewer */}
       {showImageViewer && (
         <Card className="border-blue-200 bg-blue-50/30">
           <div className="flex items-center justify-between px-4 py-3 border-b border-blue-100">
@@ -549,11 +434,7 @@ export default function PhongPage() {
                   {viewingImages.map((image, index) => (
                     <CarouselItem key={index}>
                       <div className="flex items-center justify-center p-1 md:p-2">
-                        <img
-                          src={image}
-                          alt={`Ảnh ${index + 1} của phòng ${viewingPhongName}`}
-                          className="max-h-[50vh] md:max-h-[60vh] w-auto object-contain rounded-lg"
-                        />
+                        <img src={image} alt={`Ảnh ${index + 1} của phòng ${viewingPhongName}`} className="max-h-[50vh] md:max-h-[60vh] w-auto object-contain rounded-lg" />
                       </div>
                     </CarouselItem>
                   ))}
@@ -570,15 +451,12 @@ export default function PhongPage() {
         </Card>
       )}
 
-      {/* Inline Tenants Viewer */}
       {showTenantsViewer && (
         <Card className="border-blue-200 bg-blue-50/30">
           <div className="flex items-center justify-between px-4 py-3 border-b border-blue-100">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-blue-600" />
-              <h3 className="text-sm font-semibold text-gray-900">
-                Danh sách người thuê - Phòng {viewingTenantsPhongName}
-              </h3>
+              <h3 className="text-sm font-semibold text-gray-900">Danh sách người thuê - Phòng {viewingTenantsPhongName}</h3>
               <span className="text-xs text-gray-500">(Tổng cộng {viewingTenants.length} người)</span>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setShowTenantsViewer(false)} className="h-7 w-7 p-0">
@@ -597,14 +475,9 @@ export default function PhongPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1 md:mb-2">
-                        <h3 className="text-base md:text-lg font-semibold text-gray-900">
-                          {tenant.hoTen}
-                        </h3>
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          #{index + 1}
-                        </Badge>
+                        <h3 className="text-base md:text-lg font-semibold text-gray-900">{tenant.hoTen}</h3>
+                        <Badge variant="outline" className="ml-2 text-xs">#{index + 1}</Badge>
                       </div>
-                      
                       <div className="grid grid-cols-1 gap-2">
                         <div className="flex items-center gap-2 text-sm">
                           <span className="font-medium text-gray-600">SĐT:</span>
@@ -620,473 +493,5 @@ export default function PhongPage() {
         </Card>
       )}
     </div>
-  );
-}
-
-// Form component for adding/editing phong
-function PhongForm({ 
-  phong, 
-  toaNhaList,
-  onClose, 
-  onSuccess 
-}: { 
-  phong: Phong | null;
-  toaNhaList: ToaNha[];
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  // Helper function để lấy toaNha ID
-  const getToaNhaId = (toaNha: string | { id: string }) => {
-    if (typeof toaNha === 'object' && toaNha !== null) {
-      return toaNha.id || '';
-    } else if (typeof toaNha === 'string') {
-      return toaNha;
-    }
-    return '';
-  };
-
-  const [formData, setFormData] = useState({
-    maPhong: phong?.maPhong || '',
-    toaNha: phong?.toaNha ? getToaNhaId(phong.toaNha) : '',
-    tang: phong?.tang || 1,
-    dienTich: phong?.dienTich || 0,
-    giaThue: phong?.giaThue || 0,
-    tienCoc: phong?.tienCoc || 0,
-    moTa: phong?.moTa || '',
-    anhPhong: phong?.anhPhong || [],
-    tienNghi: phong?.tienNghi || [],
-    soNguoiToiDa: phong?.soNguoiToiDa || 1,
-    ngayTinhTien: phong?.ngayTinhTien ?? 1,
-    trangThai: phong?.trangThai || 'trong',
-  });
-
-  // Khách thuê hiện tại
-  const currentHopDong = (phong as any)?.hopDong?.find((h: any) => h.trangThai === 'hoatDong');
-  const currentKhachThueName = currentHopDong?.khachThue?.map((k: any) => k.hoTen).join(', ') || '';
-  const [availableKhachThue, setAvailableKhachThue] = useState<{ id: string; hoTen: string; soDienThoai: string }[]>([]);
-  const [selectedKhachThueId, setSelectedKhachThueId] = useState('');
-  const [assigningKhachThue, setAssigningKhachThue] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/khach-thue?limit=200')
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          setAvailableKhachThue(d.data
-            .filter((k: any) => k.trangThai === 'chuaThue')
-            .map((k: any) => ({ id: k.id, hoTen: k.hoTen, soDienThoai: k.soDienThoai })));
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  async function handleAssignKhachThue() {
-    if (!selectedKhachThueId || !phong) return;
-    setAssigningKhachThue(true);
-    try {
-      const res = await fetch(`/api/phong/${phong.id}/thue`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ khachThueId: selectedKhachThueId }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success('Đã gán khách thuê vào phòng! Hợp đồng tối giản đã được tạo.');
-        onSuccess();
-      } else {
-        toast.error(data.message || 'Không thể gán');
-      }
-    } catch {
-      toast.error('Lỗi kết nối');
-    } finally {
-      setAssigningKhachThue(false);
-    }
-  }
-
-  async function handleUnassignKhachThue() {
-    if (!phong) return;
-    setAssigningKhachThue(true);
-    try {
-      const res = await fetch(`/api/phong/${phong.id}/thue`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        toast.success('Đã hủy gán khách thuê');
-        onSuccess();
-      } else {
-        toast.error(data.message || 'Không thể hủy gán');
-      }
-    } catch {
-      toast.error('Lỗi kết nối');
-    } finally {
-      setAssigningKhachThue(false);
-    }
-  }
-
-  // Cập nhật formData khi phong thay đổi
-  useEffect(() => {
-    if (phong) {
-      const toaNhaId = getToaNhaId(phong.toaNha);
-      
-      setFormData({
-        maPhong: phong.maPhong || '',
-        toaNha: toaNhaId,
-        tang: phong.tang || 1,
-        dienTich: phong.dienTich || 0,
-        giaThue: phong.giaThue || 0,
-        tienCoc: phong.tienCoc || 0,
-        moTa: phong.moTa || '',
-        anhPhong: phong.anhPhong || [],
-        tienNghi: phong.tienNghi || [],
-        soNguoiToiDa: phong.soNguoiToiDa || 1,
-        ngayTinhTien: phong.ngayTinhTien ?? 1,
-        trangThai: phong.trangThai || 'trong',
-      });
-    } else {
-      setFormData({
-        maPhong: '',
-        toaNha: '',
-        tang: 1,
-        dienTich: 0,
-        giaThue: 0,
-        tienCoc: 0,
-        moTa: '',
-        anhPhong: [],
-        tienNghi: [],
-        soNguoiToiDa: 1,
-        ngayTinhTien: 1,
-        trangThai: 'trong',
-      });
-    }
-  }, [phong]);
-
-  // Function format tiền
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(amount);
-  };
-
-  const tienNghiOptions = [
-    { value: 'dieuhoa', label: 'Điều hòa' },
-    { value: 'nonglanh', label: 'Nóng lạnh' },
-    { value: 'tulanh', label: 'Tủ lạnh' },
-    { value: 'giuong', label: 'Giường' },
-    { value: 'tuquanao', label: 'Tủ quần áo' },
-    { value: 'banlamviec', label: 'Bàn làm việc' },
-    { value: 'ghe', label: 'Ghế' },
-    { value: 'tivi', label: 'TV' },
-    { value: 'wifi', label: 'WiFi' },
-    { value: 'maygiat', label: 'Máy giặt' },
-    { value: 'bep', label: 'Bếp' },
-    { value: 'noi', label: 'Nồi' },
-    { value: 'chen', label: 'Chén' },
-    { value: 'bat', label: 'Bát' },
-  ];
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      const url = phong ? `/api/phong/${phong.id}` : '/api/phong';
-      const method = phong ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          onSuccess();
-        } else {
-          toast.error(result.message || 'Có lỗi xảy ra');
-        }
-      } else {
-        const error = await response.json();
-        toast.error(error.message || 'Có lỗi xảy ra');
-      }
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      toast.error('Có lỗi xảy ra khi gửi form');
-    }
-  };
-
-  const handleTienNghiChange = (tienNghi: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      tienNghi: checked
-        ? [...prev.tienNghi, tienNghi]
-        : prev.tienNghi.filter(t => t !== tienNghi)
-    }));
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-      <Tabs defaultValue="thong-tin" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="thong-tin" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-            <Info className="h-3 w-3 md:h-4 md:w-4" />
-            Thông tin
-          </TabsTrigger>
-          <TabsTrigger value="anh-phong" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-            <Image className="h-3 w-3 md:h-4 md:w-4" />
-            Ảnh phòng
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="thong-tin" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
-          {/* Thông tin cơ bản */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="maPhong" className="text-sm">Mã phòng</Label>
-              <Input
-                id="maPhong"
-                value={formData.maPhong}
-                onChange={(e) => setFormData(prev => ({ ...prev, maPhong: e.target.value.toUpperCase() }))}
-                required
-                className="text-sm"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="toaNha" className="text-sm">Tòa nhà</Label>
-              <Select value={formData.toaNha} onValueChange={(value) => setFormData(prev => ({ ...prev, toaNha: value }))}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="Chọn tòa nhà" />
-                </SelectTrigger>
-                <SelectContent>
-                  {toaNhaList.map((toaNha) => (
-                    <SelectItem key={toaNha.id} value={toaNha.id!} className="text-sm">
-                      {toaNha.tenToaNha}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="trangThai" className="text-sm">Trạng thái</Label>
-              <Select value={formData.trangThai} onValueChange={(value) => setFormData(prev => ({ ...prev, trangThai: value as 'trong' | 'daDat' | 'dangThue' | 'baoTri' }))}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="Chọn trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="trong" className="text-sm">Trống</SelectItem>
-                  <SelectItem value="daDat" className="text-sm">Đã đặt</SelectItem>
-                  <SelectItem value="dangThue" className="text-sm">Đang thuê</SelectItem>
-                  <SelectItem value="baoTri" className="text-sm">Bảo trì</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Thông tin phòng */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="tang" className="text-sm">Tầng</Label>
-              <Input
-                id="tang"
-                type="number"
-                min="0"
-                value={formData.tang}
-                onChange={(e) => setFormData(prev => ({ ...prev, tang: parseInt(e.target.value) || 0 }))}
-                required
-                className="text-sm"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="dienTich" className="text-sm">Diện tích (m²)</Label>
-              <Input
-                id="dienTich"
-                type="number"
-                min="1"
-                value={formData.dienTich}
-                onChange={(e) => setFormData(prev => ({ ...prev, dienTich: parseInt(e.target.value) || 0 }))}
-                required
-                className="text-sm"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="soNguoiToiDa" className="text-sm">Số người tối đa</Label>
-              <Input
-                id="soNguoiToiDa"
-                type="number"
-                min="1"
-                max="10"
-                value={formData.soNguoiToiDa}
-                onChange={(e) => setFormData(prev => ({ ...prev, soNguoiToiDa: parseInt(e.target.value) || 1 }))}
-                required
-                className="text-sm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ngayTinhTien" className="text-sm">Ngày thu tiền hàng tháng</Label>
-              <Input
-                id="ngayTinhTien"
-                type="number"
-                min="1"
-                max="28"
-                value={formData.ngayTinhTien}
-                onChange={(e) => setFormData(prev => ({ ...prev, ngayTinhTien: Math.min(28, Math.max(1, parseInt(e.target.value) || 1)) }))}
-                className="text-sm"
-              />
-              <p className="text-xs text-muted-foreground">Ngày 1-28, dùng làm mặc định khi tạo hợp đồng</p>
-            </div>
-
-            <div className="space-y-2 col-span-2 md:col-span-1">
-              <Label className="text-sm">Preview</Label>
-              <div className="h-10 bg-gray-50 border rounded-md flex items-center justify-center text-xs md:text-sm text-gray-500">
-                Phòng {formData.maPhong || 'XXX'} - Tầng {formData.tang}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="giaThue" className="text-sm">Giá thuê (VNĐ)</Label>
-              <Input
-                id="giaThue"
-                type="number"
-                min="0"
-                value={formData.giaThue}
-                onChange={(e) => setFormData(prev => ({ ...prev, giaThue: parseInt(e.target.value) || 0 }))}
-                required
-                className="text-sm"
-              />
-              <span className="text-xs md:text-sm text-gray-500 font-medium">
-                {formatCurrency(formData.giaThue)}
-              </span>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="tienCoc" className="text-sm">Tiền cọc (VNĐ)</Label>
-              <Input
-                id="tienCoc"
-                type="number"
-                min="0"
-                value={formData.tienCoc}
-                onChange={(e) => setFormData(prev => ({ ...prev, tienCoc: parseInt(e.target.value) || 0 }))}
-                required
-                className="text-sm"
-              />
-              <span className="text-xs md:text-sm text-gray-500 font-medium">
-                {formatCurrency(formData.tienCoc)}
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="moTa" className="text-sm">Mô tả</Label>
-            <Textarea
-              id="moTa"
-              value={formData.moTa}
-              onChange={(e) => setFormData(prev => ({ ...prev, moTa: e.target.value }))}
-              rows={3}
-              className="text-sm"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm">Tiện nghi</Label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
-              {tienNghiOptions.map((option) => (
-                <div key={option.value} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id={option.value}
-                    checked={formData.tienNghi.includes(option.value)}
-                    onChange={(e) => handleTienNghiChange(option.value, e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor={option.value} className="text-sm">
-                    {option.label}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="anh-phong" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
-          <div className="space-y-3 md:space-y-4">
-            <div>
-              <h3 className="text-base md:text-lg font-medium mb-1 md:mb-2">Quản lý ảnh phòng</h3>
-              <p className="text-xs md:text-sm text-gray-600">
-                Tải lên tối đa 10 ảnh để khách hàng có thể xem chi tiết phòng
-              </p>
-            </div>
-            
-            <PhongImageUpload
-              images={formData.anhPhong}
-              onImagesChange={(images: string[]) => setFormData(prev => ({ ...prev, anhPhong: images }))}
-              maxImages={10}
-              className="w-full"
-              folder={buildUploadFolder(
-                toaNhaList.find(t => t.id === formData.toaNha)?.tenToaNha || formData.toaNha,
-                formData.maPhong,
-              )}
-            />
-          </div>
-
-          {/* ── Gán khách thuê ── */}
-          {phong && (
-            <div className="space-y-2 border-t pt-4">
-              <Label className="text-xs md:text-sm font-medium flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5" />
-                Khách thuê hiện tại
-              </Label>
-              {currentKhachThueName ? (
-                <div className="flex items-center justify-between rounded-md border bg-green-50 px-3 py-2">
-                  <span className="text-sm font-medium text-green-800">{currentKhachThueName}</span>
-                  <Button type="button" size="sm" variant="outline"
-                    className="h-7 text-xs border-red-300 text-red-600 hover:bg-red-50"
-                    disabled={assigningKhachThue} onClick={handleUnassignKhachThue}>
-                    {assigningKhachThue ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Hủy gán'}
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Select value={selectedKhachThueId} onValueChange={setSelectedKhachThueId}>
-                    <SelectTrigger className="text-sm flex-1">
-                      <SelectValue placeholder="Chọn khách thuê..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableKhachThue.length === 0 ? (
-                        <SelectItem value="_none" disabled>Không có khách thuê chưa thuê</SelectItem>
-                      ) : availableKhachThue.map(k => (
-                        <SelectItem key={k.id} value={k.id}>
-                          {k.hoTen} — {k.soDienThoai}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" size="sm" disabled={!selectedKhachThueId || assigningKhachThue} onClick={handleAssignKhachThue}>
-                    {assigningKhachThue ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Gán'}
-                  </Button>
-                </div>
-              )}
-              <p className="text-[10px] text-muted-foreground">Gán sẽ tạo hợp đồng tối giản. Có thể chỉnh sửa trong mục Hợp đồng.</p>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
-        <Button type="button" variant="outline" onClick={onClose} className="text-sm">
-          Hủy
-        </Button>
-        <Button type="submit" className="text-sm">
-          {phong ? 'Cập nhật' : 'Thêm mới'}
-        </Button>
-      </div>
-    </form>
   );
 }

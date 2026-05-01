@@ -39,12 +39,10 @@ import {
 } from 'lucide-react';
 import { KhachThue } from '@/types';
 import { KhachThueDataTable } from './table';
-import { KhachThueForm } from '@/components/khach-thue-form';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { toast } from 'sonner';
 import PageHeader from '@/components/dashboard/page-header';
 import SearchInput from '@/components/dashboard/search-input';
-import InlineForm from '@/components/dashboard/inline-form';
 
 export default function KhachThuePage() {
   const router = useRouter();
@@ -56,9 +54,6 @@ export default function KhachThuePage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTrangThai, setSelectedTrangThai] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingKhachThue, setEditingKhachThue] = useState<KhachThue | null>(null);
-  const [isFormSubmitting, setIsFormSubmitting] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   // Smart delete: khi khách thuê đang đứng hợp đồng
   const [deleteTarget, setDeleteTarget] = useState<KhachThue | null>(null);
@@ -183,8 +178,7 @@ export default function KhachThuePage() {
   })();
 
   const handleEdit = (khachThue: KhachThue) => {
-    setEditingKhachThue(khachThue);
-    setIsDialogOpen(true);
+    router.push(`/dashboard/khach-thue/${khachThue.id}`);
   };
 
   // Kích hoạt / thu hồi tài khoản đăng nhập cho khách thuê
@@ -341,46 +335,9 @@ export default function KhachThuePage() {
         description="Danh sách tất cả khách thuê trong hệ thống"
         onRefresh={handleRefresh}
         loading={cache.isRefreshing}
-        onAdd={canEdit ? () => { setEditingKhachThue(null); setIsDialogOpen(true); } : undefined}
+        onAdd={canEdit ? () => router.push('/dashboard/khach-thue/them-moi') : undefined}
         addLabel="Thêm khách thuê"
       />
-
-      {/* Create/Edit Form - Inline */}
-      {isDialogOpen && (
-        <InlineForm
-          title={editingKhachThue ? 'Chỉnh sửa khách thuê' : 'Thêm khách thuê mới'}
-          description={editingKhachThue ? 'Cập nhật thông tin khách thuê' : 'Nhập thông tin khách thuê mới'}
-          onSave={async () => {}}
-          onCancel={() => { setIsDialogOpen(false); setEditingKhachThue(null); }}
-          saving={isFormSubmitting}
-          hideSave
-          hideCancel
-        >
-          <KhachThueForm
-            khachThue={editingKhachThue}
-            canViewZalo={canViewZalo}
-            onClose={() => setIsDialogOpen(false)}
-            onSuccess={(newKhachThue) => {
-              cache.clearCache();
-              setIsDialogOpen(false);
-              if (newKhachThue) {
-                if (editingKhachThue) {
-                  setKhachThueList(prev => prev.map(kt =>
-                    kt.id === editingKhachThue.id ? newKhachThue : kt
-                  ));
-                } else {
-                  setKhachThueList(prev => [newKhachThue, ...prev]);
-                }
-              } else {
-                fetchKhachThue();
-              }
-              toast.success(editingKhachThue ? 'Cập nhật khách thuê thành công!' : 'Thêm khách thuê thành công!');
-            }}
-            isSubmitting={isFormSubmitting}
-            setIsSubmitting={setIsFormSubmitting}
-          />
-        </InlineForm>
-      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
