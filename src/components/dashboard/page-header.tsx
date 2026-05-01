@@ -7,6 +7,7 @@ import { Plus, RefreshCw, Loader2 } from 'lucide-react';
 interface PageHeaderProps {
   title: string;
   description?: string;
+  descriptionClassName?: string;
   onRefresh?: () => void;
   onAdd?: () => void;
   addLabel?: string;
@@ -22,6 +23,7 @@ interface PageHeaderProps {
 export default function PageHeader({
   title,
   description,
+  descriptionClassName,
   onRefresh,
   onAdd,
   addLabel = 'Thêm mới',
@@ -35,11 +37,11 @@ export default function PageHeader({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-gray-900 md:text-2xl">{title}</h1>
-          {description && (
-            <p className="mt-0.5 text-sm text-gray-500">{description}</p>
-          )}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          {description && (
+            <span className={cn('text-gray-500', descriptionClassName || 'text-sm')}>{description}</span>
+          )}
           {onRefresh && (
             <Button
               variant="outline"

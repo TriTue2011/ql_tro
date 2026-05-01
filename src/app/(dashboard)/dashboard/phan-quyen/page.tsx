@@ -682,6 +682,8 @@ export default function PhanQuyenPage() {
     <div className="space-y-5">
       <PageHeader
         title=""
+        description="Một nơi duy nhất để quản lý quyền nghiệp vụ, quyền Zalo và giới hạn vai trò theo tòa nhà."
+        descriptionClassName="text-2xl rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-1.5"
         onRefresh={() => void loadInitialData()}
       >
         <BuildingSelector
@@ -690,9 +692,6 @@ export default function PhanQuyenPage() {
           onChange={setSelectedBuildingId}
         />
       </PageHeader>
-      <p className="text-base text-gray-500">
-        Một nơi duy nhất để quản lý quyền nghiệp vụ, quyền Zalo và giới hạn vai trò theo tòa nhà.
-      </p>
 
       <PillTabs
         tabs={visibleTabs.map(t => ({ value: t.value, label: t.label }))}
