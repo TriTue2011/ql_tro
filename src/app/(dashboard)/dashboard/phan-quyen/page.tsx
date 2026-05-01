@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -28,7 +29,6 @@ import {
   BuildingSelector,
   PageHeader,
   PermissionGrid,
-  PermissionToggle,
   PillTabs,
   SearchInput,
 } from '@/components/dashboard';
@@ -777,7 +777,7 @@ export default function PhanQuyenPage() {
                     const cvOption = [...CHUC_VU_QUAN_LY, ...CHUC_VU_NHAN_VIEN].find(c => c.value === chucVuKey);
                     const groupLabel = cvOption?.label ?? 'Khác';
                     return (
-                      <div key={chucVuKey} className="rounded-full border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
+                      <div key={chucVuKey} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
                         <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider px-1">
                           {groupLabel}
                         </p>
@@ -788,7 +788,7 @@ export default function PhanQuyenPage() {
                               key={user.id}
                               type="button"
                               onClick={() => setExpandedUser(isSelected ? null : user.id)}
-                              className={`w-full flex items-center gap-2 px-3 py-2 rounded-full text-left transition-all duration-200 text-sm ${
+                              className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-sm ${
                                 isSelected
                                   ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
                                   : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
@@ -817,7 +817,7 @@ export default function PhanQuyenPage() {
               {/* Right column: permission grid for selected user */}
               <div className="flex-1 min-w-0">
                 {expandedUser ? (
-                  <div className="rounded-full border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
+                  <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-200">
@@ -858,20 +858,20 @@ export default function PhanQuyenPage() {
                         return (
                           <div
                             key={permission.key}
-                            className={`flex items-center gap-3 rounded-full px-3 py-2.5 border transition-all duration-200 ${
+                            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-all duration-200 ${
                               isPermOn
                                 ? 'bg-gradient-to-r from-indigo-50/80 to-blue-50/80 border-indigo-200 shadow-sm'
                                 : 'bg-white border-indigo-100 hover:border-indigo-200 hover:shadow-sm'
                             }`}
                           >
-                            <PermissionToggle
+                            <Checkbox
                               checked={isPermOn}
                               disabled={!canEditBusiness || savingBusiness === `${expandedUser}-${permission.key}`}
-                              onChange={(checked) => {
+                              onCheckedChange={(checked) => {
                                 const u = businessUsers.find(x => x.id === expandedUser);
-                                if (u) void saveBusinessPermission(u, permission.key, checked);
+                                if (u) void saveBusinessPermission(u, permission.key, checked === true);
                               }}
-                              size="sm"
+                              className="data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                             />
                             <div className="min-w-0 flex-1">
                               <p className={`text-sm font-semibold ${isPermOn ? 'text-indigo-900' : 'text-gray-900'}`}>{permission.label}</p>
@@ -1088,7 +1088,7 @@ export default function PhanQuyenPage() {
                         return (
                           <div
                             key={feature.key}
-                            className={`flex items-center gap-3 rounded-full px-3 py-2.5 border transition-all duration-200 ${
+                            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-all duration-200 ${
                               disabledByHigher
                                 ? 'bg-gray-100 border-gray-200 opacity-70'
                                 : checked
@@ -1096,11 +1096,11 @@ export default function PhanQuyenPage() {
                                   : 'bg-white border-indigo-100 hover:border-indigo-200 hover:shadow-sm'
                             }`}
                           >
-                            <PermissionToggle
+                            <Checkbox
                               checked={checked}
                               disabled={!canEditZalo || disabledByHigher}
-                              onChange={(value) => toggleZaloPermission(expandedSlot, feature.key, value)}
-                              size="sm"
+                              onCheckedChange={(value) => toggleZaloPermission(expandedSlot, feature.key, value === true)}
+                              className="data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
