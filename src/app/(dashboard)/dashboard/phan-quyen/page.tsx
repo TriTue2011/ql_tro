@@ -681,6 +681,7 @@ export default function PhanQuyenPage() {
   return (
     <div className="space-y-5">
       <PageHeader
+        title=""
         onRefresh={() => void loadInitialData()}
       >
         <BuildingSelector
@@ -941,7 +942,7 @@ export default function PhanQuyenPage() {
                   const renderPositionGroup = (roleLabel: string, posList: typeof positions) => {
                     if (posList.length === 0) return null;
                     return (
-                      <div className="rounded-full border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
+                      <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
                         <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider px-1">
                           {roleLabel}
                         </p>
@@ -1030,7 +1031,7 @@ export default function PhanQuyenPage() {
               {/* Right column: permission grid for selected slot */}
               <div className="flex-1 min-w-0">
                 {expandedSlot ? (
-                  <div className="rounded-full border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
+                  <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
@@ -1127,14 +1128,14 @@ export default function PhanQuyenPage() {
           <div className="p-4">
             <div className="grid gap-4 lg:grid-cols-2">
               {/* Global limits */}
-              <div className="rounded-full border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
                   <p className="font-bold text-indigo-900 text-sm">Giới hạn chung</p>
                 </div>
                 <div className="space-y-2">
                   {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => (
-                    <div key={roleKey} className="rounded-full border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
+                    <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
                       <div>
                         <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
                         <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
@@ -1154,7 +1155,7 @@ export default function PhanQuyenPage() {
               </div>
 
               {/* Per-building limits */}
-              <div className="rounded-full border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <Building2 className="h-4 w-4 text-indigo-600" />
                   <p className="font-bold text-indigo-900 text-sm">Giới hạn riêng của tòa đang chọn</p>
@@ -1163,7 +1164,7 @@ export default function PhanQuyenPage() {
                   {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => {
                     const effectiveLimit = selectedLimits[roleKey] ?? globalLimits[roleKey] ?? 0;
                     return (
-                      <div key={roleKey} className="rounded-full border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
+                      <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
                         <div>
                           <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
                           <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
