@@ -7,8 +7,6 @@ import {
   Building2,
   CheckCircle2,
   ChevronRight,
-  Eye,
-  EyeOff,
   RefreshCw,
   Save,
   Shield,
@@ -217,7 +215,6 @@ export default function PhanQuyenPage() {
   const [activeTab, setActiveTab] = useState('business');
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
-  const [hideBusinessTab, setHideBusinessTab] = useState(false);
   const canEditZalo = (isAdmin || isChuNha || isQuanLy) && (isAdmin || canManageZaloPerms[selectedBuildingId] !== false);
 
   useEffect(() => {
@@ -272,13 +269,13 @@ export default function PhanQuyenPage() {
     return counts;
   }, [selectedBuildingId, users]);
 
-  // Filter tab items: hide business tab when toggled or user can't edit
+  // Filter tab items: hide business tab when user can't edit
   const visibleTabs = useMemo(() => {
-    if (hideBusinessTab || !canEditBusiness) {
+    if (!canEditBusiness) {
       return TAB_ITEMS.filter(t => t.value !== 'business');
     }
     return [...TAB_ITEMS];
-  }, [hideBusinessTab, canEditBusiness]);
+  }, [canEditBusiness]);
 
   async function loadInitialData() {
     setLoading(true);
@@ -562,33 +559,11 @@ export default function PhanQuyenPage() {
       {activeTab === 'business' && (
         <div className="rounded-xl border bg-white shadow-sm">
           <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b">
-            <div className="flex items-center gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-gray-900">Quyền nghiệp vụ của quản lý</h2>
-                <p className="text-xs text-gray-500">
-                  Các quyền này được backend kiểm tra khi quản lý thêm, sửa hoặc xóa dữ liệu nghiệp vụ.
-                </p>
-              </div>
-              {/* Hide business tab toggle */}
-              {canEditBusiness && (
-                <button
-                  type="button"
-                  onClick={() => setHideBusinessTab(prev => !prev)}
-                  className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
-                    hideBusinessTab
-                      ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
-                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-                  }`}
-                  title={hideBusinessTab ? 'Hiện tab quyền nghiệp vụ' : 'Ẩn tab quyền nghiệp vụ'}
-                >
-                  {hideBusinessTab ? (
-                    <EyeOff className="h-3.5 w-3.5" />
-                  ) : (
-                    <Eye className="h-3.5 w-3.5" />
-                  )}
-                  {hideBusinessTab ? 'Đã ẩn' : 'Ẩn tab'}
-                </button>
-              )}
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Quyền nghiệp vụ của quản lý</h2>
+              <p className="text-xs text-gray-500">
+                Các quyền này được backend kiểm tra khi quản lý thêm, sửa hoặc xóa dữ liệu nghiệp vụ.
+              </p>
             </div>
             <SearchInput
               placeholder="Tìm tên, email, SĐT, chức vụ..."
