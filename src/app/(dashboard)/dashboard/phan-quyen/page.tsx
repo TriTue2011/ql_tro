@@ -916,7 +916,7 @@ export default function PhanQuyenPage() {
           </div>
 
           {!canEditZalo && (
-            <div className="mx-4 mt-3 rounded-full border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
+            <div className="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
               Tài khoản hiện tại chỉ xem quyền Zalo, không thể chỉnh sửa.
             </div>
           )}
@@ -930,16 +930,16 @@ export default function PhanQuyenPage() {
                   
                   if (positions.length === 0) {
                     return (
-                      <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
+                      <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
                         <Building2 className="mx-auto mb-2 h-6 w-6 text-indigo-300" />
                         Không có chức vụ nào để cấu hình.
                       </div>
                     );
                   }
 
-                  // Group positions by role
-                  const quanLyPositions = positions.filter(p => p.role === 'quanLy');
-                  const nhanVienPositions = positions.filter(p => p.role === 'nhanVien');
+                  // Group positions by role — only show positions that have users assigned
+                  const quanLyPositions = positions.filter(p => p.role === 'quanLy' && getUsersInPosition(p.value).length > 0);
+                  const nhanVienPositions = positions.filter(p => p.role === 'nhanVien' && getUsersInPosition(p.value).length > 0);
 
                   const renderPositionGroup = (roleLabel: string, posList: typeof positions) => {
                     if (posList.length === 0) return null;
@@ -965,7 +965,7 @@ export default function PhanQuyenPage() {
                                     setExpandedSlot(null);
                                   }
                                 }}
-                                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-full text-left transition-all duration-200 text-sm ${
+                                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all duration-200 text-sm ${
                                   isSelected || expandedPosition === pos.value
                                     ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
                                     : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
@@ -996,7 +996,7 @@ export default function PhanQuyenPage() {
                                           key={user.id}
                                           type="button"
                                           onClick={() => setExpandedSlot(isPersonSelected ? null : personSlotKey)}
-                                          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-full text-left transition-all duration-200 text-xs ${
+                                          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-left transition-all duration-200 text-xs ${
                                             isPersonSelected
                                               ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-md shadow-indigo-200'
                                               : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300'
@@ -1104,7 +1104,7 @@ export default function PhanQuyenPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
                     <Building2 className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
                     Chọn một chức vụ bên trái
                   </div>
