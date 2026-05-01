@@ -246,8 +246,9 @@ export default function PhanQuyenPage() {
 
   const businessUsers = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
+    const allowedRoles = ROLE_TARGETS_BY_LEVEL[level];
     return users
-      .filter(user => getUserRole(user) === 'quanLy')
+      .filter(user => allowedRoles.includes(getUserRole(user) as RoleKey))
       .filter(user => (user.toaNhaIds ?? []).includes(selectedBuildingId))
       .filter(user => {
         if (!keyword) return true;
@@ -259,7 +260,7 @@ export default function PhanQuyenPage() {
           chucVu.includes(keyword)
         );
       });
-  }, [searchTerm, selectedBuildingId, users]);
+  }, [searchTerm, selectedBuildingId, users, level]);
 
   const roleCounts = useMemo(() => {
     const counts: Record<RoleKey, number> = { chuNha: 0, dongChuTro: 0, quanLy: 0, nhanVien: 0 };
@@ -564,9 +565,9 @@ export default function PhanQuyenPage() {
           <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b">
             <div className="flex items-center gap-3">
               <div>
-                <h2 className="text-base font-semibold text-gray-900">Quyền nghiệp vụ của quản lý</h2>
+                <h2 className="text-base font-semibold text-gray-900">Quyền nghiệp vụ</h2>
                 <p className="text-xs text-gray-500">
-                  Các quyền này được backend kiểm tra khi quản lý thêm, sửa hoặc xóa dữ liệu nghiệp vụ.
+                  Các quyền này được backend kiểm tra khi người dùng thêm, sửa hoặc xóa dữ liệu nghiệp vụ.
                 </p>
               </div>
               {/* Hide business tab toggle — only shown when user can't edit */}
@@ -608,12 +609,12 @@ export default function PhanQuyenPage() {
               {/* Left column: positions grouped with people inside */}
               <div className="w-full lg:w-80 shrink-0 space-y-3">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 px-1">
-                  Chọn quản lý để cấu hình
+                  Chọn người dùng để cấu hình
                 </p>
                 {(() => {
-                  // Group users by chucVu, preserving CHUC_VU_QUAN_LY order
+                  // Group users by chucVu, preserving CHUC_VU_QUAN_LY then CHUC_VU_NHAN_VIEN order
                   const grouped = new Map<string, User[]>();
-                  for (const cv of CHUC_VU_QUAN_LY) {
+                  for (const cv of [...CHUC_VU_QUAN_LY, ...CHUC_VU_NHAN_VIEN]) {
                     const usersWithCV = businessUsers.filter(u => u.chucVu === cv.value);
                     if (usersWithCV.length > 0) grouped.set(cv.value, usersWithCV);
                   }
@@ -625,13 +626,13 @@ export default function PhanQuyenPage() {
                     return (
                       <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
                         <Users className="mx-auto mb-2 h-6 w-6 text-gray-300" />
-                        Không có quản lý nào trong tòa nhà này.
+                        Không có người dùng nào trong tòa nhà này.
                       </div>
                     );
                   }
 
                   return Array.from(grouped.entries()).map(([chucVuKey, usersInGroup]) => {
-                    const cvOption = CHUC_VU_QUAN_LY.find(c => c.value === chucVuKey);
+                    const cvOption = [...CHUC_VU_QUAN_LY, ...CHUC_VU_NHAN_VIEN].find(c => c.value === chucVuKey);
                     const groupLabel = cvOption?.label ?? 'Khác';
                     return (
                       <div key={chucVuKey} className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-3 space-y-1.5">
@@ -676,7 +677,7 @@ export default function PhanQuyenPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className="text-sm font-semibold text-gray-900">
-                          {businessUsers.find(u => u.id === expandedUser)?.ten || 'Quản lý'}
+                          {businessUsers.find(u => u.id === expandedUser)?.ten || 'Người dùng'}
                         </p>
                         <p className="text-xs text-gray-500">
                           {businessUsers.find(u => u.id === expandedUser)?.email || businessUsers.find(u => u.id === expandedUser)?.soDienThoai || ''}
@@ -716,7 +717,7 @@ export default function PhanQuyenPage() {
                 ) : (
                   <div className="rounded-lg border border-dashed p-8 text-center text-sm text-gray-500">
                     <Users className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                    Chọn một quản lý bên trái để cấu hình quyền nghiệp vụ.
+                    Chọn một người dùng bên trái để cấu hình quyền nghiệp vụ.
                   </div>
                 )}
               </div>

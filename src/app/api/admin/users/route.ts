@@ -61,9 +61,8 @@ export async function GET() {
 
     let users;
     if (role === 'admin') {
-      // Admin chỉ quản lý admin và chuNha
+      // Admin quản lý tất cả người dùng
       users = await prisma.nguoiDung.findMany({
-        where: { vaiTro: { in: ['admin', 'chuNha'] } },
         take: 1000,
         orderBy: { ngayTao: 'desc' },
         select: selectFields,
