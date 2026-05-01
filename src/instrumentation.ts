@@ -52,6 +52,42 @@ export async function register() {
         name: 'ZaloMessage.ownId index',
         sql: `CREATE INDEX IF NOT EXISTS "ZaloMessage_ownId_createdAt_idx" ON "ZaloMessage"("ownId", "createdAt")`,
       },
+      {
+        name: 'ToaNhaNguoiQuanLy.quyenZalo',
+        sql: `ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "quyenZalo" BOOLEAN NOT NULL DEFAULT false`,
+      },
+      {
+        name: 'ToaNhaNguoiQuanLy.quyenZaloMonitor',
+        sql: `ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "quyenZaloMonitor" BOOLEAN NOT NULL DEFAULT false`,
+      },
+      {
+        name: 'ToaNhaNguoiQuanLy.anNavTabHopDong',
+        sql: `ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabHopDong" BOOLEAN NOT NULL DEFAULT false`,
+      },
+      {
+        name: 'ToaNhaNguoiQuanLy.anNavTabHoaDon',
+        sql: `ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabHoaDon" BOOLEAN NOT NULL DEFAULT false`,
+      },
+      {
+        name: 'ToaNhaNguoiQuanLy.anNavTabThanhToan',
+        sql: `ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabThanhToan" BOOLEAN NOT NULL DEFAULT false`,
+      },
+      {
+        name: 'ToaNhaNguoiQuanLy.anNavTabSuCo',
+        sql: `ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabSuCo" BOOLEAN NOT NULL DEFAULT false`,
+      },
+      {
+        name: 'ToaNhaNguoiQuanLy.anNavTabZalo',
+        sql: `ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabZalo" BOOLEAN NOT NULL DEFAULT false`,
+      },
+      {
+        name: 'ToaNhaNguoiQuanLy.anNavTabZaloMonitor',
+        sql: `ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabZaloMonitor" BOOLEAN NOT NULL DEFAULT false`,
+      },
+      {
+        name: 'NguoiDung.nguoiTaoId',
+        sql: `ALTER TABLE "NguoiDung" ADD COLUMN IF NOT EXISTS "nguoiTaoId" TEXT`,
+      },
     ];
 
     for (const m of migrations) {
