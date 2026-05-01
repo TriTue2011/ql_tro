@@ -9,15 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -26,16 +17,14 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Plus, 
-  FileText, 
+import {
+  Plus,
+  FileText,
   Calendar,
   Download,
   Edit,
   X as CloseIcon,
   RefreshCw,
-  Search,
-  Trash2,
   Users,
   Building2,
   Home
@@ -46,6 +35,8 @@ import { useCanEdit } from '@/hooks/use-can-edit';
 import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
+import PageHeader from '@/components/dashboard/page-header';
+import SearchInput from '@/components/dashboard/search-input';
 
 export default function HopDongPage() {
   const router = useRouter();
@@ -908,31 +899,14 @@ export default function HopDongPage() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Quản lý hợp đồng</h1>
-          <p className="text-xs md:text-sm text-gray-600">Danh sách tất cả hợp đồng trong hệ thống</p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={cache.isRefreshing}
-            className="flex-1 sm:flex-none"
-          >
-            <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
-          </Button>
-          {canEdit && (
-            <Button size="sm" onClick={() => router.push('/dashboard/hop-dong/them-moi')} className="flex-1 sm:flex-none">
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Thêm hợp đồng</span>
-              <span className="sm:hidden">Thêm</span>
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Quản lý hợp đồng"
+        description="Danh sách tất cả hợp đồng trong hệ thống"
+        onRefresh={handleRefresh}
+        loading={cache.isRefreshing}
+        onAdd={canEdit ? () => router.push('/dashboard/hop-dong/them-moi') : undefined}
+        addLabel="Thêm hợp đồng"
+      />
 
       {/* View Modal */}
       {viewingHopDong && (
@@ -1204,15 +1178,11 @@ export default function HopDongPage() {
         
         {/* Mobile Filters */}
         <div className="space-y-2 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm hợp đồng..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 text-sm"
-            />
-          </div>
+          <SearchInput
+            placeholder="Tìm kiếm hợp đồng..."
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
           <div className="grid grid-cols-2 gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="text-sm">

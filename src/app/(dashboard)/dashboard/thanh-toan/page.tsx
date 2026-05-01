@@ -18,15 +18,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,12 +28,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  CreditCard, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  CreditCard,
   Calendar,
   Users,
   Eye,
@@ -51,11 +41,15 @@ import {
   Receipt,
   RefreshCw,
   FileText,
-  Copy
+  Copy,
+  X as CloseIcon
 } from 'lucide-react';
 import { ThanhToan, HoaDon } from '@/types';
 import { toast } from 'sonner';
 import { ThanhToanDataTable } from './table';
+import PageHeader from '@/components/dashboard/page-header';
+import SearchInput from '@/components/dashboard/search-input';
+import InlineForm from '@/components/dashboard/inline-form';
 
 // Type cho ThanhToan đã được populate
 type ThanhToanPopulated = Omit<ThanhToan, 'hoaDon'> & {
@@ -265,57 +259,38 @@ export default function ThanhToanPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Quản lý thanh toán</h1>
-          <p className="text-xs md:text-sm text-gray-600">Danh sách tất cả giao dịch thanh toán</p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={cache.isRefreshing}
-            className="flex-1 sm:flex-none"
-          >
-            <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
-          </Button>
-          {canEdit && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={() => setEditingThanhToan(null)} className="flex-1 sm:flex-none">
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Thêm thanh toán</span>
-                <span className="sm:hidden">Thêm</span>
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingThanhToan ? 'Chỉnh sửa thanh toán' : 'Thêm thanh toán mới'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingThanhToan ? 'Cập nhật thông tin thanh toán' : 'Nhập thông tin thanh toán mới'}
-              </DialogDescription>
-            </DialogHeader>
+      <PageHeader
+        title="Quản lý thanh toán"
+        description="Danh sách tất cả giao dịch thanh toán"
+        onRefresh={handleRefresh}
+        loading={cache.isRefreshing}
+        onAdd={canEdit ? () => { setEditingThanhToan(null); setIsDialogOpen(true); } : undefined}
+        addLabel="Thêm thanh toán"
+      />
 
-            <ThanhToanForm
-              thanhToan={editingThanhToan}
-              hoaDonList={hoaDonList}
-              onClose={() => setIsDialogOpen(false)}
-              onSuccess={() => {
-                cache.clearAllCaches(); // sync cả hoa-don và thanh-toan
-                setIsDialogOpen(false);
-                fetchData(true);
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-          )}
-        </div>
-      </div>
+      {/* Inline Form for Create/Edit */}
+      {isDialogOpen && (
+        <InlineForm
+          title={editingThanhToan ? 'Chỉnh sửa thanh toán' : 'Thêm thanh toán mới'}
+          description={editingThanhToan ? 'Cập nhật thông tin thanh toán' : 'Nhập thông tin thanh toán mới'}
+          onSave={async () => {}}
+          onCancel={() => { setIsDialogOpen(false); setEditingThanhToan(null); }}
+          hideSave
+          hideCancel
+        >
+          <ThanhToanForm
+            thanhToan={editingThanhToan}
+            hoaDonList={hoaDonList}
+            onClose={() => { setIsDialogOpen(false); setEditingThanhToan(null); }}
+            onSuccess={() => {
+              cache.clearAllCaches();
+              setIsDialogOpen(false);
+              setEditingThanhToan(null);
+              fetchData(true);
+            }}
+          />
+        </InlineForm>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
@@ -402,15 +377,11 @@ export default function ThanhToanPage() {
         
         {/* Mobile Filters */}
         <div className="space-y-2 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm thanh toán..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 text-sm"
-            />
-          </div>
+          <SearchInput
+            placeholder="Tìm kiếm thanh toán..."
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
           <div className="grid grid-cols-2 gap-2">
             <Select value={methodFilter} onValueChange={setMethodFilter}>
               <SelectTrigger className="text-sm">
@@ -752,14 +723,14 @@ function ThanhToanForm({
         placeholder="Chọn ảnh biên lai thanh toán"
       />
 
-      <DialogFooter className="flex-col sm:flex-row gap-2">
+      <div className="flex flex-col sm:flex-row gap-2 pt-4 md:pt-6 border-t">
         <Button type="button" variant="outline" size="sm" onClick={onClose} className="w-full sm:w-auto">
           Hủy
         </Button>
         <Button type="submit" size="sm" className="w-full sm:w-auto">
           {thanhToan ? 'Cập nhật' : 'Thêm mới'}
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   );
 }

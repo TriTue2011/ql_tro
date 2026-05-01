@@ -4,18 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -31,10 +22,8 @@ import {
   Edit,
   Trash2,
   Home,
-  MapPin,
   Users,
   Eye,
-  ExternalLink,
   Copy,
   Info,
   Image,
@@ -42,6 +31,7 @@ import {
   ChevronDown,
   ChevronRight,
   Building2,
+  X,
 } from 'lucide-react';
 import {
   Carousel,
@@ -58,6 +48,10 @@ import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useCanEdit } from '@/hooks/use-can-edit';
+import PageHeader from '@/components/dashboard/page-header';
+import SearchInput from '@/components/dashboard/search-input';
+import InlineForm from '@/components/dashboard/inline-form';
+import ConfirmPopover from '@/components/dashboard/confirm-popover';
 
 export default function PhongPage() {
   const canEdit = useCanEdit();
@@ -72,14 +66,16 @@ export default function PhongPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedToaNha, setSelectedToaNha] = useState('');
   const [selectedTrangThai, setSelectedTrangThai] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editingPhong, setEditingPhong] = useState<Phong | null>(null);
-  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  // Image viewer inline
   const [viewingImages, setViewingImages] = useState<string[]>([]);
   const [viewingPhongName, setViewingPhongName] = useState('');
-  const [isTenantsViewerOpen, setIsTenantsViewerOpen] = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  // Tenants viewer inline
   const [viewingTenants, setViewingTenants] = useState<any[]>([]);
   const [viewingTenantsPhongName, setViewingTenantsPhongName] = useState('');
+  const [showTenantsViewer, setShowTenantsViewer] = useState(false);
   // Accordion: set of toaNhaId đang mở (mặc định tất cả ẩn)
   const [openBuildings, setOpenBuildings] = useState<Set<string>>(new Set());
   const toggleBuilding = (id: string) =>
@@ -209,9 +205,26 @@ export default function PhongPage() {
     }))
     .filter(g => g.phongs.length > 0);
 
+  const handleOpenCreate = () => {
+    setEditingPhong(null);
+    setShowForm(true);
+  };
+
   const handleEdit = (phong: Phong) => {
     setEditingPhong(phong);
-    setIsDialogOpen(true);
+    setShowForm(true);
+  };
+
+  const handleFormSuccess = () => {
+    cache.clearCache();
+    setShowForm(false);
+    setEditingPhong(null);
+    fetchPhong(true);
+  };
+
+  const handleFormClose = () => {
+    setShowForm(false);
+    setEditingPhong(null);
   };
 
   const handleDelete = async (id: string) => {
@@ -243,7 +256,7 @@ export default function PhongPage() {
     if (phong.anhPhong && phong.anhPhong.length > 0) {
       setViewingImages(phong.anhPhong);
       setViewingPhongName(phong.maPhong);
-      setIsImageViewerOpen(true);
+      setShowImageViewer(true);
     } else {
       toast.info('Phòng này chưa có ảnh nào');
     }
@@ -256,12 +269,11 @@ export default function PhongPage() {
     if (hopDong && hopDong.khachThue && hopDong.khachThue.length > 0) {
       setViewingTenants(hopDong.khachThue);
       setViewingTenantsPhongName(phong.maPhong);
-      setIsTenantsViewerOpen(true);
+      setShowTenantsViewer(true);
     } else {
       toast.info('Phòng này chưa có người thuê');
     }
   };
-
 
   if (loading) {
     return (
@@ -276,58 +288,35 @@ export default function PhongPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Quản lý phòng</h1>
-          <p className="text-xs md:text-sm text-gray-600">Danh sách tất cả phòng trong hệ thống</p>
-        </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={cache.isRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
-            {cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}
-          </Button>
-     
-          {canEdit && (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" onClick={() => setEditingPhong(null)} className="w-full sm:w-auto">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Thêm phòng
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-full">
-                <DialogHeader>
-                  <DialogTitle className="text-base md:text-lg">
-                    {editingPhong ? 'Chỉnh sửa phòng' : 'Thêm phòng mới'}
-                  </DialogTitle>
-                  <DialogDescription className="text-xs md:text-sm">
-                    {editingPhong ? 'Cập nhật thông tin phòng' : 'Nhập thông tin phòng mới'}
-                  </DialogDescription>
-                </DialogHeader>
+      <PageHeader
+        title="Quản lý phòng"
+        description="Danh sách tất cả phòng trong hệ thống"
+        onRefresh={handleRefresh}
+        loading={cache.isRefreshing}
+        onAdd={canEdit ? handleOpenCreate : undefined}
+        addLabel="Thêm phòng"
+      />
 
-                <PhongForm
-                  phong={editingPhong}
-                  toaNhaList={toaNhaList}
-                  onClose={() => setIsDialogOpen(false)}
-                  onSuccess={() => {
-                    cache.clearCache();
-                    setIsDialogOpen(false);
-                    fetchPhong(true);
-                    toast.success(editingPhong ? 'Cập nhật phòng thành công!' : 'Thêm phòng thành công!');
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
-      </div>
+      {/* Inline Form for Create/Edit */}
+      {showForm && (
+        <InlineForm
+          title={editingPhong ? `Chỉnh sửa phòng: ${editingPhong.maPhong}` : 'Thêm phòng mới'}
+          description={editingPhong ? 'Cập nhật thông tin phòng' : 'Nhập thông tin phòng mới'}
+          onSave={async () => {}}
+          onCancel={handleFormClose}
+          hideSave
+          hideCancel
+        >
+          <PhongForm
+            phong={editingPhong}
+            toaNhaList={toaNhaList}
+            onClose={handleFormClose}
+            onSuccess={handleFormSuccess}
+          />
+        </InlineForm>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
@@ -510,17 +499,13 @@ export default function PhongPage() {
         )}
       </div>
 
-      {/* (Mobile filter bar — still useful for search/status filter) */}
+      {/* Mobile filter bar */}
       <div className="md:hidden space-y-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Tìm kiếm phòng..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 text-sm"
-          />
-        </div>
+        <SearchInput
+          placeholder="Tìm kiếm phòng..."
+          value={searchTerm}
+          onChange={setSearchTerm}
+        />
         <div className="grid grid-cols-2 gap-2">
           <Select value={selectedToaNha} onValueChange={setSelectedToaNha}>
             <SelectTrigger className="text-sm"><SelectValue placeholder="Tòa nhà" /></SelectTrigger>
@@ -544,195 +529,22 @@ export default function PhongPage() {
         </div>
       </div>
 
-      {/* Legacy mobile card list — now hidden (handled by grouped view above) */}
-      <div className="hidden">
-        <div className="flex justify-between items-center">
-          <h2 className="text-base font-semibold">Danh sách phòng</h2>
-          <span className="text-xs text-gray-600">{filteredPhong.length} phòng</span>
-        </div>
-        
-        {filteredPhong.length === 0 ? (
-          <Card className="p-6 text-center">
-            <Home className="h-10 w-10 mx-auto text-gray-400 mb-3" />
-            <h3 className="text-base font-medium text-gray-900 mb-1">Không tìm thấy phòng nào</h3>
-            <p className="text-sm text-gray-600">Thử thay đổi bộ lọc hoặc tìm kiếm khác</p>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 gap-3">
-            {filteredPhong.map((phong) => {
-              const getTrangThaiColor = (trangThai: string) => {
-                switch (trangThai) {
-                  case 'trong': return 'bg-green-100 text-green-800';
-                  case 'daDat': return 'bg-yellow-100 text-yellow-800';
-                  case 'dangThue': return 'bg-blue-100 text-blue-800';
-                  case 'baoTri': return 'bg-red-100 text-red-800';
-                  default: return 'bg-gray-100 text-gray-800';
-                }
-              };
-
-              const getTrangThaiText = (trangThai: string) => {
-                switch (trangThai) {
-                  case 'trong': return 'Trống';
-                  case 'daDat': return 'Đã đặt';
-                  case 'dangThue': return 'Đang thuê';
-                  case 'baoTri': return 'Bảo trì';
-                  default: return trangThai;
-                }
-              };
-
-              return (
-                <Card key={phong.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-base">{phong.maPhong}</h3>
-                        <p className="text-xs text-gray-600">Tầng {phong.tang} • {phong.dienTich}m²</p>
-                      </div>
-                      <Badge className={`${getTrangThaiColor(phong.trangThai)} text-xs`}>
-                        {getTrangThaiText(phong.trangThai)}
-                      </Badge>
-                    </div>
-                    
-                    <div className="space-y-1.5 mb-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Giá thuê:</span>
-                        <span className="font-semibold text-green-600">
-                          {new Intl.NumberFormat('vi-VN', {
-                            style: 'currency',
-                            currency: 'VND'
-                          }).format(phong.giaThue)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Tiền cọc:</span>
-                        <span className="font-medium text-orange-600">
-                          {new Intl.NumberFormat('vi-VN', {
-                            style: 'currency',
-                            currency: 'VND'
-                          }).format(phong.tienCoc)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Thông tin người thuê */}
-                    {(() => {
-                      const phongData = phong as any;
-                      const hopDong = phongData.hopDongHienTai;
-                      
-                      if (hopDong && hopDong.khachThue && hopDong.khachThue.length > 0) {
-                        const nguoiDaiDien = hopDong.nguoiDaiDien;
-                        const soLuongKhachThue = hopDong.khachThue.length;
-                        
-                        return (
-                          <div className="mb-3 p-2 bg-blue-50 rounded-md border border-blue-200">
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <Users className="h-3.5 w-3.5 text-blue-600" />
-                              <span className="text-xs font-medium text-blue-900">Người thuê</span>
-                            </div>
-                            <div className="text-sm text-gray-900 font-medium">
-                              {nguoiDaiDien?.hoTen || 'N/A'}
-                            </div>
-                            {nguoiDaiDien?.soDienThoai && (
-                              <div className="text-xs text-gray-600">
-                                {nguoiDaiDien.soDienThoai}
-                              </div>
-                            )}
-                            {soLuongKhachThue > 1 && (
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="text-xs text-blue-600 hover:text-blue-700 h-auto p-0 mt-0.5"
-                                onClick={() => handleViewTenants(phong)}
-                              >
-                                +{soLuongKhachThue - 1} người khác
-                              </Button>
-                            )}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-
-                    {phong.anhPhong && phong.anhPhong.length > 0 && (
-                      <div className="mb-3">
-                        <img 
-                          src={phong.anhPhong[0]} 
-                          alt={phong.maPhong}
-                          className="w-full h-32 object-cover rounded-md"
-                          onClick={() => handleViewImages(phong)}
-                        />
-                        {phong.anhPhong.length > 1 && (
-                          <div className="text-xs text-gray-600 mt-1">
-                            +{phong.anhPhong.length - 1} ảnh khác
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        {phong.anhPhong && phong.anhPhong.length > 0 && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewImages(phong)}
-                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            title="Xem ảnh phòng"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const publicUrl = `${window.location.origin}/xem-phong`;
-                            navigator.clipboard.writeText(publicUrl);
-                            toast.success('Đã sao chép link trang xem phòng');
-                          }}
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                          title="Copy link trang xem phòng"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(phong)}
-                          className="flex-1 text-xs"
-                        >
-                          <Edit className="h-3.5 w-3.5 mr-1" />
-                          Sửa
-                        </Button>
-                        <DeleteConfirmPopover
-                          onConfirm={() => handleDelete(phong.id!)}
-                          title="Xóa phòng"
-                          description="Bạn có chắc chắn muốn xóa phòng này?"
-                          className="text-black hover:text-red-700 hover:bg-red-50"
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+      {/* Inline Image Viewer */}
+      {showImageViewer && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-blue-100">
+            <div className="flex items-center gap-2">
+              <Image className="h-4 w-4 text-blue-600" />
+              <h3 className="text-sm font-semibold text-gray-900">Ảnh phòng {viewingPhongName}</h3>
+              <span className="text-xs text-gray-500">({viewingImages.length} ảnh)</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowImageViewer(false)} className="h-7 w-7 p-0">
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-        )}
-      </div>
-
-      {/* Image Viewer Dialog */}
-      <Dialog open={isImageViewerOpen} onOpenChange={setIsImageViewerOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden w-[95vw] md:w-full">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Image className="h-4 w-4 md:h-5 md:w-5" />
-              Ảnh phòng {viewingPhongName}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-hidden">
+          <div className="p-4">
             {viewingImages.length > 0 && (
-              <Carousel className="w-full">
+              <Carousel className="w-full max-w-2xl mx-auto">
                 <CarouselContent>
                   {viewingImages.map((image, index) => (
                     <CarouselItem key={index}>
@@ -755,29 +567,25 @@ export default function PhongPage() {
               </Carousel>
             )}
           </div>
-          
-          <DialogFooter>
-            <div className="text-xs md:text-sm text-gray-600">
-              {viewingImages.length} ảnh {viewingImages.length > 1 && '- Vuốt để xem thêm'}
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </Card>
+      )}
 
-      {/* Tenants Viewer Dialog */}
-      <Dialog open={isTenantsViewerOpen} onOpenChange={setIsTenantsViewerOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto w-[95vw] md:w-full">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Users className="h-4 w-4 md:h-5 md:w-5" />
-              Danh sách người thuê - Phòng {viewingTenantsPhongName}
-            </DialogTitle>
-            <DialogDescription className="text-xs md:text-sm">
-              Tổng cộng {viewingTenants.length} người đang thuê phòng này
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-3 md:space-y-4 py-2 md:py-4">
+      {/* Inline Tenants Viewer */}
+      {showTenantsViewer && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-blue-100">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-blue-600" />
+              <h3 className="text-sm font-semibold text-gray-900">
+                Danh sách người thuê - Phòng {viewingTenantsPhongName}
+              </h3>
+              <span className="text-xs text-gray-500">(Tổng cộng {viewingTenants.length} người)</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowTenantsViewer(false)} className="h-7 w-7 p-0">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="p-4 space-y-3">
             {viewingTenants.map((tenant, index) => (
               <Card key={tenant.id || index} className="overflow-hidden">
                 <CardContent className="p-3 md:p-4">
@@ -809,14 +617,8 @@ export default function PhongPage() {
               </Card>
             ))}
           </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTenantsViewerOpen(false)} className="text-sm">
-              Đóng
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </Card>
+      )}
     </div>
   );
 }
@@ -925,10 +727,6 @@ function PhongForm({
     if (phong) {
       const toaNhaId = getToaNhaId(phong.toaNha);
       
-      console.log('Editing phong:', phong);
-      console.log('toaNha object:', phong.toaNha);
-      console.log('toaNha ID:', toaNhaId);
-      
       setFormData({
         maPhong: phong.maPhong || '',
         toaNha: toaNhaId,
@@ -1021,7 +819,7 @@ function PhongForm({
   const handleTienNghiChange = (tienNghi: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      tienNghi: checked 
+      tienNghi: checked
         ? [...prev.tienNghi, tienNghi]
         : prev.tienNghi.filter(t => t !== tienNghi)
     }));
@@ -1281,14 +1079,14 @@ function PhongForm({
         </TabsContent>
       </Tabs>
 
-      <DialogFooter className="gap-2">
+      <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
         <Button type="button" variant="outline" onClick={onClose} className="text-sm">
           Hủy
         </Button>
         <Button type="submit" className="text-sm">
           {phong ? 'Cập nhật' : 'Thêm mới'}
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   );
 }

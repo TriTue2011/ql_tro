@@ -16,15 +16,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -33,12 +24,11 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  AlertTriangle, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  AlertTriangle,
   Calendar,
   Users,
   Eye,
@@ -47,7 +37,8 @@ import {
   Clock,
   RefreshCw,
   Home,
-  Wrench
+  Wrench,
+  X as CloseIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SuCo, Phong, KhachThue, HopDong } from '@/types';
@@ -56,6 +47,9 @@ import { buildUploadFolder } from '@/lib/upload-path';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { useCanEdit } from '@/hooks/use-can-edit';
 import { SuCoDataTable } from './table';
+import PageHeader from '@/components/dashboard/page-header';
+import SearchInput from '@/components/dashboard/search-input';
+import InlineForm from '@/components/dashboard/inline-form';
 
 export default function SuCoPage() {
   const canEdit = useCanEdit();
@@ -314,60 +308,41 @@ export default function SuCoPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Quản lý sự cố</h1>
-          <p className="text-xs md:text-sm text-gray-600">Theo dõi và xử lý các sự cố từ khách thuê</p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={cache.isRefreshing}
-            className="flex-1 sm:flex-none"
-          >
-            <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
-          </Button>
-          {canEdit && (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" onClick={() => setEditingSuCo(null)} className="flex-1 sm:flex-none">
-                  <Plus className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Báo cáo sự cố</span>
-                  <span className="sm:hidden">Báo cáo</span>
-                </Button>
-              </DialogTrigger>
-            <DialogContent className="w-[95vw] md:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingSuCo ? 'Chỉnh sửa sự cố' : 'Báo cáo sự cố mới'}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingSuCo ? 'Cập nhật thông tin sự cố' : 'Nhập thông tin sự cố mới'}
-                </DialogDescription>
-              </DialogHeader>
+      <PageHeader
+        title="Quản lý sự cố"
+        description="Theo dõi và xử lý các sự cố từ khách thuê"
+        onRefresh={handleRefresh}
+        loading={cache.isRefreshing}
+        onAdd={canEdit ? () => { setEditingSuCo(null); setIsDialogOpen(true); } : undefined}
+        addLabel="Báo cáo sự cố"
+      />
 
-              <SuCoForm
-                suCo={editingSuCo}
-                phongList={phongList}
-                khachThueList={khachThueList}
-                hopDongList={hopDongList}
-                getKhachThueName={getKhachThueName}
-                onClose={() => setIsDialogOpen(false)}
-                onSuccess={() => {
-                  cache.clearCache();
-                  setIsDialogOpen(false);
-                  fetchData(true);
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-          )}
-        </div>
-      </div>
+      {/* Inline Form for Create/Edit */}
+      {isDialogOpen && (
+        <InlineForm
+          title={editingSuCo ? 'Chỉnh sửa sự cố' : 'Báo cáo sự cố mới'}
+          description={editingSuCo ? 'Cập nhật thông tin sự cố' : 'Nhập thông tin sự cố mới'}
+          onSave={async () => {}}
+          onCancel={() => { setIsDialogOpen(false); setEditingSuCo(null); }}
+          hideSave
+          hideCancel
+        >
+          <SuCoForm
+            suCo={editingSuCo}
+            phongList={phongList}
+            khachThueList={khachThueList}
+            hopDongList={hopDongList}
+            getKhachThueName={getKhachThueName}
+            onClose={() => { setIsDialogOpen(false); setEditingSuCo(null); }}
+            onSuccess={() => {
+              cache.clearCache();
+              setIsDialogOpen(false);
+              setEditingSuCo(null);
+              fetchData(true);
+            }}
+          />
+        </InlineForm>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
@@ -456,15 +431,11 @@ export default function SuCoPage() {
         
         {/* Mobile Filters */}
         <div className="space-y-2 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm sự cố..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 text-sm"
-            />
-          </div>
+          <SearchInput
+            placeholder="Tìm kiếm sự cố..."
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
           <div className="grid grid-cols-3 gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="text-sm">
@@ -847,14 +818,14 @@ function SuCoForm({
         )}
       />
 
-      <DialogFooter className="flex-col sm:flex-row gap-2">
+      <div className="flex flex-col sm:flex-row gap-2 pt-4 md:pt-6 border-t">
         <Button type="button" variant="outline" size="sm" onClick={onClose} className="w-full sm:w-auto">
           Hủy
         </Button>
         <Button type="submit" size="sm" disabled={isSubmitting} className="w-full sm:w-auto">
           {isSubmitting ? 'Đang xử lý...' : (suCo ? 'Cập nhật' : 'Báo cáo')}
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   );
 }

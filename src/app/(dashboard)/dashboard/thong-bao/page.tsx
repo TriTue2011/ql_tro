@@ -14,15 +14,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -33,7 +24,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Plus,
-  Search,
   Edit,
   Trash2,
   Bell,
@@ -46,12 +36,15 @@ import {
   Home,
   RefreshCw,
   Check,
-  X,
+  X as CloseIcon,
   Clock,
   CheckCircle2,
   XCircle,
   Pause,
 } from 'lucide-react';
+import PageHeader from '@/components/dashboard/page-header';
+import SearchInput from '@/components/dashboard/search-input';
+import InlineForm from '@/components/dashboard/inline-form';
 import { ThongBao, ToaNha, Phong, KhachThue } from '@/types';
 import { toast } from 'sonner';
 import { useCache } from '@/hooks/use-cache';
@@ -306,58 +299,40 @@ export default function ThongBaoPage() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Quản lý thông báo</h1>
-          <p className="text-xs md:text-sm text-gray-600">Gửi và quản lý thông báo đến khách thuê</p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={cache.isRefreshing}
-            className="flex-1 sm:flex-none"
-          >
-            <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
-          </Button>
-          {canEdit && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={() => setEditingThongBao(null)} className="flex-1 sm:flex-none">
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Tạo thông báo</span>
-                <span className="sm:hidden">Tạo</span>
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="w-[95vw] md:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingThongBao ? 'Chỉnh sửa thông báo' : 'Tạo thông báo mới'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingThongBao ? 'Cập nhật thông tin thông báo' : 'Nhập thông tin thông báo mới'}
-              </DialogDescription>
-            </DialogHeader>
+      <PageHeader
+        title="Quản lý thông báo"
+        description="Gửi và quản lý thông báo đến khách thuê"
+        onRefresh={handleRefresh}
+        loading={cache.isRefreshing}
+        onAdd={canEdit ? () => { setEditingThongBao(null); setIsDialogOpen(true); } : undefined}
+        addLabel="Tạo thông báo"
+      />
 
-            <ThongBaoForm
-              thongBao={editingThongBao}
-              toaNhaList={toaNhaList}
-              phongList={phongList}
-              khachThueList={khachThueList}
-              onClose={() => setIsDialogOpen(false)}
-              onSuccess={() => {
-                cache.clearCache();
-                setIsDialogOpen(false);
-                fetchData(true);
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-          )}
-        </div>
-      </div>
+      {/* Inline Form */}
+      {isDialogOpen && (
+        <InlineForm
+          title={editingThongBao ? 'Chỉnh sửa thông báo' : 'Tạo thông báo mới'}
+          description={editingThongBao ? 'Cập nhật thông tin thông báo' : 'Nhập thông tin thông báo mới'}
+          onSave={async () => {}}
+          onCancel={() => { setIsDialogOpen(false); setEditingThongBao(null); }}
+          hideSave
+          hideCancel
+        >
+          <ThongBaoForm
+            thongBao={editingThongBao}
+            toaNhaList={toaNhaList}
+            phongList={phongList}
+            khachThueList={khachThueList}
+            onClose={() => { setIsDialogOpen(false); setEditingThongBao(null); }}
+            onSuccess={() => {
+              cache.clearCache();
+              setIsDialogOpen(false);
+              setEditingThongBao(null);
+              fetchData(true);
+            }}
+          />
+        </InlineForm>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
@@ -421,15 +396,11 @@ export default function ThongBaoPage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
             <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full">
               <div className="flex-1 sm:max-w-md">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Tìm kiếm theo tiêu đề, nội dung..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+                <SearchInput
+                  placeholder="Tìm kiếm theo tiêu đề, nội dung..."
+                  value={searchTerm}
+                  onChange={setSearchTerm}
+                />
               </div>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-full sm:w-[160px]">
@@ -526,7 +497,7 @@ export default function ThongBaoPage() {
                                   className="text-red-600 hover:bg-red-50 border-red-200 text-xs h-7 px-2"
                                   onClick={() => handleUpdateTrangThai(thongBao.id!, actions.negative.value)}
                                 >
-                                  <X className="h-3 w-3 mr-1" />
+                                  <CloseIcon className="h-3 w-3 mr-1" />
                                   {actions.negative.label}
                                 </Button>
                               </>
@@ -583,15 +554,11 @@ export default function ThongBaoPage() {
         
         {/* Mobile Filters */}
         <div className="space-y-2 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm thông báo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 text-sm"
-            />
-          </div>
+          <SearchInput
+            placeholder="Tìm kiếm thông báo..."
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="text-sm">
               <SelectValue placeholder="Loại thông báo" />
@@ -679,7 +646,7 @@ export default function ThongBaoPage() {
                               className="flex-1 text-red-600 hover:bg-red-50 border-red-200 text-xs"
                               onClick={() => handleUpdateTrangThai(thongBao.id!, actions.negative.value)}
                             >
-                              <X className="h-3.5 w-3.5 mr-1" />
+                              <CloseIcon className="h-3.5 w-3.5 mr-1" />
                               {actions.negative.label}
                             </Button>
                           </>
@@ -1111,14 +1078,14 @@ function ThongBaoForm({
         )}
       </div>
 
-      <DialogFooter className="flex-col sm:flex-row gap-2">
+      <div className="flex flex-col sm:flex-row gap-2 pt-4 md:pt-6 border-t">
         <Button type="button" variant="outline" size="sm" onClick={onClose} className="w-full sm:w-auto">
           Hủy
         </Button>
         <Button type="submit" size="sm" disabled={isSubmitting || uploading} className="w-full sm:w-auto">
           {isSubmitting ? 'Đang gửi...' : (thongBao ? 'Cập nhật' : 'Tạo & gửi thông báo')}
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   );
 }

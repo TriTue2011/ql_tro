@@ -5,14 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import {
   HardDrive,
@@ -32,7 +25,9 @@ import {
   AlertTriangle,
   Loader2,
   Copy,
+  X as CloseIcon,
 } from 'lucide-react';
+import PageHeader from '@/components/dashboard/page-header';
 
 // ── Types ───────────────────────────────────────────────────────────────────────
 interface Bucket {
@@ -93,7 +88,6 @@ export default function LuuTruPage() {
   const [loadingBuckets, setLoadingBuckets] = useState(true);
   const [loadingObjects, setLoadingObjects] = useState(false);
 
-  // Dialogs
   const [isNewBucketOpen, setIsNewBucketOpen] = useState(false);
   const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
   const [deleteBucket, setDeleteBucket] = useState<string | null>(null);
@@ -327,20 +321,12 @@ export default function LuuTruPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
-            <HardDrive className="h-6 w-6 text-blue-600" />
-            Quản lý lưu trữ MinIO
-          </h1>
-          <p className="text-sm text-gray-500">Quản lý bucket, folder và file trực tiếp trên MinIO</p>
-        </div>
-        <Button size="sm" variant="outline" onClick={fetchBuckets} disabled={loadingBuckets}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loadingBuckets ? 'animate-spin' : ''}`} />
-          Làm mới
-        </Button>
-      </div>
+      <PageHeader
+        title="Quản lý lưu trữ MinIO"
+        description="Quản lý bucket, folder và file trực tiếp trên MinIO"
+        onRefresh={fetchBuckets}
+        loading={loadingBuckets}
+      />
 
       <div className="flex gap-4 h-[calc(100vh-180px)] min-h-[500px]">
         {/* ── Sidebar: Bucket list ─────────────────────────────────────────── */}
@@ -570,103 +556,123 @@ export default function LuuTruPage() {
         </div>
       </div>
 
-      {/* ── Dialog: Tạo bucket ─────────────────────────────────────────────── */}
-      <Dialog open={isNewBucketOpen} onOpenChange={setIsNewBucketOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Tạo bucket mới</DialogTitle>
-            <DialogDescription>Tên bucket chỉ dùng chữ thường, số và dấu gạch ngang (3-63 ký tự)</DialogDescription>
-          </DialogHeader>
-          <Input
-            value={newBucketName}
-            onChange={e => setNewBucketName(e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, '-'))}
-            placeholder="my-bucket"
-            onKeyDown={e => e.key === 'Enter' && handleCreateBucket()}
-            autoFocus
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewBucketOpen(false)}>Hủy</Button>
-            <Button onClick={handleCreateBucket} disabled={actionLoading || newBucketName.length < 3}>
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-              Tạo
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* ── Inline: Tạo bucket ─────────────────────────────────────────────── */}
+      {isNewBucketOpen && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-base">Tạo bucket mới</h3>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setIsNewBucketOpen(false); setNewBucketName(''); }}>
+                <CloseIcon className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">Tên bucket chỉ dùng chữ thường, số và dấu gạch ngang (3-63 ký tự)</p>
+            <Input
+              value={newBucketName}
+              onChange={e => setNewBucketName(e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, '-'))}
+              placeholder="my-bucket"
+              onKeyDown={e => e.key === 'Enter' && handleCreateBucket()}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 pt-3 border-t mt-4">
+              <Button variant="outline" onClick={() => { setIsNewBucketOpen(false); setNewBucketName(''); }}>Hủy</Button>
+              <Button onClick={handleCreateBucket} disabled={actionLoading || newBucketName.length < 3}>
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                Tạo
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* ── Dialog: Tạo folder ─────────────────────────────────────────────── */}
-      <Dialog open={isNewFolderOpen} onOpenChange={setIsNewFolderOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Tạo folder mới</DialogTitle>
-            <DialogDescription>
+      {/* ── Inline: Tạo folder ─────────────────────────────────────────────── */}
+      {isNewFolderOpen && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-base">Tạo folder mới</h3>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setIsNewFolderOpen(false); setNewFolderName(''); }}>
+                <CloseIcon className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
               Tạo trong: <strong>{selectedBucket}{prefix ? `/${prefix}` : ''}</strong>
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            value={newFolderName}
-            onChange={e => setNewFolderName(e.target.value)}
-            placeholder="tên-folder"
-            onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
-            autoFocus
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewFolderOpen(false)}>Hủy</Button>
-            <Button onClick={handleCreateFolder} disabled={actionLoading || !newFolderName.trim()}>
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FolderPlus className="h-4 w-4 mr-2" />}
-              Tạo
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </p>
+            <Input
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              placeholder="tên-folder"
+              onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 pt-3 border-t mt-4">
+              <Button variant="outline" onClick={() => { setIsNewFolderOpen(false); setNewFolderName(''); }}>Hủy</Button>
+              <Button onClick={handleCreateFolder} disabled={actionLoading || !newFolderName.trim()}>
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FolderPlus className="h-4 w-4 mr-2" />}
+                Tạo
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* ── Dialog: Xóa bucket ─────────────────────────────────────────────── */}
-      <Dialog open={!!deleteBucket} onOpenChange={(o) => { if (!o) setDeleteBucket(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertTriangle className="h-5 w-5" />
-              Xóa bucket
-            </DialogTitle>
-            <DialogDescription>
+      {/* ── Inline: Xóa bucket ─────────────────────────────────────────────── */}
+      {deleteBucket && (
+        <Card className="border-red-200 bg-red-50/30">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-base flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+                Xóa bucket
+              </h3>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteBucket(null)}>
+                <CloseIcon className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
               Xóa bucket <strong>"{deleteBucket}"</strong> sẽ xóa toàn bộ file bên trong. Hành động này không thể hoàn tác.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteBucket(null)}>Hủy</Button>
-            <Button variant="destructive" onClick={handleDeleteBucket} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              Xóa hẳn
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </p>
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <Button variant="outline" onClick={() => setDeleteBucket(null)}>Hủy</Button>
+              <Button variant="destructive" onClick={handleDeleteBucket} disabled={actionLoading}>
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Xóa hẳn
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* ── Dialog: Xóa file/folder ───────────────────────────────────────── */}
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertTriangle className="h-5 w-5" />
-              {deleteTarget?.prefix ? 'Xóa folder' : 'Xóa file'}
-            </DialogTitle>
-            <DialogDescription>
+      {/* ── Inline: Xóa file/folder ───────────────────────────────────────── */}
+      {deleteTarget && (
+        <Card className="border-red-200 bg-red-50/30">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-base flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+                {deleteTarget?.prefix ? 'Xóa folder' : 'Xóa file'}
+              </h3>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteTarget(null)}>
+                <CloseIcon className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
               {deleteTarget?.prefix
                 ? <>Xóa folder <strong>"{deleteTarget.label}"</strong> và tất cả file bên trong?</>
                 : <>Xóa file <strong>"{deleteTarget?.label}"</strong>?</>
               }
               {' '}Hành động này không thể hoàn tác.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Hủy</Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              Xóa
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </p>
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>Hủy</Button>
+              <Button variant="destructive" onClick={confirmDelete} disabled={actionLoading}>
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Xóa
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

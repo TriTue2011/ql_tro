@@ -16,15 +16,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,7 +26,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Plus,
-  Search,
   Edit,
   Trash2,
   Building2,
@@ -48,6 +38,9 @@ import {
   UserCircle,
   X
 } from 'lucide-react';
+import PageHeader from '@/components/dashboard/page-header';
+import SearchInput from '@/components/dashboard/search-input';
+import InlineForm from '@/components/dashboard/inline-form';
 import { ToaNha, LienHePhuTrach } from '@/types';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { toast } from 'sonner';
@@ -168,56 +161,38 @@ export default function ToaNhaPage() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4">
-        <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Quản lý tòa nhà</h1>
-          <p className="text-xs md:text-sm text-gray-600">Danh sách tất cả tòa nhà trong hệ thống</p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={cache.isRefreshing}
-            className="flex-1 sm:flex-none"
-          >
-            <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline ml-2">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
-          </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            {canEdit && (
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={() => setEditingToaNha(null)} className="flex-1 sm:flex-none">
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Thêm tòa nhà</span>
-                <span className="sm:hidden">Thêm</span>
-              </Button>
-            </DialogTrigger>
-            )}
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] md:w-full">
-            <DialogHeader>
-              <DialogTitle className="text-base md:text-lg">
-                {editingToaNha ? 'Chỉnh sửa tòa nhà' : 'Thêm tòa nhà mới'}
-              </DialogTitle>
-              <DialogDescription className="text-xs md:text-sm">
-                {editingToaNha ? 'Cập nhật thông tin tòa nhà' : 'Nhập thông tin tòa nhà mới'}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <ToaNhaForm 
-              toaNha={editingToaNha}
-              onClose={() => setIsDialogOpen(false)}
-              onSuccess={() => {
-                cache.clearCache();
-                setIsDialogOpen(false);
-                fetchToaNha(true);
-                toast.success(editingToaNha ? 'Cập nhật tòa nhà thành công!' : 'Thêm tòa nhà thành công!');
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-        </div>
-      </div>
+      <PageHeader
+        title="Quản lý tòa nhà"
+        description="Danh sách tất cả tòa nhà trong hệ thống"
+        onRefresh={handleRefresh}
+        loading={cache.isRefreshing}
+        onAdd={canEdit ? () => { setEditingToaNha(null); setIsDialogOpen(true); } : undefined}
+        addLabel="Thêm tòa nhà"
+      />
+
+      {/* Inline Form */}
+      {isDialogOpen && (
+        <InlineForm
+          title={editingToaNha ? 'Chỉnh sửa tòa nhà' : 'Thêm tòa nhà mới'}
+          description={editingToaNha ? 'Cập nhật thông tin tòa nhà' : 'Nhập thông tin tòa nhà mới'}
+          onSave={async () => {}}
+          onCancel={() => { setIsDialogOpen(false); setEditingToaNha(null); }}
+          hideSave
+          hideCancel
+        >
+          <ToaNhaForm
+            toaNha={editingToaNha}
+            onClose={() => { setIsDialogOpen(false); setEditingToaNha(null); }}
+            onSuccess={() => {
+              cache.clearCache();
+              setIsDialogOpen(false);
+              setEditingToaNha(null);
+              fetchToaNha(true);
+              toast.success(editingToaNha ? 'Cập nhật tòa nhà thành công!' : 'Thêm tòa nhà thành công!');
+            }}
+          />
+        </InlineForm>
+      )}
 
       {/* Desktop Table View */}
       <Card className="hidden md:block">
@@ -244,15 +219,11 @@ export default function ToaNhaPage() {
 
         {/* Mobile Filters */}
         <div className="space-y-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm tòa nhà..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 text-sm"
-            />
-          </div>
+          <SearchInput
+            placeholder="Tìm kiếm tòa nhà..."
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
         </div>
         
         {filteredToaNha.length === 0 ? (
@@ -627,14 +598,14 @@ function ToaNhaForm({
         </div>
       </div>
 
-      <DialogFooter className="gap-2">
-        <Button type="button" variant="outline" onClick={onClose} className="text-sm">
+      <div className="flex flex-col sm:flex-row gap-2 pt-4 md:pt-6 border-t">
+        <Button type="button" variant="outline" onClick={onClose} className="text-sm w-full sm:w-auto">
           Hủy
         </Button>
-        <Button type="submit" className="text-sm">
+        <Button type="submit" className="text-sm w-full sm:w-auto">
           {toaNha ? 'Cập nhật' : 'Thêm mới'}
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   );
 }

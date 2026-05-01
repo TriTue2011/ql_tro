@@ -14,14 +14,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { HoaDonDataTable } from './table';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -30,7 +22,6 @@ import {
 } from '@/components/ui/select';
 import {
   Plus,
-  Search,
   Receipt,
   AlertCircle,
   Zap,
@@ -48,10 +39,13 @@ import {
   Send,
   Phone,
   MessageSquare,
+  X as CloseIcon,
 } from 'lucide-react';
 import { HoaDon, HopDong, Phong, KhachThue } from '@/types';
 import { useCanEdit } from '@/hooks/use-can-edit';
 import { toast } from 'sonner';
+import PageHeader from '@/components/dashboard/page-header';
+import SearchInput from '@/components/dashboard/search-input';
 
 // Xóa dấu tiếng Việt, giữ chữ + số + khoảng trắng
 function removeAccents(str: string): string {
@@ -558,31 +552,14 @@ ${footer}`;
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Quản lý hóa đơn</h1>
-          <p className="text-xs md:text-sm text-gray-600">Danh sách tất cả hóa đơn trong hệ thống</p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={cache.isRefreshing}
-            className="flex-1 sm:flex-none"
-          >
-            <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
-          </Button>
-          {canEdit && (
-            <Button size="sm" onClick={() => router.push('/dashboard/hoa-don/them-moi')} className="flex-1 sm:flex-none">
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Tạo hóa đơn</span>
-              <span className="sm:hidden">Tạo</span>
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Quản lý hóa đơn"
+        description="Danh sách tất cả hóa đơn trong hệ thống"
+        onRefresh={handleRefresh}
+        loading={cache.isRefreshing}
+        onAdd={canEdit ? () => router.push('/dashboard/hoa-don/them-moi') : undefined}
+        addLabel="Tạo hóa đơn"
+      />
 
 
       {/* Stats Cards */}
@@ -680,15 +657,11 @@ ${footer}`;
         
         {/* Mobile Filters */}
         <div className="space-y-2 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm hóa đơn..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 text-sm"
-            />
-          </div>
+          <SearchInput
+            placeholder="Tìm kiếm hóa đơn..."
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
           <div className="grid grid-cols-3 gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="text-sm">
@@ -844,283 +817,288 @@ ${footer}`;
         )}
       </div>
 
-      {/* View Invoice Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg md:text-xl">Chi tiết hóa đơn</DialogTitle>
-            <DialogDescription className="text-xs md:text-sm">
-              Thông tin chi tiết hóa đơn {viewingHoaDon?.maHoaDon}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {viewingHoaDon && (
-            <div className="space-y-4 md:space-y-6">
-              {/* Invoice Header */}
-              <div className="text-center border-b pb-3 md:pb-4">
-                <h2 className="text-lg md:text-2xl font-bold">HÓA ĐƠN THUÊ PHÒNG</h2>
-                <p className="text-base md:text-lg text-gray-600">{viewingHoaDon.maHoaDon}</p>
-              </div>
-
-              {/* Invoice Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                <div>
-                  <h3 className="text-sm md:text-base font-semibold mb-2">Thông tin phòng</h3>
-                  <p className="text-xs md:text-sm"><strong>Phòng:</strong> {getPhongName(viewingHoaDon.phong, phongList)}</p>
-                  <p className="text-xs md:text-sm"><strong>Khách thuê:</strong> {getKhachThueName(viewingHoaDon.khachThue, khachThueList)}</p>
-                  <p className="text-xs md:text-sm"><strong>Hợp đồng:</strong> {
-                    hopDongList.find(hd => hd.id === viewingHoaDon.hopDong)?.maHopDong || 'N/A'
-                  }</p>
-                </div>
-                <div>
-                  <h3 className="text-sm md:text-base font-semibold mb-2">Thông tin thanh toán</h3>
-                  <p className="text-xs md:text-sm"><strong>Tháng/Năm:</strong> {viewingHoaDon.thang}/{viewingHoaDon.nam}</p>
-                  <p className="text-xs md:text-sm"><strong>Hạn thanh toán:</strong> {new Date(viewingHoaDon.hanThanhToan).toLocaleDateString('vi-VN')}</p>
-                  <p className="text-xs md:text-sm"><strong>Trạng thái:</strong> {getStatusBadge(viewingHoaDon.trangThai)}</p>
-                </div>
-              </div>
-
-              {/* Chỉ số điện nước */}
-              <div>
-                <h3 className="text-sm md:text-base font-semibold mb-3">Chỉ số điện nước</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4">
-                  <div>
-                    <h4 className="font-medium mb-2">Điện</h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span>Chỉ số ban đầu:</span>
-                        <span>{viewingHoaDon.chiSoDienBanDau || 0} kWh</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Chỉ số cuối kỳ:</span>
-                        <span>{viewingHoaDon.chiSoDienCuoiKy || 0} kWh</span>
-                      </div>
-                      <div className="flex justify-between font-medium">
-                        <span>Số điện sử dụng:</span>
-                        <span>{viewingHoaDon.soDien || 0} kWh</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-medium mb-2">Nước</h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span>Chỉ số ban đầu:</span>
-                        <span>{viewingHoaDon.chiSoNuocBanDau || 0} m³</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Chỉ số cuối kỳ:</span>
-                        <span>{viewingHoaDon.chiSoNuocCuoiKy || 0} m³</span>
-                      </div>
-                      <div className="flex justify-between font-medium">
-                        <span>Số nước sử dụng:</span>
-                        <span>{viewingHoaDon.soNuoc || 0} m³</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Invoice Details */}
-              <div>
-                <h3 className="text-sm md:text-base font-semibold mb-3">Chi tiết hóa đơn</h3>
-                <div className="space-y-2 text-xs md:text-sm">
-                  <div className="flex justify-between">
-                    <span>Tiền phòng</span>
-                    <span>{formatCurrency(viewingHoaDon.tienPhong)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tiền điện ({viewingHoaDon.soDien} kWh)</span>
-                    <span>{formatCurrency(viewingHoaDon.tienDien)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tiền nước ({viewingHoaDon.soNuoc} m³)</span>
-                    <span>{formatCurrency(viewingHoaDon.tienNuoc)}</span>
-                  </div>
-                  {viewingHoaDon.phiDichVu.map((phi, index) => (
-                    <div key={index} className="flex justify-between">
-                      <span>{phi.ten}</span>
-                      <span>{formatCurrency(phi.gia)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Total */}
-              <div className="border-t pt-3 md:pt-4">
-                <div className="flex justify-between text-base md:text-lg font-semibold">
-                  <span>Tổng tiền:</span>
-                  <span>{formatCurrency(viewingHoaDon.tongTien)}</span>
-                </div>
-                <div className="flex justify-between text-xs md:text-sm">
-                  <span>Đã thanh toán:</span>
-                  <span className="text-green-600">{formatCurrency(viewingHoaDon.daThanhToan)}</span>
-                </div>
-                <div className="flex justify-between text-xs md:text-sm">
-                  <span>Còn lại:</span>
-                  <span className={viewingHoaDon.conLai > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
-                    {formatCurrency(viewingHoaDon.conLai)}
-                  </span>
-                </div>
-              </div>
-
-              {/* QR Thanh toán */}
-              {viewingHoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang && (
-                <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
-                  <h3 className="text-sm md:text-base font-semibold mb-3 text-blue-800 flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" />
-                    Thanh toán chuyển khoản
-                  </h3>
-                  <div className="flex flex-col sm:flex-row gap-4 items-start">
-                    <img
-                      src={buildVietQRUrl(
-                        bankSettings.soTaiKhoan,
-                        bankSettings.tenNganHang,
-                        viewingHoaDon.conLai,
-                        buildTransferDesc(viewingHoaDon, phongList)
-                      )}
-                      alt="QR Chuyển khoản"
-                      className="w-48 h-48 rounded-lg border border-blue-200 bg-white"
-                    />
-                    <div className="space-y-1 text-xs md:text-sm">
-                      <div><span className="text-gray-600">Ngân hàng:</span> <strong>{bankSettings.tenNganHang}</strong></div>
-                      <div><span className="text-gray-600">Số tài khoản:</span> <strong>{bankSettings.soTaiKhoan}</strong></div>
-                      {bankSettings.chuTaiKhoan && (
-                        <div><span className="text-gray-600">Chủ tài khoản:</span> <strong>{bankSettings.chuTaiKhoan}</strong></div>
-                      )}
-                      <div><span className="text-gray-600">Số tiền:</span> <strong className="text-red-600">{formatCurrency(viewingHoaDon.conLai)}</strong></div>
-                      <div><span className="text-gray-600">Nội dung:</span> <strong className="font-mono text-xs">{buildTransferDesc(viewingHoaDon, phongList)}</strong></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Notes */}
-              {viewingHoaDon.ghiChu && (
-                <div>
-                  <h3 className="text-sm md:text-base font-semibold mb-2">Ghi chú</h3>
-                  <p className="text-xs md:text-sm text-gray-600">{viewingHoaDon.ghiChu}</p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button variant="outline" size="sm" onClick={() => setIsViewDialogOpen(false)} className="w-full sm:w-auto">
-                  Đóng
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleCopyLink(viewingHoaDon)} className="w-full sm:w-auto">
-                  <Copy className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                  Copy link
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleDownload(viewingHoaDon)} className="w-full sm:w-auto">
-                  <Download className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                  Tải HTML
-                </Button>
-                <Button size="sm" onClick={() => handleScreenshot(viewingHoaDon)} className="w-full sm:w-auto">
-                  <Camera className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                  Xuất PDF
-                </Button>
-              </DialogFooter>
+      {/* View Invoice Detail */}
+      {isViewDialogOpen && viewingHoaDon && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <div className="flex items-center justify-between p-4 md:p-6 border-b">
+            <div>
+              <h3 className="text-base md:text-lg font-semibold">Chi tiết hóa đơn</h3>
+              <p className="text-xs md:text-sm text-gray-600">
+                Thông tin chi tiết hóa đơn {viewingHoaDon.maHoaDon}
+              </p>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            <Button variant="ghost" size="sm" onClick={() => setIsViewDialogOpen(false)} className="h-8 w-8 p-0">
+              <CloseIcon className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+            {/* Invoice Header */}
+            <div className="text-center border-b pb-3 md:pb-4">
+              <h2 className="text-lg md:text-2xl font-bold">HÓA ĐƠN THUÊ PHÒNG</h2>
+              <p className="text-base md:text-lg text-gray-600">{viewingHoaDon.maHoaDon}</p>
+            </div>
 
-      {/* Send Notification Dialog */}
-      <Dialog open={isSendDialogOpen} onOpenChange={setIsSendDialogOpen}>
-        <DialogContent className="w-[95vw] md:w-full max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Gửi thông báo tiền phòng</DialogTitle>
-            <DialogDescription className="text-xs md:text-sm">
-              Gửi thông tin hóa đơn tháng {sendingHoaDon?.thang}/{sendingHoaDon?.nam} cho khách thuê
-            </DialogDescription>
-          </DialogHeader>
+            {/* Invoice Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+              <div>
+                <h3 className="text-sm md:text-base font-semibold mb-2">Thông tin phòng</h3>
+                <p className="text-xs md:text-sm"><strong>Phòng:</strong> {getPhongName(viewingHoaDon.phong, phongList)}</p>
+                <p className="text-xs md:text-sm"><strong>Khách thuê:</strong> {getKhachThueName(viewingHoaDon.khachThue, khachThueList)}</p>
+                <p className="text-xs md:text-sm"><strong>Hợp đồng:</strong> {
+                  hopDongList.find(hd => hd.id === viewingHoaDon.hopDong)?.maHopDong || 'N/A'
+                }</p>
+              </div>
+              <div>
+                <h3 className="text-sm md:text-base font-semibold mb-2">Thông tin thanh toán</h3>
+                <p className="text-xs md:text-sm"><strong>Tháng/Năm:</strong> {viewingHoaDon.thang}/{viewingHoaDon.nam}</p>
+                <p className="text-xs md:text-sm"><strong>Hạn thanh toán:</strong> {new Date(viewingHoaDon.hanThanhToan).toLocaleDateString('vi-VN')}</p>
+                <p className="text-xs md:text-sm"><strong>Trạng thái:</strong> {getStatusBadge(viewingHoaDon.trangThai)}</p>
+              </div>
+            </div>
 
-          {sendingHoaDon && (() => {
-            const { phone, zaloChatId } = getKhachThueContact(sendingHoaDon);
-            const canZalo = !!(phone || zaloChatId);
-            const message = generateBillingMessage(sendingHoaDon, sendBankInfo);
-            const encodedMessage = encodeURIComponent(message);
+            {/* Chỉ số điện nước */}
+            <div>
+              <h3 className="text-sm md:text-base font-semibold mb-3">Chỉ số điện nước</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4">
+                <div>
+                  <h4 className="font-medium mb-2">Điện</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Chỉ số ban đầu:</span>
+                      <span>{viewingHoaDon.chiSoDienBanDau || 0} kWh</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Chỉ số cuối kỳ:</span>
+                      <span>{viewingHoaDon.chiSoDienCuoiKy || 0} kWh</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span>Số điện sử dụng:</span>
+                      <span>{viewingHoaDon.soDien || 0} kWh</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">Nước</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Chỉ số ban đầu:</span>
+                      <span>{viewingHoaDon.chiSoNuocBanDau || 0} m³</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Chỉ số cuối kỳ:</span>
+                      <span>{viewingHoaDon.chiSoNuocCuoiKy || 0} m³</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span>Số nước sử dụng:</span>
+                      <span>{viewingHoaDon.soNuoc || 0} m³</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            const buildZaloBody = (extra?: Record<string, string>) => ({
-              ...(zaloChatId ? { chatId: zaloChatId } : { phone }),
-              message,
-              ...extra,
+            {/* Invoice Details */}
+            <div>
+              <h3 className="text-sm md:text-base font-semibold mb-3">Chi tiết hóa đơn</h3>
+              <div className="space-y-2 text-xs md:text-sm">
+                <div className="flex justify-between">
+                  <span>Tiền phòng</span>
+                  <span>{formatCurrency(viewingHoaDon.tienPhong)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tiền điện ({viewingHoaDon.soDien} kWh)</span>
+                  <span>{formatCurrency(viewingHoaDon.tienDien)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tiền nước ({viewingHoaDon.soNuoc} m³)</span>
+                  <span>{formatCurrency(viewingHoaDon.tienNuoc)}</span>
+                </div>
+                {viewingHoaDon.phiDichVu.map((phi, index) => (
+                  <div key={index} className="flex justify-between">
+                    <span>{phi.ten}</span>
+                    <span>{formatCurrency(phi.gia)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Total */}
+            <div className="border-t pt-3 md:pt-4">
+              <div className="flex justify-between text-base md:text-lg font-semibold">
+                <span>Tổng tiền:</span>
+                <span>{formatCurrency(viewingHoaDon.tongTien)}</span>
+              </div>
+              <div className="flex justify-between text-xs md:text-sm">
+                <span>Đã thanh toán:</span>
+                <span className="text-green-600">{formatCurrency(viewingHoaDon.daThanhToan)}</span>
+              </div>
+              <div className="flex justify-between text-xs md:text-sm">
+                <span>Còn lại:</span>
+                <span className={viewingHoaDon.conLai > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
+                  {formatCurrency(viewingHoaDon.conLai)}
+                </span>
+              </div>
+            </div>
+
+            {/* QR Thanh toán */}
+            {viewingHoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang && (
+              <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
+                <h3 className="text-sm md:text-base font-semibold mb-3 text-blue-800 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  Thanh toán chuyển khoản
+                </h3>
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                  <img
+                    src={buildVietQRUrl(
+                      bankSettings.soTaiKhoan,
+                      bankSettings.tenNganHang,
+                      viewingHoaDon.conLai,
+                      buildTransferDesc(viewingHoaDon, phongList)
+                    )}
+                    alt="QR Chuyển khoản"
+                    className="w-48 h-48 rounded-lg border border-blue-200 bg-white"
+                  />
+                  <div className="space-y-1 text-xs md:text-sm">
+                    <div><span className="text-gray-600">Ngân hàng:</span> <strong>{bankSettings.tenNganHang}</strong></div>
+                    <div><span className="text-gray-600">Số tài khoản:</span> <strong>{bankSettings.soTaiKhoan}</strong></div>
+                    {bankSettings.chuTaiKhoan && (
+                      <div><span className="text-gray-600">Chủ tài khoản:</span> <strong>{bankSettings.chuTaiKhoan}</strong></div>
+                    )}
+                    <div><span className="text-gray-600">Số tiền:</span> <strong className="text-red-600">{formatCurrency(viewingHoaDon.conLai)}</strong></div>
+                    <div><span className="text-gray-600">Nội dung:</span> <strong className="font-mono text-xs">{buildTransferDesc(viewingHoaDon, phongList)}</strong></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            {viewingHoaDon.ghiChu && (
+              <div>
+                <h3 className="text-sm md:text-base font-semibold mb-2">Ghi chú</h3>
+                <p className="text-xs md:text-sm text-gray-600">{viewingHoaDon.ghiChu}</p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-2 pt-3 md:pt-4 border-t">
+              <Button variant="outline" size="sm" onClick={() => setIsViewDialogOpen(false)} className="w-full sm:w-auto">
+                Đóng
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleCopyLink(viewingHoaDon)} className="w-full sm:w-auto">
+                <Copy className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                Copy link
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleDownload(viewingHoaDon)} className="w-full sm:w-auto">
+                <Download className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                Tải HTML
+              </Button>
+              <Button size="sm" onClick={() => handleScreenshot(viewingHoaDon)} className="w-full sm:w-auto">
+                <Camera className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                Xuất PDF
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Send Notification - Inline Card */}
+      {isSendDialogOpen && sendingHoaDon && (() => {
+        const { phone, zaloChatId } = getKhachThueContact(sendingHoaDon);
+        const canZalo = !!(phone || zaloChatId);
+        const message = generateBillingMessage(sendingHoaDon, sendBankInfo);
+        const encodedMessage = encodeURIComponent(message);
+
+        const buildZaloBody = (extra?: Record<string, string>) => ({
+          ...(zaloChatId ? { chatId: zaloChatId } : { phone }),
+          message,
+          ...extra,
+        });
+
+        const handleSendViaZaloBot = async () => {
+          if (!canZalo) {
+            toast.error('Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo');
+            return;
+          }
+          setIsSendingZalo(true);
+          try {
+            const res = await fetch('/api/gui-zalo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(buildZaloBody()),
             });
+            const data = await res.json();
+            if (data.success) {
+              toast.success('Đã gửi tin nhắn Zalo thành công!');
+              setIsSendDialogOpen(false);
+            } else {
+              toast.error(data.message || data.error || 'Gửi Zalo thất bại');
+            }
+          } catch {
+            toast.error('Không kết nối được Zalo Bot server');
+          } finally {
+            setIsSendingZalo(false);
+          }
+        };
 
-            const handleSendViaZaloBot = async () => {
-              if (!canZalo) {
-                toast.error('Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo');
-                return;
-              }
-              setIsSendingZalo(true);
-              try {
-                const res = await fetch('/api/gui-zalo', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(buildZaloBody()),
-                });
-                const data = await res.json();
-                if (data.success) {
-                  toast.success('Đã gửi tin nhắn Zalo thành công!');
-                  setIsSendDialogOpen(false);
-                } else {
-                  toast.error(data.message || data.error || 'Gửi Zalo thất bại');
-                }
-              } catch {
-                toast.error('Không kết nối được Zalo Bot server');
-              } finally {
-                setIsSendingZalo(false);
-              }
-            };
+        const handleSendWithPdf = async () => {
+          if (!canZalo) {
+            toast.error('Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo');
+            return;
+          }
+          setIsSendingZaloPdf(true);
+          try {
+            const r1 = await fetch('/api/gui-zalo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(buildZaloBody()),
+            });
+            const d1 = await r1.json();
+            if (!d1.success) {
+              toast.error(d1.message || d1.error || 'Gửi tin nhắn thất bại');
+              return;
+            }
+            const r2 = await fetch(`/api/hoa-don/${sendingHoaDon.id}/send-zalo-pdf`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...(zaloChatId ? { chatId: zaloChatId } : { phone }),
+                message: `Hóa đơn tháng ${sendingHoaDon.thang}/${sendingHoaDon.nam} - ${sendingHoaDon.maHoaDon}`,
+              }),
+            });
+            const d2 = await r2.json();
+            if (d2.success) {
+              toast.success('Đã gửi tin nhắn + PDF Zalo thành công!');
+              setIsSendDialogOpen(false);
+            } else {
+              toast.warning('Tin nhắn đã gửi nhưng PDF thất bại: ' + (d2.message || d2.error || ''));
+            }
+          } catch {
+            toast.error('Không kết nối được Zalo Bot server');
+          } finally {
+            setIsSendingZaloPdf(false);
+          }
+        };
 
-            const handleSendWithPdf = async () => {
-              if (!canZalo) {
-                toast.error('Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo');
-                return;
-              }
-              setIsSendingZaloPdf(true);
-              try {
-                // Gửi tin nhắn text trước
-                const r1 = await fetch('/api/gui-zalo', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(buildZaloBody()),
-                });
-                const d1 = await r1.json();
-                if (!d1.success) {
-                  toast.error(d1.message || d1.error || 'Gửi tin nhắn thất bại');
-                  return;
-                }
-                // Generate PDF server-side rồi gửi qua Zalo (tránh self-fetch issue)
-                const r2 = await fetch(`/api/hoa-don/${sendingHoaDon.id}/send-zalo-pdf`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    ...(zaloChatId ? { chatId: zaloChatId } : { phone }),
-                    message: `Hóa đơn tháng ${sendingHoaDon.thang}/${sendingHoaDon.nam} - ${sendingHoaDon.maHoaDon}`,
-                  }),
-                });
-                const d2 = await r2.json();
-                if (d2.success) {
-                  toast.success('Đã gửi tin nhắn + PDF Zalo thành công!');
-                  setIsSendDialogOpen(false);
-                } else {
-                  toast.warning('Tin nhắn đã gửi nhưng PDF thất bại: ' + (d2.message || d2.error || ''));
-                }
-              } catch {
-                toast.error('Không kết nối được Zalo Bot server');
-              } finally {
-                setIsSendingZaloPdf(false);
-              }
-            };
+        return (
+          <Card className="border-blue-200 bg-blue-50/30">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-base font-semibold">Gửi thông báo tiền phòng</h3>
+                  <p className="text-xs md:text-sm text-gray-500">
+                    Gửi thông tin hóa đơn tháng {sendingHoaDon.thang}/{sendingHoaDon.nam} cho khách thuê
+                  </p>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setIsSendDialogOpen(false)}>
+                  <CloseIcon className="h-4 w-4" />
+                </Button>
+              </div>
 
-            return (
               <div className="space-y-4">
                 {/* Preview message */}
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Nội dung tin nhắn</label>
-                  <pre className="text-xs bg-gray-50 border rounded p-3 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
+                  <pre className="text-xs bg-white border rounded p-3 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
                     {message}
                   </pre>
                 </div>
@@ -1139,7 +1117,7 @@ ${footer}`;
                   </div>
                 )}
 
-                {/* Zalo Bot auto send - nổi bật nhất */}
+                {/* Zalo Bot auto send */}
                 <Button
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                   disabled={!canZalo || isSendingZalo || isSendingZaloPdf}
@@ -1209,82 +1187,92 @@ ${footer}`;
                   </Button>
                 </div>
 
-                <DialogFooter>
+                <div className="flex justify-end pt-2 border-t">
                   <Button variant="outline" size="sm" onClick={() => setIsSendDialogOpen(false)}>
                     Đóng
                   </Button>
-                </DialogFooter>
+                </div>
               </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
-      {/* Payment Dialog */}
-      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg md:text-xl">Xác nhận thanh toán</DialogTitle>
-            <DialogDescription className="text-xs md:text-sm">
-              Tạo thanh toán cho hóa đơn {paymentHoaDon?.maHoaDon}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {paymentHoaDon && (
-            <PaymentForm 
+      {/* Payment - Inline Card */}
+      {isPaymentDialogOpen && paymentHoaDon && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-semibold">Xác nhận thanh toán</h3>
+                <p className="text-xs md:text-sm text-gray-500">
+                  Tạo thanh toán cho hóa đơn {paymentHoaDon.maHoaDon}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setIsPaymentDialogOpen(false)}>
+                <CloseIcon className="h-4 w-4" />
+              </Button>
+            </div>
+            <PaymentForm
               hoaDon={paymentHoaDon}
               onClose={() => setIsPaymentDialogOpen(false)}
               onSuccess={(updatedHoaDon) => {
                 setIsPaymentDialogOpen(false);
-                // Chỉ update dòng hóa đơn đó thay vì load lại toàn bộ
                 if (updatedHoaDon) {
-                  setHoaDonList(prev => prev.map(hd => 
+                  setHoaDonList(prev => prev.map(hd =>
                     hd.id === updatedHoaDon.id ? updatedHoaDon : hd
                   ));
-                  cache.clearCache(); // Xóa cache để lần sau load mới
+                  cache.clearCache();
                 }
               }}
             />
-          )}
-        </DialogContent>
-      </Dialog>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Cancel Invoice Dialog */}
-      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
-        <DialogContent className="w-[95vw] md:w-full max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Hủy hóa đơn</DialogTitle>
-            <DialogDescription className="text-sm">
-              Bạn đang thực hiện hủy hóa đơn <span className="font-semibold">{cancelHoaDon?.maHoaDon}</span>. Hành động này không thể hoàn tác.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="cancelReason" className="text-sm">Lý do hủy (bắt buộc) <span className="text-red-500">*</span></Label>
-              <Textarea
-                id="cancelReason"
-                placeholder="Nhập lý do hủy hóa đơn..."
-                value={cancelReason}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCancelReason(e.target.value)}
-                rows={3}
-                required
-              />
+      {/* Cancel Invoice - Inline Card */}
+      {isCancelDialogOpen && (
+        <Card className="border-red-200 bg-red-50/30">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-semibold">Hủy hóa đơn</h3>
+                <p className="text-sm text-gray-500">
+                  Bạn đang thực hiện hủy hóa đơn <span className="font-semibold">{cancelHoaDon?.maHoaDon}</span>. Hành động này không thể hoàn tác.
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setIsCancelDialogOpen(false)}>
+                <CloseIcon className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-              Lưu ý: Tổng tiền còn lại sẽ được đưa về 0. Khách thuê sẽ nhận được thông báo Zalo hóa đơn đã bị hủy (nếu đã cấu hình).
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="cancelReason" className="text-sm">Lý do hủy (bắt buộc) <span className="text-red-500">*</span></Label>
+                <Textarea
+                  id="cancelReason"
+                  placeholder="Nhập lý do hủy hóa đơn..."
+                  value={cancelReason}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCancelReason(e.target.value)}
+                  rows={3}
+                  required
+                />
+              </div>
+              <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                Lưu ý: Tổng tiền còn lại sẽ được đưa về 0. Khách thuê sẽ nhận được thông báo Zalo hóa đơn đã bị hủy (nếu đã cấu hình).
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2 border-t">
+                <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)} disabled={isCanceling} className="w-full sm:w-auto">
+                  Đóng
+                </Button>
+                <Button variant="destructive" onClick={handleConfirmCancel} disabled={!cancelReason.trim() || isCanceling} className="w-full sm:w-auto">
+                  {isCanceling ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                  Xác nhận hủy hóa đơn
+                </Button>
+              </div>
             </div>
-          </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)} disabled={isCanceling} className="w-full sm:w-auto">
-              Đóng
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmCancel} disabled={!cancelReason.trim() || isCanceling} className="w-full sm:w-auto">
-              {isCanceling ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              Xác nhận hủy hóa đơn
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -1486,9 +1474,9 @@ function PaymentForm({
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2 pt-4 md:pt-6 border-t">
-          <Button 
-            type="button" 
+        <div className="flex flex-col sm:flex-row gap-2 pt-4 md:pt-6 border-t">
+          <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={onClose}
@@ -1497,7 +1485,7 @@ function PaymentForm({
           >
             Hủy
           </Button>
-          <Button 
+          <Button
             type="submit"
             size="sm"
             disabled={submitting}
@@ -1506,7 +1494,7 @@ function PaymentForm({
             <CreditCard className="h-3 w-3 md:h-4 md:w-4 mr-2" />
             {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
           </Button>
-        </DialogFooter>
+        </div>
       </form>
     </div>
   );

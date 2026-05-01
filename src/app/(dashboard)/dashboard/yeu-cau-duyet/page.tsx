@@ -1,17 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
-import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle2, XCircle, Clock, RefreshCw, User, Calendar } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, RefreshCw, User, Calendar, X as CloseIcon } from 'lucide-react';
+import PageHeader from '@/components/dashboard/page-header';
 import { toast } from 'sonner';
 import { useCanEdit } from '@/hooks/use-can-edit';
 
@@ -180,28 +178,24 @@ export default function YeuCauDuyetPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Yêu cầu phê duyệt</h1>
-          <p className="text-muted-foreground text-sm">Xem xét và phê duyệt thay đổi từ khách thuê</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={filterTT} onValueChange={v => setFilterTT(v)}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="choPheduyet">Chờ duyệt</SelectItem>
-              <SelectItem value="daPheduyet">Đã duyệt</SelectItem>
-              <SelectItem value="tuChoi">Từ chối</SelectItem>
-              <SelectItem value="all">Tất cả</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="icon" onClick={() => fetchData(filterTT)}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Yêu cầu phê duyệt"
+        description="Xem xét và phê duyệt thay đổi từ khách thuê"
+        onRefresh={() => fetchData(filterTT)}
+        loading={loading}
+      >
+        <Select value={filterTT} onValueChange={v => setFilterTT(v)}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="choPheduyet">Chờ duyệt</SelectItem>
+            <SelectItem value="daPheduyet">Đã duyệt</SelectItem>
+            <SelectItem value="tuChoi">Từ chối</SelectItem>
+            <SelectItem value="all">Tất cả</SelectItem>
+          </SelectContent>
+        </Select>
+      </PageHeader>
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -266,15 +260,19 @@ export default function YeuCauDuyetPage() {
         </div>
       )}
 
-      {/* Dialog chi tiết + hành động */}
-      <Dialog open={!!selected} onOpenChange={open => !open && setSelected(null)}>
-        {selected && (
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>
+      {/* Inline chi tiết + hành động */}
+      {selected && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-base">
                 Yêu cầu: {loaiLabel[selected.loai] ?? selected.loai}
-              </DialogTitle>
-            </DialogHeader>
+              </h3>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelected(null); setGhiChu(''); }}>
+                <CloseIcon className="h-4 w-4" />
+              </Button>
+            </div>
+
             <div className="space-y-4">
               <div className="text-sm space-y-1">
                 <p><strong>Khách thuê:</strong> {selected.khachThue.hoTen} ({selected.khachThue.soDienThoai})</p>
@@ -297,7 +295,7 @@ export default function YeuCauDuyetPage() {
                       rows={2}
                     />
                   </div>
-                  <DialogFooter className="gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2 border-t">
                     <Button
                       variant="outline"
                       className="text-red-600 border-red-300 hover:bg-red-50"
@@ -315,13 +313,13 @@ export default function YeuCauDuyetPage() {
                       <CheckCircle2 className="h-4 w-4 mr-1" />
                       {processing ? 'Đang xử lý...' : 'Phê duyệt'}
                     </Button>
-                  </DialogFooter>
+                  </div>
                 </>
               )}
             </div>
-          </DialogContent>
-        )}
-      </Dialog>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -6,9 +6,9 @@ import {
   AlertCircle,
   Building2,
   CheckCircle2,
+  ChevronRight,
   RefreshCw,
   Save,
-  Search,
   Shield,
   SlidersHorizontal,
   Users,
@@ -21,8 +21,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getChucVuLabel } from '@/lib/chuc-vu';
+import {
+  BuildingSelector,
+  PageHeader,
+  PermissionGrid,
+  PillTabs,
+  SearchInput,
+} from '@/components/dashboard';
 
 type RoleKey = 'chuNha' | 'dongChuTro' | 'quanLy' | 'nhanVien';
 type LevelKey = 'admin' | 'chuNha' | 'quanLy';
@@ -158,6 +164,12 @@ const ROLE_TARGETS_BY_LEVEL: Record<LevelKey, RoleKey[]> = {
   quanLy: ['nhanVien'],
 };
 
+const TAB_ITEMS = [
+  { value: 'business', label: 'Quyền nghiệp vụ', icon: Shield },
+  { value: 'zalo', label: 'Quyền Zalo', icon: Building2 },
+  { value: 'limits', label: 'Giới hạn vai trò', icon: SlidersHorizontal },
+] as const;
+
 function getUserRole(user: User): string {
   return user.vaiTro ?? 'nhanVien';
 }
@@ -200,6 +212,9 @@ export default function PhanQuyenPage() {
   const [perBuildingLimits, setPerBuildingLimits] = useState<Record<string, Partial<Record<RoleKey, number>>>>({});
   const [zaloPerms, setZaloPerms] = useState<ZaloPermsByLevel>({ admin: {}, chuNha: {}, quanLy: {} });
   const [canManageZaloPerms, setCanManageZaloPerms] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState('business');
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
   const canEditZalo = (isAdmin || isChuNha || isQuanLy) && (isAdmin || canManageZaloPerms[selectedBuildingId] !== false);
 
   useEffect(() => {
@@ -514,224 +529,277 @@ export default function PhanQuyenPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Phân quyền</h1>
-          <p className="text-sm text-gray-600">
-            Một nơi duy nhất để quản lý quyền nghiệp vụ, quyền Zalo và giới hạn vai trò theo tòa nhà.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => void loadInitialData()}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Tải mới
-        </Button>
-      </div>
+      <PageHeader
+        title="Phân quyền"
+        description="Một nơi duy nhất để quản lý quyền nghiệp vụ, quyền Zalo và giới hạn vai trò theo tòa nhà."
+        onRefresh={() => void loadInitialData()}
+      >
+        <BuildingSelector
+          buildings={buildings.map(b => ({ id: b.id, tenToaNha: b.tenToaNha }))}
+          value={selectedBuildingId}
+          onChange={setSelectedBuildingId}
+        />
+      </PageHeader>
 
-      <div className="rounded-md border bg-white p-4">
-        <div className="grid gap-3 md:grid-cols-[minmax(240px,360px)_1fr] md:items-end">
-          <div className="space-y-2">
-            <Label>Tòa nhà áp dụng</Label>
-            <Select value={selectedBuildingId} onValueChange={setSelectedBuildingId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn tòa nhà" />
-              </SelectTrigger>
-              <SelectContent>
-                {buildings.map(building => (
-                  <SelectItem key={building.id} value={building.id}>
-                    {building.tenToaNha}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">
-            {selectedBuilding
-              ? `Đang cấu hình quyền cho ${selectedBuilding.tenToaNha}. Các quyền được lưu riêng theo tòa nhà.`
-              : 'Chưa có tòa nhà để cấu hình quyền.'}
-          </div>
-        </div>
-      </div>
+      <PillTabs
+        tabs={TAB_ITEMS.map(t => ({ value: t.value, label: t.label }))}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
-      <Tabs defaultValue="business" className="space-y-4">
-        <TabsList className="grid h-auto w-full grid-cols-1 md:w-fit md:grid-cols-3">
-          <TabsTrigger value="business">Quyền nghiệp vụ</TabsTrigger>
-          <TabsTrigger value="zalo">Quyền Zalo</TabsTrigger>
-          <TabsTrigger value="limits">Giới hạn vai trò</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="business" className="space-y-4">
-          <div className="rounded-md border bg-white p-4">
-            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Quyền nghiệp vụ của quản lý</h2>
-                <p className="text-sm text-gray-600">
-                  Các quyền này đang được backend kiểm tra khi quản lý thêm, sửa hoặc xóa dữ liệu nghiệp vụ.
-                </p>
-              </div>
-              <div className="relative md:w-80">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  className="pl-9"
-                  placeholder="Tìm tên, email, SĐT, chức vụ"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                />
-              </div>
+      {/* ───── Business Permissions Tab ───── */}
+      {activeTab === 'business' && (
+        <div className="rounded-xl border bg-white shadow-sm">
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Quyền nghiệp vụ của quản lý</h2>
+              <p className="text-xs text-gray-500">
+                Các quyền này được backend kiểm tra khi quản lý thêm, sửa hoặc xóa dữ liệu nghiệp vụ.
+              </p>
             </div>
+            <SearchInput
+              placeholder="Tìm tên, email, SĐT, chức vụ..."
+              value={searchTerm}
+              onChange={setSearchTerm}
+            />
+          </div>
 
-            {!canEditBusiness && (
-              <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                Tài khoản hiện tại chỉ xem quyền nghiệp vụ. Chỉ admin hoặc chủ trọ có thể bật/tắt nhóm quyền này.
-              </div>
-            )}
+          {!canEditBusiness && (
+            <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Tài khoản hiện tại chỉ xem quyền nghiệp vụ. Chỉ admin hoặc chủ trọ có thể bật/tắt nhóm quyền này.
+            </div>
+          )}
 
-            <div className="space-y-3">
-              {businessUsers.map(user => {
-                const permissions = getPermissionForBuilding(user, selectedBuildingId);
-                return (
-                  <div key={user.id} className="rounded-md border p-3">
-                    <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-gray-900">{user.ten || 'Không có tên'}</span>
-                          {user.chucVu && <Badge variant="outline">{getChucVuLabel(user.chucVu)}</Badge>}
-                        </div>
-                        <p className="text-xs text-gray-500">{user.email || user.soDienThoai || 'Chưa có liên hệ'}</p>
+          <div className="p-4 space-y-2">
+            {businessUsers.map(user => {
+              const permissions = getPermissionForBuilding(user, selectedBuildingId);
+              const isExpanded = expandedUser === user.id;
+              return (
+                <div key={user.id} className="rounded-lg border border-gray-200 overflow-hidden transition-all">
+                  {/* User row — clickable to expand */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedUser(isExpanded ? null : user.id)}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <ChevronRight
+                      className={`h-4 w-4 text-gray-400 transition-transform shrink-0 ${
+                        isExpanded ? 'rotate-90' : ''
+                      }`}
+                    />
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-semibold text-blue-700">
+                          {(user.ten || '?').charAt(0).toUpperCase()}
+                        </span>
                       </div>
-                      <Badge variant="secondary">Quản lý</Badge>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900 truncate">
+                            {user.ten || 'Không có tên'}
+                          </span>
+                          {user.chucVu && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                              {getChucVuLabel(user.chucVu)}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 truncate">{user.email || user.soDienThoai || 'Chưa có liên hệ'}</p>
+                      </div>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <Badge variant="secondary" className="shrink-0 text-xs">Quản lý</Badge>
+                  </button>
+
+                  {/* Expanded permission panel */}
+                  {isExpanded && (
+                    <div className="border-t bg-gray-50/50 px-4 py-3 space-y-2">
                       {BUSINESS_PERMISSIONS.map(permission => (
-                        <div key={permission.key} className="flex gap-3 rounded-md border bg-gray-50 p-3">
+                        <div
+                          key={permission.key}
+                          className="flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 border border-gray-100"
+                        >
                           <Switch
                             checked={permissions[permission.key] === true}
                             disabled={!canEditBusiness || savingBusiness === `${user.id}-${permission.key}`}
                             onCheckedChange={(checked) => void saveBusinessPermission(user, permission.key, checked)}
                           />
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900">{permission.label}</p>
-                            <p className="text-xs leading-5 text-gray-600">{permission.description}</p>
+                            <p className="text-xs text-gray-500">{permission.description}</p>
                           </div>
                         </div>
                       ))}
                     </div>
-                  </div>
-                );
-              })}
-
-              {businessUsers.length === 0 && (
-                <div className="rounded-md border border-dashed p-8 text-center text-sm text-gray-500">
-                  <Users className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                  Không có quản lý nào trong tòa nhà này hoặc không khớp từ khóa tìm kiếm.
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        </TabsContent>
+              );
+            })}
 
-        <TabsContent value="zalo" className="space-y-4">
-          <div className="rounded-md border bg-white p-4">
-            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Quyền tính năng Zalo</h2>
-                <p className="text-sm text-gray-600">
-                  Quyền Zalo có 3 tầng: admin đặt trần, chủ trọ hạn chế thêm, quản lý chỉ được hạn chế cấp nhân viên.
-                </p>
-              </div>
-              <div className="space-y-2 md:w-72">
-                <Label>Vai trò/slot cần cấu hình</Label>
-                <Select value={selectedZaloRole} onValueChange={(value) => setSelectedZaloRole(value as RoleKey)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn vai trò" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLE_TARGETS_BY_LEVEL[level].map(target => (
-                      <SelectItem key={target} value={target}>
-                        {ROLE_LABELS[target]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {!canEditZalo && (
-              <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                Tài khoản hiện tại chỉ xem quyền Zalo, không thể chỉnh sửa.
+            {businessUsers.length === 0 && (
+              <div className="rounded-lg border border-dashed p-8 text-center text-sm text-gray-500">
+                <Users className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+                Không có quản lý nào trong tòa nhà này hoặc không khớp từ khóa tìm kiếm.
               </div>
             )}
+          </div>
+        </div>
+      )}
 
-            <div className="space-y-4">
-              {getSlotKeys(selectedZaloRole).map(slotKey => (
-                <div key={slotKey} className="rounded-md border p-3">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-gray-900">{getSlotLabel(slotKey)}</p>
-                      <p className="text-xs text-gray-500">Slot key: {slotKey}</p>
-                    </div>
-                    <Badge variant="outline">{level === 'admin' ? 'Tầng admin' : level === 'chuNha' ? 'Tầng chủ trọ' : 'Tầng quản lý'}</Badge>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {ZALO_FEATURES.filter(feature => isZaloFeatureVisible(feature.key)).map(feature => {
-                      const disabledByHigher = isDisabledByHigherLevel(slotKey, feature.key);
-                      const checked = getEffectiveZaloChecked(slotKey, feature.key);
-                      return (
-                        <div key={feature.key} className={`flex gap-3 rounded-md border p-3 ${disabledByHigher ? 'bg-gray-100 opacity-70' : 'bg-gray-50'}`}>
-                          <Switch
-                            checked={checked}
-                            disabled={!canEditZalo || disabledByHigher}
-                            onCheckedChange={(value) => toggleZaloPermission(slotKey, feature.key, value)}
-                          />
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-medium text-gray-900">{feature.label}</p>
-                              {disabledByHigher && <Badge variant="secondary">Bị cấp trên tắt</Badge>}
-                            </div>
-                            <p className="text-xs leading-5 text-gray-600">{feature.description}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+      {/* ───── Zalo Permissions Tab ───── */}
+      {activeTab === 'zalo' && (
+        <div className="rounded-xl border bg-white shadow-sm">
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Quyền tính năng Zalo</h2>
+              <p className="text-xs text-gray-500">
+                Quyền Zalo có 3 tầng: admin đặt trần, chủ trọ hạn chế thêm, quản lý chỉ được hạn chế cấp nhân viên.
+              </p>
             </div>
-
-            <div className="mt-4 flex justify-end">
-              <Button onClick={() => void saveZaloPermissions()} disabled={!canEditZalo || savingZalo || !selectedBuildingId}>
-                <Save className="mr-2 h-4 w-4" />
-                {savingZalo ? 'Đang lưu...' : 'Lưu quyền Zalo'}
-              </Button>
+            <div className="w-full sm:w-64">
+              <Select value={selectedZaloRole} onValueChange={(value) => setSelectedZaloRole(value as RoleKey)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn vai trò" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_TARGETS_BY_LEVEL[level].map(target => (
+                    <SelectItem key={target} value={target}>
+                      {ROLE_LABELS[target]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        </TabsContent>
 
-        <TabsContent value="limits" className="space-y-4">
-          <div className="rounded-md border bg-white p-4">
-            <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Giới hạn vai trò theo tòa nhà</h2>
-                <p className="text-sm text-gray-600">
-                  Giới hạn này chặn việc gán quá số lượng chủ trọ, đồng chủ trọ, quản lý hoặc nhân viên trong một tòa nhà.
-                </p>
-              </div>
-              {!canEditLimits && <Badge variant="secondary">Chỉ admin được chỉnh</Badge>}
+          {!canEditZalo && (
+            <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Tài khoản hiện tại chỉ xem quyền Zalo, không thể chỉnh sửa.
             </div>
+          )}
 
+          <div className="p-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Left column: slot list */}
+              <div className="w-full lg:w-80 shrink-0 space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 px-1">
+                  Chọn slot để cấu hình
+                </p>
+                {getSlotKeys(selectedZaloRole).map(slotKey => {
+                  const isSelected = expandedSlot === slotKey;
+                  return (
+                    <button
+                      key={slotKey}
+                      type="button"
+                      onClick={() => setExpandedSlot(isSelected ? null : slotKey)}
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-all text-sm ${
+                        isSelected
+                          ? 'bg-blue-50 border border-blue-200 text-blue-800 font-medium'
+                          : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className={`h-2 w-2 rounded-full shrink-0 ${isSelected ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                      <span className="truncate">{getSlotLabel(slotKey)}</span>
+                      <span className="text-[10px] text-gray-400 ml-auto shrink-0">{slotKey}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Right column: permission grid for selected slot */}
+              <div className="flex-1 min-w-0">
+                {expandedSlot ? (
+                  <div className="rounded-lg border bg-gray-50/50 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{getSlotLabel(expandedSlot)}</p>
+                        <p className="text-xs text-gray-500">
+                          {level === 'admin' ? 'Tầng admin' : level === 'chuNha' ? 'Tầng chủ trọ' : 'Tầng quản lý'}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {level === 'admin' ? 'Đặt trần' : level === 'chuNha' ? 'Hạn chế' : 'Chi tiết'}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {ZALO_FEATURES.filter(feature => isZaloFeatureVisible(feature.key)).map(feature => {
+                        const disabledByHigher = isDisabledByHigherLevel(expandedSlot, feature.key);
+                        const checked = getEffectiveZaloChecked(expandedSlot, feature.key);
+                        return (
+                          <div
+                            key={feature.key}
+                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border ${
+                              disabledByHigher
+                                ? 'bg-gray-100 border-gray-200 opacity-70'
+                                : 'bg-white border-gray-100 hover:border-gray-200'
+                            }`}
+                          >
+                            <Switch
+                              checked={checked}
+                              disabled={!canEditZalo || disabledByHigher}
+                              onCheckedChange={(value) => toggleZaloPermission(expandedSlot, feature.key, value)}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-gray-900">{feature.label}</p>
+                                {disabledByHigher && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                                    Bị cấp trên tắt
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500">{feature.description}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <Button onClick={() => void saveZaloPermissions()} disabled={!canEditZalo || savingZalo || !selectedBuildingId} size="sm">
+                        <Save className="mr-1.5 h-3.5 w-3.5" />
+                        {savingZalo ? 'Đang lưu...' : 'Lưu quyền Zalo'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed p-8 text-center text-sm text-gray-500">
+                    <Building2 className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+                    Chọn một slot bên trái để cấu hình quyền Zalo.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───── Limits Tab ───── */}
+      {activeTab === 'limits' && (
+        <div className="rounded-xl border bg-white shadow-sm">
+          <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between border-b">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Giới hạn vai trò theo tòa nhà</h2>
+              <p className="text-xs text-gray-500">
+                Giới hạn này chặn việc gán quá số lượng chủ trọ, đồng chủ trọ, quản lý hoặc nhân viên trong một tòa nhà.
+              </p>
+            </div>
+            {!canEditLimits && <Badge variant="secondary" className="shrink-0">Chỉ admin được chỉnh</Badge>}
+          </div>
+
+          <div className="p-4">
             <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-md border p-3">
-                <div className="mb-3 flex items-center gap-2">
+              {/* Global limits */}
+              <div className="rounded-lg border p-4">
+                <div className="flex items-center gap-2 mb-3">
                   <SlidersHorizontal className="h-4 w-4 text-blue-600" />
-                  <p className="font-medium text-gray-900">Giới hạn chung</p>
+                  <p className="font-medium text-gray-900 text-sm">Giới hạn chung</p>
                 </div>
                 <div className="space-y-3">
                   {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => (
-                    <div key={roleKey} className="grid grid-cols-[1fr_96px] gap-3">
+                    <div key={roleKey} className="grid grid-cols-[1fr_80px] gap-3 items-start">
                       <div>
-                        <Label>{ROLE_LABELS[roleKey]}</Label>
-                        <p className="text-xs text-gray-500">{ROLE_DESCRIPTIONS[roleKey]}</p>
-                        <p className="text-xs text-gray-500">Mặc định dùng khi tòa nhà không đặt giới hạn riêng.</p>
+                        <Label className="text-sm">{ROLE_LABELS[roleKey]}</Label>
+                        <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
+                        <p className="text-[11px] text-gray-400">Mặc định dùng khi tòa nhà không đặt giới hạn riêng.</p>
                       </div>
                       <Input
                         type="number"
@@ -746,20 +814,21 @@ export default function PhanQuyenPage() {
                 </div>
               </div>
 
-              <div className="rounded-md border p-3">
-                <div className="mb-3 flex items-center gap-2">
+              {/* Per-building limits */}
+              <div className="rounded-lg border p-4">
+                <div className="flex items-center gap-2 mb-3">
                   <Building2 className="h-4 w-4 text-blue-600" />
-                  <p className="font-medium text-gray-900">Giới hạn riêng của tòa đang chọn</p>
+                  <p className="font-medium text-gray-900 text-sm">Giới hạn riêng của tòa đang chọn</p>
                 </div>
                 <div className="space-y-3">
                   {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => {
                     const effectiveLimit = selectedLimits[roleKey] ?? globalLimits[roleKey] ?? 0;
                     return (
-                      <div key={roleKey} className="grid grid-cols-[1fr_96px] gap-3">
+                      <div key={roleKey} className="grid grid-cols-[1fr_80px] gap-3 items-start">
                         <div>
-                          <Label>{ROLE_LABELS[roleKey]}</Label>
-                          <p className="text-xs text-gray-500">{ROLE_DESCRIPTIONS[roleKey]}</p>
-                          <p className="text-xs text-gray-500">
+                          <Label className="text-sm">{ROLE_LABELS[roleKey]}</Label>
+                          <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
+                          <p className="text-[11px] text-gray-400">
                             Đang dùng {roleCounts[roleKey]}/{effectiveLimit || 'không giới hạn'} slot. Nhập 0 để quay về giới hạn chung.
                           </p>
                         </div>
@@ -779,23 +848,27 @@ export default function PhanQuyenPage() {
             </div>
 
             <Separator className="my-4" />
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-2 text-sm text-gray-600">
-                {canEditLimits ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-600" /> : <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600" />}
-                <span>
+                {canEditLimits ? (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 shrink-0" />
+                )}
+                <span className="text-xs">
                   {canEditLimits
                     ? 'Sau khi lưu, màn tạo/sửa tài khoản sẽ dùng giới hạn mới để chặn vượt số lượng.'
                     : 'Bạn có thể xem giới hạn để hiểu vì sao không thêm được người vào một vai trò.'}
                 </span>
               </div>
-              <Button onClick={() => void saveLimits()} disabled={!canEditLimits || savingLimits || !selectedBuildingId}>
-                <Save className="mr-2 h-4 w-4" />
+              <Button onClick={() => void saveLimits()} disabled={!canEditLimits || savingLimits || !selectedBuildingId} size="sm">
+                <Save className="mr-1.5 h-3.5 w-3.5" />
                 {savingLimits ? 'Đang lưu...' : 'Lưu giới hạn'}
               </Button>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 }

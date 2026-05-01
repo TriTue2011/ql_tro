@@ -11,14 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,7 +19,6 @@ import {
 } from '@/components/ui/select';
 import {
   Plus,
-  Search,
   Edit,
   Trash2,
   EyeIcon,
@@ -44,12 +35,16 @@ import {
   Building2,
   DoorOpen,
   AlertTriangle,
+  X as CloseIcon,
 } from 'lucide-react';
 import { KhachThue } from '@/types';
 import { KhachThueDataTable } from './table';
 import { KhachThueForm } from '@/components/khach-thue-form';
 import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { toast } from 'sonner';
+import PageHeader from '@/components/dashboard/page-header';
+import SearchInput from '@/components/dashboard/search-input';
+import InlineForm from '@/components/dashboard/inline-form';
 
 export default function KhachThuePage() {
   const router = useRouter();
@@ -341,72 +336,51 @@ export default function KhachThuePage() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Quản lý khách thuê</h1>
-          <p className="text-xs md:text-sm text-gray-600">Danh sách tất cả khách thuê trong hệ thống</p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={cache.isRefreshing}
-            className="flex-1 sm:flex-none"
-          >
-            <RefreshCw className={`h-4 w-4 sm:mr-2 ${cache.isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{cache.isRefreshing ? 'Đang tải...' : 'Tải mới'}</span>
-          </Button>
-          {canEdit && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={() => setEditingKhachThue(null)} className="flex-1 sm:flex-none">
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Thêm khách thuê</span>
-                <span className="sm:hidden">Thêm</span>
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="w-[95vw] md:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingKhachThue ? 'Chỉnh sửa khách thuê' : 'Thêm khách thuê mới'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingKhachThue ? 'Cập nhật thông tin khách thuê' : 'Nhập thông tin khách thuê mới'}
-              </DialogDescription>
-            </DialogHeader>
+      <PageHeader
+        title="Quản lý khách thuê"
+        description="Danh sách tất cả khách thuê trong hệ thống"
+        onRefresh={handleRefresh}
+        loading={cache.isRefreshing}
+        onAdd={canEdit ? () => { setEditingKhachThue(null); setIsDialogOpen(true); } : undefined}
+        addLabel="Thêm khách thuê"
+      />
 
-            <KhachThueForm
-              khachThue={editingKhachThue}
-              canViewZalo={canViewZalo}
-              onClose={() => setIsDialogOpen(false)}
-              onSuccess={(newKhachThue) => {
-                cache.clearCache();
-                setIsDialogOpen(false);
-                if (newKhachThue) {
-                  if (editingKhachThue) {
-                    // Cập nhật khách thuê hiện có
-                    setKhachThueList(prev => prev.map(kt => 
-                      kt.id === editingKhachThue.id ? newKhachThue : kt
-                    ));
-                  } else {
-                    // Thêm khách thuê mới
-                    setKhachThueList(prev => [newKhachThue, ...prev]);
-                  }
+      {/* Create/Edit Form - Inline */}
+      {isDialogOpen && (
+        <InlineForm
+          title={editingKhachThue ? 'Chỉnh sửa khách thuê' : 'Thêm khách thuê mới'}
+          description={editingKhachThue ? 'Cập nhật thông tin khách thuê' : 'Nhập thông tin khách thuê mới'}
+          onSave={async () => {}}
+          onCancel={() => { setIsDialogOpen(false); setEditingKhachThue(null); }}
+          saving={isFormSubmitting}
+          hideSave
+          hideCancel
+        >
+          <KhachThueForm
+            khachThue={editingKhachThue}
+            canViewZalo={canViewZalo}
+            onClose={() => setIsDialogOpen(false)}
+            onSuccess={(newKhachThue) => {
+              cache.clearCache();
+              setIsDialogOpen(false);
+              if (newKhachThue) {
+                if (editingKhachThue) {
+                  setKhachThueList(prev => prev.map(kt =>
+                    kt.id === editingKhachThue.id ? newKhachThue : kt
+                  ));
                 } else {
-                  // Fallback: refresh data nếu không có dữ liệu trả về
-                  fetchKhachThue();
+                  setKhachThueList(prev => [newKhachThue, ...prev]);
                 }
-                toast.success(editingKhachThue ? 'Cập nhật khách thuê thành công!' : 'Thêm khách thuê thành công!');
-              }}
-              isSubmitting={isFormSubmitting}
-              setIsSubmitting={setIsFormSubmitting}
-            />
-            </DialogContent>
-          </Dialog>
-          )}
-        </div>
-      </div>
+              } else {
+                fetchKhachThue();
+              }
+              toast.success(editingKhachThue ? 'Cập nhật khách thuê thành công!' : 'Thêm khách thuê thành công!');
+            }}
+            isSubmitting={isFormSubmitting}
+            setIsSubmitting={setIsFormSubmitting}
+          />
+        </InlineForm>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
@@ -457,13 +431,14 @@ export default function KhachThuePage() {
         </Card>
       </div>
 
-      {/* Search + filter bar (both desktop + mobile) */}
+      {/* Search + filter bar */}
       <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input placeholder="Tìm theo tên, SĐT, CCCD..." value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)} className="pl-10 text-sm" />
-        </div>
+        <SearchInput
+          placeholder="Tìm theo tên, SĐT, CCCD..."
+          value={searchTerm}
+          onChange={setSearchTerm}
+          className="flex-1"
+        />
         <Select value={selectedTrangThai} onValueChange={setSelectedTrangThai}>
           <SelectTrigger className="w-full sm:w-44 text-sm"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
           <SelectContent>
@@ -644,15 +619,11 @@ export default function KhachThuePage() {
         
         {/* Mobile Filters */}
         <div className="space-y-2 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm kiếm khách thuê..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 text-sm"
-            />
-          </div>
+          <SearchInput
+            placeholder="Tìm kiếm khách thuê..."
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
           <Select value={selectedTrangThai} onValueChange={setSelectedTrangThai}>
             <SelectTrigger className="text-sm">
               <SelectValue placeholder="Trạng thái" />
@@ -800,50 +771,55 @@ export default function KhachThuePage() {
         )}
       </div>
 
-      {/* Smart delete dialog: khách thuê đang đứng hợp đồng */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={(open) => { setIsDeleteDialogOpen(open); if (!open) setDeleteTarget(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Khách thuê đang có hợp đồng
-            </DialogTitle>
-            <DialogDescription>
-              <strong>{deleteTarget?.hoTen}</strong> đang đứng tên hợp đồng phòng{' '}
-              <strong>{deleteTarget?.hopDongHienTai?.phong?.maPhong}</strong>
-              {deleteTarget?.hopDongHienTai?.phong?.toaNha?.tenToaNha && (
+      {/* Smart delete: khách thuê đang đứng hợp đồng */}
+      {isDeleteDialogOpen && deleteTarget && (
+        <Card className="border-amber-200 bg-amber-50/30">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                <h3 className="text-base font-semibold">Khách thuê đang có hợp đồng</h3>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { setIsDeleteDialogOpen(false); setDeleteTarget(null); }}>
+                <CloseIcon className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              <strong>{deleteTarget.hoTen}</strong> đang đứng tên hợp đồng phòng{' '}
+              <strong>{deleteTarget.hopDongHienTai?.phong?.maPhong}</strong>
+              {deleteTarget.hopDongHienTai?.phong?.toaNha?.tenToaNha && (
                 <> — {deleteTarget.hopDongHienTai.phong.toaNha.tenToaNha}</>
               )}
               . Bạn muốn làm gì?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 mt-2">
-            <button
-              className="w-full text-left px-4 py-3 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
-              onClick={() => {
-                setIsDeleteDialogOpen(false);
-                router.push(`/dashboard/hop-dong/${deleteTarget?.hopDongHienTai?.id}`);
-              }}
-            >
-              <p className="font-medium text-blue-800 text-sm">Thay đổi người đứng tên hợp đồng</p>
-              <p className="text-xs text-blue-600 mt-0.5">Mở hợp đồng để chọn người đứng tên mới</p>
-            </button>
-            <button
-              className="w-full text-left px-4 py-3 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 transition-colors"
-              onClick={handleDeleteWithHopDong}
-            >
-              <p className="font-medium text-red-800 text-sm">Xóa hợp đồng và khách thuê</p>
-              <p className="text-xs text-red-600 mt-0.5">Xóa hẳn cả hợp đồng lẫn khách thuê này</p>
-            </button>
-            <button
-              className="w-full text-center px-4 py-2 rounded-lg border hover:bg-gray-50 transition-colors text-sm text-gray-600"
-              onClick={() => { setIsDeleteDialogOpen(false); setDeleteTarget(null); }}
-            >
-              Hủy
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                className="w-full text-left px-4 py-3 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
+                onClick={() => {
+                  setIsDeleteDialogOpen(false);
+                  router.push(`/dashboard/hop-dong/${deleteTarget.hopDongHienTai?.id}`);
+                }}
+              >
+                <p className="font-medium text-blue-800 text-sm">Thay đổi người đứng tên hợp đồng</p>
+                <p className="text-xs text-blue-600 mt-0.5">Mở hợp đồng để chọn người đứng tên mới</p>
+              </button>
+              <button
+                className="w-full text-left px-4 py-3 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 transition-colors"
+                onClick={handleDeleteWithHopDong}
+              >
+                <p className="font-medium text-red-800 text-sm">Xóa hợp đồng và khách thuê</p>
+                <p className="text-xs text-red-600 mt-0.5">Xóa hẳn cả hợp đồng lẫn khách thuê này</p>
+              </button>
+              <button
+                className="w-full text-center px-4 py-2 rounded-lg border hover:bg-gray-50 transition-colors text-sm text-gray-600"
+                onClick={() => { setIsDeleteDialogOpen(false); setDeleteTarget(null); }}
+              >
+                Hủy
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
