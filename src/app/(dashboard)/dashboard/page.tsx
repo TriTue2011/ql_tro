@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { DashboardStats } from '@/types';
+import ZaloHotlineWarning from '@/components/zalo-hotline-warning';
 import '@/styles/bs-admin.css';
 
 interface MonthRevenue { month: number; revenue: number; }
@@ -171,6 +172,9 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Zalo Hotline Warning — đỏ, in đậm, dưới lời chào */}
+        <ZaloHotlineWarning />
 
         {/* KPI Row */}
         <div className="bs-section-header">
@@ -354,6 +358,10 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Zalo Hotline Warning — đỏ, in đậm, dưới lời chào */}
+      <ZaloHotlineWarning />
+
       {/* ── Quick Actions (Top Horizontal) ────────────────────────────── */}
       <div className="mb-4" style={{ position: 'relative', zIndex: 100 }}>
         <div className="row g-2">

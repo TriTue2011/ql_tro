@@ -23,6 +23,14 @@ import { sendMessageViaBotServer, getBotConfig, BotConfig } from '@/lib/zalo-bot
 import { formatPhongName } from '@/lib/utils';
 import { emitNewMessage } from '@/lib/zalo-message-events';
 import { sseEmit } from '@/lib/sse-emitter';
+import {
+  routeInternalNotification,
+  shouldUseHotlineForTenant,
+  getHotlineResponsible,
+  checkRequiredPermissions,
+  type NotifCategory,
+  type NotifTarget,
+} from '@/lib/zalo-hotline-router';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -470,56 +478,16 @@ export async function broadcastThongBao(opts: {
 
 // ─── Notification Router ──────────────────────────────────────────────────────
 
-type NotifCategory = 'SuCo' | 'HoaDon' | 'TinKhach' | 'NguoiLa' | 'NhacNho' | 'HopDong' | 'ThanhToan';
-
-interface NotifTarget { chatId: string }
-
 /**
- * Xác định danh sách người nhận thông báo theo ZaloThongBaoCaiDat.
- * Ưu tiên ủy quyền → quản lý; fallback → chủ trọ.
+ * Xác định danh sách người nhận thông báo theo ZaloThongBaoCaiDat
+ * kết hợp với 3 công tắc Zalo Hotline (Giai đoạn 4).
+ *
+ * Routing được ủy quyền cho zalo-hotline-router.ts để triển khai 8 kịch bản A/B.
+ * Giữ nguyên interface đầu ra để không ảnh hưởng caller.
  */
 async function getTargets(toaNhaId: string, category: NotifCategory): Promise<NotifTarget[]> {
-  const nhanKey = `nhan${category}` as const;
-  const chuyenKey = `chuyen${category}ChoQL` as const;
-
-  const toaNha = await prisma.toaNha.findUnique({
-    where: { id: toaNhaId },
-    select: {
-      chuSoHuu: { select: { id: true, zaloChatId: true } },
-      nguoiQuanLy: { select: { nguoiDung: { select: { id: true, zaloChatId: true } } } },
-    },
-  });
-  if (!toaNha) return [];
-
-  const chu = toaNha.chuSoHuu;
-  const quanLys = toaNha.nguoiQuanLy.map(q => q.nguoiDung);
-
-  // Lấy settings chủ trọ
-  const chuSettings = await prisma.zaloThongBaoCaiDat.findFirst({
-    where: { nguoiDungId: chu.id, toaNhaId },
-  });
-
-  const chuNhan: boolean = chuSettings ? !!(chuSettings as any)[nhanKey] : true;
-  const chuyenChoQL: boolean = chuSettings ? !!(chuSettings as any)[chuyenKey] : false;
-
-  // "Chuyển QL" và "Nhận" độc lập nhau: ủy quyền cho QL không phụ thuộc vào chuNha có bật nhận hay không
-  if (chuyenChoQL && quanLys.length > 0) {
-    const qlTargets: NotifTarget[] = [];
-    for (const ql of quanLys) {
-      if (!ql.zaloChatId) continue;
-      const qlSettings = await prisma.zaloThongBaoCaiDat.findFirst({
-        where: { nguoiDungId: ql.id, toaNhaId },
-      });
-      const qlNhan: boolean = qlSettings ? !!(qlSettings as any)[nhanKey] : true;
-      if (qlNhan) qlTargets.push({ chatId: ql.zaloChatId });
-    }
-    if (qlTargets.length > 0) return qlTargets;
-    // Fallback: không có QL nhận → gửi chủ trọ nếu chủ trọ bật nhận
-  }
-
-  // Gửi chủ trọ chỉ khi họ bật nhận loại thông báo này
-  if (chuNhan && chu.zaloChatId) return [{ chatId: chu.zaloChatId }];
-  return [];
+  // Sử dụng hotline router mới — nó xử lý 8 kịch bản dựa trên 3 công tắc
+  return routeInternalNotification(toaNhaId, category);
 }
 
 // ─── Hóa đơn ──────────────────────────────────────────────────────────────────

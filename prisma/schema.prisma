@@ -456,6 +456,14 @@ model CaiDatToaNha {
   gioiHanDangNhapKT   Int? // Giới hạn số khách thuê được bật đăng nhập (null = không giới hạn)
   chuTroBatDangNhapKT Boolean @default(true) // Chủ trọ tắt thêm nếu muốn (mặc định cho phép khi admin bật)
 
+  // ─── Zalo Hotline — 3 công tắc quyền hạn gốc (Giai đoạn 4) ─────────────────
+  // Bật Hotline (Đối ngoại): true = khách nhận tin từ Hotline, false = khách nhận từ Zalo cá nhân người xử lý
+  batHotline Boolean @default(true)
+  // Ủy quyền QL (Thông báo - Đối nội): true = chuyển thông báo cho Quản lý, false = đổ về Chủ trọ
+  uyQuyenQL Boolean @default(false)
+  // Ủy quyền Hotline (Kỹ thuật): true = Quản lý chịu trách nhiệm bảo trì/quét QR, false = Chủ trọ chịu trách nhiệm
+  uyQuyenHotline Boolean @default(false)
+
   ngayTao     DateTime @default(now())
   ngayCapNhat DateTime @updatedAt
 }

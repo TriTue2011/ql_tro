@@ -58,6 +58,8 @@ import {
   Zap,
   Cloud,
   Bot,
+  Phone,
+  Radio,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -523,6 +525,233 @@ function AutoZaloCard({
           )}
           Lưu cài đặt tự động
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Component: Zalo Hotline — 3 công tắc quyền hạn ──────────────────────────
+
+interface HotlineSwitchState {
+  batHotline: boolean;
+  uyQuyenQL: boolean;
+  uyQuyenHotline: boolean;
+}
+
+interface HotlineScenario {
+  id: string;
+  label: string;
+}
+
+function ZaloHotlineCard() {
+  const [buildings, setBuildings] = useState<{ id: string; tenToaNha: string }[]>([]);
+  const [selectedId, setSelectedId] = useState<string>('');
+  const [switches, setSwitches] = useState<HotlineSwitchState>({
+    batHotline: true,
+    uyQuyenQL: false,
+    uyQuyenHotline: false,
+  });
+  const [scenario, setScenario] = useState<HotlineScenario | null>(null);
+  const [permWarning, setPermWarning] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Tải danh sách tòa nhà
+  useEffect(() => {
+    fetch('/api/admin/toa-nha-settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setBuildings(data.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Tải trạng thái công tắc khi chọn tòa nhà
+  useEffect(() => {
+    if (!selectedId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    fetch(`/api/admin/zalo-hotline-switches?toaNhaId=${selectedId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setSwitches(data.data.switches);
+          setScenario(data.data.scenario);
+          if (!data.data.permissions.ok) {
+            setPermWarning('⚠️ Quản lý thiếu quyền: ' + data.data.permissions.missing.join(', '));
+          } else {
+            setPermWarning(null);
+          }
+        }
+      })
+      .catch(() => toast.error('Không thể tải cài đặt Zalo Hotline'))
+      .finally(() => setLoading(false));
+  }, [selectedId]);
+
+  async function handleToggle(key: keyof HotlineSwitchState) {
+    if (!selectedId) return;
+    const newVal = !switches[key];
+    const updated = { ...switches, [key]: newVal };
+    setSwitches(updated);
+    setSaving(true);
+
+    try {
+      const res = await fetch('/api/admin/zalo-hotline-switches', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toaNhaId: selectedId, [key]: newVal }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setScenario(data.data.scenario);
+        if (key === 'uyQuyenQL' && newVal) {
+          // Kiểm tra quyền sau khi bật
+          const checkRes = await fetch(`/api/admin/zalo-hotline-switches?toaNhaId=${selectedId}`);
+          const checkData = await checkRes.json();
+          if (checkData.success && !checkData.data.permissions.ok) {
+            setPermWarning('⚠️ Quản lý thiếu quyền: ' + checkData.data.permissions.missing.join(', '));
+          } else {
+            setPermWarning(null);
+          }
+        } else {
+          setPermWarning(null);
+        }
+        toast.success('Đã cập nhật cài đặt Zalo Hotline');
+      } else {
+        // Rollback nếu API từ chối
+        setSwitches(switches);
+        toast.error(data.error || 'Lỗi khi lưu');
+      }
+    } catch {
+      setSwitches(switches);
+      toast.error('Lỗi kết nối');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const switchConfigs: { key: keyof HotlineSwitchState; label: string; moTa: string; icon: string }[] = [
+    {
+      key: 'batHotline',
+      label: 'Bật Hotline (Đối ngoại)',
+      moTa: switches.batHotline
+        ? 'Khách thuê nhận/gửi tin qua Hotline Zalo'
+        : 'Khách thuê nhận/gửi tin qua Zalo cá nhân người xử lý',
+      icon: '📞',
+    },
+    {
+      key: 'uyQuyenQL',
+      label: 'Ủy quyền QL (Thông báo - Đối nội)',
+      moTa: switches.uyQuyenQL
+        ? 'Thông báo nội bộ chuyển cho Quản lý xử lý'
+        : 'Thông báo nội bộ đổ về Chủ trọ',
+      icon: '👥',
+    },
+    {
+      key: 'uyQuyenHotline',
+      label: 'Ủy quyền Hotline (Kỹ thuật)',
+      moTa: switches.uyQuyenHotline
+        ? 'Quản lý chịu trách nhiệm bảo trì/quét QR Hotline'
+        : 'Chủ trọ chịu trách nhiệm bảo trì/quét QR Hotline',
+      icon: '🔧',
+    },
+  ];
+
+  const scenarioColors: Record<string, string> = {
+    'A.1': 'text-green-600 bg-green-50 border-green-200',
+    'A.2': 'text-blue-600 bg-blue-50 border-blue-200',
+    'A.3': 'text-purple-600 bg-purple-50 border-purple-200',
+    'A.4': 'text-gray-600 bg-gray-50 border-gray-200',
+    'B.1': 'text-green-600 bg-green-50 border-green-200',
+    'B.2': 'text-blue-600 bg-blue-50 border-blue-200',
+    'B.3': 'text-purple-600 bg-purple-50 border-purple-200',
+    'B.4': 'text-gray-600 bg-gray-50 border-gray-200',
+  };
+
+  return (
+    <Card>
+      <CardHeader className="p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <Phone className="h-4 w-4" />
+          Zalo Hotline — 3 công tắc quyền hạn
+        </CardTitle>
+        <CardDescription className="text-xs md:text-sm">
+          Cấu hình luồng giao tiếp Zalo giữa khách thuê, quản lý và chủ trọ.
+          Xem chi tiết 8 kịch bản vận hành trong tài liệu hướng dẫn.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 md:p-6 space-y-4">
+        {/* Chọn tòa nhà */}
+        <div className="space-y-1">
+          <Label className="text-xs md:text-sm font-medium">Chọn tòa nhà</Label>
+          <Select value={selectedId} onValueChange={setSelectedId}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="-- Chọn tòa nhà --" />
+            </SelectTrigger>
+            <SelectContent>
+              {buildings.map(b => (
+                <SelectItem key={b.id} value={b.id}>{b.tenToaNha}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {!selectedId ? (
+          <p className="text-xs text-gray-400 italic text-center py-4">
+            Vui lòng chọn tòa nhà để cấu hình Zalo Hotline.
+          </p>
+        ) : loading ? (
+          <div className="flex items-center justify-center py-4">
+            <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
+          </div>
+        ) : (
+          <>
+            {/* Kịch bản hiện tại */}
+            {scenario && (
+              <div className={`text-xs font-medium px-3 py-2 rounded-md border ${scenarioColors[scenario.id] ?? 'text-gray-600 bg-gray-50 border-gray-200'}`}>
+                <span className="font-bold">Kịch bản {scenario.id}:</span> {scenario.label}
+              </div>
+            )}
+
+            {/* Cảnh báo quyền */}
+            {permWarning && (
+              <div className="text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-md">
+                {permWarning}
+                <br />
+                <span className="text-red-500">
+                  Cấp đủ 4 nhóm quyền (Sự cố, Hóa đơn, Thông báo, Phê duyệt Yêu cầu) cho ít nhất 1 quản lý.
+                </span>
+              </div>
+            )}
+
+            {/* 3 công tắc */}
+            {switchConfigs.map(cfg => (
+              <div key={cfg.key} className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 last:border-b-0">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">{cfg.icon}</span>
+                    <Label className="text-xs md:text-sm font-medium cursor-pointer">
+                      {cfg.label}
+                    </Label>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5 ml-6">{cfg.moTa}</p>
+                </div>
+                <Switch
+                  checked={switches[cfg.key]}
+                  onCheckedChange={() => handleToggle(cfg.key)}
+                  disabled={saving}
+                />
+              </div>
+            ))}
+
+            {/* Nút lưu — không cần vì toggle tự động lưu */}
+            <p className="text-xs text-gray-400 italic">
+              Thay đổi được lưu tự động khi bật/tắt công tắc.
+            </p>
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -3013,6 +3242,13 @@ export default function CaiDatPage() {
                 <Users className="h-3.5 w-3.5" />
                 Đăng nhập KT
               </TabsTrigger>
+              <TabsTrigger
+                value="zaloHotline"
+                className="flex items-center gap-1.5 text-xs md:text-sm"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                Zalo Hotline
+              </TabsTrigger>
             </>
           )}
           {/* Chủ trọ: Thanh toán + Cảnh báo + Hệ thống */}
@@ -3264,6 +3500,13 @@ export default function CaiDatPage() {
         {isAdmin && (
           <TabsContent value="dangNhapKT" className="space-y-4 mt-4">
             <AdminDangNhapKTPanel />
+          </TabsContent>
+        )}
+
+        {/* ── Tab Zalo Hotline (admin) ──────────────────────────────────────── */}
+        {isAdmin && (
+          <TabsContent value="zaloHotline" className="space-y-4 mt-4">
+            <ZaloHotlineCard />
           </TabsContent>
         )}
 
