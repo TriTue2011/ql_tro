@@ -119,9 +119,10 @@ export async function GET() {
 
     // Batch-fetch nguoiTaoId via raw SQL (column not in Prisma schema)
     let nguoiTaoIdByUser = new Map<string, string | null>();
+    let nguoiTaoRows: { id: string; nguoiTaoId: string | null }[] = [];
     try {
       const userIds = users.map(u => u.id);
-      const nguoiTaoRows = userIds.length > 0
+      nguoiTaoRows = userIds.length > 0
         ? await prisma.$queryRaw<{ id: string; nguoiTaoId: string | null }[]>`
             SELECT id, "nguoiTaoId" FROM "NguoiDung" WHERE id = ANY(${userIds})`
         : [];
