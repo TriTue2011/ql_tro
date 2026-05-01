@@ -14,6 +14,7 @@ import {
   Shield,
   SlidersHorizontal,
   Users,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -749,9 +750,19 @@ export default function PhanQuyenPage() {
                           {businessUsers.find(u => u.id === expandedUser)?.email || businessUsers.find(u => u.id === expandedUser)?.soDienThoai || ''}
                         </p>
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        {canEditBusiness ? 'Có thể chỉnh sửa' : 'Chỉ xem'}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {canEditBusiness ? 'Có thể chỉnh sửa' : 'Chỉ xem'}
+                        </Badge>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedUser(null)}
+                          className="h-6 w-6 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                          title="Ẩn"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       {BUSINESS_PERMISSIONS.map(permission => {
