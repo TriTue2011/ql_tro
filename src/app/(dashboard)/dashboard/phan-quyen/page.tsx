@@ -690,6 +690,9 @@ export default function PhanQuyenPage() {
           onChange={setSelectedBuildingId}
         />
       </PageHeader>
+      <p className="text-base text-gray-500">
+        Một nơi duy nhất để quản lý quyền nghiệp vụ, quyền Zalo và giới hạn vai trò theo tòa nhà.
+      </p>
 
       <PillTabs
         tabs={visibleTabs.map(t => ({ value: t.value, label: t.label }))}
