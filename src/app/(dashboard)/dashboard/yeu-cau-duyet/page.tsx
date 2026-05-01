@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle2, XCircle, Clock, RefreshCw, User, Calendar, X as CloseIcon } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, RefreshCw, User, Calendar } from 'lucide-react';
 import PageHeader from '@/components/dashboard/page-header';
 import { toast } from 'sonner';
 import { useCanEdit } from '@/hooks/use-can-edit';
@@ -127,13 +127,11 @@ function renderChange(noiDung: any, loai: string) {
 }
 
 export default function YeuCauDuyetPage() {
+  const router = useRouter();
   const canEdit = useCanEdit();
   const [yeuCaus, setYeuCaus] = useState<YeuCau[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTT, setFilterTT] = useState('choPheduyet');
-  const [selected, setSelected] = useState<YeuCau | null>(null);
-  const [ghiChu, setGhiChu] = useState('');
-  const [processing, setProcessing] = useState(false);
 
   const fetchData = (tt: string) => {
     setLoading(true);
@@ -148,31 +146,6 @@ export default function YeuCauDuyetPage() {
   };
 
   useEffect(() => { fetchData(filterTT); }, [filterTT]);
-
-  const handleDecision = async (trangThai: 'daPheduyet' | 'tuChoi') => {
-    if (!selected) return;
-    setProcessing(true);
-    try {
-      const res = await fetch('/api/yeu-cau-thay-doi', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selected.id, trangThai, ghiChuPheDuyet: ghiChu }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        toast.success(result.message);
-        setSelected(null);
-        setGhiChu('');
-        fetchData(filterTT);
-      } else {
-        toast.error(result.message || 'Xử lý thất bại');
-      }
-    } catch {
-      toast.error('Có lỗi xảy ra');
-    } finally {
-      setProcessing(false);
-    }
-  };
 
   const fmtDate = (d: string) => new Date(d).toLocaleString('vi-VN');
 
@@ -214,7 +187,7 @@ export default function YeuCauDuyetPage() {
             const tt = trangThaiMap[yc.trangThai];
             const phong = yc.khachThue.hopDong?.[0]?.phong;
             return (
-              <Card key={yc.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setSelected(yc); setGhiChu(''); }}>
+              <Card key={yc.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/dashboard/yeu-cau-duyet/' + yc.id)}>
                 <CardContent className="pt-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1 flex-1">
@@ -235,7 +208,7 @@ export default function YeuCauDuyetPage() {
                     {canEdit && yc.trangThai === 'choPheduyet' && (
                       <div className="flex gap-2 shrink-0">
                         <Button size="sm" variant="outline" className="text-green-600 border-green-300 hover:bg-green-50"
-                          onClick={e => { e.stopPropagation(); setSelected(yc); setGhiChu(''); }}>
+                          onClick={e => { e.stopPropagation(); router.push('/dashboard/yeu-cau-duyet/' + yc.id); }}>
                           Xem xét
                         </Button>
                       </div>
@@ -260,66 +233,6 @@ export default function YeuCauDuyetPage() {
         </div>
       )}
 
-      {/* Inline chi tiết + hành động */}
-      {selected && (
-        <Card className="border-blue-200 bg-blue-50/30">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-base">
-                Yêu cầu: {loaiLabel[selected.loai] ?? selected.loai}
-              </h3>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelected(null); setGhiChu(''); }}>
-                <CloseIcon className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="text-sm space-y-1">
-                <p><strong>Khách thuê:</strong> {selected.khachThue.hoTen} ({selected.khachThue.soDienThoai})</p>
-                <p><strong>Ngày gửi:</strong> {fmtDate(selected.ngayTao)}</p>
-              </div>
-
-              <div className="rounded-md bg-gray-50 border p-3">
-                <p className="text-xs text-muted-foreground mb-2 font-medium">Chi tiết thay đổi:</p>
-                {renderChange(selected.noiDung, selected.loai)}
-              </div>
-
-              {canEdit && selected.trangThai === 'choPheduyet' && (
-                <>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Ghi chú (tùy chọn)</label>
-                    <Textarea
-                      value={ghiChu}
-                      onChange={e => setGhiChu(e.target.value)}
-                      placeholder="Lý do từ chối hoặc ghi chú..."
-                      rows={2}
-                    />
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2 border-t">
-                    <Button
-                      variant="outline"
-                      className="text-red-600 border-red-300 hover:bg-red-50"
-                      onClick={() => handleDecision('tuChoi')}
-                      disabled={processing}
-                    >
-                      <XCircle className="h-4 w-4 mr-1" />
-                      {processing ? 'Đang xử lý...' : 'Từ chối'}
-                    </Button>
-                    <Button
-                      className="bg-green-600 hover:bg-green-700"
-                      onClick={() => handleDecision('daPheduyet')}
-                      disabled={processing}
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-1" />
-                      {processing ? 'Đang xử lý...' : 'Phê duyệt'}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
