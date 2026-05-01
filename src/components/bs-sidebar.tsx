@@ -246,27 +246,55 @@ export function BsSidebar({
         const bData = await bRes.json();
         const buildings = bData.data || [];
         if (buildings.length === 0) return;
+        const hidden = new Set<string>();
+
+        // ── 1. Kiểm tra anNavTab từ quyền nghiệp vụ ──────────────────────
+        // Lấy tất cả người dùng để xem anNavTab của current user
+        const uRes = await fetch('/api/admin/users');
+        if (uRes.ok) {
+          const users: Array<{
+            id: string;
+            quyenTheoToaNha?: Record<string, Record<string, boolean>>;
+          }> = await uRes.json();
+          const me = users.find(u => u.id === session?.user?.id);
+          if (me?.quyenTheoToaNha?.[buildings[0].id]) {
+            const perms = me.quyenTheoToaNha[buildings[0].id];
+            // Ánh xạ anNavTab → href cần ẩn
+            const navTabMap: Record<string, string> = {
+              anNavTabHopDong: '/dashboard/hop-dong',
+              anNavTabHoaDon: '/dashboard/hoa-don',
+              anNavTabThanhToan: '/dashboard/thanh-toan',
+              anNavTabSuCo: '/dashboard/su-co',
+              anNavTabZalo: '/dashboard/zalo',
+              anNavTabZaloMonitor: '/dashboard/zalo-monitor',
+            };
+            for (const [anKey, href] of Object.entries(navTabMap)) {
+              if (perms[anKey] === true) hidden.add(href);
+            }
+          }
+        }
+
+        // ── 2. Kiểm tra Zalo permissions (giữ nguyên logic cũ) ───────────
         const pRes = await fetch(`/api/admin/zalo-quyen?toaNhaId=${buildings[0].id}`);
         const pData = await pRes.json();
         if (pData.ok && pData.effective) {
           const matchingKeys = Object.keys(pData.effective).filter(k => k === role || k.startsWith(`${role}_`));
           if (matchingKeys.length > 0) {
-            const hidden = new Set<string>();
             // Ẩn Zalo Monitor nếu bị tắt
             const monitorAllowed = matchingKeys.some(k => pData.effective[k]?.zaloMonitor !== false);
             if (!monitorAllowed) hidden.add('/dashboard/zalo-monitor');
             // dongChuTro: ẩn Quản lý tài khoản nếu không được cấp quanLyQuyen
-            // quanLy: luôn thấy nhưng read-only (xử lý ở page)
             if (role === 'dongChuTro') {
               const canManage = matchingKeys.some(k => pData.effective[k]?.quanLyQuyen === true);
               if (!canManage) hidden.add('/dashboard/quan-ly-tai-khoan');
             }
-            if (hidden.size > 0) setHiddenPaths(prev => new Set([...prev, ...hidden]));
           }
         }
+
+        if (hidden.size > 0) setHiddenPaths(prev => new Set([...prev, ...hidden]));
       } catch {}
     })();
-  }, [role]);
+  }, [role, session?.user?.id]);
 
   const navGroups = buildNavGroups(role).map(g => ({
     ...g,

@@ -1,0 +1,7 @@
+-- Add anNavTab columns to ToaNhaNguoiQuanLy for hiding nav tabs
+ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabHopDong"     BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabHoaDon"      BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabThanhToan"   BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabSuCo"        BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabZalo"        BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "ToaNhaNguoiQuanLy" ADD COLUMN IF NOT EXISTS "anNavTabZaloMonitor" BOOLEAN NOT NULL DEFAULT false;

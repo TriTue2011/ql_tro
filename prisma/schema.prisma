@@ -87,6 +87,16 @@ model ToaNhaNguoiQuanLy {
   quyenHoaDon           Boolean @default(false) // Thêm/sửa/xóa hóa đơn
   quyenThanhToan        Boolean @default(false) // Thêm/sửa/xóa thanh toán
   quyenSuCo             Boolean @default(false) // Thêm/sửa/xóa sự cố
+  quyenZalo             Boolean @default(false) // Hiện tab Zalo
+  quyenZaloMonitor      Boolean @default(false) // Hiện tab Zalo Monitor
+
+  // Ẩn nav tab (chỉ có hiệu lực khi quyền tương ứng = false)
+  anNavTabHopDong       Boolean @default(false) // Ẩn tab Hợp đồng
+  anNavTabHoaDon        Boolean @default(false) // Ẩn tab Hóa đơn
+  anNavTabThanhToan     Boolean @default(false) // Ẩn tab Thanh toán
+  anNavTabSuCo          Boolean @default(false) // Ẩn tab Sự cố
+  anNavTabZalo          Boolean @default(false) // Ẩn tab Zalo
+  anNavTabZaloMonitor   Boolean @default(false) // Ẩn tab Zalo Monitor
 
   @@id([toaNhaId, nguoiDungId])
 }

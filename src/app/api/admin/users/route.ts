@@ -55,6 +55,14 @@ export async function GET() {
           quyenHoaDon: true,
           quyenThanhToan: true,
           quyenSuCo: true,
+          quyenZalo: true,
+          quyenZaloMonitor: true,
+          anNavTabHopDong: true,
+          anNavTabHoaDon: true,
+          anNavTabThanhToan: true,
+          anNavTabSuCo: true,
+          anNavTabZalo: true,
+          anNavTabZaloMonitor: true,
         },
       },
     } as const;
@@ -138,6 +146,14 @@ export async function GET() {
             quyenHoaDon: q.quyenHoaDon,
             quyenThanhToan: q.quyenThanhToan,
             quyenSuCo: q.quyenSuCo,
+            quyenZalo: q.quyenZalo,
+            quyenZaloMonitor: q.quyenZaloMonitor,
+            anNavTabHopDong: q.anNavTabHopDong,
+            anNavTabHoaDon: q.anNavTabHoaDon,
+            anNavTabThanhToan: q.anNavTabThanhToan,
+            anNavTabSuCo: q.anNavTabSuCo,
+            anNavTabZalo: q.anNavTabZalo,
+            anNavTabZaloMonitor: q.anNavTabZaloMonitor,
           },
         ]),
       );
@@ -167,6 +183,8 @@ export async function GET() {
         quyenHoaDon: managedEntry?.quyenHoaDon ?? false,
         quyenThanhToan: managedEntry?.quyenThanhToan ?? false,
         quyenSuCo: managedEntry?.quyenSuCo ?? false,
+        quyenZalo: managedEntry?.quyenZalo ?? false,
+        quyenZaloMonitor: managedEntry?.quyenZaloMonitor ?? false,
       };
     });
 

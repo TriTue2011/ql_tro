@@ -9,6 +9,15 @@
  *   quyenHoaDon?: boolean,
  *   quyenThanhToan?: boolean,
  *   quyenSuCo?: boolean,
+ *   quyenZalo?: boolean,
+ *   quyenZaloMonitor?: boolean,
+ *   // Ẩn nav tab (chỉ có hiệu lực khi quyền tương ứng = false)
+ *   anNavTabHopDong?: boolean,
+ *   anNavTabHoaDon?: boolean,
+ *   anNavTabThanhToan?: boolean,
+ *   anNavTabSuCo?: boolean,
+ *   anNavTabZalo?: boolean,
+ *   anNavTabZaloMonitor?: boolean,
  * }
  *
  * Quyền truy cập:
@@ -28,6 +37,14 @@ const bodySchema = z.object({
   quyenHoaDon: z.boolean().optional(),
   quyenThanhToan: z.boolean().optional(),
   quyenSuCo: z.boolean().optional(),
+  quyenZalo: z.boolean().optional(),
+  quyenZaloMonitor: z.boolean().optional(),
+  anNavTabHopDong: z.boolean().optional(),
+  anNavTabHoaDon: z.boolean().optional(),
+  anNavTabThanhToan: z.boolean().optional(),
+  anNavTabSuCo: z.boolean().optional(),
+  anNavTabZalo: z.boolean().optional(),
+  anNavTabZaloMonitor: z.boolean().optional(),
 });
 
 export async function PUT(

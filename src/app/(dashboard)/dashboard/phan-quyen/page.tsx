@@ -41,7 +41,9 @@ type BusinessPermissionKey =
   | 'quyenHoaDon'
   | 'quyenThanhToan'
   | 'quyenSuCo'
-  | 'quyenKichHoatTaiKhoan';
+  | 'quyenKichHoatTaiKhoan'
+  | 'quyenZalo'
+  | 'quyenZaloMonitor';
 type ZaloFeatureKey =
   | 'botServer'
   | 'trucTiep'
@@ -65,6 +67,15 @@ interface UserPermissionSet {
   quyenHoaDon?: boolean;
   quyenThanhToan?: boolean;
   quyenSuCo?: boolean;
+  quyenZalo?: boolean;
+  quyenZaloMonitor?: boolean;
+  // Ẩn nav tab (chỉ có hiệu lực khi quyền tương ứng = false)
+  anNavTabHopDong?: boolean;
+  anNavTabHoaDon?: boolean;
+  anNavTabThanhToan?: boolean;
+  anNavTabSuCo?: boolean;
+  anNavTabZalo?: boolean;
+  anNavTabZaloMonitor?: boolean;
 }
 
 interface User {
@@ -82,6 +93,8 @@ interface User {
   quyenHoaDon?: boolean;
   quyenThanhToan?: boolean;
   quyenSuCo?: boolean;
+  quyenZalo?: boolean;
+  quyenZaloMonitor?: boolean;
 }
 
 type ZaloPermissionMap = Record<string, Record<ZaloFeatureKey, boolean>>;
@@ -142,7 +155,28 @@ const BUSINESS_PERMISSIONS: Array<{
     label: 'Đăng nhập khách thuê',
     description: 'Cho phép bật, thu hồi hoặc đặt mật khẩu đăng nhập web cho khách thuê.',
   },
+  {
+    key: 'quyenZalo',
+    label: 'Zalo',
+    description: 'Hiện tab Zalo để quản lý tin nhắn, bot, webhook và các tính năng Zalo.',
+  },
+  {
+    key: 'quyenZaloMonitor',
+    label: 'Zalo Monitor',
+    description: 'Hiện tab Zalo Monitor để theo dõi và giám sát hoạt động Zalo.',
+  },
 ];
+
+// Ánh xạ từ permission key → anNavTab key
+// Chỉ những quyền có nav tab tương ứng mới được liệt kê ở đây
+const PERMISSION_TO_AN_NAV_TAB: Partial<Record<BusinessPermissionKey, keyof UserPermissionSet>> = {
+  quyenHopDong: 'anNavTabHopDong',
+  quyenHoaDon: 'anNavTabHoaDon',
+  quyenThanhToan: 'anNavTabThanhToan',
+  quyenSuCo: 'anNavTabSuCo',
+  quyenZalo: 'anNavTabZalo',
+  quyenZaloMonitor: 'anNavTabZaloMonitor',
+};
 
 const ZALO_FEATURES: Array<{
   key: ZaloFeatureKey;
@@ -386,6 +420,44 @@ export default function PhanQuyenPage() {
         await loadInitialData();
       } else {
         toast.success('Đã lưu quyền nghiệp vụ');
+      }
+    } catch {
+      toast.error('Không thể kết nối máy chủ');
+      await loadInitialData();
+    } finally {
+      setSavingBusiness(null);
+    }
+  }
+
+  async function saveAnNavTab(user: User, anNavTabKey: keyof UserPermissionSet, value: boolean) {
+    if (!selectedBuildingId || !canEditBusiness) return;
+    const current = getPermissionForBuilding(user, selectedBuildingId);
+    const next = { ...current, [anNavTabKey]: value };
+    setSavingBusiness(`${user.id}-${anNavTabKey}`);
+
+    setUsers(prev => prev.map(item => {
+      if (item.id !== user.id) return item;
+      return {
+        ...item,
+        quyenTheoToaNha: {
+          ...(item.quyenTheoToaNha ?? {}),
+          [selectedBuildingId]: next,
+        },
+      };
+    }));
+
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/quyen`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toaNhaId: selectedBuildingId, ...next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.error || 'Không thể lưu tùy chọn ẩn tab');
+        await loadInitialData();
+      } else {
+        toast.success('Đã lưu tùy chọn ẩn tab');
       }
     } catch {
       toast.error('Không thể kết nối máy chủ');
@@ -768,13 +840,18 @@ export default function PhanQuyenPage() {
                       {BUSINESS_PERMISSIONS.map(permission => {
                         const user = businessUsers.find(u => u.id === expandedUser);
                         const permissions = user ? getPermissionForBuilding(user, selectedBuildingId) : {};
+                        const isPermOn = permissions[permission.key] === true;
+                        const anNavTabKey = PERMISSION_TO_AN_NAV_TAB[permission.key];
+                        const isNavHidden = anNavTabKey ? permissions[anNavTabKey] === true : false;
+                        // Chỉ hiện tùy chọn ẩn tab cho các quyền có nav tab tương ứng
+                        const hasNavTab = !!anNavTabKey;
                         return (
                           <div
                             key={permission.key}
                             className="flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 border border-gray-100 hover:border-gray-200"
                           >
                             <PermissionToggle
-                              checked={permissions[permission.key] === true}
+                              checked={isPermOn}
                               disabled={!canEditBusiness || savingBusiness === `${expandedUser}-${permission.key}`}
                               onChange={(checked) => {
                                 const u = businessUsers.find(x => x.id === expandedUser);
@@ -786,6 +863,24 @@ export default function PhanQuyenPage() {
                               <p className="text-sm font-medium text-gray-900">{permission.label}</p>
                               <p className="text-xs text-gray-500">{permission.description}</p>
                             </div>
+                            {hasNavTab && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const u = businessUsers.find(x => x.id === expandedUser);
+                                  if (u && anNavTabKey) void saveAnNavTab(u, anNavTabKey, !isNavHidden);
+                                }}
+                                disabled={!canEditBusiness || savingBusiness === `${expandedUser}-${anNavTabKey}`}
+                                className={`h-7 w-7 rounded-full flex items-center justify-center transition-colors shrink-0 ${
+                                  isNavHidden
+                                    ? 'bg-red-100 text-red-500 hover:bg-red-200'
+                                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                                }`}
+                                title={isNavHidden ? 'Đang ẩn tab, nhấn để hiện' : 'Ẩn tab này trên thanh điều hướng'}
+                              >
+                                {isNavHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                              </button>
+                            )}
                           </div>
                         );
                       })}
