@@ -23,8 +23,8 @@ export default function PermissionToggle({
 }: PermissionToggleProps) {
   const dimensions =
     size === 'md'
-      ? { track: 'h-6 w-10', thumb: 'h-[18px] w-[18px]', translate: 'translate-x-4' }
-      : { track: 'h-5 w-9', thumb: 'h-4 w-4', translate: 'translate-x-[18px]' };
+      ? { track: 'h-[18px] w-[34px]', thumb: 'h-[18px] w-[18px]', translate: 'translate-x-4' }
+      : { track: 'h-4 w-[30px]', thumb: 'h-4 w-4', translate: 'translate-x-[14px]' };
 
   return (
     <button
