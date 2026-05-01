@@ -681,8 +681,6 @@ export default function PhanQuyenPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Phân quyền"
-        description="Một nơi duy nhất để quản lý quyền nghiệp vụ, quyền Zalo và giới hạn vai trò theo tòa nhà."
         onRefresh={() => void loadInitialData()}
       >
         <BuildingSelector
@@ -705,12 +703,6 @@ export default function PhanQuyenPage() {
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
                 <Shield className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-indigo-900">Quyền nghiệp vụ</h2>
-                <p className="text-xs text-indigo-500">
-                  Các quyền này được backend kiểm tra khi người dùng thêm, sửa hoặc xóa dữ liệu nghiệp vụ.
-                </p>
               </div>
               {/* Hide business tab toggle — only shown when user can't edit */}
               {!canEditBusiness && (
@@ -750,9 +742,6 @@ export default function PhanQuyenPage() {
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Left column: positions grouped with people inside */}
               <div className="w-full lg:w-80 shrink-0 space-y-3">
-                <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1 px-1">
-                  Chọn người dùng để cấu hình
-                </p>
                 {(() => {
                   // Group users by chucVu, preserving CHUC_VU_QUAN_LY then CHUC_VU_NHAN_VIEN order
                   const grouped = new Map<string, User[]>();
@@ -903,7 +892,7 @@ export default function PhanQuyenPage() {
                 ) : (
                   <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
                     <Users className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
-                    Chọn một người dùng bên trái để cấu hình quyền nghiệp vụ.
+                    Chọn một người dùng bên trái
                   </div>
                 )}
               </div>
@@ -920,16 +909,6 @@ export default function PhanQuyenPage() {
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
                 <Building2 className="h-5 w-5 text-white" />
               </div>
-              <div>
-                <h2 className="text-base font-bold text-indigo-900">Quyền tính năng Zalo</h2>
-                <p className="text-xs text-indigo-500">
-                  {level === 'admin'
-                    ? 'Admin đặt trần quyền Zalo theo chức vụ. Chủ trọ sẽ hạn chế thêm theo từng người.'
-                    : level === 'chuNha'
-                      ? 'Chủ trọ quản lý quyền Zalo theo từng người trong mỗi chức vụ. Click chức vụ để xem danh sách.'
-                      : 'Quản lý quản lý quyền Zalo cho nhân viên theo từng người.'}
-                </p>
-              </div>
             </div>
           </div>
 
@@ -943,9 +922,6 @@ export default function PhanQuyenPage() {
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Left column: positions grouped by role */}
               <div className="w-full lg:w-80 shrink-0 space-y-3">
-                <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1 px-1">
-                  {level === 'admin' ? 'Chọn chức vụ để đặt trần' : 'Chọn chức vụ để xem danh sách'}
-                </p>
                 {(() => {
                   const positions = getVisiblePositions();
                   
@@ -1127,9 +1103,7 @@ export default function PhanQuyenPage() {
                 ) : (
                   <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
                     <Building2 className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
-                    {level === 'admin'
-                      ? 'Chọn một chức vụ bên trái để đặt trần quyền Zalo.'
-                      : 'Chọn một chức vụ, sau đó chọn người để cấu hình quyền Zalo.'}
+                    Chọn một chức vụ bên trái
                   </div>
                 )}
               </div>
@@ -1145,12 +1119,6 @@ export default function PhanQuyenPage() {
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
                 <SlidersHorizontal className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-indigo-900">Giới hạn vai trò theo tòa nhà</h2>
-                <p className="text-xs text-indigo-500">
-                  Giới hạn này chặn việc gán quá số lượng chủ trọ, đồng chủ trọ, quản lý hoặc nhân viên trong một tòa nhà.
-                </p>
               </div>
             </div>
             {!canEditLimits && <Badge variant="outline" className="shrink-0 border-indigo-200 text-indigo-600 bg-indigo-50">Chỉ admin được chỉnh</Badge>}
