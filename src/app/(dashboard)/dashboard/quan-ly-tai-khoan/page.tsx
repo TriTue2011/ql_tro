@@ -936,6 +936,13 @@ export default function AccountManagementPage() {
 
           const adminUsers = filteredUsers.filter(u => getUserRole(u) === 'admin');
 
+          // Users without any building assignment
+          const unassignedUsers = filteredUsers.filter(u => {
+            const role = getUserRole(u);
+            if (role === 'admin') return false; // admin handled separately
+            return !(u.toaNhaIds || []).some(id => buildings.some(b => b.id === id));
+          });
+
           return (
             <>
               {buildingGroups.map(g => (
@@ -965,7 +972,19 @@ export default function AccountManagementPage() {
                 </div>
               )}
 
-              {buildingGroups.length === 0 && adminUsers.length === 0 && (
+              {unassignedUsers.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-orange-500 shrink-0" />
+                    <h3 className="font-semibold text-gray-800">Chưa phân công</h3>
+                  </div>
+                  <div className="ml-6">
+                    {renderSection('unassigned', 'Người dùng chưa gán tòa nhà', unassignedUsers)}
+                  </div>
+                </div>
+              )}
+
+              {buildingGroups.length === 0 && adminUsers.length === 0 && unassignedUsers.length === 0 && (
                 <div className="text-center py-12">
                   <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">Không tìm thấy tài khoản nào</p>
