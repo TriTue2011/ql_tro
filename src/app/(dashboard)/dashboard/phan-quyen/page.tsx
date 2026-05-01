@@ -945,7 +945,7 @@ export default function PhanQuyenPage() {
                     if (posList.length === 0) return null;
                     return (
                       <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
-                        <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider px-1">
+                        <p className="text-sm font-bold text-indigo-600 uppercase tracking-wider px-1">
                           {roleLabel}
                         </p>
                         {posList.map(pos => {
