@@ -700,12 +700,15 @@ export default function PhanQuyenPage() {
 
       {/* ───── Business Permissions Tab ───── */}
       {activeTab === 'business' && (
-        <div className="rounded-xl border bg-white shadow-sm">
-          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b">
+        <div className="rounded-2xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b border-indigo-100">
             <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <Shield className="h-5 w-5 text-white" />
+              </div>
               <div>
-                <h2 className="text-base font-semibold text-gray-900">Quyền nghiệp vụ</h2>
-                <p className="text-xs text-gray-500">
+                <h2 className="text-base font-bold text-indigo-900">Quyền nghiệp vụ</h2>
+                <p className="text-xs text-indigo-500">
                   Các quyền này được backend kiểm tra khi người dùng thêm, sửa hoặc xóa dữ liệu nghiệp vụ.
                 </p>
               </div>
@@ -717,7 +720,7 @@ export default function PhanQuyenPage() {
                   className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                     hideBusinessTab
                       ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
-                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                      : 'bg-white/70 text-indigo-600 border border-indigo-200 hover:bg-white hover:border-indigo-300'
                   }`}
                   title={hideBusinessTab ? 'Hiện tab quyền nghiệp vụ' : 'Ẩn tab quyền nghiệp vụ'}
                 >
@@ -738,7 +741,7 @@ export default function PhanQuyenPage() {
           </div>
 
           {!canEditBusiness && (
-            <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
               Tài khoản hiện tại chỉ xem quyền nghiệp vụ. Chỉ admin hoặc chủ trọ có thể bật/tắt nhóm quyền này.
             </div>
           )}
@@ -747,7 +750,7 @@ export default function PhanQuyenPage() {
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Left column: positions grouped with people inside */}
               <div className="w-full lg:w-80 shrink-0 space-y-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 px-1">
+                <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1 px-1">
                   Chọn người dùng để cấu hình
                 </p>
                 {(() => {
@@ -763,8 +766,8 @@ export default function PhanQuyenPage() {
 
                   if (grouped.size === 0) {
                     return (
-                      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
-                        <Users className="mx-auto mb-2 h-6 w-6 text-gray-300" />
+                      <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
+                        <Users className="mx-auto mb-2 h-6 w-6 text-indigo-300" />
                         Không có người dùng nào trong tòa nhà này.
                       </div>
                     );
@@ -774,8 +777,8 @@ export default function PhanQuyenPage() {
                     const cvOption = [...CHUC_VU_QUAN_LY, ...CHUC_VU_NHAN_VIEN].find(c => c.value === chucVuKey);
                     const groupLabel = cvOption?.label ?? 'Khác';
                     return (
-                      <div key={chucVuKey} className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-3 space-y-1.5">
-                        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-1">
+                      <div key={chucVuKey} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
+                        <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider px-1">
                           {groupLabel}
                         </p>
                         {usersInGroup.map(user => {
@@ -787,18 +790,20 @@ export default function PhanQuyenPage() {
                               onClick={() => setExpandedUser(isSelected ? null : user.id)}
                               className={`w-full flex items-center gap-2 px-3 py-2 rounded-full text-left transition-all duration-200 text-sm ${
                                 isSelected
-                                  ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
-                                  : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
+                                  ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                                  : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
                               }`}
                             >
-                              <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${
-                                isSelected ? 'bg-blue-500 text-white shadow-sm' : 'bg-blue-100 text-blue-700'
+                              <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
+                                isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
                               }`}>
                                 {(user.ten || '?').charAt(0).toUpperCase()}
                               </div>
                               <span className="truncate">{user.ten || 'Không có tên'}</span>
                               {user.chucVu && (
-                                <span className="text-[10px] text-gray-400 ml-auto shrink-0">{getChucVuLabel(user.chucVu)}</span>
+                                <span className={`text-[10px] ml-auto shrink-0 ${isSelected ? 'text-white/70' : 'text-indigo-400'}`}>
+                                  {getChucVuLabel(user.chucVu)}
+                                </span>
                               )}
                             </button>
                           );
@@ -812,31 +817,36 @@ export default function PhanQuyenPage() {
               {/* Right column: permission grid for selected user */}
               <div className="flex-1 min-w-0">
                 {expandedUser ? (
-                  <div className="rounded-lg border bg-gray-50/50 p-4">
+                  <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
                     <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {businessUsers.find(u => u.id === expandedUser)?.ten || 'Người dùng'}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {businessUsers.find(u => u.id === expandedUser)?.email || businessUsers.find(u => u.id === expandedUser)?.soDienThoai || ''}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-200">
+                          {(businessUsers.find(u => u.id === expandedUser)?.ten || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-indigo-900">
+                            {businessUsers.find(u => u.id === expandedUser)?.ten || 'Người dùng'}
+                          </p>
+                          <p className="text-xs text-indigo-500">
+                            {businessUsers.find(u => u.id === expandedUser)?.email || businessUsers.find(u => u.id === expandedUser)?.soDienThoai || ''}
+                          </p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
                           {canEditBusiness ? 'Có thể chỉnh sửa' : 'Chỉ xem'}
                         </Badge>
                         <button
                           type="button"
                           onClick={() => setExpandedUser(null)}
-                          className="h-6 w-6 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                          className="h-7 w-7 rounded-full flex items-center justify-center text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 transition-colors"
                           title="Ẩn"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <X className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {BUSINESS_PERMISSIONS.map(permission => {
                         const user = businessUsers.find(u => u.id === expandedUser);
                         const permissions = user ? getPermissionForBuilding(user, selectedBuildingId) : {};
@@ -848,7 +858,11 @@ export default function PhanQuyenPage() {
                         return (
                           <div
                             key={permission.key}
-                            className="flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 border border-gray-100 hover:border-gray-200"
+                            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-all duration-200 ${
+                              isPermOn
+                                ? 'bg-gradient-to-r from-indigo-50/80 to-blue-50/80 border-indigo-200 shadow-sm'
+                                : 'bg-white border-indigo-100 hover:border-indigo-200 hover:shadow-sm'
+                            }`}
                           >
                             <PermissionToggle
                               checked={isPermOn}
@@ -860,8 +874,8 @@ export default function PhanQuyenPage() {
                               size="sm"
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-gray-900">{permission.label}</p>
-                              <p className="text-xs text-gray-500">{permission.description}</p>
+                              <p className={`text-sm font-semibold ${isPermOn ? 'text-indigo-900' : 'text-gray-900'}`}>{permission.label}</p>
+                              <p className={`text-xs ${isPermOn ? 'text-indigo-500' : 'text-gray-500'}`}>{permission.description}</p>
                             </div>
                             {hasNavTab && (
                               <button
@@ -871,14 +885,14 @@ export default function PhanQuyenPage() {
                                   if (u && anNavTabKey) void saveAnNavTab(u, anNavTabKey, !isNavHidden);
                                 }}
                                 disabled={!canEditBusiness || savingBusiness === `${expandedUser}-${anNavTabKey}`}
-                                className={`h-7 w-7 rounded-full flex items-center justify-center transition-colors shrink-0 ${
+                                className={`h-8 w-8 rounded-full flex items-center justify-center transition-all duration-200 shrink-0 ${
                                   isNavHidden
-                                    ? 'bg-red-100 text-red-500 hover:bg-red-200'
-                                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                                    ? 'bg-red-100 text-red-500 hover:bg-red-200 shadow-sm'
+                                    : 'bg-indigo-100 text-indigo-400 hover:bg-indigo-200 hover:text-indigo-600'
                                 }`}
                                 title={isNavHidden ? 'Đang ẩn tab, nhấn để hiện' : 'Ẩn tab này trên thanh điều hướng'}
                               >
-                                {isNavHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                {isNavHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                               </button>
                             )}
                           </div>
@@ -887,8 +901,8 @@ export default function PhanQuyenPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed p-8 text-center text-sm text-gray-500">
-                    <Users className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
+                    <Users className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
                     Chọn một người dùng bên trái để cấu hình quyền nghiệp vụ.
                   </div>
                 )}
@@ -900,22 +914,27 @@ export default function PhanQuyenPage() {
 
       {/* ───── Zalo Permissions Tab ───── */}
       {activeTab === 'zalo' && (
-        <div className="rounded-xl border bg-white shadow-sm">
-          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b">
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">Quyền tính năng Zalo</h2>
-              <p className="text-xs text-gray-500">
-                {level === 'admin'
-                  ? 'Admin đặt trần quyền Zalo theo chức vụ. Chủ trọ sẽ hạn chế thêm theo từng người.'
-                  : level === 'chuNha'
-                    ? 'Chủ trọ quản lý quyền Zalo theo từng người trong mỗi chức vụ. Click chức vụ để xem danh sách.'
-                    : 'Quản lý quản lý quyền Zalo cho nhân viên theo từng người.'}
-              </p>
+        <div className="rounded-2xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b border-indigo-100">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <Building2 className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-indigo-900">Quyền tính năng Zalo</h2>
+                <p className="text-xs text-indigo-500">
+                  {level === 'admin'
+                    ? 'Admin đặt trần quyền Zalo theo chức vụ. Chủ trọ sẽ hạn chế thêm theo từng người.'
+                    : level === 'chuNha'
+                      ? 'Chủ trọ quản lý quyền Zalo theo từng người trong mỗi chức vụ. Click chức vụ để xem danh sách.'
+                      : 'Quản lý quản lý quyền Zalo cho nhân viên theo từng người.'}
+                </p>
+              </div>
             </div>
           </div>
 
           {!canEditZalo && (
-            <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
               Tài khoản hiện tại chỉ xem quyền Zalo, không thể chỉnh sửa.
             </div>
           )}
@@ -924,7 +943,7 @@ export default function PhanQuyenPage() {
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Left column: positions grouped by role */}
               <div className="w-full lg:w-80 shrink-0 space-y-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 px-1">
+                <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1 px-1">
                   {level === 'admin' ? 'Chọn chức vụ để đặt trần' : 'Chọn chức vụ để xem danh sách'}
                 </p>
                 {(() => {
@@ -932,8 +951,8 @@ export default function PhanQuyenPage() {
                   
                   if (positions.length === 0) {
                     return (
-                      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
-                        <Building2 className="mx-auto mb-2 h-6 w-6 text-gray-300" />
+                      <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
+                        <Building2 className="mx-auto mb-2 h-6 w-6 text-indigo-300" />
                         Không có chức vụ nào để cấu hình.
                       </div>
                     );
@@ -946,8 +965,8 @@ export default function PhanQuyenPage() {
                   const renderPositionGroup = (roleLabel: string, posList: typeof positions) => {
                     if (posList.length === 0) return null;
                     return (
-                      <div className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-3 space-y-1.5">
-                        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-1">
+                      <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
+                        <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider px-1">
                           {roleLabel}
                         </p>
                         {posList.map(pos => {
@@ -969,14 +988,14 @@ export default function PhanQuyenPage() {
                                 }}
                                 className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-full text-left transition-all duration-200 text-sm ${
                                   isSelected || expandedPosition === pos.value
-                                    ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
-                                    : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
+                                    ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                                    : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
                                 }`}
                               >
-                                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isSelected || expandedPosition === pos.value ? 'bg-blue-500 shadow-sm' : 'bg-gray-300'}`} />
+                                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isSelected || expandedPosition === pos.value ? 'bg-white shadow-sm' : 'bg-indigo-300'}`} />
                                 <span className="truncate">{pos.label}</span>
                                 {usersInPos.length > 0 && (
-                                  <span className="text-[10px] text-gray-400 ml-auto shrink-0">
+                                  <span className={`text-[10px] ml-auto shrink-0 ${isSelected || expandedPosition === pos.value ? 'text-white/70' : 'text-indigo-400'}`}>
                                     {usersInPos.length} người
                                   </span>
                                 )}
@@ -984,9 +1003,9 @@ export default function PhanQuyenPage() {
                               
                               {/* Expanded people list (for chuNha/quanLy level) */}
                               {expandedPosition === pos.value && level !== 'admin' && (
-                                <div className="ml-4 mt-1.5 space-y-1 border-l-2 border-blue-200 pl-3">
+                                <div className="ml-4 mt-1.5 space-y-1 border-l-2 border-indigo-200 pl-3">
                                   {usersInPos.length === 0 ? (
-                                    <p className="text-[11px] text-gray-400 italic py-1">
+                                    <p className="text-[11px] text-indigo-400 italic py-1">
                                       Chưa có người trong chức vụ này
                                     </p>
                                   ) : (
@@ -1000,11 +1019,13 @@ export default function PhanQuyenPage() {
                                           onClick={() => setExpandedSlot(isPersonSelected ? null : personSlotKey)}
                                           className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-full text-left transition-all duration-200 text-xs ${
                                             isPersonSelected
-                                              ? 'bg-blue-50 border-2 border-blue-300 text-blue-700 font-medium shadow-sm'
-                                              : 'bg-white border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+                                              ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-md shadow-indigo-200'
+                                              : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300'
                                           }`}
                                         >
-                                          <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-semibold bg-blue-100 text-blue-700">
+                                          <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                                            isPersonSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
+                                          }`}>
                                             {(user.ten || '?').charAt(0).toUpperCase()}
                                           </div>
                                           <span className="truncate">{user.ten || 'Không tên'}</span>
@@ -1033,21 +1054,26 @@ export default function PhanQuyenPage() {
               {/* Right column: permission grid for selected slot */}
               <div className="flex-1 min-w-0">
                 {expandedSlot ? (
-                  <div className="rounded-lg border bg-gray-50/50 p-4">
+                  <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
                     <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{getSlotLabel(expandedSlot)}</p>
-                        <p className="text-xs text-gray-500">
-                          {level === 'admin'
-                            ? 'Đặt trần quyền Zalo cho chức vụ này'
-                            : level === 'chuNha'
-                              ? expandedSlot.includes('__')
-                                ? 'Cấu hình quyền Zalo cho người này'
-                                : 'Đặt trần quyền Zalo cho chức vụ này'
-                              : 'Cấu hình quyền Zalo cho người này'}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                          <Building2 className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-indigo-900">{getSlotLabel(expandedSlot)}</p>
+                          <p className="text-xs text-indigo-500">
+                            {level === 'admin'
+                              ? 'Đặt trần quyền Zalo cho chức vụ này'
+                              : level === 'chuNha'
+                                ? expandedSlot.includes('__')
+                                  ? 'Cấu hình quyền Zalo cho người này'
+                                  : 'Đặt trần quyền Zalo cho chức vụ này'
+                                : 'Cấu hình quyền Zalo cho người này'}
+                          </p>
+                        </div>
                       </div>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
                         {level === 'admin'
                           ? 'Đặt trần'
                           : expandedSlot.includes('__')
@@ -1055,17 +1081,19 @@ export default function PhanQuyenPage() {
                             : 'Hạn chế'}
                       </Badge>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {ZALO_FEATURES.filter(feature => isZaloFeatureVisible(feature.key, expandedSlot)).map(feature => {
                         const disabledByHigher = isDisabledByHigherLevel(expandedSlot, feature.key);
                         const checked = getEffectiveZaloChecked(expandedSlot, feature.key);
                         return (
                           <div
                             key={feature.key}
-                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border ${
+                            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-all duration-200 ${
                               disabledByHigher
                                 ? 'bg-gray-100 border-gray-200 opacity-70'
-                                : 'bg-white border-gray-100 hover:border-gray-200'
+                                : checked
+                                  ? 'bg-gradient-to-r from-indigo-50/80 to-blue-50/80 border-indigo-200 shadow-sm'
+                                  : 'bg-white border-indigo-100 hover:border-indigo-200 hover:shadow-sm'
                             }`}
                           >
                             <PermissionToggle
@@ -1076,29 +1104,29 @@ export default function PhanQuyenPage() {
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium text-gray-900">{feature.label}</p>
+                                <p className={`text-sm font-semibold ${checked ? 'text-indigo-900' : 'text-gray-900'}`}>{feature.label}</p>
                                 {disabledByHigher && (
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-amber-100 text-amber-700 border-0">
                                     Bị cấp trên tắt
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-500">{feature.description}</p>
+                              <p className={`text-xs ${checked ? 'text-indigo-500' : 'text-gray-500'}`}>{feature.description}</p>
                             </div>
                           </div>
                         );
                       })}
                     </div>
                     <div className="mt-4 flex justify-end">
-                      <Button onClick={() => void saveZaloPermissions()} disabled={!canEditZalo || savingZalo || !selectedBuildingId} size="sm">
+                      <Button onClick={() => void saveZaloPermissions()} disabled={!canEditZalo || savingZalo || !selectedBuildingId} size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
                         <Save className="mr-1.5 h-3.5 w-3.5" />
                         {savingZalo ? 'Đang lưu...' : 'Lưu quyền Zalo'}
                       </Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed p-8 text-center text-sm text-gray-500">
-                    <Building2 className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
+                    <Building2 className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
                     {level === 'admin'
                       ? 'Chọn một chức vụ bên trái để đặt trần quyền Zalo.'
                       : 'Chọn một chức vụ, sau đó chọn người để cấu hình quyền Zalo.'}
@@ -1112,32 +1140,37 @@ export default function PhanQuyenPage() {
 
       {/* ───── Limits Tab ───── */}
       {activeTab === 'limits' && (
-        <div className="rounded-xl border bg-white shadow-sm">
-          <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between border-b">
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">Giới hạn vai trò theo tòa nhà</h2>
-              <p className="text-xs text-gray-500">
-                Giới hạn này chặn việc gán quá số lượng chủ trọ, đồng chủ trọ, quản lý hoặc nhân viên trong một tòa nhà.
-              </p>
+        <div className="rounded-2xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between border-b border-indigo-100">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <SlidersHorizontal className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-indigo-900">Giới hạn vai trò theo tòa nhà</h2>
+                <p className="text-xs text-indigo-500">
+                  Giới hạn này chặn việc gán quá số lượng chủ trọ, đồng chủ trọ, quản lý hoặc nhân viên trong một tòa nhà.
+                </p>
+              </div>
             </div>
-            {!canEditLimits && <Badge variant="secondary" className="shrink-0">Chỉ admin được chỉnh</Badge>}
+            {!canEditLimits && <Badge variant="outline" className="shrink-0 border-indigo-200 text-indigo-600 bg-indigo-50">Chỉ admin được chỉnh</Badge>}
           </div>
 
           <div className="p-4">
             <div className="grid gap-4 lg:grid-cols-2">
               {/* Global limits */}
-              <div className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-4">
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
-                  <SlidersHorizontal className="h-4 w-4 text-blue-600" />
-                  <p className="font-medium text-gray-900 text-sm">Giới hạn chung</p>
+                  <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
+                  <p className="font-bold text-indigo-900 text-sm">Giới hạn chung</p>
                 </div>
                 <div className="space-y-2">
                   {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => (
-                    <div key={roleKey} className="rounded-lg border-2 border-gray-200 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-gray-300 transition-colors">
+                    <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
                       <div>
-                        <Label className="text-sm font-medium">{ROLE_LABELS[roleKey]}</Label>
-                        <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
-                        <p className="text-[11px] text-gray-400">Mặc định dùng khi tòa nhà không đặt giới hạn riêng.</p>
+                        <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
+                        <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
+                        <p className="text-[11px] text-indigo-400">Mặc định dùng khi tòa nhà không đặt giới hạn riêng.</p>
                       </div>
                       <Input
                         type="number"
@@ -1153,20 +1186,20 @@ export default function PhanQuyenPage() {
               </div>
 
               {/* Per-building limits */}
-              <div className="rounded-xl border-2 border-gray-100 bg-gray-50/50 p-4">
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
-                  <Building2 className="h-4 w-4 text-blue-600" />
-                  <p className="font-medium text-gray-900 text-sm">Giới hạn riêng của tòa đang chọn</p>
+                  <Building2 className="h-4 w-4 text-indigo-600" />
+                  <p className="font-bold text-indigo-900 text-sm">Giới hạn riêng của tòa đang chọn</p>
                 </div>
                 <div className="space-y-2">
                   {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => {
                     const effectiveLimit = selectedLimits[roleKey] ?? globalLimits[roleKey] ?? 0;
                     return (
-                      <div key={roleKey} className="rounded-lg border-2 border-gray-200 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-gray-300 transition-colors">
+                      <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
                         <div>
-                          <Label className="text-sm font-medium">{ROLE_LABELS[roleKey]}</Label>
-                          <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
-                          <p className="text-[11px] text-gray-400">
+                          <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
+                          <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
+                          <p className="text-[11px] text-indigo-400">
                             Đang dùng {roleCounts[roleKey]}/{effectiveLimit || 'không giới hạn'} slot. Nhập 0 để quay về giới hạn chung.
                           </p>
                         </div>
@@ -1185,21 +1218,21 @@ export default function PhanQuyenPage() {
               </div>
             </div>
 
-            <Separator className="my-4" />
+            <Separator className="my-4 bg-indigo-100" />
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-2 text-sm text-gray-600">
+              <div className="flex items-start gap-2 text-sm">
                 {canEditLimits ? (
                   <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-600 shrink-0" />
                 ) : (
                   <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 shrink-0" />
                 )}
-                <span className="text-xs">
+                <span className="text-xs text-indigo-600">
                   {canEditLimits
                     ? 'Sau khi lưu, màn tạo/sửa tài khoản sẽ dùng giới hạn mới để chặn vượt số lượng.'
                     : 'Bạn có thể xem giới hạn để hiểu vì sao không thêm được người vào một vai trò.'}
                 </span>
               </div>
-              <Button onClick={() => void saveLimits()} disabled={!canEditLimits || savingLimits || !selectedBuildingId} size="sm">
+              <Button onClick={() => void saveLimits()} disabled={!canEditLimits || savingLimits || !selectedBuildingId} size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
                 <Save className="mr-1.5 h-3.5 w-3.5" />
                 {savingLimits ? 'Đang lưu...' : 'Lưu giới hạn'}
               </Button>
