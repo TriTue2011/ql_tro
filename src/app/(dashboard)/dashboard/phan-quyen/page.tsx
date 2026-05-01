@@ -603,78 +603,98 @@ export default function PhanQuyenPage() {
             </div>
           )}
 
-          <div className="p-4 space-y-2">
-            {businessUsers.map(user => {
-              const permissions = getPermissionForBuilding(user, selectedBuildingId);
-              const isExpanded = expandedUser === user.id;
-              return (
-                <div key={user.id} className="rounded-lg border border-gray-200 overflow-hidden transition-all">
-                  {/* User row — clickable to expand */}
-                  <button
-                    type="button"
-                    onClick={() => setExpandedUser(isExpanded ? null : user.id)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <ChevronRight
-                      className={`h-4 w-4 text-gray-400 transition-transform shrink-0 ${
-                        isExpanded ? 'rotate-90' : ''
+          <div className="p-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Left column: user list (like Zalo slot list) */}
+              <div className="w-full lg:w-80 shrink-0 space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 px-1">
+                  Chọn quản lý để cấu hình
+                </p>
+                {businessUsers.map(user => {
+                  const isSelected = expandedUser === user.id;
+                  return (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => setExpandedUser(isSelected ? null : user.id)}
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-full text-left transition-all duration-200 text-sm ${
+                        isSelected
+                          ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
+                          : 'bg-gray-50 border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
                       }`}
-                    />
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-semibold text-blue-700">
-                          {(user.ten || '?').charAt(0).toUpperCase()}
-                        </span>
+                    >
+                      <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${
+                        isSelected ? 'bg-blue-500 text-white shadow-sm' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {(user.ten || '?').charAt(0).toUpperCase()}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900 truncate">
-                            {user.ten || 'Không có tên'}
-                          </span>
-                          {user.chucVu && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
-                              {getChucVuLabel(user.chucVu)}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 truncate">{user.email || user.soDienThoai || 'Chưa có liên hệ'}</p>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="shrink-0 text-xs">Quản lý</Badge>
-                  </button>
-
-                  {/* Expanded permission panel */}
-                  {isExpanded && (
-                    <div className="border-t bg-gray-50/50 px-4 py-3 space-y-2">
-                      {BUSINESS_PERMISSIONS.map(permission => (
-                        <div
-                          key={permission.key}
-                          className="flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 border border-gray-100"
-                        >
-                          <PermissionToggle
-                            checked={permissions[permission.key] === true}
-                            disabled={!canEditBusiness || savingBusiness === `${user.id}-${permission.key}`}
-                            onChange={(checked) => void saveBusinessPermission(user, permission.key, checked)}
-                            size="sm"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900">{permission.label}</p>
-                            <p className="text-xs text-gray-500">{permission.description}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {businessUsers.length === 0 && (
-              <div className="rounded-lg border border-dashed p-8 text-center text-sm text-gray-500">
-                <Users className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                Không có quản lý nào trong tòa nhà này hoặc không khớp từ khóa tìm kiếm.
+                      <span className="truncate">{user.ten || 'Không có tên'}</span>
+                      {user.chucVu && (
+                        <span className="text-[10px] text-gray-400 ml-auto shrink-0">{getChucVuLabel(user.chucVu)}</span>
+                      )}
+                    </button>
+                  );
+                })}
+                {businessUsers.length === 0 && (
+                  <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
+                    <Users className="mx-auto mb-2 h-6 w-6 text-gray-300" />
+                    Không có quản lý nào trong tòa nhà này.
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Right column: permission grid for selected user */}
+              <div className="flex-1 min-w-0">
+                {expandedUser ? (
+                  <div className="rounded-lg border bg-gray-50/50 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {businessUsers.find(u => u.id === expandedUser)?.ten || 'Quản lý'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {businessUsers.find(u => u.id === expandedUser)?.email || businessUsers.find(u => u.id === expandedUser)?.soDienThoai || ''}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {canEditBusiness ? 'Có thể chỉnh sửa' : 'Chỉ xem'}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {BUSINESS_PERMISSIONS.map(permission => {
+                        const user = businessUsers.find(u => u.id === expandedUser);
+                        const permissions = user ? getPermissionForBuilding(user, selectedBuildingId) : {};
+                        return (
+                          <div
+                            key={permission.key}
+                            className="flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 border border-gray-100 hover:border-gray-200"
+                          >
+                            <PermissionToggle
+                              checked={permissions[permission.key] === true}
+                              disabled={!canEditBusiness || savingBusiness === `${expandedUser}-${permission.key}`}
+                              onChange={(checked) => {
+                                const u = businessUsers.find(x => x.id === expandedUser);
+                                if (u) void saveBusinessPermission(u, permission.key, checked);
+                              }}
+                              size="sm"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900">{permission.label}</p>
+                              <p className="text-xs text-gray-500">{permission.description}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed p-8 text-center text-sm text-gray-500">
+                    <Users className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+                    Chọn một quản lý bên trái để cấu hình quyền nghiệp vụ.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
