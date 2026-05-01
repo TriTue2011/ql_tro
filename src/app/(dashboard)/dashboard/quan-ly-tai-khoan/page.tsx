@@ -2,19 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Users,
   Plus,
@@ -28,7 +20,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   getChucVuLabel,
   getChucVuOptionsForRole,
@@ -37,7 +28,6 @@ import {
 } from '@/lib/chuc-vu';
 import PageHeader from '@/components/dashboard/page-header';
 import SearchInput from '@/components/dashboard/search-input';
-import InlineForm from '@/components/dashboard/inline-form';
 import ConfirmPopover from '@/components/dashboard/confirm-popover';
 
 interface Building {
@@ -81,112 +71,19 @@ interface User {
   zaloViTri?: Record<string, number> | null;
 }
 
-interface CreateUserData {
-  name: string;
-  email: string;
-  password: string;
-  phone: string;
-  role: string;
-  chucVu: string;
-  toaNhaId: string;
-  toaNhaIds: string[];
-  zaloViTri: Record<string, number>;
-}
-
 export default function AccountManagementPage() {
+  const router = useRouter();
   const { data: session } = useSession();
   const cache = useCache<{ users: User[] }>({ key: 'tai-khoan-data', duration: 300000 });
   const [users, setUsers] = useState<User[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showEditForm, setShowEditForm] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const hasFetchedRef = useRef(false);
-  const [createUserData, setCreateUserData] = useState<CreateUserData>({
-    name: '',
-    email: '',
-    password: '',
-    phone: '',
-    role: 'nhanVien',
-    chucVu: 'nhanVienKiemToanBo',
-    toaNhaId: '',
-    toaNhaIds: [],
-    zaloViTri: {},
-  });
-  const [editUserData, setEditUserData] = useState({
-    name: '',
-    phone: '',
-    role: '',
-    chucVu: '',
-    isActive: true,
-    zaloChatId: '',
-    toaNhaId: '',
-    toaNhaIds: [] as string[],
-    zaloViTri: {} as Record<string, number>,
-  });
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [globalLimits, setGlobalLimits] = useState<Record<string, number>>(DEFAULT_ROLE_LIMITS);
   const [perBuildingLimits, setPerBuildingLimits] = useState<Record<string, Record<string, number>>>({});
   const [canManageZaloPerms, setCanManageZaloPerms] = useState<Record<string, boolean>>({});
-  const [saving, setSaving] = useState(false);
-
-  const getSafeChucVuForRole = (role: string, chucVu?: string | null) => {
-    const options = getChucVuOptionsForRole(role);
-    if (options.length === 0) return '';
-    if (chucVu && isChucVuAllowedForRole(role, chucVu)) return chucVu;
-    return getDefaultChucVuForRole(role) ?? options[0].value;
-  };
-
-  const updateCreateRole = (role: string) => {
-    setCreateUserData({
-      ...createUserData,
-      role,
-      chucVu: getSafeChucVuForRole(role, ''),
-      toaNhaId: '',
-      toaNhaIds: [],
-      zaloViTri: {},
-    });
-  };
-
-  const updateEditRole = (role: string) => {
-    setEditUserData({
-      ...editUserData,
-      role,
-      chucVu: getSafeChucVuForRole(role, ''),
-      toaNhaId: '',
-      toaNhaIds: [],
-      zaloViTri: {},
-    });
-  };
-
-  const getRoleCountPerBuilding = (buildingId: string, role: string, excludeUserId?: string) => {
-    return users.filter(u => {
-      if (excludeUserId && (u.id === excludeUserId || u._id === excludeUserId)) return false;
-      return getUserRole(u) === role && (u.toaNhaIds || []).includes(buildingId);
-    }).length;
-  };
-
-  const getRoleLimitForBuilding = (toaNhaId: string, role: string): number => {
-    const buildingLimits = perBuildingLimits[toaNhaId];
-    if (buildingLimits && buildingLimits[role] != null) return buildingLimits[role];
-    return globalLimits[role] ?? 0;
-  };
-
-  const checkRoleLimitExceeded = (toaNhaIds: string[], role: string, excludeUserId?: string): string | null => {
-    for (const tid of toaNhaIds) {
-      const max = getRoleLimitForBuilding(tid, role);
-      if (!max) continue;
-      const count = getRoleCountPerBuilding(tid, role, excludeUserId);
-      if (count >= max) {
-        const building = buildings.find(b => b.id === tid);
-        return `Tòa nhà "${building?.tenToaNha || tid}" đã đạt giới hạn ${max} ${ROLE_LABELS[role] || role}`;
-      }
-    }
-    return null;
-  };
 
   useEffect(() => {
     document.title = 'Quản lý Tài khoản';
@@ -223,18 +120,6 @@ export default function AccountManagementPage() {
         setPerBuildingLimits(data.perBuilding || {});
       }
     } catch {}
-  };
-
-  const getTakenSlots = (buildingId: string, role: string, excludeUserId?: string): Map<number, User> => {
-    const map = new Map<number, User>();
-    users.forEach(u => {
-      if (excludeUserId && (u.id === excludeUserId || u._id === excludeUserId)) return;
-      if (getUserRole(u) !== role) return;
-      if (!(u.toaNhaIds || []).includes(buildingId)) return;
-      const slot = (u.zaloViTri as Record<string, number> | null | undefined)?.[buildingId];
-      if (typeof slot === 'number') map.set(slot, u);
-    });
-    return map;
   };
 
   useEffect(() => {
@@ -299,90 +184,6 @@ export default function AccountManagementPage() {
     toast.success('Đã tải dữ liệu mới nhất');
   };
 
-  const handleCreateUser = async () => {
-    if (!createUserData.phone?.trim() && !createUserData.email?.trim()) {
-      toast.error('Cần nhập ít nhất số điện thoại hoặc email');
-      return;
-    }
-    if (createUserData.role !== 'admin' && createUserData.toaNhaIds.length > 0) {
-      const limitError = checkRoleLimitExceeded(createUserData.toaNhaIds, createUserData.role);
-      if (limitError) {
-        toast.error(limitError);
-        return;
-      }
-    }
-    try {
-      setSaving(true);
-      const safeChucVu = getSafeChucVuForRole(createUserData.role, createUserData.chucVu);
-      const payload: Record<string, unknown> = { ...createUserData, chucVu: safeChucVu };
-      if (!safeChucVu) delete payload.chucVu;
-      if (createUserData.role === 'admin') { delete payload.toaNhaId; delete payload.toaNhaIds; }
-      else {
-        delete payload.toaNhaId;
-        if (!createUserData.toaNhaIds.length) delete payload.toaNhaIds;
-      }
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const responseData = await response.json().catch(() => null);
-      if (response.ok) {
-        toast.success('Tạo tài khoản thành công');
-        setShowCreateForm(false);
-        setCreateUserData({ name: '', email: '', password: '', phone: '', role: 'nhanVien', chucVu: 'nhanVienKiemToanBo', toaNhaId: '', toaNhaIds: [], zaloViTri: {} });
-        cache.clearCache();
-        fetchUsers(true);
-      } else {
-        toast.error(responseData?.message || responseData?.error || 'Tạo tài khoản thất bại');
-      }
-    } catch (error) {
-      console.error('Error creating user:', error);
-      toast.error('Có lỗi xảy ra khi tạo tài khoản');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEditUser = async () => {
-    if (!selectedUser) return;
-    if (editUserData.role !== 'admin' && editUserData.toaNhaIds.length > 0) {
-      const limitError = checkRoleLimitExceeded(editUserData.toaNhaIds, editUserData.role, selectedUser.id ?? selectedUser._id);
-      if (limitError) {
-        toast.error(limitError);
-        return;
-      }
-    }
-    try {
-      setSaving(true);
-      const safeChucVu = getSafeChucVuForRole(editUserData.role, editUserData.chucVu);
-      const payload: Record<string, unknown> = { ...editUserData, chucVu: safeChucVu };
-      if (!safeChucVu) delete payload.chucVu;
-      if (editUserData.role === 'admin') { delete payload.toaNhaId; delete payload.toaNhaIds; }
-      else { delete payload.toaNhaId; }
-      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || error.error || 'Cập nhật tài khoản thất bại');
-        return;
-      }
-      toast.success('Cập nhật tài khoản thành công');
-      setShowEditForm(false);
-      setSelectedUser(null);
-      cache.clearCache();
-      fetchUsers(true);
-    } catch (error) {
-      console.error('Error updating user:', error);
-      toast.error('Có lỗi xảy ra khi cập nhật tài khoản');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleDeleteUser = async (userId: string) => {
     try {
       const response = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
@@ -397,30 +198,7 @@ export default function AccountManagementPage() {
     } catch (error) {
       console.error('Error deleting user:', error);
       toast.error('Có lỗi xảy ra khi xóa tài khoản');
-    } finally {
-      setDeleteTarget(null);
     }
-  };
-
-  const openEditForm = (user: User) => {
-    setSelectedUser(user);
-    setEditUserData({
-      name: getUserName(user),
-      phone: getUserPhone(user),
-      role: getUserRole(user),
-      chucVu: getSafeChucVuForRole(getUserRole(user), user.chucVu),
-      isActive: getUserIsActive(user),
-      zaloChatId: user.zaloChatId || '',
-      toaNhaId: user.toaNhaId || '',
-      toaNhaIds: user.toaNhaIds?.length ? user.toaNhaIds : (user.toaNhaId ? [user.toaNhaId] : []),
-      zaloViTri: (() => {
-        const raw = (user.zaloViTri as Record<string, number>) || {};
-        const result: Record<string, number> = {};
-        for (const [k, v] of Object.entries(raw)) { if (v) result[k] = Number(v); }
-        return result;
-      })(),
-    });
-    setShowEditForm(true);
   };
 
   const toggleSection = (key: string) =>
@@ -439,6 +217,19 @@ export default function AccountManagementPage() {
   const getUserAvatar = (user: User) => user.avatar || user.anhDaiDien || '';
   const getUserIsActive = (user: User) =>
     user.isActive !== undefined ? user.isActive : user.trangThai === 'hoatDong';
+
+  const getSafeChucVuForRole = (role: string, chucVu?: string | null) => {
+    const options = getChucVuOptionsForRole(role);
+    if (options.length === 0) return '';
+    if (chucVu && isChucVuAllowedForRole(role, chucVu)) return chucVu;
+    return getDefaultChucVuForRole(role) ?? options[0].value;
+  };
+
+  const getRoleLimitForBuilding = (toaNhaId: string, role: string): number => {
+    const buildingLimits = perBuildingLimits[toaNhaId];
+    if (buildingLimits && buildingLimits[role] != null) return buildingLimits[role];
+    return globalLimits[role] ?? 0;
+  };
 
   const filteredUsers = users.filter(user => {
     const keyword = searchTerm.toLowerCase();
@@ -494,7 +285,7 @@ export default function AccountManagementPage() {
         }
         onRefresh={handleRefresh}
         loading={cache.isRefreshing}
-        onAdd={canEdit ? () => setShowCreateForm(true) : undefined}
+        onAdd={canEdit ? () => router.push('/dashboard/quan-ly-tai-khoan/them-moi') : undefined}
         addLabel="Tạo tài khoản"
       />
 
@@ -504,274 +295,6 @@ export default function AccountManagementPage() {
         value={searchTerm}
         onChange={setSearchTerm}
       />
-
-      {/* Create Inline Form */}
-      {showCreateForm && (
-        <InlineForm
-          title="Tạo tài khoản mới"
-          description="Tạo tài khoản người dùng mới cho hệ thống"
-          onSave={handleCreateUser}
-          onCancel={() => setShowCreateForm(false)}
-          saving={saving}
-          saveLabel="Tạo tài khoản"
-        >
-          <div className="grid gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm">Họ và tên</Label>
-              <Input
-                id="name"
-                value={createUserData.name}
-                onChange={(e) => setCreateUserData({ ...createUserData, name: e.target.value })}
-                placeholder="Nhập họ và tên"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm">
-                Số điện thoại <span className="text-muted-foreground text-[10px]">(cần ít nhất SĐT hoặc email)</span>
-              </Label>
-              <Input
-                id="phone"
-                value={createUserData.phone}
-                onChange={(e) => setCreateUserData({ ...createUserData, phone: e.target.value })}
-                placeholder="Tùy chọn nếu đã có email"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm">
-                Email <span className="text-muted-foreground text-[10px]">(cần ít nhất SĐT hoặc email)</span>
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={createUserData.email}
-                onChange={(e) => setCreateUserData({ ...createUserData, email: e.target.value })}
-                placeholder="Tùy chọn nếu đã có SĐT"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm">
-                Mật khẩu
-                {['quanLy', 'nhanVien', 'dongChuTro'].includes(createUserData.role) && (
-                  <span className="text-[10px] text-muted-foreground font-normal ml-1">(không bắt buộc)</span>
-                )}
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                value={createUserData.password}
-                onChange={(e) => setCreateUserData({ ...createUserData, password: e.target.value })}
-                placeholder={['quanLy', 'nhanVien', 'dongChuTro'].includes(createUserData.role) ? 'Để trống nếu không cần đăng nhập web' : 'Nhập mật khẩu'}
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role" className="text-sm">Vai trò</Label>
-              <Select
-                value={createUserData.role}
-                onValueChange={updateCreateRole}
-              >
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="Chọn vai trò" />
-                </SelectTrigger>
-                <SelectContent>
-                  {isAdmin ? (
-                    <>
-                      <SelectItem value="chuNha">Chủ trọ</SelectItem>
-                      <SelectItem value="admin">Quản trị viên</SelectItem>
-                    </>
-                  ) : (
-                    <>
-                      <SelectItem value="dongChuTro">Đồng chủ trọ</SelectItem>
-                      <SelectItem value="quanLy">Quản lý</SelectItem>
-                      <SelectItem value="nhanVien">Nhân viên</SelectItem>
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            {getChucVuOptionsForRole(createUserData.role).length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="chucVu" className="text-sm">Chức vụ</Label>
-                <Select
-                  value={getSafeChucVuForRole(createUserData.role, createUserData.chucVu)}
-                  onValueChange={(value) => setCreateUserData({ ...createUserData, chucVu: value })}
-                >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Chọn chức vụ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getChucVuOptionsForRole(createUserData.role).map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {createUserData.role !== 'admin' && (
-              <div className="space-y-2">
-                <Label className="text-sm flex items-center gap-1.5">
-                  <Building2 className="h-3.5 w-3.5 text-blue-500" />
-                  Gán tòa nhà
-                </Label>
-                <div className="border rounded-md p-2 space-y-1.5 max-h-40 overflow-y-auto">
-                  {buildings.length === 0 && <p className="text-xs text-muted-foreground">Chưa có tòa nhà</p>}
-                  {buildings.map(b => {
-                    const max = getRoleLimitForBuilding(b.id, createUserData.role);
-                    const currentCount = max ? getRoleCountPerBuilding(b.id, createUserData.role) : 0;
-                    const isAtLimit = max ? currentCount >= max : false;
-                    const isChecked = createUserData.toaNhaIds.includes(b.id);
-                    return (
-                      <label key={b.id} className={`flex items-center gap-2 py-0.5 ${isAtLimit && !isChecked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                        <Checkbox
-                          checked={isChecked}
-                          disabled={isAtLimit && !isChecked}
-                          onCheckedChange={(checked) => {
-                            const next = checked
-                              ? [...createUserData.toaNhaIds, b.id]
-                              : createUserData.toaNhaIds.filter(id => id !== b.id);
-                            setCreateUserData({ ...createUserData, toaNhaIds: next });
-                          }}
-                        />
-                        <span className="text-sm flex-1">{b.tenToaNha}</span>
-                        {max > 0 && (
-                          <span className={`text-[10px] ${isAtLimit ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
-                            {currentCount}/{max}
-                          </span>
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {/* Zalo slot selector removed — Zalo permissions are now based on position (chức vụ) */}
-          </div>
-        </InlineForm>
-      )}
-
-      {/* Edit Inline Form */}
-      {showEditForm && selectedUser && (
-        <InlineForm
-          title={`Chỉnh sửa tài khoản: ${getUserName(selectedUser)}`}
-          description="Cập nhật thông tin tài khoản người dùng"
-          onSave={handleEditUser}
-          onCancel={() => { setShowEditForm(false); setSelectedUser(null); }}
-          saving={saving}
-          saveLabel="Cập nhật"
-        >
-          <div className="grid gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name" className="text-sm">Họ và tên</Label>
-              <Input
-                id="edit-name"
-                value={editUserData.name}
-                onChange={(e) => setEditUserData({ ...editUserData, name: e.target.value })}
-                placeholder="Nhập họ và tên"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-phone" className="text-sm">Số điện thoại</Label>
-              <Input
-                id="edit-phone"
-                value={editUserData.phone}
-                onChange={(e) => setEditUserData({ ...editUserData, phone: e.target.value })}
-                placeholder="Nhập số điện thoại"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-role" className="text-sm">Vai trò</Label>
-              <Select
-                value={editUserData.role}
-                onValueChange={updateEditRole}
-              >
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="Chọn vai trò" />
-                </SelectTrigger>
-                <SelectContent>
-                  {isAdmin ? (
-                    <>
-                      <SelectItem value="chuNha">Chủ trọ</SelectItem>
-                      <SelectItem value="admin">Quản trị viên</SelectItem>
-                    </>
-                  ) : (
-                    <>
-                      <SelectItem value="dongChuTro">Đồng chủ trọ</SelectItem>
-                      <SelectItem value="quanLy">Quản lý</SelectItem>
-                      <SelectItem value="nhanVien">Nhân viên</SelectItem>
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            {getChucVuOptionsForRole(editUserData.role).length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="edit-chucVu" className="text-sm">Chức vụ</Label>
-                <Select
-                  value={getSafeChucVuForRole(editUserData.role, editUserData.chucVu)}
-                  onValueChange={(value) => setEditUserData({ ...editUserData, chucVu: value })}
-                >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Chọn chức vụ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getChucVuOptionsForRole(editUserData.role).map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {editUserData.role !== 'admin' && (
-              <div className="space-y-2">
-                <Label className="text-sm flex items-center gap-1.5">
-                  <Building2 className="h-3.5 w-3.5 text-blue-500" />
-                  Gán tòa nhà
-                </Label>
-                <div className="border rounded-md p-2 space-y-1.5 max-h-40 overflow-y-auto">
-                  {buildings.length === 0 && <p className="text-xs text-muted-foreground">Chưa có tòa nhà</p>}
-                  {buildings.map(b => {
-                    const max = getRoleLimitForBuilding(b.id, editUserData.role);
-                    const excludeId = selectedUser?.id ?? selectedUser?._id;
-                    const currentCount = max ? getRoleCountPerBuilding(b.id, editUserData.role, excludeId) : 0;
-                    const isAtLimit = max ? currentCount >= max : false;
-                    const isChecked = editUserData.toaNhaIds.includes(b.id);
-                    return (
-                      <label key={b.id} className={`flex items-center gap-2 py-0.5 ${isAtLimit && !isChecked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                        <Checkbox
-                          checked={isChecked}
-                          disabled={isAtLimit && !isChecked}
-                          onCheckedChange={(checked) => {
-                            const next = checked
-                              ? [...editUserData.toaNhaIds, b.id]
-                              : editUserData.toaNhaIds.filter(id => id !== b.id);
-                            setEditUserData({ ...editUserData, toaNhaIds: next });
-                          }}
-                        />
-                        <span className="text-sm flex-1">{b.tenToaNha}</span>
-                        {max > 0 && (
-                          <span className={`text-[10px] ${isAtLimit ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
-                            {currentCount}/{max}
-                          </span>
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {/* Zalo slot selector removed — Zalo permissions are now based on position (chức vụ) */}
-          </div>
-        </InlineForm>
-      )}
 
       {/* User list grouped by building */}
       <div className="space-y-4">
@@ -809,7 +332,7 @@ export default function AccountManagementPage() {
                 </div>
                 {!isCurrentUser && !quanLyReadOnly && (
                   <div className="flex gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditForm(user)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => router.push(`/dashboard/quan-ly-tai-khoan/${user.id}`)}>
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
                     <ConfirmPopover

@@ -20,9 +20,15 @@ async function getMyBuildingIds(userId: string) {
 
 /** Lấy nguoiTaoId bằng raw SQL (vì field không có trong Prisma schema) */
 async function getNguoiTaoId(userId: string): Promise<string | null> {
-  const rows = await prisma.$queryRaw<{ nguoiTaoId: string | null }[]>`
-    SELECT "nguoiTaoId" FROM "NguoiDung" WHERE id = ${userId}`;
-  return rows.length > 0 ? rows[0].nguoiTaoId : null;
+  try {
+    const rows = await prisma.$queryRaw<{ nguoiTaoId: string | null }[]>`
+      SELECT "nguoiTaoId" FROM "NguoiDung" WHERE id = ${userId}`;
+    return rows.length > 0 ? rows[0].nguoiTaoId : null;
+  } catch (e) {
+    // Cột nguoiTaoId có thể chưa tồn tại trong DB (cần chạy migration)
+    console.warn('Could not get nguoiTaoId (column may not exist yet):', e);
+    return null;
+  }
 }
 
 export async function PUT(

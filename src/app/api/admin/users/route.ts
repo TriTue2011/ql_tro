@@ -93,9 +93,15 @@ export async function GET() {
         : ['dongChuTro', 'quanLy', 'nhanVien'];
 
       // Lấy danh sách người dùng được tạo bởi user hiện tại (qua raw SQL vì nguoiTaoId chưa có trong Prisma schema)
-      const createdByMe = await prisma.$queryRaw<{ id: string }[]>`
-        SELECT id FROM "NguoiDung" WHERE "nguoiTaoId" = ${session.user.id}`;
-      const createdByMeIds = createdByMe.map(r => r.id);
+      let createdByMeIds: string[] = [];
+      try {
+        const createdByMe = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "NguoiDung" WHERE "nguoiTaoId" = ${session.user.id}`;
+        createdByMeIds = createdByMe.map(r => r.id);
+      } catch (e) {
+        // Cột nguoiTaoId có thể chưa tồn tại trong DB (cần chạy migration)
+        console.warn('Could not query nguoiTaoId (column may not exist yet):', e);
+      }
 
       users = await prisma.nguoiDung.findMany({
         where: {
@@ -112,12 +118,18 @@ export async function GET() {
     }
 
     // Batch-fetch nguoiTaoId via raw SQL (column not in Prisma schema)
-    const userIds = users.map(u => u.id);
-    const nguoiTaoRows = userIds.length > 0
-      ? await prisma.$queryRaw<{ id: string; nguoiTaoId: string | null }[]>`
-          SELECT id, "nguoiTaoId" FROM "NguoiDung" WHERE id = ANY(${userIds})`
-      : [];
-    const nguoiTaoIdByUser = new Map(nguoiTaoRows.map(r => [r.id, r.nguoiTaoId]));
+    let nguoiTaoIdByUser = new Map<string, string | null>();
+    try {
+      const userIds = users.map(u => u.id);
+      const nguoiTaoRows = userIds.length > 0
+        ? await prisma.$queryRaw<{ id: string; nguoiTaoId: string | null }[]>`
+            SELECT id, "nguoiTaoId" FROM "NguoiDung" WHERE id = ANY(${userIds})`
+        : [];
+      nguoiTaoIdByUser = new Map(nguoiTaoRows.map(r => [r.id, r.nguoiTaoId]));
+    } catch (e) {
+      // Cột nguoiTaoId có thể chưa tồn tại trong DB (cần chạy migration)
+      console.warn('Could not batch-fetch nguoiTaoId (column may not exist yet):', e);
+    }
 
     // Batch-fetch tên người tạo
     const creatorIds = [...new Set(nguoiTaoRows.map(r => r.nguoiTaoId).filter(Boolean) as string[])];
