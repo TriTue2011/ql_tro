@@ -17,3 +17,5 @@ export { default as BuildingSelector } from './building-selector';
 export type { BuildingOption } from './building-selector';
 
 export { default as ConfirmPopover } from './confirm-popover';
+
+export { default as PermissionToggle } from './permission-toggle';

@@ -7,6 +7,8 @@ import {
   Building2,
   CheckCircle2,
   ChevronRight,
+  Eye,
+  EyeOff,
   RefreshCw,
   Save,
   Shield,
@@ -20,12 +22,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
 import { getChucVuLabel } from '@/lib/chuc-vu';
 import {
   BuildingSelector,
   PageHeader,
   PermissionGrid,
+  PermissionToggle,
   PillTabs,
   SearchInput,
 } from '@/components/dashboard';
@@ -215,6 +217,7 @@ export default function PhanQuyenPage() {
   const [activeTab, setActiveTab] = useState('business');
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
+  const [hideBusinessTab, setHideBusinessTab] = useState(false);
   const canEditZalo = (isAdmin || isChuNha || isQuanLy) && (isAdmin || canManageZaloPerms[selectedBuildingId] !== false);
 
   useEffect(() => {
@@ -268,6 +271,14 @@ export default function PhanQuyenPage() {
     }
     return counts;
   }, [selectedBuildingId, users]);
+
+  // Filter tab items: hide business tab when toggled or user can't edit
+  const visibleTabs = useMemo(() => {
+    if (hideBusinessTab || !canEditBusiness) {
+      return TAB_ITEMS.filter(t => t.value !== 'business');
+    }
+    return [...TAB_ITEMS];
+  }, [hideBusinessTab, canEditBusiness]);
 
   async function loadInitialData() {
     setLoading(true);
@@ -542,7 +553,7 @@ export default function PhanQuyenPage() {
       </PageHeader>
 
       <PillTabs
-        tabs={TAB_ITEMS.map(t => ({ value: t.value, label: t.label }))}
+        tabs={visibleTabs.map(t => ({ value: t.value, label: t.label }))}
         value={activeTab}
         onChange={setActiveTab}
       />
@@ -551,11 +562,33 @@ export default function PhanQuyenPage() {
       {activeTab === 'business' && (
         <div className="rounded-xl border bg-white shadow-sm">
           <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b">
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">Quyền nghiệp vụ của quản lý</h2>
-              <p className="text-xs text-gray-500">
-                Các quyền này được backend kiểm tra khi quản lý thêm, sửa hoặc xóa dữ liệu nghiệp vụ.
-              </p>
+            <div className="flex items-center gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Quyền nghiệp vụ của quản lý</h2>
+                <p className="text-xs text-gray-500">
+                  Các quyền này được backend kiểm tra khi quản lý thêm, sửa hoặc xóa dữ liệu nghiệp vụ.
+                </p>
+              </div>
+              {/* Hide business tab toggle */}
+              {canEditBusiness && (
+                <button
+                  type="button"
+                  onClick={() => setHideBusinessTab(prev => !prev)}
+                  className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+                    hideBusinessTab
+                      ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                  }`}
+                  title={hideBusinessTab ? 'Hiện tab quyền nghiệp vụ' : 'Ẩn tab quyền nghiệp vụ'}
+                >
+                  {hideBusinessTab ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )}
+                  {hideBusinessTab ? 'Đã ẩn' : 'Ẩn tab'}
+                </button>
+              )}
             </div>
             <SearchInput
               placeholder="Tìm tên, email, SĐT, chức vụ..."
@@ -618,10 +651,11 @@ export default function PhanQuyenPage() {
                           key={permission.key}
                           className="flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 border border-gray-100"
                         >
-                          <Switch
+                          <PermissionToggle
                             checked={permissions[permission.key] === true}
                             disabled={!canEditBusiness || savingBusiness === `${user.id}-${permission.key}`}
-                            onCheckedChange={(checked) => void saveBusinessPermission(user, permission.key, checked)}
+                            onChange={(checked) => void saveBusinessPermission(user, permission.key, checked)}
+                            size="sm"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900">{permission.label}</p>
@@ -657,7 +691,7 @@ export default function PhanQuyenPage() {
             </div>
             <div className="w-full sm:w-64">
               <Select value={selectedZaloRole} onValueChange={(value) => setSelectedZaloRole(value as RoleKey)}>
-                <SelectTrigger>
+                <SelectTrigger className="rounded-full border-2 border-gray-200 bg-white shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-200 data-[state=open]:border-blue-400 data-[state=open]:shadow-md">
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
@@ -691,13 +725,13 @@ export default function PhanQuyenPage() {
                       key={slotKey}
                       type="button"
                       onClick={() => setExpandedSlot(isSelected ? null : slotKey)}
-                      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-all text-sm ${
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-full text-left transition-all duration-200 text-sm ${
                         isSelected
-                          ? 'bg-blue-50 border border-blue-200 text-blue-800 font-medium'
-                          : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100'
+                          ? 'bg-blue-50 border-2 border-blue-300 text-blue-800 font-medium shadow-md'
+                          : 'bg-gray-50 border-2 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm'
                       }`}
                     >
-                      <div className={`h-2 w-2 rounded-full shrink-0 ${isSelected ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                      <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isSelected ? 'bg-blue-500 shadow-sm' : 'bg-gray-300'}`} />
                       <span className="truncate">{getSlotLabel(slotKey)}</span>
                       <span className="text-[10px] text-gray-400 ml-auto shrink-0">{slotKey}</span>
                     </button>
@@ -733,10 +767,11 @@ export default function PhanQuyenPage() {
                                 : 'bg-white border-gray-100 hover:border-gray-200'
                             }`}
                           >
-                            <Switch
+                            <PermissionToggle
                               checked={checked}
                               disabled={!canEditZalo || disabledByHigher}
-                              onCheckedChange={(value) => toggleZaloPermission(expandedSlot, feature.key, value)}
+                              onChange={(value) => toggleZaloPermission(expandedSlot, feature.key, value)}
+                              size="sm"
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
