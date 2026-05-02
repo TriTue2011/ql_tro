@@ -52,6 +52,11 @@ export default function VatTuPage() {
       if (search) params.set('search', search);
       if (nhomFilter) params.set('nhomVatTu', nhomFilter);
       const res = await fetch(`/api/kho/vat-tu?${params}`);
+      if (!res.ok) {
+        console.error('API error:', res.status, await res.text());
+        setItems([]);
+        return;
+      }
       const data = await res.json();
       if (data.success) setItems(data.data || []);
     } catch (err) { console.error(err); }
