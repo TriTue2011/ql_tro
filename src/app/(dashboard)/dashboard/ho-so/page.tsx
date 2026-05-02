@@ -125,6 +125,9 @@ export default function ProfilePage() {
     pending_issue: true, overdue_invoice: true, expiring_contract: true, system: true,
   });
 
+  // ── Tab state (MUST be before any early return) ───────────────
+  const [activeTab, setActiveTab] = useState('profile');
+
   useEffect(() => {
     document.title = 'Hồ sơ cá nhân';
   }, []);
@@ -279,8 +282,6 @@ export default function ProfilePage() {
       </div>
     );
   }
-
-  const [activeTab, setActiveTab] = useState('profile');
 
   const profileTabs = [
     { value: 'profile', label: 'Thông tin', icon: User },
