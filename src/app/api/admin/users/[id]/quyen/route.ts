@@ -4,20 +4,13 @@
  *
  * Body: {
  *   toaNhaId: string,
- *   quyenKichHoatTaiKhoan?: boolean,
- *   quyenHopDong?: boolean,
- *   quyenHoaDon?: boolean,
- *   quyenThanhToan?: boolean,
- *   quyenSuCo?: boolean,
- *   quyenZalo?: boolean,
- *   quyenZaloMonitor?: boolean,
- *   // Ẩn nav tab (chỉ có hiệu lực khi quyền tương ứng = false)
- *   anNavTabHopDong?: boolean,
- *   anNavTabHoaDon?: boolean,
- *   anNavTabThanhToan?: boolean,
- *   anNavTabSuCo?: boolean,
- *   anNavTabZalo?: boolean,
- *   anNavTabZaloMonitor?: boolean,
+ *   mucDoHopDong?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoHoaDon?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoThanhToan?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoSuCo?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoKichHoatTaiKhoan?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoZalo?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoZaloMonitor?: 'hidden' | 'viewOnly' | 'fullAccess',
  * }
  *
  * Quyền truy cập:
@@ -30,21 +23,17 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 
+const permissionLevelSchema = z.enum(['hidden', 'viewOnly', 'fullAccess']).optional();
+
 const bodySchema = z.object({
   toaNhaId: z.string().min(1),
-  quyenKichHoatTaiKhoan: z.boolean().optional(),
-  quyenHopDong: z.boolean().optional(),
-  quyenHoaDon: z.boolean().optional(),
-  quyenThanhToan: z.boolean().optional(),
-  quyenSuCo: z.boolean().optional(),
-  quyenZalo: z.boolean().optional(),
-  quyenZaloMonitor: z.boolean().optional(),
-  anNavTabHopDong: z.boolean().optional(),
-  anNavTabHoaDon: z.boolean().optional(),
-  anNavTabThanhToan: z.boolean().optional(),
-  anNavTabSuCo: z.boolean().optional(),
-  anNavTabZalo: z.boolean().optional(),
-  anNavTabZaloMonitor: z.boolean().optional(),
+  mucDoHopDong: permissionLevelSchema,
+  mucDoHoaDon: permissionLevelSchema,
+  mucDoThanhToan: permissionLevelSchema,
+  mucDoSuCo: permissionLevelSchema,
+  mucDoKichHoatTaiKhoan: permissionLevelSchema,
+  mucDoZalo: permissionLevelSchema,
+  mucDoZaloMonitor: permissionLevelSchema,
 });
 
 export async function PUT(
@@ -85,7 +74,7 @@ export async function PUT(
   }
 
   // Chỉ cập nhật những quyền được gửi lên (partial update)
-  const updateData: Record<string, boolean> = {};
+  const updateData: Record<string, string> = {};
   for (const [key, val] of Object.entries(quyenData)) {
     if (val !== undefined) updateData[key] = val;
   }

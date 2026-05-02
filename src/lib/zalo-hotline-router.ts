@@ -101,10 +101,10 @@ export async function checkRequiredPermissions(toaNhaId: string): Promise<{
     where: { toaNhaId },
     select: {
       nguoiDungId: true,
-      quyenSuCo: true,
-      quyenHoaDon: true,
-      quyenThanhToan: true,
-      quyenHopDong: true,
+      mucDoSuCo: true,
+      mucDoHoaDon: true,
+      mucDoThanhToan: true,
+      mucDoHopDong: true,
     },
   });
 
@@ -115,15 +115,15 @@ export async function checkRequiredPermissions(toaNhaId: string): Promise<{
   const allMissing = new Set<string>();
 
   for (const ql of managers) {
-    if (!ql.quyenSuCo) allMissing.add('quyenSuCo (Sự cố)');
-    if (!ql.quyenHoaDon) allMissing.add('quyenHoaDon (Hóa đơn)');
-    if (!ql.quyenThanhToan) allMissing.add('quyenThanhToan (Thanh toán/Thông báo)');
-    if (!ql.quyenHopDong) allMissing.add('quyenHopDong (Phê duyệt Yêu cầu)');
+    if (ql.mucDoSuCo === 'hidden') allMissing.add('mucDoSuCo (Sự cố)');
+    if (ql.mucDoHoaDon === 'hidden') allMissing.add('mucDoHoaDon (Hóa đơn)');
+    if (ql.mucDoThanhToan === 'hidden') allMissing.add('mucDoThanhToan (Thanh toán/Thông báo)');
+    if (ql.mucDoHopDong === 'hidden') allMissing.add('mucDoHopDong (Phê duyệt Yêu cầu)');
   }
 
   // Nếu có ít nhất 1 quản lý đủ quyền → ok
   const anyFull = managers.some(
-    ql => ql.quyenSuCo && ql.quyenHoaDon && ql.quyenThanhToan && ql.quyenHopDong
+    ql => ql.mucDoSuCo !== 'hidden' && ql.mucDoHoaDon !== 'hidden' && ql.mucDoThanhToan !== 'hidden' && ql.mucDoHopDong !== 'hidden'
   );
 
   return {

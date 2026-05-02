@@ -71,9 +71,9 @@ async function hasPermission(userId: string, role: string, khachThueId: string):
 
   const perm = await prisma.toaNhaNguoiQuanLy.findUnique({
     where: { toaNhaId_nguoiDungId: { toaNhaId, nguoiDungId: userId } },
-    select: { quyenKichHoatTaiKhoan: true },
+    select: { mucDoKichHoatTaiKhoan: true },
   });
-  return perm?.quyenKichHoatTaiKhoan === true;
+  return perm?.mucDoKichHoatTaiKhoan === 'fullAccess';
 }
 
 /**

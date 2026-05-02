@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { useSession } from 'next-auth/react';
 import { useCanEdit } from '@/hooks/use-can-edit';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -21,7 +20,6 @@ import {
   Plus,
   Edit,
   Trash2,
-  EyeIcon,
   Users,
   Phone,
   Mail,
@@ -40,14 +38,43 @@ import {
   Globe,
 } from 'lucide-react';
 import { KhachThue } from '@/types';
-import { KhachThueDataTable } from './table';
-import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import { toast } from 'sonner';
 import PageHeader from '@/components/dashboard/page-header';
 import SearchInput from '@/components/dashboard/search-input';
+import InlineForm from '@/components/dashboard/inline-form';
+import InlineEditTable, { ColumnDef } from '@/components/dashboard/inline-edit-table';
+
+interface InlineEditKhachThue {
+  id: string;
+  hoTen: string;
+  soDienThoai: string;
+  email: string;
+  cccd: string;
+  ngaySinh: Date;
+  gioiTinh: string;
+  queQuan: string;
+  ngheNghiep: string;
+  trangThai: string;
+  hasMatKhau: boolean;
+  batDangNhapWeb: boolean;
+  nhanThongBaoZalo: boolean;
+  hopDongHienTai?: {
+    id: string;
+    phong: {
+      id: string;
+      maPhong: string;
+      toaNha: {
+        id: string;
+        tenToaNha: string;
+      };
+    };
+  };
+  nguoiTaoTen?: string;
+  ngayTao: Date;
+  ngayCapNhat: Date;
+}
 
 export default function KhachThuePage() {
-  const router = useRouter();
   const { data: session } = useSession();
   const canEdit = useCanEdit();
   const canViewZalo = ['admin', 'chuNha'].includes(session?.user?.role ?? '');
@@ -68,6 +95,24 @@ export default function KhachThuePage() {
   const togglePhong = (id: string) =>
     setOpenPhong(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [selectedKhachThueId, setSelectedKhachThueId] = useState<string | null>(null);
+
+  // Inline create form state
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    hoTen: '',
+    soDienThoai: '',
+    email: '',
+    cccd: '',
+    ngaySinh: '',
+    gioiTinh: 'nam',
+    queQuan: '',
+    ngheNghiep: '',
+  });
+
+  // Inline edit form state
+  const [editForm, setEditForm] = useState<InlineEditKhachThue | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = 'Quản lý Khách thuê';
@@ -179,10 +224,6 @@ export default function KhachThuePage() {
 
     return { groups: Array.from(map.values()), noRoom };
   })();
-
-  const handleEdit = (khachThue: KhachThue) => {
-    router.push(`/dashboard/khach-thue/${khachThue.id}`);
-  };
 
   // Kích hoạt / thu hồi tài khoản đăng nhập cho khách thuê
   const handleKichHoatTaiKhoan = async (id: string, hasAccount: boolean) => {
@@ -317,6 +358,305 @@ export default function KhachThuePage() {
     }
   };
 
+  // Inline create handlers
+  const resetCreateForm = () => {
+    setCreateForm({
+      hoTen: '',
+      soDienThoai: '',
+      email: '',
+      cccd: '',
+      ngaySinh: '',
+      gioiTinh: 'nam',
+      queQuan: '',
+      ngheNghiep: '',
+    });
+  };
+
+  const handleCreateKhachThue = async () => {
+    if (!createForm.hoTen.trim()) {
+      toast.error('Vui lòng nhập họ tên khách thuê');
+      return;
+    }
+    if (!createForm.cccd.trim()) {
+      toast.error('Vui lòng nhập CCCD');
+      return;
+    }
+    if (!createForm.ngaySinh) {
+      toast.error('Vui lòng chọn ngày sinh');
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch('/api/khach-thue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...createForm,
+          ngaySinh: new Date(createForm.ngaySinh).toISOString(),
+        }),
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          toast.success('Thêm khách thuê thành công!');
+          cache.clearCache();
+          fetchKhachThue(true);
+          setShowCreateForm(false);
+          resetCreateForm();
+        } else {
+          toast.error(result.message || 'Có lỗi xảy ra');
+        }
+      } else {
+        const error = await response.json();
+        toast.error(error.message || 'Có lỗi xảy ra');
+      }
+    } catch (error) {
+      console.error('Error creating khach thue:', error);
+      toast.error('Có lỗi xảy ra khi thêm khách thuê');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Inline edit handlers
+  const handleEditKhachThue = useCallback((item: InlineEditKhachThue) => {
+    setEditForm(item);
+    setExpandedId(item.id);
+  }, []);
+
+  const handleSaveEdit = async () => {
+    if (!editForm) return;
+    if (!editForm.hoTen.trim()) {
+      toast.error('Vui lòng nhập họ tên khách thuê');
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/khach-thue/${editForm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hoTen: editForm.hoTen,
+          soDienThoai: editForm.soDienThoai,
+          email: editForm.email,
+          cccd: editForm.cccd,
+          ngaySinh: editForm.ngaySinh,
+          gioiTinh: editForm.gioiTinh,
+          queQuan: editForm.queQuan,
+          ngheNghiep: editForm.ngheNghiep,
+        }),
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          toast.success('Cập nhật khách thuê thành công!');
+          cache.clearCache();
+          fetchKhachThue(true);
+          setExpandedId(null);
+          setEditForm(null);
+        } else {
+          toast.error(result.message || 'Có lỗi xảy ra');
+        }
+      } else {
+        const error = await response.json();
+        toast.error(error.message || 'Có lỗi xảy ra');
+      }
+    } catch (error) {
+      console.error('Error updating khach thue:', error);
+      toast.error('Có lỗi xảy ra khi cập nhật khách thuê');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteInline = async (item: InlineEditKhachThue) => {
+    handleDelete(item.id);
+  };
+
+  // Table data
+  const tableData = useMemo((): InlineEditKhachThue[] => {
+    return filteredKhachThue.map(kt => ({
+      id: kt.id || kt._id || '',
+      hoTen: kt.hoTen,
+      soDienThoai: kt.soDienThoai || '',
+      email: kt.email || '',
+      cccd: kt.cccd,
+      ngaySinh: kt.ngaySinh,
+      gioiTinh: kt.gioiTinh,
+      queQuan: kt.queQuan,
+      ngheNghiep: kt.ngheNghiep || '',
+      trangThai: kt.trangThai,
+      hasMatKhau: (kt as any).hasMatKhau || false,
+      batDangNhapWeb: (kt as any).batDangNhapWeb || false,
+      nhanThongBaoZalo: (kt as any).nhanThongBaoZalo || false,
+      hopDongHienTai: kt.hopDongHienTai,
+      nguoiTaoTen: (kt as any).nguoiTaoTen,
+      ngayTao: kt.ngayTao,
+      ngayCapNhat: kt.ngayCapNhat,
+    }));
+  }, [filteredKhachThue]);
+
+  // Columns
+  const columns: ColumnDef<InlineEditKhachThue>[] = useMemo(() => [
+    {
+      key: 'hoTen',
+      header: 'Họ tên',
+      sortable: true,
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200 flex-shrink-0">
+            <Users className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <p className="font-medium text-sm text-indigo-900">{item.hoTen}</p>
+            <p className="text-xs text-indigo-500 capitalize">{item.gioiTinh}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'trangThai',
+      header: 'Trạng thái',
+      sortable: true,
+      render: (item) => <TrangThaiBadge trangThai={item.trangThai} />,
+    },
+    {
+      key: 'soDienThoai',
+      header: 'Liên hệ',
+      render: (item) => (
+        <div className="space-y-0.5">
+          {item.soDienThoai && (
+            <div className="flex items-center gap-1 text-xs text-indigo-700">
+              <Phone className="h-3 w-3 text-indigo-400" />
+              {item.soDienThoai}
+            </div>
+          )}
+          {item.email && (
+            <div className="flex items-center gap-1 text-xs text-indigo-700">
+              <Mail className="h-3 w-3 text-indigo-400" />
+              <span className="truncate max-w-[150px]">{item.email}</span>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'cccd',
+      header: 'CCCD',
+      render: (item) => (
+        <div className="flex items-center gap-1 text-xs text-indigo-700">
+          <CreditCard className="h-3 w-3 text-indigo-400" />
+          <span className="font-mono">{item.cccd}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'queQuan',
+      header: 'Quê quán',
+      sortable: true,
+      render: (item) => (
+        <div className="flex items-center gap-1 text-xs text-indigo-700">
+          <MapPin className="h-3 w-3 text-indigo-400" />
+          {item.queQuan}
+        </div>
+      ),
+    },
+  ], []);
+
+  // Render expanded (inline edit form)
+  const renderExpanded = useCallback((item: InlineEditKhachThue) => {
+    return (
+      <div className="p-4 space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Họ tên</Label>
+            <Input
+              value={editForm?.id === item.id ? editForm.hoTen : item.hoTen}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, hoTen: e.target.value } : null)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Giới tính</Label>
+            <Select
+              value={editForm?.id === item.id ? editForm.gioiTinh : item.gioiTinh}
+              onValueChange={(value) => setEditForm(prev => prev ? { ...prev, gioiTinh: value } : null)}
+            >
+              <SelectTrigger className="text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nam">Nam</SelectItem>
+                <SelectItem value="nu">Nữ</SelectItem>
+                <SelectItem value="khac">Khác</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Số điện thoại</Label>
+            <Input
+              value={editForm?.id === item.id ? editForm.soDienThoai : item.soDienThoai}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, soDienThoai: e.target.value } : null)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Email</Label>
+            <Input
+              value={editForm?.id === item.id ? editForm.email : item.email}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, email: e.target.value } : null)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">CCCD</Label>
+            <Input
+              value={editForm?.id === item.id ? editForm.cccd : item.cccd}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, cccd: e.target.value } : null)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Ngày sinh</Label>
+            <Input
+              type="date"
+              value={(() => {
+                const d: any = editForm?.id === item.id ? editForm.ngaySinh : item.ngaySinh;
+                if (typeof d === 'string') return d.split('T')[0];
+                return new Date(d).toISOString().split('T')[0];
+              })()}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, ngaySinh: new Date(e.target.value) } : null)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Quê quán</Label>
+            <Input
+              value={editForm?.id === item.id ? editForm.queQuan : item.queQuan}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, queQuan: e.target.value } : null)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Nghề nghiệp</Label>
+            <Input
+              value={editForm?.id === item.id ? editForm.ngheNghiep : item.ngheNghiep}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, ngheNghiep: e.target.value } : null)}
+              className="text-sm"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button size="sm" variant="outline" onClick={() => { setExpandedId(null); setEditForm(null); }} className="text-sm">
+            Hủy
+          </Button>
+          <Button size="sm" onClick={handleSaveEdit} disabled={saving} className="text-sm">
+            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+          </Button>
+        </div>
+      </div>
+    );
+  }, [editForm, saving, handleSaveEdit]);
 
   if (loading) {
     return (
@@ -338,7 +678,7 @@ export default function KhachThuePage() {
         description="Danh sách tất cả khách thuê trong hệ thống"
         onRefresh={handleRefresh}
         loading={cache.isRefreshing}
-        onAdd={canEdit ? () => router.push('/dashboard/khach-thue/them-moi') : undefined}
+        onAdd={canEdit ? () => setShowCreateForm(true) : undefined}
         addLabel="Thêm khách thuê"
       />
 
@@ -418,468 +758,179 @@ export default function KhachThuePage() {
         </Select>
       </div>
 
-      {/* Grouped by Building → Room */}
-      <div className="space-y-3">
-        {filteredKhachThue.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center">
-            <Users className="h-12 w-12 text-indigo-300 mx-auto mb-4" />
-            <p className="text-indigo-400">Không có khách thuê nào</p>
-          </div>
-        ) : (
-          <>
-            {buildingGroups.groups.map(bg => {
-              const isBuildingOpen = openBuildings.has(bg.toaNhaId);
-              return (
-                <div key={bg.toaNhaId} className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
-                  {/* Building header */}
-                  <button type="button" onClick={() => toggleBuilding(bg.toaNhaId)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 transition-colors text-left">
-                    <div className="flex items-center gap-3">
-                      <Building2 className="h-5 w-5 text-white shrink-0" />
-                      <div>
-                        <span className="font-semibold text-white text-sm">{bg.tenToaNha}</span>
-                        <p className="text-[10px] text-indigo-100">
-                          {bg.rooms.reduce((s, r) => s + r.tenants.length, 0)} khách • {bg.rooms.length} phòng
-                        </p>
-                      </div>
-                    </div>
-                    {isBuildingOpen
-                      ? <ChevronDown className="h-4 w-4 text-white shrink-0" />
-                      : <ChevronRight className="h-4 w-4 text-white shrink-0" />}
-                  </button>
-
-                  {isBuildingOpen && (
-                    <div className="p-3 space-y-2">
-                      {bg.rooms.map(pg => {
-                        const isPhongOpen = openPhong.has(pg.phongId);
-                        return (
-                          <div key={pg.phongId} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm overflow-hidden">
-                            {/* Room header */}
-                            <button type="button" onClick={() => togglePhong(pg.phongId)}
-                              className="w-full flex items-center justify-between px-3 py-2 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left">
-                              <div className="flex items-center gap-2">
-                                <DoorOpen className="h-4 w-4 text-indigo-600 shrink-0" />
-                                <span className="font-medium text-sm text-indigo-900">{pg.maPhong}</span>
-                                <span className="text-[10px] text-indigo-600">{pg.tenants.length} người</span>
-                              </div>
-                              {isPhongOpen
-                                ? <ChevronDown className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                                : <ChevronRight className="h-3.5 w-3.5 text-indigo-500 shrink-0" />}
-                            </button>
-
-                            {isPhongOpen && (
-                              <div className="p-2 space-y-2">
-                                {/* Desktop table */}
-                                <div className="hidden md:block">
-                                  <KhachThueDataTable
-                                    data={pg.tenants}
-                                    onEdit={handleEdit}
-                                    onDelete={handleDelete}
-                                    onKichHoatTaiKhoan={handleKichHoatTaiKhoan}
-                        onToggleDangNhapWeb={handleToggleDangNhapWeb}
-                                    actionLoading={actionLoading}
-                                    canEdit={canEdit}
-                                    searchTerm=""
-                                    onSearchChange={() => {}}
-                                    selectedTrangThai=""
-                                    onTrangThaiChange={() => {}}
-                                  />
-                                </div>
-                                {/* Mobile cards */}
-                                <div className="md:hidden space-y-2">
-                                  {pg.tenants.map(kt => {
-                                    const isSelected = selectedKhachThueId === kt.id;
-                                    return (
-                                      <div key={kt.id}>
-                                        <div className={`rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm ${isSelected ? 'ring-2 ring-indigo-400' : ''}`}>
-                                          <div className="flex justify-between items-start mb-2">
-                                            <div className="flex items-start gap-2 flex-1">
-                                              <Checkbox
-                                                checked={isSelected}
-                                                onCheckedChange={(v) => setSelectedKhachThueId(v === true ? kt.id! : null)}
-                                                className="mt-0.5 text-indigo-600"
-                                              />
-                                              <div>
-                                                <p className="font-medium text-sm text-indigo-900">{kt.hoTen}</p>
-                                                <p className="text-xs text-indigo-500">{kt.gioiTinh}</p>
-                                              </div>
-                                            </div>
-                                            <TrangThaiBadge trangThai={kt.trangThai} />
-                                          </div>
-                                          <div className="space-y-1 text-xs text-indigo-600">
-                                            {kt.soDienThoai && <div className="flex items-center gap-1.5"><Phone className="h-3 w-3 text-indigo-400" />{kt.soDienThoai}</div>}
-                                            {kt.email && <div className="flex items-center gap-1.5"><Mail className="h-3 w-3 text-indigo-400" />{kt.email}</div>}
-                                            <div className="flex items-center gap-1.5"><CreditCard className="h-3 w-3 text-indigo-400 font-mono" />{kt.cccd}</div>
-                                          </div>
-                                          {canEdit && (
-                                          <div className="flex justify-between items-center mt-2 pt-2 border-t border-indigo-100">
-                                            <Button variant="outline" size="sm" onClick={() => handleEdit(kt)} disabled={actionLoading === `edit-${kt.id}`} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-                                              <Edit className="h-3.5 w-3.5" />
-                                            </Button>
-                                            <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)}
-                                              disabled={actionLoading === `delete-${kt.id}`}
-                                              className="text-red-600 hover:bg-red-50 border-indigo-200">
-                                              <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                          </div>
-                                          )}
-                                        </div>
-                                        
-                                        {/* Detail panel */}
-                                        {isSelected && (
-                                          <div className="mt-2 rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
-                                            <div className="p-4 space-y-3">
-                                              <div className="flex items-center gap-2 text-indigo-900 font-medium text-sm border-b border-indigo-200 pb-2">
-                                                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                                                  <Users className="h-3.5 w-3.5 text-white" />
-                                                </div>
-                                                Chi tiết khách thuê
-                                              </div>
-                                              
-                                              <div className="grid grid-cols-2 gap-3 text-sm">
-                                                <div>
-                                                  <span className="text-indigo-500">Họ tên:</span>
-                                                  <p className="font-medium text-indigo-900">{kt.hoTen}</p>
-                                                </div>
-                                                <div>
-                                                  <span className="text-indigo-500">Giới tính:</span>
-                                                  <p className="font-medium text-indigo-900">{{ nam: 'Nam', nu: 'Nữ', khac: 'Khác' }[kt.gioiTinh] || kt.gioiTinh}</p>
-                                                </div>
-                                                <div>
-                                                  <span className="text-indigo-500">SĐT:</span>
-                                                  <p className="font-medium text-indigo-900">{kt.soDienThoai || 'N/A'}</p>
-                                                </div>
-                                                <div>
-                                                  <span className="text-indigo-500">Email:</span>
-                                                  <p className="font-medium text-indigo-900">{kt.email || 'N/A'}</p>
-                                                </div>
-                                                <div>
-                                                  <span className="text-indigo-500">CCCD:</span>
-                                                  <p className="font-medium text-indigo-900">{kt.cccd}</p>
-                                                </div>
-                                                <div>
-                                                  <span className="text-indigo-500">Ngày sinh:</span>
-                                                  <p className="font-medium text-indigo-900">{new Date(kt.ngaySinh).toLocaleDateString('vi-VN')}</p>
-                                                </div>
-                                                <div>
-                                                  <span className="text-indigo-500">Quê quán:</span>
-                                                  <p className="font-medium text-indigo-900">{kt.queQuan}</p>
-                                                </div>
-                                                {kt.ngheNghiep && (
-                                                  <div>
-                                                    <span className="text-indigo-500">Nghề nghiệp:</span>
-                                                    <p className="font-medium text-indigo-900">{kt.ngheNghiep}</p>
-                                                  </div>
-                                                )}
-                                              </div>
-                                              
-                                              {kt.hopDongHienTai && (
-                                                <div className="text-sm border-t border-indigo-200 pt-2">
-                                                  <span className="text-indigo-500">Phòng hiện tại:</span>
-                                                  <div className="mt-1 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-2">
-                                                    <p className="font-medium flex items-center gap-1 text-indigo-900">
-                                                      <Home className="h-3.5 w-3.5 text-indigo-500" />
-                                                      {kt.hopDongHienTai.phong.maPhong}
-                                                    </p>
-                                                    <p className="text-xs text-indigo-600 flex items-center gap-1 mt-0.5">
-                                                      <Building2 className="h-3 w-3" />
-                                                      {kt.hopDongHienTai.phong.toaNha.tenToaNha}
-                                                    </p>
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Tenants without room */}
-            {buildingGroups.noRoom.length > 0 && (
-              <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
-                <button type="button" onClick={() => toggleBuilding('__noRoom__')}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 transition-colors text-left">
-                  <div className="flex items-center gap-3">
-                    <Users className="h-5 w-5 text-white shrink-0" />
-                    <div>
-                      <span className="font-semibold text-white text-sm">Chưa có phòng</span>
-                      <p className="text-[10px] text-indigo-100">{buildingGroups.noRoom.length} khách</p>
-                    </div>
-                  </div>
-                  {openBuildings.has('__noRoom__')
-                    ? <ChevronDown className="h-4 w-4 text-white shrink-0" />
-                    : <ChevronRight className="h-4 w-4 text-white shrink-0" />}
-                </button>
-                {openBuildings.has('__noRoom__') && (
-                  <div className="p-3">
-                    <div className="hidden md:block">
-                      <KhachThueDataTable data={buildingGroups.noRoom} onEdit={handleEdit} onDelete={handleDelete}
-                        onKichHoatTaiKhoan={handleKichHoatTaiKhoan}
-                        onToggleDangNhapWeb={handleToggleDangNhapWeb}
-                        actionLoading={actionLoading} canEdit={canEdit} searchTerm="" onSearchChange={() => {}} selectedTrangThai="" onTrangThaiChange={() => {}} />
-                    </div>
-                    <div className="md:hidden space-y-2">
-                      {buildingGroups.noRoom.map(kt => {
-                        const isSelected = selectedKhachThueId === kt.id;
-                        return (
-                          <div key={kt.id}>
-                            <div className={`rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm ${isSelected ? 'ring-2 ring-indigo-400' : ''}`}>
-                              <div className="flex justify-between items-start">
-                                <div className="flex items-start gap-2 flex-1">
-                                  <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={(v) => setSelectedKhachThueId(v === true ? kt.id! : null)}
-                                    className="mt-0.5 text-indigo-600"
-                                  />
-                                  <div>
-                                    <p className="font-medium text-sm text-indigo-900">{kt.hoTen}</p>
-                                    <p className="text-xs text-indigo-500">{kt.soDienThoai}</p>
-                                  </div>
-                                </div>
-                                <TrangThaiBadge trangThai={kt.trangThai} />
-                              </div>
-                              {canEdit && (
-                              <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-indigo-100">
-                                <Button variant="outline" size="sm" onClick={() => handleEdit(kt)} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"><Edit className="h-3.5 w-3.5" /></Button>
-                                <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)} className="text-red-600 hover:bg-red-50 border-indigo-200"><Trash2 className="h-3.5 w-3.5" /></Button>
-                              </div>
-                              )}
-                            </div>
-                            
-                            {/* Detail panel */}
-                            {isSelected && (
-                              <div className="mt-2 rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
-                                <div className="p-4 space-y-3">
-                                  <div className="flex items-center gap-2 text-indigo-900 font-medium text-sm border-b border-indigo-200 pb-2">
-                                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                                      <Users className="h-3.5 w-3.5 text-white" />
-                                    </div>
-                                    Chi tiết khách thuê
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-2 gap-3 text-sm">
-                                    <div>
-                                      <span className="text-indigo-500">Họ tên:</span>
-                                      <p className="font-medium text-indigo-900">{kt.hoTen}</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-indigo-500">Giới tính:</span>
-                                      <p className="font-medium text-indigo-900">{{ nam: 'Nam', nu: 'Nữ', khac: 'Khác' }[kt.gioiTinh] || kt.gioiTinh}</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-indigo-500">SĐT:</span>
-                                      <p className="font-medium text-indigo-900">{kt.soDienThoai || 'N/A'}</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-indigo-500">Email:</span>
-                                      <p className="font-medium text-indigo-900">{kt.email || 'N/A'}</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-indigo-500">CCCD:</span>
-                                      <p className="font-medium text-indigo-900">{kt.cccd}</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-indigo-500">Ngày sinh:</span>
-                                      <p className="font-medium text-indigo-900">{new Date(kt.ngaySinh).toLocaleDateString('vi-VN')}</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-indigo-500">Quê quán:</span>
-                                      <p className="font-medium text-indigo-900">{kt.queQuan}</p>
-                                    </div>
-                                    {kt.ngheNghiep && (
-                                      <div>
-                                        <span className="text-indigo-500">Nghề nghiệp:</span>
-                                        <p className="font-medium text-indigo-900">{kt.ngheNghiep}</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Legacy mobile card section — replaced by grouped view above */}
-      <div className="hidden">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Danh sách khách thuê</h2>
-          <span className="text-sm text-gray-500">{filteredKhachThue.length} khách thuê</span>
-        </div>
-        
-        {/* Mobile Filters */}
-        <div className="space-y-2 mb-4">
-          <SearchInput
-            placeholder="Tìm kiếm khách thuê..."
-            value={searchTerm}
-            onChange={setSearchTerm}
-          />
-          <Select value={selectedTrangThai} onValueChange={setSelectedTrangThai}>
-            <SelectTrigger className="text-sm">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-sm">Tất cả</SelectItem>
-              <SelectItem value="dangThue" className="text-sm">Đang thuê</SelectItem>
-              <SelectItem value="daTraPhong" className="text-sm">Đã trả phòng</SelectItem>
-              <SelectItem value="chuaThue" className="text-sm">Chưa thuê</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Mobile Card List */}
-        <div className="space-y-3">
-          {filteredKhachThue.map((khachThue) => (
-            <div key={khachThue.id} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
-              <div className="space-y-3">
-                {/* Header with name and status */}
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium text-gray-900">{khachThue.hoTen}</h3>
-                    <p className="text-sm text-gray-500 capitalize">{khachThue.gioiTinh}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    {(() => {
-                      switch (khachThue.trangThai) {
-                        case 'dangThue':
-                          return <Badge variant="default" className="text-xs">Đang thuê</Badge>;
-                        case 'daTraPhong':
-                          return <Badge variant="secondary" className="text-xs">Đã trả phòng</Badge>;
-                        case 'chuaThue':
-                          return <Badge variant="outline" className="text-xs">Chưa thuê</Badge>;
-                        default:
-                          return <Badge variant="outline" className="text-xs">{khachThue.trangThai}</Badge>;
-                      }
-                    })()}
-                  </div>
-                </div>
-
-                {/* Contact info */}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-3 w-3 text-gray-400" />
-                    <span>{khachThue.soDienThoai}</span>
-                  </div>
-                  {khachThue.email && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Mail className="h-3 w-3" />
-                      <span className="truncate">{khachThue.email}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <CreditCard className="h-3 w-3" />
-                    <span className="font-mono">{khachThue.cccd}</span>
-                  </div>
-                </div>
-
-                {/* Additional info */}
-                <div className="space-y-1 text-xs text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-3 w-3" />
-                    <span>Ngày sinh: {new Date(khachThue.ngaySinh).toLocaleDateString('vi-VN')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-3 w-3" />
-                    <span className="truncate">{khachThue.queQuan}</span>
-                  </div>
-                  {khachThue.ngheNghiep && (
-                    <div className="flex items-center gap-2">
-                      <Users className="h-3 w-3" />
-                      <span>{khachThue.ngheNghiep}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Người tạo */}
-                {(khachThue as any).nguoiTaoTen && (
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <Users className="h-3 w-3" />
-                    <span>Người tạo: {(khachThue as any).nguoiTaoTen}</span>
-                  </div>
-                )}
-
-                {/* Room info if available */}
-                {(khachThue as any).hopDongHienTai?.phong && (
-                  <div className="border-t pt-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Users className="h-3 w-3 text-green-600" />
-                      <span className="font-medium">Phòng: {(khachThue as any).hopDongHienTai.phong.maPhong}</span>
-                    </div>
-                    {(khachThue as any).hopDongHienTai.phong.toaNha && (
-                      <div className="flex items-center gap-2 text-xs text-gray-500 ml-5">
-                        <span>{(khachThue as any).hopDongHienTai.phong.toaNha.tenToaNha}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Action buttons */}
-                <div className="flex justify-between items-center pt-2 border-t">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const publicUrl = `${window.location.origin}/khach-thue/dang-nhap`;
-                        navigator.clipboard.writeText(publicUrl);
-                        toast.success('Đã sao chép link đăng nhập khách thuê');
-                      }}
-                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                      title="Copy link đăng nhập khách thuê"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(khachThue)}
-                      disabled={actionLoading === `edit-${khachThue.id}`}
-                    >
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(khachThue.id!)}
-                    disabled={actionLoading === `delete-${khachThue.id}`}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
+      {/* Inline Create Form */}
+      {showCreateForm && (
+        <InlineForm
+          title="Thêm khách thuê mới"
+          description="Nhập thông tin khách thuê"
+          onSave={handleCreateKhachThue}
+          onCancel={() => { setShowCreateForm(false); resetCreateForm(); }}
+          saving={saving}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Họ tên *</Label>
+              <Input
+                value={createForm.hoTen}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, hoTen: e.target.value }))}
+                placeholder="Nhập họ tên"
+                className="text-sm"
+              />
             </div>
-          ))}
-        </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Giới tính</Label>
+              <Select value={createForm.gioiTinh} onValueChange={(value) => setCreateForm(prev => ({ ...prev, gioiTinh: value }))}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nam">Nam</SelectItem>
+                  <SelectItem value="nu">Nữ</SelectItem>
+                  <SelectItem value="khac">Khác</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Số điện thoại</Label>
+              <Input
+                value={createForm.soDienThoai}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, soDienThoai: e.target.value }))}
+                placeholder="Nhập số điện thoại"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Email</Label>
+              <Input
+                value={createForm.email}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="Nhập email"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">CCCD *</Label>
+              <Input
+                value={createForm.cccd}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, cccd: e.target.value }))}
+                placeholder="Nhập CCCD"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Ngày sinh *</Label>
+              <Input
+                type="date"
+                value={createForm.ngaySinh}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, ngaySinh: e.target.value }))}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Quê quán</Label>
+              <Input
+                value={createForm.queQuan}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, queQuan: e.target.value }))}
+                placeholder="Nhập quê quán"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Nghề nghiệp</Label>
+              <Input
+                value={createForm.ngheNghiep}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, ngheNghiep: e.target.value }))}
+                placeholder="Nhập nghề nghiệp"
+                className="text-sm"
+              />
+            </div>
+          </div>
+        </InlineForm>
+      )}
 
-        {filteredKhachThue.length === 0 && (
-          <div className="text-center py-8">
-            <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Không có khách thuê nào</p>
+      {/* InlineEditTable */}
+      <InlineEditTable
+        data={tableData}
+        columns={columns}
+        keyExtractor={(item) => item.id}
+        searchTerm={searchTerm}
+        loading={loading}
+        emptyMessage="Không có khách thuê nào"
+        expandedId={expandedId}
+        onToggleExpand={(id) => {
+          if (expandedId === id) {
+            setExpandedId(null);
+            setEditForm(null);
+          } else {
+            const item = tableData.find(t => t.id === id);
+            if (item) {
+              setEditForm(item);
+              setExpandedId(id);
+            }
+          }
+        }}
+        renderExpanded={renderExpanded}
+        renderActions={(item) => (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleEditKhachThue(item)}
+              className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50"
+              title="Chỉnh sửa"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const publicUrl = `${window.location.origin}/khach-thue/dang-nhap`;
+                navigator.clipboard.writeText(publicUrl);
+                toast.success('Đã sao chép link đăng nhập khách thuê');
+              }}
+              className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
+              title="Copy link đăng nhập khách thuê"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            {item.hasMatKhau && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleKichHoatTaiKhoan(item.id, true)}
+                disabled={actionLoading === `kich-hoat-${item.id}`}
+                className="h-8 w-8 p-0 text-orange-600 hover:bg-orange-50"
+                title="Thu hồi quyền đăng nhập"
+              >
+                <Globe className="h-4 w-4" />
+              </Button>
+            )}
+            {!item.hasMatKhau && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleKichHoatTaiKhoan(item.id, false)}
+                disabled={actionLoading === `kich-hoat-${item.id}`}
+                className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                title="Kích hoạt tài khoản đăng nhập"
+              >
+                <Globe className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDeleteInline(item)}
+              disabled={actionLoading === `delete-${item.id}`}
+              className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+              title="Xóa"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         )}
-      </div>
+      />
 
       {/* Smart delete: khách thuê đang đứng hợp đồng */}
       {isDeleteDialogOpen && deleteTarget && (
@@ -909,7 +960,7 @@ export default function KhachThuePage() {
                 className="w-full text-left px-4 py-3 rounded-xl border-2 border-indigo-200 bg-white/60 hover:bg-indigo-50 transition-colors backdrop-blur-sm"
                 onClick={() => {
                   setIsDeleteDialogOpen(false);
-                  router.push(`/dashboard/hop-dong/${deleteTarget.hopDongHienTai?.id}`);
+                  window.location.href = `/dashboard/hop-dong/${deleteTarget.hopDongHienTai?.id}`;
                 }}
               >
                 <p className="font-medium text-indigo-900 text-sm">Thay đổi người đứng tên hợp đồng</p>
@@ -945,4 +996,3 @@ function TrangThaiBadge({ trangThai }: { trangThai: string }) {
     default:          return <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">{trangThai}</Badge>;
   }
 }
-

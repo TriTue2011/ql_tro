@@ -55,9 +55,9 @@ export async function PUT(
     } else if (role === 'quanLy') {
       const perm = await prisma.toaNhaNguoiQuanLy.findUnique({
         where: { toaNhaId_nguoiDungId: { toaNhaId, nguoiDungId: session.user.id } },
-        select: { quyenKichHoatTaiKhoan: true },
+        select: { mucDoKichHoatTaiKhoan: true },
       });
-      if (!perm?.quyenKichHoatTaiKhoan) {
+      if (!perm?.mucDoKichHoatTaiKhoan || perm.mucDoKichHoatTaiKhoan === 'hidden') {
         return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
       }
     } else {

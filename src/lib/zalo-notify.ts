@@ -164,13 +164,13 @@ async function resolveBotConfig(toaNhaId?: string, senderId?: string, category?:
             });
             if (nql) {
               const permMap: Record<string, keyof typeof nql> = {
-                'HoaDon': 'quyenHoaDon',
-                'ThanhToan': 'quyenThanhToan',
-                'SuCo': 'quyenSuCo',
-                'HopDong': 'quyenHopDong',
+                'HoaDon': 'mucDoHoaDon',
+                'ThanhToan': 'mucDoThanhToan',
+                'SuCo': 'mucDoSuCo',
+                'HopDong': 'mucDoHopDong',
               };
               const permKey = permMap[category];
-              if (permKey && nql[permKey] === false) {
+              if (permKey && nql[permKey] === 'hidden') {
                 console.log(`[zalo-notify] Manager ${user.ten} lacks permission ${permKey}, falling back to owner bot.`);
                 useOwnerFallback = true;
               }
@@ -540,7 +540,7 @@ export async function notifyNewInvoice(hoaDonId: string, senderId?: string): Pro
     }
 
     // Gửi PDF sau (Puppeteer sinh file cần thời gian) — fire-and-forget
-    sendInvoicePdf(hd, chatId, toaNhaId, senderId, 0, 'HoaDon').catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
+    sendInvoicePdf(hd, chatId, toaNhaId, senderId, 0).catch(e => console.error('[zalo-notify] sendInvoicePdf error:', e));
   } catch (e) {
     console.error('[zalo-notify] notifyNewInvoice error:', e);
   }

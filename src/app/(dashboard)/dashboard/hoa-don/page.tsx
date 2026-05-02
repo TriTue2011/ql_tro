@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Input } from '@/components/ui/input';
@@ -10,8 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { Textarea } from '@/components/ui/textarea';
-import { HoaDonDataTable } from './table';
-import { DeleteConfirmPopover } from '@/components/ui/delete-confirm-popover';
 import {
   Select,
   SelectContent,
@@ -45,6 +42,8 @@ import { useCanEdit } from '@/hooks/use-can-edit';
 import { toast } from 'sonner';
 import PageHeader from '@/components/dashboard/page-header';
 import SearchInput from '@/components/dashboard/search-input';
+import InlineForm from '@/components/dashboard/inline-form';
+import InlineEditTable, { ColumnDef } from '@/components/dashboard/inline-edit-table';
 
 // Xóa dấu tiếng Việt, giữ chữ + số + khoảng trắng
 function removeAccents(str: string): string {
@@ -123,8 +122,35 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+interface InlineEditHoaDon {
+  id: string;
+  maHoaDon: string;
+  phong: string;
+  khachThue: string;
+  thang: number;
+  nam: number;
+  tongTien: number;
+  daThanhToan: number;
+  conLai: number;
+  trangThai: string;
+  hanThanhToan: Date;
+  hopDong: string;
+  tienPhong: number;
+  tienDien: number;
+  soDien: number;
+  chiSoDienBanDau: number;
+  chiSoDienCuoiKy: number;
+  tienNuoc: number;
+  soNuoc: number;
+  chiSoNuocBanDau: number;
+  chiSoNuocCuoiKy: number;
+  phiDichVu: Array<{ten: string, gia: number}>;
+  ghiChu?: string;
+  ngayTao: Date;
+  ngayCapNhat: Date;
+}
+
 export default function HoaDonPage() {
-  const router = useRouter();
   const canEdit = useCanEdit();
   const cache = useCache<{
     hoaDonList: HoaDon[];
@@ -160,6 +186,39 @@ export default function HoaDonPage() {
   const [bankSettings, setBankSettings] = useState({ tenNganHang: '', soTaiKhoan: '', chuTaiKhoan: '' });
   const [sendBankInfo, setSendBankInfo] = useState<{ soTaiKhoan: string; nganHang: string; chuTaiKhoan: string } | null>(null);
   const [isSendingZaloPdf, setIsSendingZaloPdf] = useState(false);
+
+  // Inline create state
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    maHoaDon: '',
+    hopDong: '',
+    phong: '',
+    khachThue: '',
+    thang: new Date().getMonth() + 1,
+    nam: new Date().getFullYear(),
+    tienPhong: 0,
+    tienDien: 0,
+    soDien: 0,
+    chiSoDienBanDau: 0,
+    chiSoDienCuoiKy: 0,
+    tienNuoc: 0,
+    soNuoc: 0,
+    chiSoNuocBanDau: 0,
+    chiSoNuocCuoiKy: 0,
+    phiDichVu: [] as Array<{ten: string, gia: number}>,
+    tongTien: 0,
+    daThanhToan: 0,
+    conLai: 0,
+    trangThai: 'chuaThanhToan' as 'chuaThanhToan' | 'daThanhToanMotPhan' | 'daThanhToan' | 'quaHan',
+    hanThanhToan: '',
+    ghiChu: '',
+  });
+  const [creating, setCreating] = useState(false);
+
+  // Inline edit state
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<InlineEditHoaDon | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     document.title = 'Quản lý Hóa đơn';
@@ -198,12 +257,6 @@ export default function HoaDonPage() {
     fetchData(true);
   });
 
-
-  // Debug hopDongList state
-  useEffect(() => {
-    console.log('hopDongList state updated:', hopDongList);
-  }, [hopDongList]);
-
   const fetchData = async (forceRefresh = false) => {
     try {
       setLoading(true);
@@ -231,7 +284,6 @@ export default function HoaDonPage() {
       const formDataResponse = await fetch('/api/hoa-don/form-data');
       if (formDataResponse.ok) {
         const formData = await formDataResponse.json();
-        console.log('Form data loaded:', formData.data);
         const hopDongs = formData.data.hopDongList || [];
         const phongs = formData.data.phongList || [];
         const khachThues = formData.data.khachThueList || [];
@@ -298,11 +350,6 @@ export default function HoaDonPage() {
   const getYearOptions = () => {
     const currentYear = new Date().getFullYear();
     return Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
-  };
-
-  const handleEdit = (hoaDon: HoaDon) => {
-    console.log('Editing hoa don:', hoaDon);
-    router.push(`/dashboard/hoa-don/${hoaDon.id}`);
   };
 
   const handleCancelInvoiceClick = (hoaDon: HoaDon) => {
@@ -536,6 +583,342 @@ ${footer}`;
     }
   };
 
+  // --- Inline Create ---
+  const generateInvoiceCode = () => {
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `HD${year}${month}${day}${randomNum}`;
+  };
+
+  const resetCreateForm = () => {
+    setCreateForm({
+      maHoaDon: generateInvoiceCode(),
+      hopDong: '',
+      phong: '',
+      khachThue: '',
+      thang: new Date().getMonth() + 1,
+      nam: new Date().getFullYear(),
+      tienPhong: 0,
+      tienDien: 0,
+      soDien: 0,
+      chiSoDienBanDau: 0,
+      chiSoDienCuoiKy: 0,
+      tienNuoc: 0,
+      soNuoc: 0,
+      chiSoNuocBanDau: 0,
+      chiSoNuocCuoiKy: 0,
+      phiDichVu: [],
+      tongTien: 0,
+      daThanhToan: 0,
+      conLai: 0,
+      trangThai: 'chuaThanhToan',
+      hanThanhToan: '',
+      ghiChu: '',
+    });
+  };
+
+  const handleCreateHoaDon = async () => {
+    if (!createForm.maHoaDon || !createForm.hopDong || !createForm.phong || !createForm.khachThue) {
+      toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+    setCreating(true);
+    try {
+      const response = await fetch('/api/hoa-don', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(createForm),
+      });
+      if (response.ok) {
+        const result = await response.json();
+        toast.success('Tạo hóa đơn thành công');
+        setShowCreateForm(false);
+        cache.clearCache();
+        fetchData(true);
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Có lỗi xảy ra');
+      }
+    } catch (error) {
+      console.error('Error creating hoa don:', error);
+      toast.error('Có lỗi xảy ra khi tạo hóa đơn');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // --- Inline Edit ---
+  const handleEditHoaDon = useCallback((item: InlineEditHoaDon) => {
+    setEditForm({ ...item });
+    setExpandedId(item.id);
+  }, []);
+
+  const handleSaveEdit = async () => {
+    if (!editForm) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/hoa-don`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      if (response.ok) {
+        const result = await response.json();
+        toast.success('Cập nhật hóa đơn thành công');
+        setExpandedId(null);
+        setEditForm(null);
+        cache.clearCache();
+        fetchData(true);
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Có lỗi xảy ra');
+      }
+    } catch (error) {
+      console.error('Error updating hoa don:', error);
+      toast.error('Có lỗi xảy ra khi cập nhật hóa đơn');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (item: InlineEditHoaDon) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa hóa đơn ${item.maHoaDon}?`)) return;
+    try {
+      const response = await fetch(`/api/hoa-don?id=${item.id}`, { method: 'DELETE' });
+      if (response.ok) {
+        toast.success('Xóa hóa đơn thành công');
+        cache.clearCache();
+        setHoaDonList(prev => prev.filter(hd => hd.id !== item.id));
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Có lỗi xảy ra');
+      }
+    } catch (error) {
+      console.error('Error deleting hoa don:', error);
+      toast.error('Có lỗi xảy ra khi xóa hóa đơn');
+    }
+  };
+
+  // --- Table Data ---
+  const tableData = useMemo((): InlineEditHoaDon[] => {
+    return filteredHoaDon.map(hd => ({
+      id: hd.id || hd._id || '',
+      maHoaDon: hd.maHoaDon,
+      phong: hd.phong,
+      khachThue: hd.khachThue,
+      thang: hd.thang,
+      nam: hd.nam,
+      tongTien: hd.tongTien,
+      daThanhToan: hd.daThanhToan,
+      conLai: hd.conLai,
+      trangThai: hd.trangThai,
+      hanThanhToan: hd.hanThanhToan,
+      hopDong: hd.hopDong,
+      tienPhong: hd.tienPhong,
+      tienDien: hd.tienDien,
+      soDien: hd.soDien,
+      chiSoDienBanDau: hd.chiSoDienBanDau,
+      chiSoDienCuoiKy: hd.chiSoDienCuoiKy,
+      tienNuoc: hd.tienNuoc,
+      soNuoc: hd.soNuoc,
+      chiSoNuocBanDau: hd.chiSoNuocBanDau,
+      chiSoNuocCuoiKy: hd.chiSoNuocCuoiKy,
+      phiDichVu: hd.phiDichVu,
+      ghiChu: hd.ghiChu,
+      ngayTao: hd.ngayTao,
+      ngayCapNhat: hd.ngayCapNhat,
+    }));
+  }, [filteredHoaDon]);
+
+  const columns: ColumnDef<InlineEditHoaDon>[] = useMemo(() => [
+    {
+      key: 'maHoaDon',
+      header: 'Mã hóa đơn',
+      sortable: true,
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-indigo-400 shrink-0" />
+          <div>
+            <span className="font-medium text-gray-900">{item.maHoaDon}</span>
+            <div className="text-xs text-gray-500">
+              {getPhongName(item.phong, phongList)} - Tháng {item.thang}/{item.nam}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'trangThai',
+      header: 'Trạng thái',
+      sortable: true,
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          {getStatusBadge(item.trangThai)}
+          {new Date(item.hanThanhToan) < new Date() && item.trangThai !== 'daThanhToan' && item.trangThai !== 'daHuy' && (
+            <Badge variant="outline" className="text-xs text-orange-600 border-orange-600">Quá hạn</Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'khachThue',
+      header: 'Khách thuê',
+      sortable: true,
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-indigo-400 shrink-0" />
+          <span>{getKhachThueName(item.khachThue, khachThueList)}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'tongTien',
+      header: 'Tổng tiền',
+      sortable: true,
+      className: 'text-right',
+      render: (item) => (
+        <div className="text-right">
+          <div className="font-medium text-gray-900">{formatCurrency(item.tongTien)}</div>
+          <div className="text-xs text-gray-500">
+            Đã thanh toán: <span className="text-green-600">{formatCurrency(item.daThanhToan)}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'conLai',
+      header: 'Còn lại',
+      sortable: true,
+      className: 'text-right',
+      render: (item) => (
+        <div className="text-right">
+          <span className={item.conLai > 0 ? 'font-semibold text-red-600' : 'font-medium text-green-600'}>
+            {formatCurrency(item.conLai)}
+          </span>
+        </div>
+      ),
+    },
+  ], [phongList, khachThueList]);
+
+  const renderExpanded = useCallback((item: InlineEditHoaDon) => {
+    if (!editForm || editForm.id !== item.id) return null;
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Mã hóa đơn</Label>
+            <Input
+              value={editForm.maHoaDon}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, maHoaDon: e.target.value } : null)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Trạng thái</Label>
+            <Select
+              value={editForm.trangThai}
+              onValueChange={(value) => setEditForm(prev => prev ? { ...prev, trangThai: value } : null)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="chuaThanhToan">Chưa thanh toán</SelectItem>
+                <SelectItem value="daThanhToanMotPhan">Thanh toán một phần</SelectItem>
+                <SelectItem value="daThanhToan">Đã thanh toán</SelectItem>
+                <SelectItem value="quaHan">Quá hạn</SelectItem>
+                <SelectItem value="daHuy">Đã hủy</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Tiền phòng</Label>
+            <Input
+              type="number"
+              value={editForm.tienPhong}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, tienPhong: Number(e.target.value) } : null)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Tiền điện</Label>
+            <Input
+              type="number"
+              value={editForm.tienDien}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, tienDien: Number(e.target.value) } : null)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Tiền nước</Label>
+            <Input
+              type="number"
+              value={editForm.tienNuoc}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, tienNuoc: Number(e.target.value) } : null)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Số điện (kWh)</Label>
+            <Input
+              type="number"
+              value={editForm.soDien}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, soDien: Number(e.target.value) } : null)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Số nước (m³)</Label>
+            <Input
+              type="number"
+              value={editForm.soNuoc}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, soNuoc: Number(e.target.value) } : null)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Hạn thanh toán</Label>
+            <Input
+              type="date"
+              value={new Date(editForm.hanThanhToan).toISOString().split('T')[0]}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, hanThanhToan: new Date(e.target.value) } : null)}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-gray-700">Ghi chú</Label>
+          <Textarea
+            value={editForm.ghiChu || ''}
+            onChange={(e) => setEditForm(prev => prev ? { ...prev, ghiChu: e.target.value } : null)}
+            rows={2}
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button size="sm" variant="outline" onClick={() => { setExpandedId(null); setEditForm(null); }}>
+            Hủy
+          </Button>
+          <Button size="sm" onClick={handleSaveEdit} disabled={saving} className="text-sm">
+            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+          </Button>
+        </div>
+      </div>
+    );
+  }, [editForm, saving, handleSaveEdit]);
+
+  // Stats cards
+  const statsCards = useMemo(() => {
+    const total = hoaDonList.length;
+    const unpaid = hoaDonList.filter(h => h.trangThai === 'chuaThanhToan').length;
+    const overdue = hoaDonList.filter(h => new Date(h.hanThanhToan) < new Date() && h.trangThai !== 'daThanhToan' && h.trangThai !== 'daHuy').length;
+    const revenue = hoaDonList.reduce((sum, h) => sum + h.daThanhToan, 0);
+    return { total, unpaid, overdue, revenue };
+  }, [hoaDonList]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -557,10 +940,12 @@ ${footer}`;
         descriptionClassName="text-lg rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-1.5"
         onRefresh={handleRefresh}
         loading={cache.isRefreshing}
-        onAdd={canEdit ? () => router.push('/dashboard/hoa-don/them-moi') : undefined}
+        onAdd={canEdit ? () => {
+          resetCreateForm();
+          setShowCreateForm(true);
+        } : undefined}
         addLabel="Tạo hóa đơn"
       />
-
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
@@ -568,7 +953,7 @@ ${footer}`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] md:text-xs font-medium text-indigo-600">Tổng hóa đơn</p>
-              <p className="text-base md:text-2xl font-bold text-indigo-900">{hoaDonList.length}</p>
+              <p className="text-base md:text-2xl font-bold text-indigo-900">{statsCards.total}</p>
             </div>
             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
               <Receipt className="h-4 w-4 text-white" />
@@ -580,9 +965,7 @@ ${footer}`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] md:text-xs font-medium text-indigo-600">Chưa thanh toán</p>
-              <p className="text-base md:text-2xl font-bold text-red-600">
-                {hoaDonList.filter(h => h.trangThai === 'chuaThanhToan').length}
-              </p>
+              <p className="text-base md:text-2xl font-bold text-red-600">{statsCards.unpaid}</p>
             </div>
             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
               <Receipt className="h-4 w-4 text-white" />
@@ -594,9 +977,7 @@ ${footer}`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] md:text-xs font-medium text-indigo-600">Quá hạn</p>
-              <p className="text-base md:text-2xl font-bold text-orange-600">
-                {hoaDonList.filter(h => new Date(h.hanThanhToan) < new Date()).length}
-              </p>
+              <p className="text-base md:text-2xl font-bold text-orange-600">{statsCards.overdue}</p>
             </div>
             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
               <AlertCircle className="h-4 w-4 text-white" />
@@ -609,7 +990,7 @@ ${footer}`;
             <div className="min-w-0">
               <p className="text-[10px] md:text-xs font-medium text-indigo-600">Doanh thu</p>
               <p className="text-xs md:text-2xl font-bold text-green-600 truncate">
-                {formatCurrency(hoaDonList.reduce((sum, h) => sum + h.daThanhToan, 0))}
+                {formatCurrency(statsCards.revenue)}
               </p>
             </div>
             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
@@ -619,213 +1000,310 @@ ${footer}`;
         </div>
       </div>
 
-      {/* Desktop Table */}
-      <div className="hidden md:block rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-        <div className="flex items-center justify-between p-4 md:p-6 border-b border-indigo-100">
-          <div>
-            <h3 className="text-base md:text-lg font-semibold text-indigo-900">Danh sách hóa đơn</h3>
-            <p className="text-xs md:text-sm text-indigo-500/70">
-              {filteredHoaDon.length} hóa đơn được tìm thấy
-            </p>
-          </div>
-        </div>
-        <div className="p-4 md:p-6">
-          <HoaDonDataTable
-            data={filteredHoaDon}
-            phongList={phongList}
-            khachThueList={khachThueList}
-            onView={handleView}
-            onDownload={handleDownload}
-            onScreenshot={handleScreenshot}
-            onShare={handleCopyLink}
-            onSend={handleSend}
-            onEdit={handleEdit}
-            onCancel={handleCancelInvoiceClick}
-            onDeleteMultiple={handleDeleteMultiple}
-            onPayment={handlePayment}
-            canEdit={canEdit}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            monthFilter={monthFilter}
-            onMonthChange={setMonthFilter}
-            yearFilter={yearFilter}
-            onYearChange={setYearFilter}
-            getMonthOptions={getMonthOptions}
-            getYearOptions={getYearOptions}
-          />
-        </div>
-      </div>
-
-      {/* Mobile Cards */}
-      <div className="md:hidden">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Danh sách hóa đơn</h2>
-          <span className="text-sm text-gray-500">{filteredHoaDon.length} hóa đơn</span>
-        </div>
-        
-        {/* Mobile Filters */}
-        <div className="space-y-2 mb-4">
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
           <SearchInput
             placeholder="Tìm kiếm hóa đơn..."
             value={searchTerm}
             onChange={setSearchTerm}
           />
-          <div className="grid grid-cols-3 gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-sm">Tất cả</SelectItem>
-                <SelectItem value="chuaThanhToan" className="text-sm">Chưa thanh toán</SelectItem>
-                <SelectItem value="daThanhToan" className="text-sm">Đã thanh toán</SelectItem>
-                <SelectItem value="thanhToanMotPhan" className="text-sm">Thanh toán 1 phần</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={monthFilter} onValueChange={setMonthFilter}>
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Tháng" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-sm">Tất cả</SelectItem>
-                {getMonthOptions().map(month => (
-                  <SelectItem key={month} value={month.toString()} className="text-sm">
-                    Tháng {month}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={yearFilter} onValueChange={setYearFilter}>
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Năm" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-sm">Tất cả</SelectItem>
-                {getYearOptions().map(year => (
-                  <SelectItem key={year} value={year.toString()} className="text-sm">
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
-
-        {/* Mobile Card List */}
-        <div className="space-y-3">
-          {filteredHoaDon.map((hoaDon) => {
-            const isOverdue = new Date(hoaDon.hanThanhToan) < new Date() && hoaDon.trangThai !== 'daThanhToan';
-            
-            return (
-              <div key={hoaDon.id} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
-                <div className="space-y-3">
-                  {/* Header with invoice code and status */}
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-indigo-900">{hoaDon.maHoaDon}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Home className="h-3 w-3 text-indigo-400" />
-                        <span className="text-sm text-indigo-600">{getPhongName(hoaDon.phong, phongList)}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1 items-end">
-                      {getStatusBadge(hoaDon.trangThai)}
-                      {isOverdue && (
-                        <Badge variant="outline" className="text-xs text-orange-600 border-orange-600">
-                          Quá hạn
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Customer and period info */}
-                  <div className="space-y-1 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-3 w-3 text-indigo-400" />
-                      <span className="text-indigo-600">{getKhachThueName(hoaDon.khachThue, khachThueList)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-indigo-500">
-                      <Calendar className="h-3 w-3" />
-                      <span>Tháng {hoaDon.thang}/{hoaDon.nam}</span>
-                      <span className="mx-1">•</span>
-                      <span>Hạn: {new Date(hoaDon.hanThanhToan).toLocaleDateString('vi-VN')}</span>
-                    </div>
-                  </div>
-
-                  {/* Amount info */}
-                  <div className="border-t border-indigo-100 pt-2">
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-indigo-500">Tổng tiền:</span>
-                        <p className="font-semibold text-indigo-900">{formatCurrency(hoaDon.tongTien)}</p>
-                      </div>
-                      <div>
-                        <span className="text-indigo-500">Đã thanh toán:</span>
-                        <p className="font-semibold text-green-600">{formatCurrency(hoaDon.daThanhToan)}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-indigo-500">Còn lại:</span>
-                        <p className="font-semibold text-red-600">{formatCurrency(hoaDon.conLai)}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-indigo-100">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleView(hoaDon)}
-                      className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                    >
-                      <FileText className="h-3.5 w-3.5 mr-1" />
-                      Xem
-                    </Button>
-                    {hoaDon.conLai > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePayment(hoaDon)}
-                        className="flex-1 border-indigo-200 text-green-600 hover:bg-green-50"
-                      >
-                        <CreditCard className="h-3.5 w-3.5 mr-1" />
-                        Thanh toán
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCopyLink(hoaDon)}
-                      className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                    >
-                      <Copy className="h-3.5 w-3.5 mr-1" />
-                      Link
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSend(hoaDon)}
-                      className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                    >
-                      <Send className="h-3.5 w-3.5 mr-1" />
-                      Gửi
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {filteredHoaDon.length === 0 && (
-          <div className="text-center py-8">
-            <Receipt className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Không có hóa đơn nào</p>
-          </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectValue placeholder="Trạng thái" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="chuaThanhToan">Chưa thanh toán</SelectItem>
+            <SelectItem value="daThanhToan">Đã thanh toán</SelectItem>
+            <SelectItem value="daThanhToanMotPhan">Thanh toán 1 phần</SelectItem>
+            <SelectItem value="quaHan">Quá hạn</SelectItem>
+            <SelectItem value="daHuy">Đã hủy</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={monthFilter} onValueChange={setMonthFilter}>
+          <SelectTrigger className="w-full sm:w-[130px]">
+            <SelectValue placeholder="Tháng" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            {getMonthOptions().map(month => (
+              <SelectItem key={month} value={month.toString()}>Tháng {month}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={yearFilter} onValueChange={setYearFilter}>
+          <SelectTrigger className="w-full sm:w-[130px]">
+            <SelectValue placeholder="Năm" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            {getYearOptions().map(year => (
+              <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {canEdit && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAutoCreateInvoices}
+            disabled={isAutoCreating}
+            className="whitespace-nowrap border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+          >
+            <Zap className="h-4 w-4 mr-1.5" />
+            {isAutoCreating ? 'Đang tạo...' : 'Tạo tự động'}
+          </Button>
         )}
       </div>
+
+      {/* Inline Create Form */}
+      {showCreateForm && (
+        <InlineForm
+          title="Tạo hóa đơn mới"
+          description="Nhập thông tin hóa đơn"
+          onSave={handleCreateHoaDon}
+          onCancel={() => setShowCreateForm(false)}
+          saving={creating}
+          saveLabel="Tạo hóa đơn"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Mã hóa đơn</Label>
+              <Input
+                value={createForm.maHoaDon}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, maHoaDon: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Hợp đồng</Label>
+              <Select
+                value={createForm.hopDong}
+                onValueChange={(value) => {
+                  const hd = hopDongList.find(h => h.id === value);
+                  setCreateForm(prev => ({
+                    ...prev,
+                    hopDong: value,
+                    phong: typeof hd?.phong === 'string' ? hd?.phong : (hd?.phong as any)?._id || (hd?.phong as any)?.id || '',
+                    khachThue: hd?.khachThueIds?.[0] || '',
+                  }));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn hợp đồng" />
+                </SelectTrigger>
+                <SelectContent>
+                  {hopDongList.filter(h => h.trangThai === 'hoatDong').map(hd => (
+                    <SelectItem key={hd.id} value={hd.id!}>
+                      {hd.maHopDong}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Tháng</Label>
+              <Select
+                value={createForm.thang.toString()}
+                onValueChange={(value) => setCreateForm(prev => ({ ...prev, thang: parseInt(value) }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getMonthOptions().map(m => (
+                    <SelectItem key={m} value={m.toString()}>Tháng {m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Năm</Label>
+              <Select
+                value={createForm.nam.toString()}
+                onValueChange={(value) => setCreateForm(prev => ({ ...prev, nam: parseInt(value) }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getYearOptions().map(y => (
+                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Trạng thái</Label>
+              <Select
+                value={createForm.trangThai}
+                onValueChange={(value) => setCreateForm(prev => ({ ...prev, trangThai: value as any }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="chuaThanhToan">Chưa thanh toán</SelectItem>
+                  <SelectItem value="daThanhToanMotPhan">Thanh toán một phần</SelectItem>
+                  <SelectItem value="daThanhToan">Đã thanh toán</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Tiền phòng</Label>
+              <Input
+                type="number"
+                value={createForm.tienPhong}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, tienPhong: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Tiền điện</Label>
+              <Input
+                type="number"
+                value={createForm.tienDien}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, tienDien: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Tiền nước</Label>
+              <Input
+                type="number"
+                value={createForm.tienNuoc}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, tienNuoc: Number(e.target.value) }))}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Số điện (kWh)</Label>
+              <Input
+                type="number"
+                value={createForm.soDien}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, soDien: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Số nước (m³)</Label>
+              <Input
+                type="number"
+                value={createForm.soNuoc}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, soNuoc: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Hạn thanh toán</Label>
+              <Input
+                type="date"
+                value={createForm.hanThanhToan}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, hanThanhToan: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-gray-700">Ghi chú</Label>
+            <Textarea
+              value={createForm.ghiChu}
+              onChange={(e) => setCreateForm(prev => ({ ...prev, ghiChu: e.target.value }))}
+              rows={2}
+            />
+          </div>
+        </InlineForm>
+      )}
+
+      {/* InlineEditTable */}
+      <InlineEditTable
+        data={tableData}
+        columns={columns}
+        keyExtractor={(item) => item.id}
+        onEdit={canEdit ? handleEditHoaDon : undefined}
+        onDelete={canEdit ? (item) => handleDelete(item) : undefined}
+        renderExpanded={renderExpanded}
+        expandedId={expandedId}
+        onToggleExpand={(id) => {
+          if (id === null) {
+            setExpandedId(null);
+            setEditForm(null);
+          } else {
+            const item = tableData.find(d => d.id === id);
+            if (item) {
+              setEditForm({ ...item });
+              setExpandedId(id);
+            }
+          }
+        }}
+        renderActions={(item) => (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+              onClick={() => handleView(hoaDonList.find(h => (h.id || h._id) === item.id)!)}
+              title="Xem chi tiết"
+            >
+              <FileText className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
+              onClick={() => handleDownload(hoaDonList.find(h => (h.id || h._id) === item.id)!)}
+              title="Tải PDF"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+            {item.conLai > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                onClick={() => handlePayment(hoaDonList.find(h => (h.id || h._id) === item.id)!)}
+                title="Thanh toán"
+              >
+                <CreditCard className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
+              onClick={() => handleSend(hoaDonList.find(h => (h.id || h._id) === item.id)!)}
+              title="Gửi Zalo"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+              onClick={() => handleCopyLink(hoaDonList.find(h => (h.id || h._id) === item.id)!)}
+              title="Sao chép link"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            {item.trangThai !== 'daHuy' && item.trangThai !== 'daThanhToan' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                onClick={() => handleCancelInvoiceClick(hoaDonList.find(h => (h.id || h._id) === item.id)!)}
+                title="Hủy hóa đơn"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
+      />
 
       {/* View Invoice Detail */}
       {isViewDialogOpen && viewingHoaDon && (
@@ -866,7 +1344,7 @@ ${footer}`;
               </div>
             </div>
 
-            {/* Chỉ số điện nước */}
+            {/* Chi so dien nuoc */}
             <div>
               <h3 className="text-sm md:text-base font-semibold text-indigo-900 mb-3">Chỉ số điện nước</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4">
@@ -950,7 +1428,7 @@ ${footer}`;
               </div>
             </div>
 
-            {/* QR Thanh toán */}
+            {/* QR Thanh toan */}
             {viewingHoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang && (
               <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 md:p-4 shadow-sm">
                 <h3 className="text-sm md:text-base font-semibold mb-3 text-indigo-900 flex items-center gap-2">
@@ -988,531 +1466,343 @@ ${footer}`;
               <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
                 <h3 className="text-sm md:text-base font-semibold text-indigo-900 mb-2">Ghi chú</h3>
                 <p className="text-xs md:text-sm text-indigo-700">{viewingHoaDon.ghiChu}</p>
-              </div>
-            )}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
 
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-2 pt-3 md:pt-4 border-t border-indigo-100">
-              <Button variant="outline" size="sm" onClick={() => setIsViewDialogOpen(false)} className="w-full sm:w-auto border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-                Đóng
+      {/* Send Dialog */}
+      {isSendDialogOpen && sendingHoaDon && (
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="flex items-center justify-between p-4 md:p-6 border-b border-indigo-100">
+            <div>
+              <h3 className="text-base md:text-lg font-semibold text-indigo-900">Gửi hóa đơn</h3>
+              <p className="text-xs md:text-sm text-indigo-500/70">
+                Gửi thông báo hóa đơn {sendingHoaDon.maHoaDon} đến khách thuê
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setIsSendDialogOpen(false)} className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50">
+              <CloseIcon className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="p-4 md:p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                className="h-auto py-4 px-4 flex flex-col items-center gap-2 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300"
+                onClick={async () => {
+                  if (!sendingHoaDon) return;
+                  setIsSendingZalo(true);
+                  try {
+                    const { phone, zaloChatId } = getKhachThueContact(sendingHoaDon);
+                    const message = generateBillingMessage(sendingHoaDon, sendBankInfo);
+                    const res = await fetch('/api/zalo/send', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        phone,
+                        zaloChatId,
+                        message,
+                        hoaDonId: sendingHoaDon.id,
+                      }),
+                    });
+                    if (res.ok) {
+                      toast.success('Đã gửi Zalo thành công!');
+                      setIsSendDialogOpen(false);
+                    } else {
+                      const err = await res.json();
+                      toast.error(err.message || 'Gửi Zalo thất bại');
+                    }
+                  } catch (error) {
+                    toast.error('Lỗi khi gửi Zalo');
+                  } finally {
+                    setIsSendingZalo(false);
+                  }
+                }}
+                disabled={isSendingZalo}
+              >
+                <MessageSquare className="h-6 w-6 text-blue-500" />
+                <span className="text-sm font-medium text-indigo-900">Gửi Zalo</span>
+                <span className="text-xs text-indigo-500">Gửi qua Zalo OA</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => handleCopyLink(viewingHoaDon)} className="w-full sm:w-auto border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-                <Copy className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                Copy link
+
+              <Button
+                variant="outline"
+                className="h-auto py-4 px-4 flex flex-col items-center gap-2 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300"
+                onClick={async () => {
+                  if (!sendingHoaDon) return;
+                  setIsSendingZaloPdf(true);
+                  try {
+                    const { phone, zaloChatId } = getKhachThueContact(sendingHoaDon);
+                    const res = await fetch('/api/zalo/send-pdf', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        phone,
+                        zaloChatId,
+                        hoaDonId: sendingHoaDon.id,
+                      }),
+                    });
+                    if (res.ok) {
+                      toast.success('Đã gửi PDF qua Zalo thành công!');
+                      setIsSendDialogOpen(false);
+                    } else {
+                      const err = await res.json();
+                      toast.error(err.message || 'Gửi PDF thất bại');
+                    }
+                  } catch (error) {
+                    toast.error('Lỗi khi gửi PDF');
+                  } finally {
+                    setIsSendingZaloPdf(false);
+                  }
+                }}
+                disabled={isSendingZaloPdf}
+              >
+                <FileText className="h-6 w-6 text-orange-500" />
+                <span className="text-sm font-medium text-indigo-900">Gửi PDF</span>
+                <span className="text-xs text-indigo-500">Gửi file PDF qua Zalo</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => handleDownload(viewingHoaDon)} className="w-full sm:w-auto border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-                <Download className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                Tải HTML
+
+              <Button
+                variant="outline"
+                className="h-auto py-4 px-4 flex flex-col items-center gap-2 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300"
+                onClick={() => {
+                  if (!sendingHoaDon) return;
+                  const { phone } = getKhachThueContact(sendingHoaDon);
+                  if (phone) {
+                    window.open(`tel:${phone}`, '_blank');
+                  } else {
+                    toast.error('Không tìm thấy số điện thoại khách thuê');
+                  }
+                }}
+              >
+                <Phone className="h-6 w-6 text-green-500" />
+                <span className="text-sm font-medium text-indigo-900">Gọi điện</span>
+                <span className="text-xs text-indigo-500">Gọi trực tiếp cho khách</span>
               </Button>
-              <Button size="sm" onClick={() => handleScreenshot(viewingHoaDon)} className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
-                <Camera className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                Xuất PDF
+
+              <Button
+                variant="outline"
+                className="h-auto py-4 px-4 flex flex-col items-center gap-2 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300"
+                onClick={() => {
+                  if (!sendingHoaDon) return;
+                  const message = generateBillingMessage(sendingHoaDon, sendBankInfo);
+                  navigator.clipboard.writeText(message).then(() => {
+                    toast.success('Đã sao chép nội dung tin nhắn!');
+                  }).catch(() => {
+                    toast.error('Không thể sao chép');
+                  });
+                }}
+              >
+                <Copy className="h-6 w-6 text-gray-500" />
+                <span className="text-sm font-medium text-indigo-900">Sao chép</span>
+                <span className="text-xs text-indigo-500">Sao chép nội dung thông báo</span>
               </Button>
+            </div>
+
+            {/* Preview message */}
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+              <h4 className="text-sm font-semibold text-indigo-900 mb-2">Nội dung thông báo</h4>
+              <pre className="text-xs text-indigo-700 whitespace-pre-wrap font-sans">
+                {generateBillingMessage(sendingHoaDon, sendBankInfo)}
+              </pre>
             </div>
           </div>
         </div>
       )}
 
-      {/* Send Notification - Inline Card */}
-      {isSendDialogOpen && sendingHoaDon && (() => {
-        const { phone, zaloChatId } = getKhachThueContact(sendingHoaDon);
-        const canZalo = !!(phone || zaloChatId);
-        const message = generateBillingMessage(sendingHoaDon, sendBankInfo);
-        const encodedMessage = encodeURIComponent(message);
-
-        const buildZaloBody = (extra?: Record<string, string>) => ({
-          ...(zaloChatId ? { chatId: zaloChatId } : { phone }),
-          message,
-          ...extra,
-        });
-
-        const handleSendViaZaloBot = async () => {
-          if (!canZalo) {
-            toast.error('Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo');
-            return;
-          }
-          setIsSendingZalo(true);
-          try {
-            const res = await fetch('/api/gui-zalo', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(buildZaloBody()),
-            });
-            const data = await res.json();
-            if (data.success) {
-              toast.success('Đã gửi tin nhắn Zalo thành công!');
-              setIsSendDialogOpen(false);
-            } else {
-              toast.error(data.message || data.error || 'Gửi Zalo thất bại');
-            }
-          } catch {
-            toast.error('Không kết nối được Zalo Bot server');
-          } finally {
-            setIsSendingZalo(false);
-          }
-        };
-
-        const handleSendWithPdf = async () => {
-          if (!canZalo) {
-            toast.error('Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo');
-            return;
-          }
-          setIsSendingZaloPdf(true);
-          try {
-            const r1 = await fetch('/api/gui-zalo', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(buildZaloBody()),
-            });
-            const d1 = await r1.json();
-            if (!d1.success) {
-              toast.error(d1.message || d1.error || 'Gửi tin nhắn thất bại');
-              return;
-            }
-            const r2 = await fetch(`/api/hoa-don/${sendingHoaDon.id}/send-zalo-pdf`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ...(zaloChatId ? { chatId: zaloChatId } : { phone }),
-                message: `Hóa đơn tháng ${sendingHoaDon.thang}/${sendingHoaDon.nam} - ${sendingHoaDon.maHoaDon}`,
-              }),
-            });
-            const d2 = await r2.json();
-            if (d2.success) {
-              toast.success('Đã gửi tin nhắn + PDF Zalo thành công!');
-              setIsSendDialogOpen(false);
-            } else {
-              toast.warning('Tin nhắn đã gửi nhưng PDF thất bại: ' + (d2.message || d2.error || ''));
-            }
-          } catch {
-            toast.error('Không kết nối được Zalo Bot server');
-          } finally {
-            setIsSendingZaloPdf(false);
-          }
-        };
-
-        return (
-          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-            <div className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-base font-semibold text-indigo-900">Gửi thông báo tiền phòng</h3>
-                  <p className="text-xs md:text-sm text-indigo-500/70">
-                    Gửi thông tin hóa đơn tháng {sendingHoaDon.thang}/{sendingHoaDon.nam} cho khách thuê
-                  </p>
-                </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-indigo-600 hover:bg-indigo-50" onClick={() => setIsSendDialogOpen(false)}>
-                  <CloseIcon className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Preview message */}
-                <div>
-                  <label className="text-xs font-medium text-indigo-700 mb-1 block">Nội dung tin nhắn</label>
-                  <pre className="text-xs bg-white/80 border border-indigo-100 rounded-xl p-3 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto text-indigo-700">
-                    {message}
-                  </pre>
-                </div>
-
-                {canZalo ? (
-                  <div className="text-sm text-indigo-600 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
-                    Gửi đến:{' '}
-                    <span className="font-semibold text-indigo-900">
-                      {phone || `Chat ID: ${zaloChatId}`}
-                    </span>
-                    {zaloChatId && <span className="ml-1 text-xs text-green-600">(đã liên kết Zalo)</span>}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border-2 border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-800 backdrop-blur-sm">
-                    Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo Chat ID
-                  </div>
-                )}
-
-                {/* Zalo Bot auto send */}
-                <Button
-                  className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
-                  disabled={!canZalo || isSendingZalo || isSendingZaloPdf}
-                  onClick={handleSendViaZaloBot}
-                >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  {isSendingZalo ? 'Đang gửi...' : 'Gửi Zalo tự động (Zalo Bot)'}
-                </Button>
-
-                {/* Gửi kèm PDF */}
-                <Button
-                  variant="outline"
-                  className="w-full border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                  disabled={!canZalo || isSendingZalo || isSendingZaloPdf}
-                  onClick={handleSendWithPdf}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  {isSendingZaloPdf ? 'Đang gửi...' : 'Gửi Zalo kèm PDF hóa đơn'}
-                </Button>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-indigo-100" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-gradient-to-br from-indigo-50/80 to-blue-50/80 px-2 text-indigo-400">hoặc thủ công</span>
-                  </div>
-                </div>
-
-                {/* Manual fallback buttons */}
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      navigator.clipboard.writeText(message).then(() => {
-                        toast.success('Đã sao chép tin nhắn');
-                      });
-                    }}
-                    className="w-full text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1" />
-                    Copy
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    disabled={!phone}
-                    onClick={() => {
-                      window.location.href = `sms:${phone}?body=${encodedMessage}`;
-                    }}
-                    className="w-full text-xs border-indigo-200 text-green-600 hover:bg-green-50"
-                  >
-                    <Send className="h-3.5 w-3.5 mr-1" />
-                    SMS
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    disabled={!phone}
-                    onClick={() => {
-                      window.location.href = `tel:${phone}`;
-                    }}
-                    className="w-full text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                  >
-                    <Phone className="h-3.5 w-3.5 mr-1" />
-                    Gọi
-                  </Button>
-                </div>
-
-                <div className="flex justify-end pt-2 border-t border-indigo-100">
-                  <Button variant="outline" size="sm" onClick={() => setIsSendDialogOpen(false)} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-                    Đóng
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Payment - Inline Card */}
+      {/* Payment Form */}
       {isPaymentDialogOpen && paymentHoaDon && (
         <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-          <div className="p-4 md:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-semibold text-indigo-900">Xác nhận thanh toán</h3>
-                <p className="text-xs md:text-sm text-indigo-500/70">
-                  Tạo thanh toán cho hóa đơn {paymentHoaDon.maHoaDon}
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-indigo-600 hover:bg-indigo-50" onClick={() => setIsPaymentDialogOpen(false)}>
-                <CloseIcon className="h-4 w-4" />
-              </Button>
+          <div className="flex items-center justify-between p-4 md:p-6 border-b border-indigo-100">
+            <div>
+              <h3 className="text-base md:text-lg font-semibold text-indigo-900">Thanh toán hóa đơn</h3>
+              <p className="text-xs md:text-sm text-indigo-500/70">
+                Thanh toán cho hóa đơn {paymentHoaDon.maHoaDon}
+              </p>
             </div>
+            <Button variant="ghost" size="sm" onClick={() => setIsPaymentDialogOpen(false)} className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50">
+              <CloseIcon className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="p-4 md:p-6">
             <PaymentForm
               hoaDon={paymentHoaDon}
-              onClose={() => setIsPaymentDialogOpen(false)}
-              onSuccess={(updatedHoaDon) => {
+              onSuccess={() => {
                 setIsPaymentDialogOpen(false);
-                if (updatedHoaDon) {
-                  setHoaDonList(prev => prev.map(hd =>
-                    hd.id === updatedHoaDon.id ? updatedHoaDon : hd
-                  ));
-                  cache.clearCache();
-                }
+                setPaymentHoaDon(null);
+                cache.clearCache();
+                fetchData(true);
               }}
+              onCancel={() => setIsPaymentDialogOpen(false)}
             />
           </div>
         </div>
       )}
 
-      {/* Cancel Invoice - Inline Card */}
-      {isCancelDialogOpen && (
-        <div className="rounded-xl border-0 bg-gradient-to-br from-red-50/80 to-orange-50/80 shadow-lg shadow-red-100/50">
-          <div className="p-4 md:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-semibold text-red-800">Hủy hóa đơn</h3>
-                <p className="text-sm text-red-600/70">
-                  Bạn đang thực hiện hủy hóa đơn <span className="font-semibold">{cancelHoaDon?.maHoaDon}</span>. Hành động này không thể hoàn tác.
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-red-600 hover:bg-red-50" onClick={() => setIsCancelDialogOpen(false)}>
-                <CloseIcon className="h-4 w-4" />
-              </Button>
+      {/* Cancel Dialog */}
+      {isCancelDialogOpen && cancelHoaDon && (
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="flex items-center justify-between p-4 md:p-6 border-b border-indigo-100">
+            <div>
+              <h3 className="text-base md:text-lg font-semibold text-red-600">Hủy hóa đơn</h3>
+              <p className="text-xs md:text-sm text-indigo-500/70">
+                Xác nhận hủy hóa đơn {cancelHoaDon.maHoaDon}
+              </p>
             </div>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="cancelReason" className="text-sm text-red-800">Lý do hủy (bắt buộc) <span className="text-red-500">*</span></Label>
-                <Textarea
-                  id="cancelReason"
-                  placeholder="Nhập lý do hủy hóa đơn..."
-                  value={cancelReason}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCancelReason(e.target.value)}
-                  rows={3}
-                  required
-                  className="border-red-200 focus:border-red-400"
-                />
-              </div>
-              <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs text-amber-800 backdrop-blur-sm">
-                Lưu ý: Tổng tiền còn lại sẽ được đưa về 0. Khách thuê sẽ nhận được thông báo Zalo hóa đơn đã bị hủy (nếu đã cấu hình).
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2 border-t border-red-100">
-                <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)} disabled={isCanceling} className="w-full sm:w-auto border-red-200 text-red-600 hover:bg-red-50">
-                  Đóng
-                </Button>
-                <Button variant="destructive" onClick={handleConfirmCancel} disabled={!cancelReason.trim() || isCanceling} className="w-full sm:w-auto">
-                  {isCanceling ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                  Xác nhận hủy hóa đơn
-                </Button>
-              </div>
+            <Button variant="ghost" size="sm" onClick={() => setIsCancelDialogOpen(false)} className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50">
+              <CloseIcon className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="p-4 md:p-6 space-y-4">
+            <div className="rounded-xl border-2 border-red-100 bg-red-50/60 backdrop-blur-sm p-3 shadow-sm">
+              <p className="text-sm text-red-700">
+                Bạn có chắc chắn muốn hủy hóa đơn <strong>{cancelHoaDon.maHoaDon}</strong>?
+                Hành động này không thể hoàn tác.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">Lý do hủy</Label>
+              <Textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Nhập lý do hủy hóa đơn..."
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)}>
+                Không hủy
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmCancel}
+                disabled={isCanceling || !cancelReason.trim()}
+              >
+                {isCanceling ? 'Đang hủy...' : 'Xác nhận hủy'}
+              </Button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }
 
-// Payment Form Component
-function PaymentForm({ 
-  hoaDon, 
-  onClose, 
-  onSuccess 
-}: { 
+// ===== PaymentForm Component =====
+interface PaymentFormProps {
   hoaDon: HoaDon;
-  onClose: () => void;
-  onSuccess: (updatedHoaDon?: HoaDon) => void;
-}) {
-  const [formData, setFormData] = useState({
-    soTien: hoaDon.conLai, // Mặc định thanh toán toàn bộ số tiền còn lại
-    phuongThuc: 'tienMat' as 'tienMat' | 'chuyenKhoan' | 'viDienTu',
-    nganHang: '',
-    soGiaoDich: '',
-    ngayThanhToan: new Date().toISOString().split('T')[0],
-    ghiChu: '',
-    anhBienLai: '',
-  });
+  onSuccess: () => void;
+  onCancel: () => void;
+}
+
+function PaymentForm({ hoaDon, onSuccess, onCancel }: PaymentFormProps) {
+  const [soTien, setSoTien] = useState(hoaDon.conLai);
+  const [phuongThuc, setPhuongThuc] = useState('tienMat');
+  const [noiDung, setNoiDung] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (soTien <= 0) {
+      toast.error('Số tiền thanh toán phải lớn hơn 0');
+      return;
+    }
     setSubmitting(true);
-    
     try {
-      const requestData = {
-        hoaDonId: hoaDon.id,
-        soTien: formData.soTien,
-        phuongThuc: formData.phuongThuc,
-        thongTinChuyenKhoan: formData.phuongThuc === 'chuyenKhoan' ? {
-          nganHang: formData.nganHang,
-          soGiaoDich: formData.soGiaoDich
-        } : undefined,
-        ngayThanhToan: formData.ngayThanhToan,
-        ghiChu: formData.ghiChu,
-        anhBienLai: formData.anhBienLai
-      };
-      
-      console.log('Submitting payment:', requestData);
-      
       const response = await fetch('/api/thanh-toan', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hoaDon: hoaDon.id || hoaDon._id,
+          soTien,
+          phuongThuc,
+          noiDung: noiDung || `Thanh toán hóa đơn ${hoaDon.maHoaDon}`,
+          ngayThanhToan: new Date().toISOString(),
+        }),
       });
-
       if (response.ok) {
-        const result = await response.json();
-        // Xóa cache và trả về dữ liệu hóa đơn đã cập nhật
-        sessionStorage.removeItem('hoa-don-data');
-        toast.success(result.message || 'Thanh toán đã được tạo thành công');
-        onSuccess(result.data?.hoaDon); // Truyền hóa đơn đã cập nhật
+        toast.success('Thanh toán thành công!');
+        onSuccess();
       } else {
         const errorData = await response.json();
         toast.error(errorData.message || 'Có lỗi xảy ra');
       }
     } catch (error) {
-      console.error('Error submitting payment:', error);
-      toast.error('Có lỗi xảy ra khi tạo thanh toán');
+      console.error('Error creating payment:', error);
+      toast.error('Có lỗi xảy ra khi thanh toán');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Thông tin hóa đơn */}
-      <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 md:p-4 shadow-sm">
-        <h3 className="text-sm md:text-base font-semibold text-indigo-900 mb-3">Thông tin hóa đơn</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
-          <div>
-            <span className="text-indigo-500">Mã hóa đơn:</span>
-            <div className="font-medium text-indigo-900">{hoaDon.maHoaDon}</div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+        <div className="space-y-1 text-sm text-indigo-700">
+          <div className="flex justify-between">
+            <span>Mã hóa đơn:</span>
+            <span className="font-medium text-indigo-900">{hoaDon.maHoaDon}</span>
           </div>
-          <div>
-            <span className="text-indigo-500">Tháng/Năm:</span>
-            <div className="font-medium text-indigo-900">{hoaDon.thang}/{hoaDon.nam}</div>
+          <div className="flex justify-between">
+            <span>Tổng tiền:</span>
+            <span className="font-medium text-indigo-900">{formatCurrency(hoaDon.tongTien)}</span>
           </div>
-          <div>
-            <span className="text-indigo-500">Tổng tiền:</span>
-            <div className="font-medium text-indigo-900">{formatCurrency(hoaDon.tongTien)}</div>
+          <div className="flex justify-between">
+            <span>Đã thanh toán:</span>
+            <span className="font-medium text-green-600">{formatCurrency(hoaDon.daThanhToan)}</span>
           </div>
-          <div>
-            <span className="text-indigo-500">Đã thanh toán:</span>
-            <div className="font-medium text-green-600">{formatCurrency(hoaDon.daThanhToan)}</div>
-          </div>
-          <div className="col-span-2">
-            <span className="text-indigo-500">Còn lại:</span>
-            <div className="font-medium text-red-600 text-lg">{formatCurrency(hoaDon.conLai)}</div>
+          <div className="flex justify-between">
+            <span>Còn lại:</span>
+            <span className="font-medium text-red-600">{formatCurrency(hoaDon.conLai)}</span>
           </div>
         </div>
       </div>
 
-      {/* Form thanh toán */}
-      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="soTien" className="text-xs md:text-sm font-semibold text-indigo-900">Số tiền thanh toán (VNĐ) *</Label>
-          <Input
-            id="soTien"
-            type="number"
-            min="1"
-            max={hoaDon.conLai}
-            value={formData.soTien}
-            onChange={(e) => setFormData(prev => ({ ...prev, soTien: parseInt(e.target.value) || 0 }))}
-            required
-            className="text-base md:text-lg"
-          />
-          <div className="text-[10px] md:text-sm text-indigo-600 bg-indigo-50/80 border border-indigo-100 px-3 py-2 rounded-md">
-            💰 Tối đa có thể thanh toán: <span className="font-semibold">{formatCurrency(hoaDon.conLai)}</span>
-          </div>
-        </div>
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold text-gray-700">Số tiền thanh toán</Label>
+        <Input
+          type="number"
+          value={soTien}
+          onChange={(e) => setSoTien(Number(e.target.value))}
+          max={hoaDon.conLai}
+          min={0}
+        />
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="phuongThuc" className="text-xs md:text-sm font-semibold text-indigo-900">Phương thức thanh toán *</Label>
-          <Select value={formData.phuongThuc} onValueChange={(value) => setFormData(prev => ({ ...prev, phuongThuc: value as 'tienMat' | 'chuyenKhoan' | 'viDienTu' }))}>
-            <SelectTrigger className="h-10 md:h-12 text-sm">
-              <SelectValue placeholder="Chọn phương thức thanh toán" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="tienMat" className="text-sm">💵 Tiền mặt</SelectItem>
-              <SelectItem value="chuyenKhoan" className="text-sm">🏦 Chuyển khoản</SelectItem>
-              <SelectItem value="viDienTu" className="text-sm">📱 Ví điện tử</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold text-gray-700">Phương thức</Label>
+        <Select value={phuongThuc} onValueChange={setPhuongThuc}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tienMat">Tiền mặt</SelectItem>
+            <SelectItem value="chuyenKhoan">Chuyển khoản</SelectItem>
+            <SelectItem value="the">Thẻ</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-        {formData.phuongThuc === 'chuyenKhoan' && (
-          <div className="space-y-3 md:space-y-4 p-3 md:p-4 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
-            <h4 className="text-xs md:text-sm font-semibold text-indigo-900 flex items-center gap-2">
-              <div className="h-6 w-6 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                <CreditCard className="h-3 w-3 text-white" />
-              </div>
-              Thông tin chuyển khoản
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nganHang" className="text-xs md:text-sm font-semibold text-indigo-900">Ngân hàng</Label>
-                <Input
-                  id="nganHang"
-                  value={formData.nganHang}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nganHang: e.target.value }))}
-                  placeholder="Ví dụ: Vietcombank, BIDV..."
-                  className="text-sm"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="soGiaoDich" className="text-xs md:text-sm font-semibold text-indigo-900">Số giao dịch/Mã tham chiếu</Label>
-                <Input
-                  id="soGiaoDich"
-                  value={formData.soGiaoDich}
-                  onChange={(e) => setFormData(prev => ({ ...prev, soGiaoDich: e.target.value }))}
-                  placeholder="Mã giao dịch từ ngân hàng"
-                  className="text-sm"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold text-gray-700">Nội dung</Label>
+        <Input
+          value={noiDung}
+          onChange={(e) => setNoiDung(e.target.value)}
+          placeholder={`Thanh toán hóa đơn ${hoaDon.maHoaDon}`}
+        />
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="ngayThanhToan" className="text-xs md:text-sm font-semibold text-indigo-900">Ngày thanh toán *</Label>
-            <Input
-              id="ngayThanhToan"
-              type="date"
-              value={formData.ngayThanhToan}
-              onChange={(e) => setFormData(prev => ({ ...prev, ngayThanhToan: e.target.value }))}
-              required
-              className="h-10 md:h-12 text-sm"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ghiChu" className="text-xs md:text-sm font-semibold text-indigo-900">Ghi chú</Label>
-            <Input
-              id="ghiChu"
-              value={formData.ghiChu}
-              onChange={(e) => setFormData(prev => ({ ...prev, ghiChu: e.target.value }))}
-              placeholder="Ghi chú về giao dịch..."
-              className="h-10 md:h-12 text-sm"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Ảnh biên lai thanh toán</Label>
-          <ImageUpload
-            imageUrl={formData.anhBienLai}
-            onImageChange={(url) => setFormData(prev => ({ ...prev, anhBienLai: url }))}
-            placeholder="Chọn ảnh biên lai thanh toán"
-          />
-          <div className="text-[10px] md:text-xs text-gray-500">
-            📷 Tải lên ảnh biên lai để xác nhận giao dịch (tùy chọn)
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2 pt-4 md:pt-6 border-t border-indigo-100">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            disabled={submitting}
-            className="w-full sm:w-auto sm:min-w-[100px] border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-          >
-            Hủy
-          </Button>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={submitting}
-            className="w-full sm:w-auto sm:min-w-[160px] bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
-          >
-            <CreditCard className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-            {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
-          </Button>
-        </div>
-      </form>
-    </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Hủy
+        </Button>
+        <Button type="submit" disabled={submitting || soTien <= 0}>
+          {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
+        </Button>
+      </div>
+    </form>
   );
 }
-

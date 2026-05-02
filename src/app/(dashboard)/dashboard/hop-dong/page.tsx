@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Input } from '@/components/ui/input';
@@ -31,18 +30,84 @@ import {
   DollarSign,
   Phone,
   Mail,
+  Save,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
 import { HopDong, Phong, KhachThue, ToaNha } from '@/types';
-import { HopDongDataTable } from './table';
 import { useCanEdit } from '@/hooks/use-can-edit';
 import { toast } from 'sonner';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
 import PageHeader from '@/components/dashboard/page-header';
 import SearchInput from '@/components/dashboard/search-input';
+import InlineForm from '@/components/dashboard/inline-form';
+import InlineEditTable, { ColumnDef } from '@/components/dashboard/inline-edit-table';
+import ConfirmPopover from '@/components/dashboard/confirm-popover';
+
+// ─── InlineEditHopDong interface ──────────────────────────────────────────────
+interface InlineEditHopDong {
+  id: string;
+  maHopDong: string;
+  phong: string;
+  phongMa: string;
+  toaNhaTen: string;
+  nguoiDaiDien: string;
+  nguoiDaiDienTen: string;
+  khachThueIds: string[];
+  ngayBatDau: Date;
+  ngayKetThuc: Date;
+  giaThue: number;
+  tienCoc: number;
+  chuKyThanhToan: 'thang' | 'quy' | 'nam';
+  ngayThanhToan: number;
+  dieuKhoan: string;
+  giaDien: number;
+  giaNuoc: number;
+  chiSoDienBanDau: number;
+  chiSoNuocBanDau: number;
+  phiDichVu: Array<{ ten: string; gia: number }>;
+  trangThai: 'hoatDong' | 'hetHan' | 'daHuy';
+  ngayTao: Date;
+  ngayCapNhat: Date;
+}
+
+// ─── Helper functions ─────────────────────────────────────────────────────────
+function getStatusBadge(status: string) {
+  switch (status) {
+    case 'hoatDong':
+      return <Badge variant="default">Hoạt động</Badge>;
+    case 'hetHan':
+      return <Badge variant="destructive">Hết hạn</Badge>;
+    case 'daHuy':
+      return <Badge variant="secondary">Đã hủy</Badge>;
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+}
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+  }).format(amount);
+}
+
+function isExpiringSoon(ngayKetThuc: Date | string) {
+  const today = new Date();
+  const endDate = new Date(ngayKetThuc);
+  const diffTime = endDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays <= 30 && diffDays > 0;
+}
+
+function isExpired(ngayKetThuc: Date | string) {
+  const today = new Date();
+  const endDate = new Date(ngayKetThuc);
+  return endDate < today;
+}
 
 export default function HopDongPage() {
-  const router = useRouter();
   const canEdit = useCanEdit();
   const cache = useCache<{
     hopDongList: HopDong[];
@@ -50,7 +115,7 @@ export default function HopDongPage() {
     khachThueList: KhachThue[];
     toaNhaList: ToaNha[];
   }>({ key: 'hop-dong-data', duration: 300000 }); // 5 phút
-  
+
   const [hopDongList, setHopDongList] = useState<HopDong[]>([]);
   const [phongList, setPhongList] = useState<Phong[]>([]);
   const [khachThueList, setKhachThueList] = useState<KhachThue[]>([]);
@@ -61,7 +126,67 @@ export default function HopDongPage() {
   const [toaNhaFilter, setToaNhaFilter] = useState<string>('all');
   const [viewingHopDong, setViewingHopDong] = useState<HopDong | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [selectedHopDongId, setSelectedHopDongId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Inline create state
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    maHopDong: '',
+    phong: '',
+    khachThueId: [] as string[],
+    nguoiDaiDien: '',
+    ngayBatDau: new Date().toISOString().split('T')[0],
+    ngayKetThuc: '',
+    giaThue: 0,
+    tienCoc: 0,
+    chuKyThanhToan: 'thang' as 'thang' | 'quy' | 'nam',
+    ngayThanhToan: 15,
+    dieuKhoan: `ĐIỀU KHOẢN HỢP ĐỒNG THUÊ PHÒNG
+
+1. BÊN CHO THUÊ (Chủ nhà):
+- Cung cấp phòng ở đầy đủ tiện nghi theo thỏa thuận
+- Đảm bảo an ninh, an toàn cho khách thuê
+- Bảo trì, sửa chữa các hư hỏng do hao mòn tự nhiên
+
+2. BÊN THUÊ (Khách thuê):
+- Thanh toán đúng hạn tiền thuê và các chi phí khác
+- Sử dụng phòng đúng mục đích, giữ gìn vệ sinh
+- Không được cải tạo, sửa chữa phòng mà không có sự đồng ý
+- Báo cáo kịp thời các hư hỏng, sự cố
+
+3. ĐIỀU KHOẢN CHUNG:
+- Thời hạn hợp đồng: Từ ngày bắt đầu đến ngày kết thúc
+- Tiền cọc: Được hoàn trả khi kết thúc hợp đồng (trừ các khoản phát sinh)
+- Thanh toán: Hàng tháng vào ngày quy định
+- Điện, nước: Tính theo chỉ số đồng hồ và giá quy định
+- Phí dịch vụ: Theo thỏa thuận riêng
+
+4. CHẤM DỨT HỢP ĐỒNG:
+- Bên thuê có thể chấm dứt hợp đồng trước thời hạn với thông báo trước 30 ngày
+- Bên cho thuê có thể chấm dứt hợp đồng nếu vi phạm nghiêm trọng
+- Hoàn trả tiền cọc sau khi kiểm tra tình trạng phòng
+
+5. ĐIỀU KHOẢN KHÁC:
+- Hai bên cam kết thực hiện đúng các điều khoản đã thỏa thuận
+- Mọi tranh chấp sẽ được giải quyết thông qua thương lượng
+- Hợp đồng có hiệu lực kể từ ngày ký`,
+    giaDien: 3500,
+    giaNuoc: 25000,
+    chiSoDienBanDau: 0,
+    chiSoNuocBanDau: 0,
+    phiDichVu: [] as Array<{ ten: string; gia: number }>,
+    trangThai: 'hoatDong' as 'hoatDong' | 'hetHan' | 'daHuy',
+  });
+  const [newPhiDichVu, setNewPhiDichVu] = useState({ ten: '', gia: 0 });
+
+  // Inline edit state
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<InlineEditHopDong | null>(null);
+
+  // Available phong for create (only vacant/daDat)
+  const availablePhongForCreate = useMemo(() => {
+    return phongList.filter(p => p.trangThai === 'trong' || p.trangThai === 'daDat');
+  }, [phongList]);
 
   useEffect(() => {
     document.title = 'Quản lý Hợp đồng';
@@ -80,7 +205,7 @@ export default function HopDongPage() {
   const fetchData = async (forceRefresh = false) => {
     try {
       setLoading(true);
-      
+
       // Thử load từ cache trước (nếu không force refresh)
       if (!forceRefresh) {
         const cachedData = cache.getCache();
@@ -93,7 +218,7 @@ export default function HopDongPage() {
           return;
         }
       }
-      
+
       // Fetch hop dong data
       const hopDongResponse = await fetch('/api/hop-dong?limit=100');
       const hopDongData = hopDongResponse.ok ? await hopDongResponse.json() : { data: [] };
@@ -135,58 +260,18 @@ export default function HopDongPage() {
 
   const handleRefresh = async () => {
     cache.setIsRefreshing(true);
-    await fetchData(true); // Force refresh
+    await fetchData(true);
     cache.setIsRefreshing(false);
     toast.success('Đã tải dữ liệu mới nhất');
   };
 
-
-  const filteredHopDong = hopDongList.filter(hopDong => {
-    const matchesSearch = hopDong.maHopDong.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         hopDong.dieuKhoan.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || hopDong.trangThai === statusFilter;
-    
-    // Filter by toa nha
-    let matchesToaNha = true;
-    if (toaNhaFilter !== 'all') {
-      if (typeof hopDong.phong === 'object' && (hopDong.phong as { toaNha: { id: string } })?.toaNha) {
-        matchesToaNha = ((hopDong.phong as { toaNha: { id: string } }).toaNha).id === toaNhaFilter;
-      } else {
-        const phong = phongList.find(p => p.id === hopDong.phong);
-        matchesToaNha = phong?.toaNha === toaNhaFilter;
-      }
-    }
-    
-    return matchesSearch && matchesStatus && matchesToaNha;
-  });
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'hoatDong':
-        return <Badge variant="default">Hoạt động</Badge>;
-      case 'hetHan':
-        return <Badge variant="destructive">Hết hạn</Badge>;
-      case 'daHuy':
-        return <Badge variant="secondary">Đã hủy</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
+  // ─── Helper lookups ─────────────────────────────────────────────────────────
   const getPhongName = (phong: string | { maPhong: string }) => {
     if (typeof phong === 'object' && phong?.maPhong) {
       return phong.maPhong;
     }
     const phongObj = phongList.find(p => p.id === phong);
     return phongObj?.maPhong || 'Không xác định';
-  };
-
-  const getToaNhaName = (toaNha: string | { tenToaNha: string }) => {
-    if (typeof toaNha === 'object' && toaNha?.tenToaNha) {
-      return toaNha.tenToaNha;
-    }
-    const toaNhaObj = toaNhaList.find(t => t.id === toaNha);
-    return toaNhaObj?.tenToaNha || 'Không xác định';
   };
 
   const getPhongInfo = (phong: string | { maPhong: string; toaNha?: { tenToaNha: string } }) => {
@@ -196,10 +281,8 @@ export default function HopDongPage() {
         toaNha: phong.toaNha?.tenToaNha || 'Không xác định'
       };
     }
-    
     const phongObj = phongList.find(p => p.id === phong);
     if (!phongObj) return { maPhong: 'Không xác định', toaNha: 'Không xác định' };
-    
     const toaNha = toaNhaList.find(t => t.id === phongObj.toaNha);
     return {
       maPhong: phongObj.maPhong,
@@ -215,31 +298,36 @@ export default function HopDongPage() {
     return khachThueObj?.hoTen || 'Không xác định';
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-    }).format(amount);
+  const getToaNhaIdFromPhong = (phongId: string): string | null => {
+    const phongObj = phongList.find(p => p.id === phongId);
+    if (!phongObj) return null;
+    if (typeof phongObj.toaNha === 'object' && (phongObj.toaNha as any)?.id) {
+      return (phongObj.toaNha as any).id;
+    }
+    return phongObj.toaNha as string;
   };
 
-  const isExpiringSoon = (ngayKetThuc: Date | string) => {
-    const today = new Date();
-    const endDate = new Date(ngayKetThuc);
-    const diffTime = endDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 30 && diffDays > 0;
-  };
+  // ─── Filtering ──────────────────────────────────────────────────────────────
+  const filteredHopDong = hopDongList.filter(hopDong => {
+    const matchesSearch = hopDong.maHopDong.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         hopDong.dieuKhoan.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || hopDong.trangThai === statusFilter;
 
-  const isExpired = (ngayKetThuc: Date | string) => {
-    const today = new Date();
-    const endDate = new Date(ngayKetThuc);
-    return endDate < today;
-  };
+    // Filter by toa nha
+    let matchesToaNha = true;
+    if (toaNhaFilter !== 'all') {
+      if (typeof hopDong.phong === 'object' && (hopDong.phong as { toaNha: { id: string } })?.toaNha) {
+        matchesToaNha = ((hopDong.phong as { toaNha: { id: string } }).toaNha).id === toaNhaFilter;
+      } else {
+        const phong = phongList.find(p => p.id === hopDong.phong);
+        matchesToaNha = phong?.toaNha === toaNhaFilter;
+      }
+    }
 
-  const handleEdit = (hopDong: HopDong) => {
-    router.push(`/dashboard/hop-dong/${hopDong.id}`);
-  };
+    return matchesSearch && matchesStatus && matchesToaNha;
+  });
 
+  // ─── Actions ────────────────────────────────────────────────────────────────
   const handleView = (hopDong: HopDong) => {
     setViewingHopDong(hopDong);
   };
@@ -249,9 +337,8 @@ export default function HopDongPage() {
       const response = await fetch(`/api/hop-dong/${id}`, {
         method: 'DELETE',
       });
-      
+
       if (response.ok) {
-        // Xóa cache
         cache.clearCache();
         setHopDongList(prev => prev.filter(hopDong => hopDong.id !== id));
         toast.success('Đã xóa hợp đồng thành công');
@@ -266,27 +353,23 @@ export default function HopDongPage() {
 
   const handleDownload = async (hopDong: HopDong) => {
     try {
-    // Generate contract content
-    const phongInfo = getPhongInfo(hopDong.phong);
-    const nguoiDaiDien = getKhachThueName(hopDong.nguoiDaiDien);
-    
-      // Lấy thông tin chi tiết của người đại diện
+      const phongInfo = getPhongInfo(hopDong.phong);
+      const nguoiDaiDien = getKhachThueName(hopDong.nguoiDaiDien);
+
       const nguoiDaiDienObj = khachThueList.find(kt => {
         const ktId = typeof kt.id === 'object' ? (kt.id as { id: string }).id : kt.id;
         const daiDienId = typeof hopDong.nguoiDaiDien === 'object' ? (hopDong.nguoiDaiDien as { id: string }).id : hopDong.nguoiDaiDien;
         return ktId === daiDienId;
       });
-      
+
       const ngayBatDau = new Date(hopDong.ngayBatDau);
       const ngayKetThuc = new Date(hopDong.ngayKetThuc);
       const ngayHienTai = new Date();
-      
-      // Tạo document Word
+
       const doc = new Document({
         sections: [{
           properties: {},
           children: [
-            // Header
             new Paragraph({
               children: [
                 new TextRun({
@@ -309,8 +392,6 @@ export default function HopDongPage() {
               alignment: AlignmentType.CENTER,
               spacing: { after: 400 },
             }),
-            
-            // Title
             new Paragraph({
               children: [
                 new TextRun({
@@ -333,8 +414,6 @@ export default function HopDongPage() {
               alignment: AlignmentType.CENTER,
               spacing: { after: 400 },
             }),
-            
-            // Date and location
             new Paragraph({
               children: [
                 new TextRun({
@@ -353,8 +432,6 @@ export default function HopDongPage() {
               ],
               spacing: { after: 400 },
             }),
-            
-            // Parties
             new Paragraph({
               children: [
                 new TextRun({
@@ -411,7 +488,6 @@ export default function HopDongPage() {
               ],
               spacing: { after: 200 },
             }),
-            
             new Paragraph({
               children: [
                 new TextRun({
@@ -458,8 +534,6 @@ export default function HopDongPage() {
               ],
               spacing: { after: 400 },
             }),
-            
-            // Agreement
             new Paragraph({
               children: [
                 new TextRun({
@@ -532,8 +606,6 @@ export default function HopDongPage() {
               ],
               spacing: { after: 400 },
             }),
-            
-            // Responsibilities
             new Paragraph({
               children: [
                 new TextRun({
@@ -636,8 +708,6 @@ export default function HopDongPage() {
               ],
               spacing: { after: 400 },
             }),
-            
-            // Common responsibilities
             new Paragraph({
               children: [
                 new TextRun({
@@ -702,8 +772,6 @@ export default function HopDongPage() {
               ],
               spacing: { after: 400 },
             }),
-            
-            // Additional services
             ...(hopDong.phiDichVu.length > 0 ? [
               new Paragraph({
                 children: [
@@ -715,7 +783,7 @@ export default function HopDongPage() {
                 ],
                 spacing: { after: 200 },
               }),
-              ...hopDong.phiDichVu.map(phi => 
+              ...hopDong.phiDichVu.map(phi =>
                 new Paragraph({
                   children: [
                     new TextRun({
@@ -736,8 +804,6 @@ export default function HopDongPage() {
                 spacing: { after: 200 },
               }),
             ] : []),
-            
-            // Additional terms
             new Paragraph({
               children: [
                 new TextRun({
@@ -757,8 +823,6 @@ export default function HopDongPage() {
               ],
               spacing: { after: 400 },
             }),
-            
-            // Signatures
             new Paragraph({
               children: [
                 new TextRun({
@@ -780,8 +844,6 @@ export default function HopDongPage() {
               alignment: AlignmentType.CENTER,
               spacing: { after: 400 },
             }),
-            
-            // Footer info
             new Paragraph({
               children: [
                 new TextRun({
@@ -804,12 +866,11 @@ export default function HopDongPage() {
         }],
       });
 
-      // Generate and download Word document
       const buffer = await Packer.toBuffer(doc);
       const uint8Array = new Uint8Array(buffer);
       const blob = new Blob([uint8Array], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       saveAs(blob, `hop-dong-${hopDong.maHopDong}.docx`);
-      
+
       toast.success('Đã tải xuống hợp đồng thành công!');
     } catch (error) {
       console.error('Error generating Word document:', error);
@@ -824,22 +885,13 @@ export default function HopDongPage() {
       try {
         const response = await fetch(`/api/hop-dong/${hopDong.id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ngayKetThuc: newEndDate,
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ngayKetThuc: newEndDate }),
         });
-        
         if (response.ok) {
           const result = await response.json();
-          // Xóa cache
           cache.clearCache();
-          // Cập nhật state trực tiếp thay vì reload
-          setHopDongList(prev => prev.map(hd => 
-            hd.id === hopDong.id ? result.data : hd
-          ));
+          setHopDongList(prev => prev.map(hd => hd.id === hopDong.id ? result.data : hd));
           toast.success('Đã gia hạn hợp đồng thành công');
         } else {
           toast.error('Có lỗi xảy ra khi gia hạn hợp đồng');
@@ -859,22 +911,13 @@ export default function HopDongPage() {
       try {
         const response = await fetch(`/api/hop-dong/${hopDong.id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            trangThai: 'daHuy',
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trangThai: 'daHuy' }),
         });
-        
         if (response.ok) {
           const result = await response.json();
-          // Xóa cache
           cache.clearCache();
-          // Cập nhật state trực tiếp thay vì reload
-          setHopDongList(prev => prev.map(hd => 
-            hd.id === hopDong.id ? result.data : hd
-          ));
+          setHopDongList(prev => prev.map(hd => hd.id === hopDong.id ? result.data : hd));
           toast.success('Đã hủy hợp đồng thành công');
         } else {
           toast.error('Có lỗi xảy ra khi hủy hợp đồng');
@@ -888,6 +931,474 @@ export default function HopDongPage() {
     }
   };
 
+  // ─── Inline create ──────────────────────────────────────────────────────────
+  const resetCreateForm = () => {
+    setCreateForm({
+      maHopDong: '',
+      phong: '',
+      khachThueId: [] as string[],
+      nguoiDaiDien: '',
+      ngayBatDau: new Date().toISOString().split('T')[0],
+      ngayKetThuc: '',
+      giaThue: 0,
+      tienCoc: 0,
+      chuKyThanhToan: 'thang' as 'thang' | 'quy' | 'nam',
+      ngayThanhToan: 15,
+      dieuKhoan: `ĐIỀU KHOẢN HỢP ĐỒNG THUÊ PHÒNG
+
+1. BÊN CHO THUÊ (Chủ nhà):
+- Cung cấp phòng ở đầy đủ tiện nghi theo thỏa thuận
+- Đảm bảo an ninh, an toàn cho khách thuê
+- Bảo trì, sửa chữa các hư hỏng do hao mòn tự nhiên
+
+2. BÊN THUÊ (Khách thuê):
+- Thanh toán đúng hạn tiền thuê và các chi phí khác
+- Sử dụng phòng đúng mục đích, giữ gìn vệ sinh
+- Không được cải tạo, sửa chữa phòng mà không có sự đồng ý
+- Báo cáo kịp thời các hư hỏng, sự cố
+
+3. ĐIỀU KHOẢN CHUNG:
+- Thời hạn hợp đồng: Từ ngày bắt đầu đến ngày kết thúc
+- Tiền cọc: Được hoàn trả khi kết thúc hợp đồng (trừ các khoản phát sinh)
+- Thanh toán: Hàng tháng vào ngày quy định
+- Điện, nước: Tính theo chỉ số đồng hồ và giá quy định
+- Phí dịch vụ: Theo thỏa thuận riêng
+
+4. CHẤM DỨT HỢP ĐỒNG:
+- Bên thuê có thể chấm dứt hợp đồng trước thời hạn với thông báo trước 30 ngày
+- Bên cho thuê có thể chấm dứt hợp đồng nếu vi phạm nghiêm trọng
+- Hoàn trả tiền cọc sau khi kiểm tra tình trạng phòng
+
+5. ĐIỀU KHOẢN KHÁC:
+- Hai bên cam kết thực hiện đúng các điều khoản đã thỏa thuận
+- Mọi tranh chấp sẽ được giải quyết thông qua thương lượng
+- Hợp đồng có hiệu lực kể từ ngày ký`,
+      giaDien: 3500,
+      giaNuoc: 25000,
+      chiSoDienBanDau: 0,
+      chiSoNuocBanDau: 0,
+      phiDichVu: [] as Array<{ ten: string; gia: number }>,
+      trangThai: 'hoatDong' as 'hoatDong' | 'hetHan' | 'daHuy',
+    });
+    setNewPhiDichVu({ ten: '', gia: 0 });
+  };
+
+  const handleCreateHopDong = async () => {
+    if (!createForm.maHopDong || !createForm.phong || !createForm.nguoiDaiDien || !createForm.ngayKetThuc) {
+      toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch('/api/hop-dong', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...createForm,
+          ngayBatDau: new Date(createForm.ngayBatDau).toISOString(),
+          ngayKetThuc: new Date(createForm.ngayKetThuc).toISOString(),
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        cache.clearCache();
+        toast.success(result.message || 'Đã tạo hợp đồng thành công');
+        setShowCreateForm(false);
+        resetCreateForm();
+        await fetchData(true);
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Có lỗi xảy ra');
+      }
+    } catch (error) {
+      console.error('Error creating hop dong:', error);
+      toast.error('Có lỗi xảy ra khi tạo hợp đồng');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ─── Inline edit ────────────────────────────────────────────────────────────
+  const handleEditHopDong = useCallback((item: InlineEditHopDong) => {
+    setEditForm({ ...item });
+    setExpandedId(item.id);
+  }, []);
+
+  const handleSaveEdit = async () => {
+    if (!editForm) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/hop-dong/${editForm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          maHopDong: editForm.maHopDong,
+          ngayBatDau: new Date(editForm.ngayBatDau).toISOString(),
+          ngayKetThuc: new Date(editForm.ngayKetThuc).toISOString(),
+          giaThue: editForm.giaThue,
+          tienCoc: editForm.tienCoc,
+          chuKyThanhToan: editForm.chuKyThanhToan,
+          ngayThanhToan: editForm.ngayThanhToan,
+          dieuKhoan: editForm.dieuKhoan,
+          giaDien: editForm.giaDien,
+          giaNuoc: editForm.giaNuoc,
+          chiSoDienBanDau: editForm.chiSoDienBanDau,
+          chiSoNuocBanDau: editForm.chiSoNuocBanDau,
+          phiDichVu: editForm.phiDichVu,
+          trangThai: editForm.trangThai,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        cache.clearCache();
+        setHopDongList(prev => prev.map(hd => hd.id === editForm.id ? result.data : hd));
+        toast.success('Đã cập nhật hợp đồng thành công');
+        setExpandedId(null);
+        setEditForm(null);
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Có lỗi xảy ra');
+      }
+    } catch (error) {
+      console.error('Error updating hop dong:', error);
+      toast.error('Có lỗi xảy ra khi cập nhật hợp đồng');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ─── Table data ─────────────────────────────────────────────────────────────
+  const tableData = useMemo((): InlineEditHopDong[] => {
+    return filteredHopDong.map(hd => {
+      const phongInfo = getPhongInfo(hd.phong);
+      return {
+        id: hd.id || hd._id || '',
+        maHopDong: hd.maHopDong,
+        phong: typeof hd.phong === 'object' ? (hd.phong as any).id || (hd.phong as any)._id || '' : hd.phong,
+        phongMa: phongInfo.maPhong,
+        toaNhaTen: phongInfo.toaNha,
+        nguoiDaiDien: typeof hd.nguoiDaiDien === 'object' ? (hd.nguoiDaiDien as any).id || (hd.nguoiDaiDien as any)._id || '' : hd.nguoiDaiDien,
+        nguoiDaiDienTen: getKhachThueName(hd.nguoiDaiDien),
+        khachThueIds: hd.khachThueIds.map((kt: any) => typeof kt === 'object' ? kt.id || kt._id || '' : kt),
+        ngayBatDau: hd.ngayBatDau,
+        ngayKetThuc: hd.ngayKetThuc,
+        giaThue: hd.giaThue,
+        tienCoc: hd.tienCoc,
+        chuKyThanhToan: hd.chuKyThanhToan,
+        ngayThanhToan: hd.ngayThanhToan,
+        dieuKhoan: hd.dieuKhoan,
+        giaDien: hd.giaDien,
+        giaNuoc: hd.giaNuoc,
+        chiSoDienBanDau: hd.chiSoDienBanDau,
+        chiSoNuocBanDau: hd.chiSoNuocBanDau,
+        phiDichVu: hd.phiDichVu || [],
+        trangThai: hd.trangThai,
+        ngayTao: hd.ngayTao,
+        ngayCapNhat: hd.ngayCapNhat,
+      };
+    });
+  }, [filteredHopDong, phongList, toaNhaList, khachThueList]);
+
+  // ─── Columns ────────────────────────────────────────────────────────────────
+  const columns: ColumnDef<InlineEditHopDong>[] = useMemo(() => [
+    {
+      key: 'maHopDong',
+      header: 'Mã hợp đồng',
+      sortable: true,
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200 flex-shrink-0">
+            <FileText className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <span className="font-medium text-gray-900">{item.maHopDong}</span>
+            <div className="text-xs text-gray-500">{item.phongMa} - {item.toaNhaTen}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'trangThai',
+      header: 'Trạng thái',
+      sortable: true,
+      render: (item) => (
+        <div className="flex flex-col gap-1">
+          {getStatusBadge(item.trangThai)}
+          {item.trangThai === 'hoatDong' && isExpiringSoon(item.ngayKetThuc) && (
+            <Badge variant="outline" className="text-xs text-orange-600 border-orange-600 w-fit">
+              Sắp hết hạn
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'nguoiDaiDienTen',
+      header: 'Người đại diện',
+      sortable: true,
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-gray-400" />
+          <span>{item.nguoiDaiDienTen}</span>
+          {item.khachThueIds.length > 1 && (
+            <Badge variant="outline" className="text-[10px] border-indigo-200 text-indigo-600 bg-indigo-50">
+              +{item.khachThueIds.length - 1}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'giaThue',
+      header: 'Giá thuê',
+      sortable: true,
+      render: (item) => (
+        <span className="font-semibold text-green-600">{formatCurrency(item.giaThue)}</span>
+      ),
+    },
+    {
+      key: 'ngayKetThuc',
+      header: 'Ngày kết thúc',
+      sortable: true,
+      render: (item) => {
+        const expiring = isExpiringSoon(item.ngayKetThuc);
+        const expired = isExpired(item.ngayKetThuc);
+        return (
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 text-gray-400" />
+            <span className={expired ? 'text-red-600 font-medium' : expiring ? 'text-orange-600 font-medium' : ''}>
+              {new Date(item.ngayKetThuc).toLocaleDateString('vi-VN')}
+            </span>
+          </div>
+        );
+      },
+    },
+  ], []);
+
+  // ─── Render expanded (inline edit form) ─────────────────────────────────────
+  const renderExpanded = useCallback((item: InlineEditHopDong) => {
+    if (!editForm || editForm.id !== item.id) return null;
+
+    const addPhiDichVuLocal = () => {
+      if (newPhiDichVu.ten && newPhiDichVu.gia > 0) {
+        setEditForm(prev => prev ? {
+          ...prev,
+          phiDichVu: [...prev.phiDichVu, { ...newPhiDichVu }]
+        } : null);
+        setNewPhiDichVu({ ten: '', gia: 0 });
+      }
+    };
+
+    const removePhiDichVuLocal = (index: number) => {
+      setEditForm(prev => prev ? {
+        ...prev,
+        phiDichVu: prev.phiDichVu.filter((_, i) => i !== index)
+      } : null);
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Mã hợp đồng</Label>
+            <Input
+              value={editForm.maHopDong}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, maHopDong: e.target.value } : null)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Trạng thái</Label>
+            <Select
+              value={editForm.trangThai}
+              onValueChange={(value: any) => setEditForm(prev => prev ? { ...prev, trangThai: value } : null)}
+            >
+              <SelectTrigger className="text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hoatDong">Hoạt động</SelectItem>
+                <SelectItem value="hetHan">Hết hạn</SelectItem>
+                <SelectItem value="daHuy">Đã hủy</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Phòng</Label>
+            <Input value={item.phongMa} disabled className="text-sm bg-gray-50" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Ngày bắt đầu</Label>
+            <Input
+              type="date"
+              value={new Date(editForm.ngayBatDau).toISOString().split('T')[0]}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, ngayBatDau: new Date(e.target.value) } : null)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Ngày kết thúc</Label>
+            <Input
+              type="date"
+              value={new Date(editForm.ngayKetThuc).toISOString().split('T')[0]}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, ngayKetThuc: new Date(e.target.value) } : null)}
+              className="text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Giá thuê</Label>
+            <Input
+              type="number"
+              value={editForm.giaThue}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, giaThue: Number(e.target.value) } : null)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Tiền cọc</Label>
+            <Input
+              type="number"
+              value={editForm.tienCoc}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, tienCoc: Number(e.target.value) } : null)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Ngày thanh toán</Label>
+            <Input
+              type="number"
+              min={1} max={31}
+              value={editForm.ngayThanhToan}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, ngayThanhToan: Number(e.target.value) } : null)}
+              className="text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Chu kỳ thanh toán</Label>
+            <Select
+              value={editForm.chuKyThanhToan}
+              onValueChange={(value: any) => setEditForm(prev => prev ? { ...prev, chuKyThanhToan: value } : null)}
+            >
+              <SelectTrigger className="text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="thang">Hàng tháng</SelectItem>
+                <SelectItem value="quy">Theo quý</SelectItem>
+                <SelectItem value="nam">Hàng năm</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Giá điện / nước</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label className="text-[10px] text-gray-500">Giá điện</Label>
+                <Input type="number" value={editForm.giaDien}
+                  onChange={(e) => setEditForm(prev => prev ? { ...prev, giaDien: Number(e.target.value) } : null)}
+                  className="text-sm" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] text-gray-500">Giá nước</Label>
+                <Input type="number" value={editForm.giaNuoc}
+                  onChange={(e) => setEditForm(prev => prev ? { ...prev, giaNuoc: Number(e.target.value) } : null)}
+                  className="text-sm" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Chỉ số điện ban đầu</Label>
+            <Input type="number" value={editForm.chiSoDienBanDau}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, chiSoDienBanDau: Number(e.target.value) } : null)}
+              className="text-sm" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Chỉ số nước ban đầu</Label>
+            <Input type="number" value={editForm.chiSoNuocBanDau}
+              onChange={(e) => setEditForm(prev => prev ? { ...prev, chiSoNuocBanDau: Number(e.target.value) } : null)}
+              className="text-sm" />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs">Điều khoản</Label>
+          <Textarea
+            value={editForm.dieuKhoan}
+            onChange={(e) => setEditForm(prev => prev ? { ...prev, dieuKhoan: e.target.value } : null)}
+            className="text-sm min-h-[100px]"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs">Phí dịch vụ</Label>
+          {editForm.phiDichVu.map((phi, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <Input value={phi.ten} disabled className="text-sm flex-1 bg-gray-50" />
+              <Input value={formatCurrency(phi.gia)} disabled className="text-sm w-32 bg-gray-50" />
+              <Button type="button" variant="ghost" size="sm"
+                onClick={() => removePhiDichVuLocal(idx)}
+                className="h-8 w-8 p-0 text-red-500">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <Input placeholder="Tên phí" value={newPhiDichVu.ten}
+              onChange={(e) => setNewPhiDichVu(prev => ({ ...prev, ten: e.target.value }))}
+              className="text-sm flex-1" />
+            <Input type="number" placeholder="Giá" value={newPhiDichVu.gia || ''}
+              onChange={(e) => setNewPhiDichVu(prev => ({ ...prev, gia: Number(e.target.value) }))}
+              className="text-sm w-32" />
+            <Button type="button" variant="outline" size="sm"
+              onClick={addPhiDichVuLocal}
+              disabled={!newPhiDichVu.ten || newPhiDichVu.gia <= 0}
+              className="text-xs">
+              <Plus className="h-3 w-3 mr-1" /> Thêm
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button size="sm" variant="outline"
+            onClick={() => { setExpandedId(null); setEditForm(null); }}
+            disabled={saving} className="text-sm">
+            Hủy
+          </Button>
+          <Button size="sm" onClick={handleSaveEdit} disabled={saving} className="text-sm">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+            Lưu thay đổi
+          </Button>
+        </div>
+      </div>
+    );
+  }, [editForm, newPhiDichVu, saving]);
+
+  // ─── Stats cards ────────────────────────────────────────────────────────────
+  const statsCards = useMemo(() => {
+    const total = hopDongList.length;
+    const active = hopDongList.filter(hd => hd.trangThai === 'hoatDong').length;
+    const expired = hopDongList.filter(hd => hd.trangThai === 'hetHan').length;
+    const cancelled = hopDongList.filter(hd => hd.trangThai === 'daHuy').length;
+    return { total, active, expired, cancelled };
+  }, [hopDongList]);
+
+  // ─── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="space-y-6">
@@ -908,22 +1419,356 @@ export default function HopDongPage() {
         description="Danh sách tất cả hợp đồng trong hệ thống"
         onRefresh={handleRefresh}
         loading={cache.isRefreshing}
-        onAdd={canEdit ? () => router.push('/dashboard/hop-dong/them-moi') : undefined}
+        onAdd={canEdit ? () => setShowCreateForm(true) : undefined}
         addLabel="Thêm hợp đồng"
       />
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs md:text-sm text-gray-500 font-medium">Tổng hợp đồng</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-900 mt-1">{statsCards.total}</p>
+            </div>
+            <div className="h-10 w-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-indigo-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs md:text-sm text-gray-500 font-medium">Đang hoạt động</p>
+              <p className="text-xl md:text-2xl font-bold text-green-600 mt-1">{statsCards.active}</p>
+            </div>
+            <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
+              <Badge variant="default" className="bg-green-600">HD</Badge>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs md:text-sm text-gray-500 font-medium">Hết hạn</p>
+              <p className="text-xl md:text-2xl font-bold text-red-600 mt-1">{statsCards.expired}</p>
+            </div>
+            <div className="h-10 w-10 rounded-lg bg-red-50 flex items-center justify-center">
+              <Badge variant="destructive">HH</Badge>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs md:text-sm text-gray-500 font-medium">Đã hủy</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-600 mt-1">{statsCards.cancelled}</p>
+            </div>
+            <div className="h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center">
+              <Badge variant="secondary">Hủy</Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <SearchInput
+            placeholder="Tìm kiếm hợp đồng..."
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Trạng thái" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="hoatDong">Hoạt động</SelectItem>
+            <SelectItem value="hetHan">Hết hạn</SelectItem>
+            <SelectItem value="daHuy">Đã hủy</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={toaNhaFilter} onValueChange={setToaNhaFilter}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Tòa nhà" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            {toaNhaList.map(toaNha => (
+              <SelectItem key={toaNha.id!} value={toaNha.id!}>{toaNha.tenToaNha}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Inline Create Form */}
+      {showCreateForm && (
+        <InlineForm
+          title="Thêm hợp đồng mới"
+          description="Điền thông tin để tạo hợp đồng mới"
+          onSave={handleCreateHopDong}
+          onCancel={() => { setShowCreateForm(false); resetCreateForm(); }}
+          saving={saving}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">Mã hợp đồng *</Label>
+              <Input
+                value={createForm.maHopDong}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, maHopDong: e.target.value }))}
+                placeholder="HD-001"
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Phòng *</Label>
+              <Select
+                value={createForm.phong}
+                onValueChange={(value) => {
+                  setCreateForm(prev => ({ ...prev, phong: value }));
+                  const toaNhaId = getToaNhaIdFromPhong(value);
+                }}
+              >
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Chọn phòng" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availablePhongForCreate.map(phong => (
+                    <SelectItem key={phong.id!} value={phong.id!}>
+                      {phong.maPhong} - {toaNhaList.find(t => t.id === (typeof phong.toaNha === 'object' ? (phong.toaNha as any).id : phong.toaNha))?.tenToaNha || ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">Người đại diện *</Label>
+              <Select
+                value={createForm.nguoiDaiDien}
+                onValueChange={(value) => setCreateForm(prev => ({ ...prev, nguoiDaiDien: value }))}
+              >
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Chọn người đại diện" />
+                </SelectTrigger>
+                <SelectContent>
+                  {khachThueList.map(kt => (
+                    <SelectItem key={kt.id!} value={kt.id!}>{kt.hoTen}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Khách thuê</Label>
+              <Select
+                value={createForm.khachThueId[0] || ''}
+                onValueChange={(value) => setCreateForm(prev => ({
+                  ...prev,
+                  khachThueId: prev.khachThueId.includes(value)
+                    ? prev.khachThueId.filter(id => id !== value)
+                    : [...prev.khachThueId, value]
+                }))}
+              >
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder={createForm.khachThueId.length > 0 ? `${createForm.khachThueId.length} khách thuê` : 'Chọn khách thuê'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {khachThueList.map(kt => (
+                    <SelectItem key={kt.id!} value={kt.id!}>
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={createForm.khachThueId.includes(kt.id!)} className="mr-2" />
+                        {kt.hoTen}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">Ngày bắt đầu</Label>
+              <Input
+                type="date"
+                value={createForm.ngayBatDau}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, ngayBatDau: e.target.value }))}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Ngày kết thúc *</Label>
+              <Input
+                type="date"
+                value={createForm.ngayKetThuc}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, ngayKetThuc: e.target.value }))}
+                className="text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">Giá thuê</Label>
+              <Input
+                type="number"
+                value={createForm.giaThue}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, giaThue: Number(e.target.value) }))}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Tiền cọc</Label>
+              <Input
+                type="number"
+                value={createForm.tienCoc}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, tienCoc: Number(e.target.value) }))}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Ngày thanh toán</Label>
+              <Input
+                type="number" min={1} max={31}
+                value={createForm.ngayThanhToan}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, ngayThanhToan: Number(e.target.value) }))}
+                className="text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">Chu kỳ thanh toán</Label>
+              <Select
+                value={createForm.chuKyThanhToan}
+                onValueChange={(value: any) => setCreateForm(prev => ({ ...prev, chuKyThanhToan: value }))}
+              >
+                <SelectTrigger className="text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="thang">Hàng tháng</SelectItem>
+                  <SelectItem value="quy">Theo quý</SelectItem>
+                  <SelectItem value="nam">Hàng năm</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Trạng thái</Label>
+              <Select
+                value={createForm.trangThai}
+                onValueChange={(value: any) => setCreateForm(prev => ({ ...prev, trangThai: value }))}
+              >
+                <SelectTrigger className="text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hoatDong">Hoạt động</SelectItem>
+                  <SelectItem value="hetHan">Hết hạn</SelectItem>
+                  <SelectItem value="daHuy">Đã hủy</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">Giá điện</Label>
+              <Input
+                type="number"
+                value={createForm.giaDien}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, giaDien: Number(e.target.value) }))}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Giá nước</Label>
+              <Input
+                type="number"
+                value={createForm.giaNuoc}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, giaNuoc: Number(e.target.value) }))}
+                className="text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">Chỉ số điện ban đầu</Label>
+              <Input
+                type="number"
+                value={createForm.chiSoDienBanDau}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, chiSoDienBanDau: Number(e.target.value) }))}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Chỉ số nước ban đầu</Label>
+              <Input
+                type="number"
+                value={createForm.chiSoNuocBanDau}
+                onChange={(e) => setCreateForm(prev => ({ ...prev, chiSoNuocBanDau: Number(e.target.value) }))}
+                className="text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Điều khoản</Label>
+            <Textarea
+              value={createForm.dieuKhoan}
+              onChange={(e) => setCreateForm(prev => ({ ...prev, dieuKhoan: e.target.value }))}
+              className="text-sm min-h-[100px]"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Phí dịch vụ</Label>
+            {createForm.phiDichVu.map((phi, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <Input value={phi.ten} disabled className="text-sm flex-1 bg-gray-50" />
+                <Input value={formatCurrency(phi.gia)} disabled className="text-sm w-32 bg-gray-50" />
+                <Button type="button" variant="ghost" size="sm"
+                  onClick={() => setCreateForm(prev => ({ ...prev, phiDichVu: prev.phiDichVu.filter((_, i) => i !== idx) }))}
+                  className="h-8 w-8 p-0 text-red-500">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <div className="flex items-center gap-2">
+              <Input placeholder="Tên phí" value={newPhiDichVu.ten}
+                onChange={(e) => setNewPhiDichVu(prev => ({ ...prev, ten: e.target.value }))}
+                className="text-sm flex-1" />
+              <Input type="number" placeholder="Giá" value={newPhiDichVu.gia || ''}
+                onChange={(e) => setNewPhiDichVu(prev => ({ ...prev, gia: Number(e.target.value) }))}
+                className="text-sm w-32" />
+              <Button type="button" variant="outline" size="sm"
+                onClick={() => {
+                  if (newPhiDichVu.ten && newPhiDichVu.gia > 0) {
+                    setCreateForm(prev => ({ ...prev, phiDichVu: [...prev.phiDichVu, { ...newPhiDichVu }] }));
+                    setNewPhiDichVu({ ten: '', gia: 0 });
+                  }
+                }}
+                disabled={!newPhiDichVu.ten || newPhiDichVu.gia <= 0}
+                className="text-xs">
+                <Plus className="h-3 w-3 mr-1" /> Thêm
+              </Button>
+            </div>
+          </div>
+        </InlineForm>
+      )}
 
       {/* View Modal */}
       {viewingHopDong && (
         <div className="fixed inset-0 z-[1050] flex items-center justify-center p-0 md:p-4">
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black/50" 
-            onClick={() => setViewingHopDong(null)}
-          />
-          
-          {/* Modal Content */}
+          <div className="fixed inset-0 bg-black/50" onClick={() => setViewingHopDong(null)} />
           <div className="relative w-full h-full md:w-[95vw] md:h-[95vh] md:max-w-6xl bg-white md:rounded-lg shadow-lg overflow-hidden flex flex-col">
-            {/* Fixed Header */}
             <div className="flex items-center justify-between p-4 md:p-6 border-b bg-white flex-shrink-0">
               <div>
                 <h2 className="text-lg md:text-2xl font-semibold">Chi tiết hợp đồng</h2>
@@ -931,17 +1776,11 @@ export default function HopDongPage() {
                   Thông tin chi tiết hợp đồng {viewingHopDong.maHopDong}
                 </p>
               </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setViewingHopDong(null)}
-                  className="h-8 w-8 p-0"
-                >
-                  <CloseIcon className="h-4 w-4" />
-                </Button>
+              <Button variant="ghost" size="sm" onClick={() => setViewingHopDong(null)} className="h-8 w-8 p-0">
+                <CloseIcon className="h-4 w-4" />
+              </Button>
             </div>
-            
-            {/* Scrollable Content */}
+
             <div className="flex-1 overflow-y-auto p-4 md:p-6">
               <div className="space-y-4 md:space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
@@ -1068,382 +1907,89 @@ export default function HopDongPage() {
               </div>
             </div>
 
-            {/* Fixed Footer */}
             <div className="flex flex-col sm:flex-row gap-2 p-4 md:p-6 border-t bg-white flex-shrink-0">
               <Button variant="outline" size="sm" onClick={() => setViewingHopDong(null)} className="flex-1 sm:flex-none">
                 Đóng
               </Button>
               <Button size="sm" onClick={() => handleDownload(viewingHopDong)} className="flex-1 sm:flex-none">
-                <Download className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                Tải xuống
+                <Download className="h-4 w-4 mr-1" />
+                Tải xuống Word
               </Button>
-              {canEdit && (
-                <Button size="sm" onClick={() => {
-                  setViewingHopDong(null);
-                  handleEdit(viewingHopDong);
-                }} className="flex-1 sm:flex-none">
-                  <Edit className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                  Chỉnh sửa
-                </Button>
-              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
-        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Tổng hợp đồng</p>
-              <p className="text-base md:text-2xl font-bold text-indigo-900">{hopDongList.length}</p>
-            </div>
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-              <FileText className="h-4 w-4 text-white" />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Hoạt động</p>
-              <p className="text-base md:text-2xl font-bold text-green-600">
-                {hopDongList.filter(h => h.trangThai === 'hoatDong').length}
-              </p>
-            </div>
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-              <FileText className="h-4 w-4 text-white" />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Sắp hết hạn</p>
-              <p className="text-base md:text-2xl font-bold text-orange-600">
-                {hopDongList.filter(h => isExpiringSoon(h.ngayKetThuc)).length}
-              </p>
-            </div>
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-              <Calendar className="h-4 w-4 text-white" />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Đã hết hạn</p>
-              <p className="text-base md:text-2xl font-bold text-red-600">
-                {hopDongList.filter(h => isExpired(h.ngayKetThuc)).length}
-              </p>
-            </div>
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-              <Calendar className="h-4 w-4 text-white" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop Table */}
-      <div className="hidden md:block rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-        <div className="flex items-center justify-between p-4 md:p-6 border-b border-indigo-100">
-          <div>
-            <h3 className="text-base font-semibold text-indigo-900">Danh sách hợp đồng</h3>
-            <p className="text-sm text-indigo-600">
-              {filteredHopDong.length} hợp đồng được tìm thấy
-            </p>
-          </div>
-        </div>
-        <div className="p-4 md:p-6">
-          <HopDongDataTable
-            data={filteredHopDong}
-            phongList={phongList}
-            khachThueList={khachThueList}
-            toaNhaList={toaNhaList}
-            onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onDownload={handleDownload}
-            onGiaHan={handleGiaHan}
-            onHuy={handleHuy}
-            actionLoading={actionLoading}
-            canEdit={canEdit}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            toaNhaFilter={toaNhaFilter}
-            onToaNhaChange={setToaNhaFilter}
-            allToaNhaList={toaNhaList}
-          />
-        </div>
-      </div>
-
-      {/* Mobile Cards */}
-      <div className="md:hidden">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-indigo-900">Danh sách hợp đồng</h2>
-          <span className="text-sm text-indigo-500">{filteredHopDong.length} hợp đồng</span>
-        </div>
-        
-        {/* Mobile Filters */}
-        <div className="space-y-2 mb-4">
-          <SearchInput
-            placeholder="Tìm kiếm hợp đồng..."
-            value={searchTerm}
-            onChange={setSearchTerm}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-sm">Tất cả</SelectItem>
-                <SelectItem value="hoatDong" className="text-sm">Hoạt động</SelectItem>
-                <SelectItem value="hetHan" className="text-sm">Hết hạn</SelectItem>
-                <SelectItem value="daHuy" className="text-sm">Đã hủy</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={toaNhaFilter} onValueChange={setToaNhaFilter}>
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Tòa nhà" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-sm">Tất cả</SelectItem>
-                {toaNhaList.map((toaNha) => (
-                  <SelectItem key={toaNha.id} value={toaNha.id!} className="text-sm">
-                    {toaNha.tenToaNha}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Mobile Card List */}
-        <div className="space-y-3">
-          {filteredHopDong.map((hopDong) => {
-            const phongInfo = getPhongInfo(hopDong.phong);
-            const nguoiDaiDien = getKhachThueName(hopDong.nguoiDaiDien);
-            const isExpiring = isExpiringSoon(hopDong.ngayKetThuc);
-            const isExpiredNow = isExpired(hopDong.ngayKetThuc);
-            const isSelected = selectedHopDongId === hopDong.id;
-
-            return (
-              <div key={hopDong.id}>
-                <div className={`rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm ${isSelected ? 'ring-2 ring-indigo-400' : ''}`}>
-                  <div className="space-y-3">
-                    {/* Header with contract code and status */}
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-start gap-2 flex-1">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(v) => setSelectedHopDongId(v === true ? hopDong.id! : null)}
-                          className="mt-1 text-indigo-600"
-                        />
-                        <div>
-                          <h3 className="font-medium text-indigo-900">{hopDong.maHopDong}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Home className="h-3 w-3 text-indigo-400" />
-                            <span className="text-sm text-indigo-600">{phongInfo.maPhong}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1 items-end">
-                        {(() => {
-                          switch (hopDong.trangThai) {
-                            case 'hoatDong':
-                              return <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">Hoạt động</Badge>;
-                            case 'hetHan':
-                              return <Badge variant="destructive" className="text-xs">Hết hạn</Badge>;
-                            case 'daHuy':
-                              return <Badge variant="secondary" className="text-xs">Đã hủy</Badge>;
-                            default:
-                              return <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">{hopDong.trangThai}</Badge>;
-                          }
-                        })()}
-                        {isExpiring && hopDong.trangThai === 'hoatDong' && (
-                          <Badge variant="outline" className="text-xs text-orange-600 border-orange-600">
-                            Sắp hết hạn
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Building and tenant info */}
-                    <div className="space-y-1 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-3 w-3 text-indigo-400" />
-                        <span className="text-indigo-600">{phongInfo.toaNha}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-3 w-3 text-indigo-400" />
-                        <span className="text-indigo-600">{nguoiDaiDien}</span>
-                        {hopDong.khachThueIds?.length > 1 && (
-                          <Badge variant="outline" className="text-[10px] border-indigo-200 text-indigo-600 bg-indigo-50">
-                            +{hopDong.khachThueIds?.length - 1}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Contract dates */}
-                    <div className="grid grid-cols-2 gap-2 text-xs text-indigo-500 border-t border-indigo-100 pt-2">
-                      <div>
-                        <Calendar className="h-3 w-3 inline mr-1 text-indigo-400" />
-                        Từ: {new Date(hopDong.ngayBatDau).toLocaleDateString('vi-VN')}
-                      </div>
-                      <div>
-                        <Calendar className="h-3 w-3 inline mr-1 text-indigo-400" />
-                        Đến: {new Date(hopDong.ngayKetThuc).toLocaleDateString('vi-VN')}
-                      </div>
-                    </div>
-
-                    {/* Pricing info */}
-                    <div className="border-t border-indigo-100 pt-2">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="text-indigo-500">Giá thuê:</span>
-                          <p className="font-semibold text-green-600">{formatCurrency(hopDong.giaThue)}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Tiền cọc:</span>
-                          <p className="font-semibold text-blue-600">{formatCurrency(hopDong.tienCoc)}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-indigo-100">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleView(hopDong)}
-                        className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                      >
-                        <FileText className="h-3.5 w-3.5 mr-1" />
-                        Xem
-                      </Button>
-                      {canEdit && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(hopDong)}
-                          className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                        >
-                          <Edit className="h-3.5 w-3.5 mr-1" />
-                          Sửa
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDownload(hopDong)}
-                        className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                      >
-                        <Download className="h-3.5 w-3.5 mr-1" />
-                        Tải
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Detail panel - shown when checkbox is checked */}
-                {isSelected && (
-                  <div className="mt-2 rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center gap-2 text-indigo-900 font-medium text-sm border-b border-indigo-200 pb-2">
-                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                          <FileText className="h-3.5 w-3.5 text-white" />
-                        </div>
-                        Chi tiết hợp đồng
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span className="text-indigo-500">Mã hợp đồng:</span>
-                          <p className="font-medium text-indigo-900">{hopDong.maHopDong}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Phòng:</span>
-                          <p className="font-medium text-indigo-900">{phongInfo.maPhong}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Tòa nhà:</span>
-                          <p className="font-medium text-indigo-900">{phongInfo.toaNha}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Người đại diện:</span>
-                          <p className="font-medium text-indigo-900">{nguoiDaiDien}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Ngày bắt đầu:</span>
-                          <p className="font-medium text-indigo-900">{new Date(hopDong.ngayBatDau).toLocaleDateString('vi-VN')}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Ngày kết thúc:</span>
-                          <p className="font-medium text-indigo-900">{new Date(hopDong.ngayKetThuc).toLocaleDateString('vi-VN')}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Giá thuê:</span>
-                          <p className="font-semibold text-green-600">{formatCurrency(hopDong.giaThue)}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Tiền cọc:</span>
-                          <p className="font-semibold text-blue-600">{formatCurrency(hopDong.tienCoc)}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Chu kỳ thanh toán:</span>
-                          <p className="font-medium text-indigo-900">{{ thang: 'Hàng tháng', quy: 'Theo quý', nam: 'Hàng năm' }[hopDong.chuKyThanhToan] || hopDong.chuKyThanhToan}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Ngày thanh toán:</span>
-                          <p className="font-medium text-indigo-900">Ngày {hopDong.ngayThanhToan}</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Giá điện:</span>
-                          <p className="font-medium text-indigo-900">{formatCurrency(hopDong.giaDien)}/kWh</p>
-                        </div>
-                        <div>
-                          <span className="text-indigo-500">Giá nước:</span>
-                          <p className="font-medium text-indigo-900">{formatCurrency(hopDong.giaNuoc)}/m³</p>
-                        </div>
-                      </div>
-                      
-                      {hopDong.phiDichVu && hopDong.phiDichVu.length > 0 && (
-                        <div className="text-sm border-t border-indigo-200 pt-2">
-                          <span className="text-indigo-500">Phí dịch vụ:</span>
-                          <div className="mt-1 space-y-1">
-                            {hopDong.phiDichVu.map((phi, idx) => (
-                              <div key={idx} className="flex justify-between rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-2 text-xs">
-                                <span className="font-medium text-indigo-900">{phi.ten}</span>
-                                <span className="text-indigo-600">{formatCurrency(phi.gia)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {filteredHopDong.length === 0 && (
-          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center">
-            <FileText className="h-12 w-12 text-indigo-300 mx-auto mb-4" />
-            <p className="text-indigo-400">Không có hợp đồng nào</p>
+      {/* Table */}
+      <InlineEditTable
+        data={tableData}
+        columns={columns}
+        keyExtractor={(item) => item.id}
+        searchTerm={searchTerm}
+        loading={loading}
+        emptyMessage="Không tìm thấy hợp đồng nào"
+        onEdit={canEdit ? (item) => handleEditHopDong(item) : undefined}
+        onDelete={canEdit ? (item) => handleDelete(item.id) : undefined}
+        renderExpanded={renderExpanded}
+        expandedId={expandedId}
+        onToggleExpand={(id) => {
+          setExpandedId(prev => prev === id ? null : id);
+          if (expandedId !== id) {
+            const item = tableData.find(i => i.id === id);
+            if (item) handleEditHopDong(item);
+          } else {
+            setEditForm(null);
+          }
+        }}
+        renderActions={(item) => (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); handleView(hopDongList.find(hd => (hd.id || hd._id) === item.id) as HopDong); }}
+              className="h-8 w-8 p-0"
+              title="Xem chi tiết"
+            >
+              <FileText className="h-4 w-4 text-blue-600" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); const hd = hopDongList.find(h => (h.id || h._id) === item.id); if (hd) handleDownload(hd); }}
+              className="h-8 w-8 p-0"
+              title="Tải xuống Word"
+            >
+              <Download className="h-4 w-4 text-green-600" />
+            </Button>
+            {item.trangThai === 'hoatDong' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => { e.stopPropagation(); const hd = hopDongList.find(h => (h.id || h._id) === item.id); if (hd) handleGiaHan(hd); }}
+                className="h-8 w-8 p-0"
+                title="Gia hạn"
+                disabled={actionLoading === `giahan-${item.id}`}
+              >
+                <RefreshCw className={`h-4 w-4 text-orange-600 ${actionLoading === `giahan-${item.id}` ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
+            {item.trangThai === 'hoatDong' && (
+              <ConfirmPopover
+                title="Xác nhận hủy hợp đồng"
+                message={`Bạn có chắc chắn muốn hủy hợp đồng ${item.maHopDong}?`}
+                onConfirm={async () => { const hd = hopDongList.find(h => (h.id || h._id) === item.id); if (hd) await handleHuy(hd); }}
+                confirmLabel="Hủy hợp đồng"
+                cancelLabel="Không"
+                variant="danger"
+              >
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Hủy hợp đồng">
+                  <CloseIcon className="h-4 w-4 text-red-600" />
+                </Button>
+              </ConfirmPopover>
+            )}
           </div>
         )}
-      </div>
-
+      />
     </div>
   );
 }

@@ -10,6 +10,13 @@ datasource db {
   provider = "postgresql"
 }
 
+// Mức độ quyền cho từng module nghiệp vụ
+enum PermissionLevel {
+  hidden      // Ẩn hoàn toàn — không thấy tab, không thao tác được
+  viewOnly    // Chỉ xem — có thể xem dữ liệu nhưng không thêm/sửa/xóa
+  fullAccess  // Toàn quyền — xem, thêm, sửa, xóa
+}
+
 model NguoiDung {
   id                String    @id @default(cuid())
   ten               String
@@ -49,6 +56,17 @@ model NguoiDung {
   danhBaNgoai           DanhBaNgoai[]
   khachThueTao          KhachThue[]            @relation("KhachThueNguoiTao")
   hoaDonTao             HoaDon[]               @relation("HoaDonNguoiTao")
+  lichTrucCa            LichTrucCa[]           @relation("NguoiDungLichTruc")
+  lichTrucCaTao         LichTrucCa[]           @relation("NguoiTaoLichTruc")
+  caiDatEmail           CaiDatEmail?
+  emailLog              EmailLog[]
+  congViecTao           CongViec[]             @relation("CongViecNguoiTao")
+  congViecXuLy          CongViec[]             @relation("CongViecNguoiXuLy")
+  congViecLichSu        CongViecLichSu[]
+  phieuNhapKho          PhieuNhapKho[]
+  phieuXuatKho          PhieuXuatKho[]
+  baoDuongPhuTrach      BaoDuong[]             @relation("BaoDuongNguoiPhuTrach")
+  baoDuongLichSu        BaoDuongLichSu[]
 }
 
 model ToaNha {
@@ -71,9 +89,16 @@ model ToaNha {
   zaloThongBaoCaiDat    ZaloThongBaoCaiDat[]
   zaloDongChuTroThreads ZaloDongChuTroThread[]
   caiDatToaNha          CaiDatToaNha?
+  lichTrucCa            LichTrucCa[]
+  congViec              CongViec[]
+  tonKho                TonKho[]
+  phieuNhapKho          PhieuNhapKho[]
+  phieuXuatKho          PhieuXuatKho[]
+  baoDuong              BaoDuong[]
 }
 
 // Bảng gán người quản lý cho tòa nhà (role: quanLy)
+// Mỗi module nghiệp vụ có 3 mức: hidden (ẩn), viewOnly (chỉ xem), fullAccess (toàn quyền)
 model ToaNhaNguoiQuanLy {
   toaNhaId    String
   nguoiDungId String
@@ -81,22 +106,19 @@ model ToaNhaNguoiQuanLy {
   nguoiDung   NguoiDung @relation(fields: [nguoiDungId], references: [id], onDelete: Cascade)
   ngayTao     DateTime  @default(now())
 
-  // Quyền hạn được chủ trọ trao — mặc định false (không có)
-  quyenKichHoatTaiKhoan Boolean @default(false) // Kích hoạt/thu hồi đăng nhập khách thuê
-  quyenHopDong          Boolean @default(false) // Thêm/sửa/xóa hợp đồng
-  quyenHoaDon           Boolean @default(false) // Thêm/sửa/xóa hóa đơn
-  quyenThanhToan        Boolean @default(false) // Thêm/sửa/xóa thanh toán
-  quyenSuCo             Boolean @default(false) // Thêm/sửa/xóa sự cố
-  quyenZalo             Boolean @default(false) // Hiện tab Zalo
-  quyenZaloMonitor      Boolean @default(false) // Hiện tab Zalo Monitor
-
-  // Ẩn nav tab (chỉ có hiệu lực khi quyền tương ứng = false)
-  anNavTabHopDong       Boolean @default(false) // Ẩn tab Hợp đồng
-  anNavTabHoaDon        Boolean @default(false) // Ẩn tab Hóa đơn
-  anNavTabThanhToan     Boolean @default(false) // Ẩn tab Thanh toán
-  anNavTabSuCo          Boolean @default(false) // Ẩn tab Sự cố
-  anNavTabZalo          Boolean @default(false) // Ẩn tab Zalo
-  anNavTabZaloMonitor   Boolean @default(false) // Ẩn tab Zalo Monitor
+  // Quyền hạn 3 mức cho từng module nghiệp vụ
+  mucDoHopDong          PermissionLevel @default(fullAccess) // Hợp đồng
+  mucDoHoaDon           PermissionLevel @default(fullAccess) // Hóa đơn
+  mucDoThanhToan        PermissionLevel @default(fullAccess) // Thanh toán
+  mucDoSuCo             PermissionLevel @default(fullAccess) // Sự cố
+  mucDoKichHoatTaiKhoan PermissionLevel @default(fullAccess) // Kích hoạt/thu hồi đăng nhập khách thuê
+  mucDoZalo             PermissionLevel @default(fullAccess) // Zalo
+  mucDoZaloMonitor      PermissionLevel @default(fullAccess) // Zalo Monitor
+  mucDoCongViec         PermissionLevel @default(fullAccess) // Công việc / Kanban
+  mucDoKho             PermissionLevel @default(fullAccess) // Kho (vật tư, tồn kho, nhập-xuất)
+  mucDoBaoDuong        PermissionLevel @default(fullAccess) // Bảo dưỡng
+  mucDoCaiDatHotline   PermissionLevel @default(fullAccess) // Cài đặt Hotline
+  mucDoCaiDatEmail     PermissionLevel @default(fullAccess) // Cài đặt Email
 
   @@id([toaNhaId, nguoiDungId])
 }
@@ -155,6 +177,9 @@ model Phong {
   hoaDon   HoaDon[]
   suCo     SuCo[]
   thongBao ThongBaoPhong[]
+  congViec CongViec[]
+  phieuXuatKho PhieuXuatKho[]
+  baoDuong BaoDuong[]
 
   @@unique([maPhong, toaNhaId])
 }
@@ -543,6 +568,288 @@ model DanhBaNgoai {
   ngayCapNhat DateTime  @updatedAt
 
   @@index([nguoiTaoId])
+}
+
+// ─── Cấu hình Email SMTP (Giai đoạn 4) ───────────────────────────────────────
+model CaiDatEmail {
+  id          String   @id @default(cuid())
+  nguoiDungId String   @unique
+  nguoiDung   NguoiDung @relation(fields: [nguoiDungId], references: [id], onDelete: Cascade)
+
+  email       String   // Email gửi
+  appPassword String   // App Password (mã hóa)
+  host        String   @default("smtp.gmail.com")
+  port        Int      @default(587)
+  tenHienThi  String?  // Tên hiển thị khi gửi
+
+  // Bật/tắt tự động gửi theo loại
+  tuDongGuiHoaDon  Boolean @default(false)
+  tuDongGuiNhacNo  Boolean @default(false)
+  tuDongGuiBaoCao  Boolean @default(false)
+  tuDongGuiBaoTri  Boolean @default(false)
+
+  ngayTao     DateTime @default(now())
+  ngayCapNhat DateTime @updatedAt
+}
+
+// Lịch sử gửi Email
+model EmailLog {
+  id          String   @id @default(cuid())
+  nguoiDungId String
+  nguoiDung   NguoiDung @relation(fields: [nguoiDungId], references: [id])
+  toEmail     String
+  tieuDe      String
+  noiDung     String?
+  loai        String   // hoaDon | nhacNo | baoCao | baoTri | khac
+  trangThai   String   @default("thanhCong") // thanhCong | thatBai
+  loiNhac     String?  // Thông báo lỗi nếu thất bại
+  ngayGui     DateTime @default(now())
+
+  @@index([nguoiDungId, ngayGui])
+  @@index([loai, ngayGui])
+}
+
+// ─── Công việc / Task — Kanban (Giai đoạn 5) ─────────────────────────────────
+model CongViec {
+  id            String   @id @default(cuid())
+  tieuDe        String
+  moTa          String?
+  loai          String   // suCo | baoTri | baoDuong | hanhChinh | khac
+  trangThai     String   @default("choTiepNhan")
+  // choTiepNhan | dangXuLy | tamHoan | choXacNhan | daHoanThanh | daHuy
+
+  mucDoUuTien   String   @default("trungBinh") // thap | trungBinh | cao | khanCap
+  deadline      DateTime?
+
+  // Liên kết
+  toaNhaId      String?
+  toaNha        ToaNha?  @relation(fields: [toaNhaId], references: [id], onDelete: SetNull)
+  phongId       String?
+  phong         Phong?   @relation(fields: [phongId], references: [id], onDelete: SetNull)
+  suCoId        String?  // Liên kết đến sự cố nếu có
+  hoaDonId      String?  // Liên kết đến hóa đơn nếu có
+
+  // Người tạo và người xử lý
+  nguoiTaoId    String
+  nguoiTao      NguoiDung @relation("CongViecNguoiTao", fields: [nguoiTaoId], references: [id])
+  nguoiXuLyId   String?
+  nguoiXuLy     NguoiDung? @relation("CongViecNguoiXuLy", fields: [nguoiXuLyId], references: [id], onDelete: SetNull)
+
+  // Ghi chú xử lý
+  ghiChuXuLy    String?
+  ketQua        String?   // Kết quả sau khi hoàn thành
+
+  ngayTao       DateTime  @default(now())
+  ngayCapNhat   DateTime  @updatedAt
+  ngayHoanThanh DateTime?
+
+  lichSu        CongViecLichSu[]
+
+  @@index([toaNhaId, trangThai])
+  @@index([nguoiXuLyId, trangThai])
+  @@index([nguoiTaoId])
+}
+
+// Lịch sử thay đổi công việc
+model CongViecLichSu {
+  id              String   @id @default(cuid())
+  congViecId      String
+  congViec        CongViec @relation(fields: [congViecId], references: [id], onDelete: Cascade)
+  nguoiThayDoiId  String
+  nguoiThayDoi    NguoiDung @relation(fields: [nguoiThayDoiId], references: [id])
+  thayDoi         Json     // { truoc: {...}, sau: {...} }
+  ngayTao         DateTime @default(now())
+
+  @@index([congViecId])
+}
+
+// ─── Kho bãi (Giai đoạn 6) ───────────────────────────────────────────────────
+// Danh mục vật tư
+model VatTu {
+  id            String   @id @default(cuid())
+  maVatTu       String   @unique
+  tenVatTu      String
+  donViTinh     String   // cai | bo | kg | met | hop | thung
+  moTa          String?
+  nhomVatTu     String   // dien | nuoc | noiThat | veSinh | anNinh | vanPhong | khac
+
+  // Phân tích ABC
+  phanTichABC   String   @default("C") // A | B | C
+
+  // Định mức
+  tonKhoToiThieu Int     @default(0)
+
+  // Hình ảnh
+  anhVatTu      String[]
+  maQR          String?  // Mã QR vật tư (URL hoặc base64)
+
+  // Giá
+  giaMua        Float    @default(0)
+  giaBan        Float    @default(0)
+
+  ngayTao       DateTime @default(now())
+  ngayCapNhat   DateTime @updatedAt
+
+  tonKho        TonKho[]
+  nhapKho       PhieuNhapKhoChiTiet[]
+  xuatKho       PhieuXuatKhoChiTiet[]
+}
+
+// Tồn kho theo tòa nhà/kho
+model TonKho {
+  id          String   @id @default(cuid())
+  vatTuId     String
+  vatTu       VatTu    @relation(fields: [vatTuId], references: [id], onDelete: Cascade)
+  toaNhaId    String
+  toaNha      ToaNha   @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
+  soLuong     Int      @default(0)
+  viTri       String?  // Vị trí lưu kho (kệ, phòng...)
+
+  @@unique([vatTuId, toaNhaId])
+  @@index([toaNhaId])
+}
+
+// Phiếu nhập kho
+model PhieuNhapKho {
+  id            String   @id @default(cuid())
+  maPhieu       String   @unique
+  toaNhaId      String
+  toaNha        ToaNha   @relation(fields: [toaNhaId], references: [id])
+  nguoiNhapId   String
+  nguoiNhap     NguoiDung @relation(fields: [nguoiNhapId], references: [id])
+  nhaCungCap    String?
+  ghiChu        String?
+  tongTien      Float    @default(0)
+  ngayNhap      DateTime @default(now())
+  ngayTao       DateTime @default(now())
+
+  chiTiet       PhieuNhapKhoChiTiet[]
+
+  @@index([toaNhaId, ngayNhap])
+}
+
+model PhieuNhapKhoChiTiet {
+  id          String         @id @default(cuid())
+  phieuNhapId String
+  phieuNhap   PhieuNhapKho   @relation(fields: [phieuNhapId], references: [id], onDelete: Cascade)
+  vatTuId     String
+  vatTu       VatTu          @relation(fields: [vatTuId], references: [id])
+  soLuong     Int
+  donGia      Float
+  thanhTien   Float
+
+  @@index([phieuNhapId])
+}
+
+// Phiếu xuất kho
+model PhieuXuatKho {
+  id            String   @id @default(cuid())
+  maPhieu       String   @unique
+  toaNhaId      String
+  toaNha        ToaNha   @relation(fields: [toaNhaId], references: [id])
+  nguoiXuatId   String
+  nguoiXuat     NguoiDung @relation(fields: [nguoiXuatId], references: [id])
+  lyDo          String   // baoTri | suCo | khac
+  phongId       String?  // Phòng sử dụng (nếu có)
+  phong         Phong?   @relation(fields: [phongId], references: [id], onDelete: SetNull)
+  suCoId        String?  // Liên kết sự cố (nếu có)
+  ghiChu        String?
+  ngayXuat      DateTime @default(now())
+  ngayTao       DateTime @default(now())
+
+  chiTiet       PhieuXuatKhoChiTiet[]
+
+  @@index([toaNhaId, ngayXuat])
+}
+
+model PhieuXuatKhoChiTiet {
+  id          String          @id @default(cuid())
+  phieuXuatId String
+  phieuXuat   PhieuXuatKho    @relation(fields: [phieuXuatId], references: [id], onDelete: Cascade)
+  vatTuId     String
+  vatTu       VatTu           @relation(fields: [vatTuId], references: [id])
+  soLuong     Int
+  donGia      Float
+  thanhTien   Float
+
+  @@index([phieuXuatId])
+}
+
+// ─── Bảo dưỡng định kỳ (Giai đoạn 6) ─────────────────────────────────────────
+model BaoDuong {
+  id            String   @id @default(cuid())
+  tieuDe        String
+  moTa          String?
+  toaNhaId      String
+  toaNha        ToaNha   @relation(fields: [toaNhaId], references: [id])
+  phongId       String?
+  phong         Phong?   @relation(fields: [phongId], references: [id], onDelete: SetNull)
+
+  // Thiết bị
+  thietBi       String   // tenThietBi
+  loaiBaoDuong  String   // dinhKy | dotXuat
+
+  // Chu kỳ
+  chuKyNgay    Int      // Số ngày giữa các lần bảo dưỡng
+  ngayBaoDuongTruoc DateTime? // Lần bảo dưỡng trước
+  ngayBaoDuongSau   DateTime? // Lần bảo dưỡng tiếp theo (dự kiến)
+
+  // Người phụ trách
+  nguoiPhuTrachId String?
+  nguoiPhuTrach   NguoiDung? @relation("BaoDuongNguoiPhuTrach", fields: [nguoiPhuTrachId], references: [id], onDelete: SetNull)
+
+  // Trạng thái
+  trangThai     String   @default("chuaDenHan") // chuaDenHan | denHan | quaHan | daHoanThanh
+
+  // Kết quả
+  ketQua        String?  // Ghi chú kết quả bảo dưỡng
+  vatTuDaDung   Json?    // [{ vatTuId, tenVatTu, soLuong }] — vật tư đã dùng
+
+  ngayTao       DateTime @default(now())
+  ngayCapNhat   DateTime @updatedAt
+  ngayHoanThanh DateTime?
+
+  lichSu        BaoDuongLichSu[]
+
+  @@index([toaNhaId, trangThai])
+  @@index([ngayBaoDuongSau])
+}
+
+// Lịch sử bảo dưỡng
+model BaoDuongLichSu {
+  id                String   @id @default(cuid())
+  baoDuongId        String
+  baoDuong          BaoDuong @relation(fields: [baoDuongId], references: [id], onDelete: Cascade)
+  nguoiThucHienId   String
+  nguoiThucHien     NguoiDung @relation(fields: [nguoiThucHienId], references: [id])
+  noiDung           String
+  ketQua            String?
+  ngayTao           DateTime @default(now())
+
+  @@index([baoDuongId])
+}
+
+// ─── Lịch trực ca (Giai đoạn 3) ──────────────────────────────────────────────
+// Mỗi người có một ca trong một ngày tại một tòa nhà
+model LichTrucCa {
+  id          String   @id @default(cuid())
+  nguoiDungId String
+  toaNhaId    String
+  ngay        DateTime // Ngày trực (chỉ lấy phần ngày, giờ = 00:00:00)
+  ca          String   // C1 (Sáng 06-14) | C2 (Chiều 14-22) | C3 (Đêm 22-06) | HC (Hành chính 08-17)
+  ghiChu      String?
+  nguoiTaoId  String? // Người tạo lịch trực
+  ngayTao     DateTime @default(now())
+  ngayCapNhat DateTime @updatedAt
+
+  nguoiDung NguoiDung  @relation("NguoiDungLichTruc", fields: [nguoiDungId], references: [id], onDelete: Cascade)
+  toaNha    ToaNha     @relation(fields: [toaNhaId], references: [id], onDelete: Cascade)
+  nguoiTao  NguoiDung? @relation("NguoiTaoLichTruc", fields: [nguoiTaoId], references: [id], onDelete: SetNull)
+
+  // Một người chỉ có một ca trong một ngày tại một tòa nhà
+  @@unique([nguoiDungId, toaNhaId, ngay])
+  @@index([toaNhaId, ngay])
+  @@index([nguoiDungId])
 }
 
 // Danh sách endpoint của Zalo Bot Server — seed từ code, proxy dùng làm whitelist

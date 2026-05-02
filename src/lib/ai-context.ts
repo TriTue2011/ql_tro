@@ -64,6 +64,7 @@ async function buildKhachThueContext(userId: string): Promise<string> {
                 select: {
                   tenToaNha: true,
                   lienHePhuTrach: true,
+                  moTa: true,
                 },
               },
             },
@@ -428,11 +429,11 @@ async function buildManagerPermissionsContext(userId: string): Promise<string> {
     where: { nguoiDungId: userId },
     select: {
       toaNha: { select: { tenToaNha: true } },
-      quyenHopDong: true,
-      quyenHoaDon: true,
-      quyenThanhToan: true,
-      quyenSuCo: true,
-      quyenKichHoatTaiKhoan: true,
+      mucDoHopDong: true,
+      mucDoHoaDon: true,
+      mucDoThanhToan: true,
+      mucDoSuCo: true,
+      mucDoKichHoatTaiKhoan: true,
     },
   });
 
@@ -440,11 +441,11 @@ async function buildManagerPermissionsContext(userId: string): Promise<string> {
 
   const lines = perms.map(p => {
     const q: string[] = [];
-    if (p.quyenHopDong) q.push('hợp đồng');
-    if (p.quyenHoaDon) q.push('hóa đơn');
-    if (p.quyenThanhToan) q.push('thanh toán');
-    if (p.quyenSuCo) q.push('sự cố');
-    if (p.quyenKichHoatTaiKhoan) q.push('kích hoạt tài khoản KT');
+    if (p.mucDoHopDong !== 'hidden') q.push('hợp đồng');
+    if (p.mucDoHoaDon !== 'hidden') q.push('hóa đơn');
+    if (p.mucDoThanhToan !== 'hidden') q.push('thanh toán');
+    if (p.mucDoSuCo !== 'hidden') q.push('sự cố');
+    if (p.mucDoKichHoatTaiKhoan !== 'hidden') q.push('kích hoạt tài khoản KT');
     return `- ${p.toaNha.tenToaNha}: ${q.length > 0 ? q.join(', ') : 'chỉ xem'}`;
   });
 

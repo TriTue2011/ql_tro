@@ -46,7 +46,7 @@ function buildNavGroups(role: Role): NavGroup[] {
   const isQuanLy = role === 'quanLy';
   const isNhanVien = role === 'nhanVien';
 
-  // ── Nhân viên: chỉ Zalo + Hồ sơ ──────────────────────────────────────────
+  // ── Nhân viên: Zalo + Công việc + Hồ sơ ──────────────────────────────────
   if (isNhanVien) {
     return [
       {
@@ -55,6 +55,13 @@ function buildNavGroups(role: Role): NavGroup[] {
         items: [
           { label: 'Zalo', href: '/dashboard/zalo' },
           { label: 'Zalo Monitor', href: '/dashboard/zalo-monitor' },
+        ],
+      },
+      {
+        label: 'Vận hành',
+        icon: 'bi-tools',
+        items: [
+          { label: 'Công việc', href: '/dashboard/cong-viec' },
         ],
       },
       {
@@ -85,6 +92,23 @@ function buildNavGroups(role: Role): NavGroup[] {
         ],
       },
       {
+        label: 'Vận hành',
+        icon: 'bi-tools',
+        items: [
+          { label: 'Công việc', href: '/dashboard/cong-viec' },
+          { label: 'Bảo dưỡng', href: '/dashboard/bao-duong' },
+        ],
+      },
+      {
+        label: 'Kho',
+        icon: 'bi-box-seam',
+        items: [
+          { label: 'Vật tư', href: '/dashboard/kho/vat-tu' },
+          { label: 'Tồn kho', href: '/dashboard/kho/ton-kho' },
+          { label: 'Nhập-Xuất', href: '/dashboard/kho/nhap-xuat' },
+        ],
+      },
+      {
         label: 'Liên lạc',
         icon: 'bi-chat-dots',
         items: [
@@ -98,6 +122,8 @@ function buildNavGroups(role: Role): NavGroup[] {
         items: [
           { label: 'Hồ sơ', href: '/dashboard/ho-so' },
           { label: 'Cài đặt', href: '/dashboard/cai-dat' },
+          { label: 'Cài đặt Hotline', href: '/dashboard/cai-dat-hotline' },
+          { label: 'Cài đặt Email', href: '/dashboard/cai-dat-email' },
         ],
       },
     ];
@@ -130,8 +156,20 @@ function buildNavGroups(role: Role): NavGroup[] {
         icon: 'bi-tools',
         items: [
           { label: 'Sự cố', href: '/dashboard/su-co' },
+          { label: 'Lịch trực ca', href: '/dashboard/lich-truc-ca' },
+          { label: 'Công việc', href: '/dashboard/cong-viec' },
+          { label: 'Bảo dưỡng', href: '/dashboard/bao-duong' },
           { label: 'Yêu cầu duyệt', href: '/dashboard/yeu-cau-duyet' },
           { label: 'Thông báo', href: '/dashboard/thong-bao' },
+        ],
+      },
+      {
+        label: 'Kho',
+        icon: 'bi-box-seam',
+        items: [
+          { label: 'Vật tư', href: '/dashboard/kho/vat-tu' },
+          { label: 'Tồn kho', href: '/dashboard/kho/ton-kho' },
+          { label: 'Nhập-Xuất', href: '/dashboard/kho/nhap-xuat' },
         ],
       },
       {
@@ -180,10 +218,22 @@ function buildNavGroups(role: Role): NavGroup[] {
       icon: 'bi-tools',
       items: [
         { label: 'Sự cố', href: '/dashboard/su-co' },
+        { label: 'Lịch trực ca', href: '/dashboard/lich-truc-ca' },
+        { label: 'Công việc', href: '/dashboard/cong-viec' },
+        { label: 'Bảo dưỡng', href: '/dashboard/bao-duong' },
         { label: 'Yêu cầu duyệt', href: '/dashboard/yeu-cau-duyet' },
         { label: 'Thông báo', href: '/dashboard/thong-bao' },
         { label: 'Zalo', href: '/dashboard/zalo' },
         { label: 'Zalo Monitor', href: '/dashboard/zalo-monitor' },
+      ],
+    },
+    {
+      label: 'Kho',
+      icon: 'bi-box-seam',
+      items: [
+        { label: 'Vật tư', href: '/dashboard/kho/vat-tu' },
+        { label: 'Tồn kho', href: '/dashboard/kho/ton-kho' },
+        { label: 'Nhập-Xuất', href: '/dashboard/kho/nhap-xuat' },
       ],
     },
   ];
@@ -202,6 +252,8 @@ function buildNavGroups(role: Role): NavGroup[] {
       items: [
         { label: 'Hồ sơ', href: '/dashboard/ho-so' },
         { label: 'Cài đặt', href: '/dashboard/cai-dat' },
+        { label: 'Cài đặt Hotline', href: '/dashboard/cai-dat-hotline' },
+        { label: 'Cài đặt Email', href: '/dashboard/cai-dat-email' },
       ],
     });
   }
@@ -248,28 +300,40 @@ export function BsSidebar({
         if (buildings.length === 0) return;
         const hidden = new Set<string>();
 
-        // ── 1. Kiểm tra anNavTab từ quyền nghiệp vụ ──────────────────────
-        // Lấy tất cả người dùng để xem anNavTab của current user
+        // ── 1. Kiểm tra mức quyền (PermissionLevel) từ quyền nghiệp vụ ──
+        // Ẩn nav tab nếu mức quyền là 'hidden'
         const uRes = await fetch('/api/admin/users');
         if (uRes.ok) {
           const users: Array<{
             id: string;
-            quyenTheoToaNha?: Record<string, Record<string, boolean>>;
+            quyenTheoToaNha?: Record<string, Record<string, string>>;
           }> = await uRes.json();
           const me = users.find(u => u.id === session?.user?.id);
           if (me?.quyenTheoToaNha?.[buildings[0].id]) {
             const perms = me.quyenTheoToaNha[buildings[0].id];
-            // Ánh xạ anNavTab → href cần ẩn
+            // Ánh xạ mucDoX → href cần ẩn
             const navTabMap: Record<string, string> = {
-              anNavTabHopDong: '/dashboard/hop-dong',
-              anNavTabHoaDon: '/dashboard/hoa-don',
-              anNavTabThanhToan: '/dashboard/thanh-toan',
-              anNavTabSuCo: '/dashboard/su-co',
-              anNavTabZalo: '/dashboard/zalo',
-              anNavTabZaloMonitor: '/dashboard/zalo-monitor',
+              mucDoHopDong: '/dashboard/hop-dong',
+              mucDoHoaDon: '/dashboard/hoa-don',
+              mucDoThanhToan: '/dashboard/thanh-toan',
+              mucDoSuCo: '/dashboard/su-co',
+              mucDoZalo: '/dashboard/zalo',
+              mucDoZaloMonitor: '/dashboard/zalo-monitor',
+              mucDoCongViec: '/dashboard/cong-viec',
+              mucDoKho: '/dashboard/kho/vat-tu',
+              mucDoBaoDuong: '/dashboard/bao-duong',
+              mucDoCaiDatHotline: '/dashboard/cai-dat-hotline',
+              mucDoCaiDatEmail: '/dashboard/cai-dat-email',
             };
-            for (const [anKey, href] of Object.entries(navTabMap)) {
-              if (perms[anKey] === true) hidden.add(href);
+            for (const [mucDoKey, href] of Object.entries(navTabMap)) {
+              if (perms[mucDoKey] === 'hidden') {
+                hidden.add(href);
+                // Nếu ẩn Kho (mucDoKho) thì ẩn luôn cả 3 sub-items
+                if (mucDoKey === 'mucDoKho') {
+                  hidden.add('/dashboard/kho/ton-kho');
+                  hidden.add('/dashboard/kho/nhap-xuat');
+                }
+              }
             }
           }
         }
@@ -397,6 +461,13 @@ function getItemIcon(label: string): string {
     'Hồ sơ':             'bi-person-circle',
     'Cài đặt':           'bi-sliders',
     'Giao diện':         'bi-palette',
+    'Công việc':         'bi-kanban',
+    'Bảo dưỡng':         'bi-wrench',
+    'Vật tư':            'bi-box',
+    'Tồn kho':           'bi-boxes',
+    'Nhập-Xuất':         'bi-arrow-left-right',
+    'Cài đặt Hotline':   'bi-telephone',
+    'Cài đặt Email':     'bi-envelope',
   };
   return iconMap[label] ?? 'bi-dot';
 }

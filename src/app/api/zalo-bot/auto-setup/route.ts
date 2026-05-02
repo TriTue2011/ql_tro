@@ -166,15 +166,15 @@ export async function POST(request: NextRequest) {
   if (user.vaiTro === 'chuNha' || user.vaiTro === 'quanLy' || user.vaiTro === 'dongChuTro') {
     const assignments = await prisma.toaNhaNguoiQuanLy.findMany({
       where: { nguoiDungId: user.id },
-      select: { toaNhaId: true, quyenKichHoatTaiKhoan: true },
+      select: { toaNhaId: true, mucDoKichHoatTaiKhoan: true },
     });
 
     let grantedCount = 0;
     for (const a of assignments) {
-      if (!a.quyenKichHoatTaiKhoan) {
+      if (a.mucDoKichHoatTaiKhoan === 'hidden') {
         await prisma.toaNhaNguoiQuanLy.update({
           where: { toaNhaId_nguoiDungId: { toaNhaId: a.toaNhaId, nguoiDungId: user.id } },
-          data: { quyenKichHoatTaiKhoan: true },
+          data: { mucDoKichHoatTaiKhoan: 'fullAccess' },
         }).catch(() => {});
         grantedCount++;
       }

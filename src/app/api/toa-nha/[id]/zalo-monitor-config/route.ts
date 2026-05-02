@@ -7,11 +7,11 @@ import prisma from '@/lib/prisma';
  * GET /api/toa-nha/[id]/zalo-monitor-config
  * Fetch building-specific Zalo Monitor settings.
  */
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const buildingId = params.id;
+  const { id: buildingId } = await params;
   const key = `zalo_monitor_config_${buildingId}`;
 
   const row = await prisma.caiDat.findUnique({ where: { khoa: key } });
@@ -35,11 +35,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
  * PUT /api/toa-nha/[id]/zalo-monitor-config
  * Update building-specific Zalo Monitor settings.
  */
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const buildingId = params.id;
+  const { id: buildingId } = await params;
   const { enabled, dmFilter } = await req.json();
 
   const key = `zalo_monitor_config_${buildingId}`;

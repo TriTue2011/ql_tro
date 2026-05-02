@@ -12,6 +12,7 @@ export const REALTIME_EVENTS = [
   'zalo-message',
   'zalo-qr-login',
   'user-status',
+  'lich-truc-ca',
 ] as const;
 
 export type RealtimeEvent = (typeof REALTIME_EVENTS)[number];

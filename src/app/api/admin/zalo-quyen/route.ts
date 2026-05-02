@@ -23,12 +23,12 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
-export const ZALO_FEATURES = [
+const ZALO_FEATURES = [
   'botServer', 'trucTiep', 'proxy', 'webhook',
   'tinTuDong', 'testGui', 'ketBan', 'theoDoiTin', 'zaloMonitor', 'quanLyQuyen',
 ] as const;
 
-export type ZaloFeature = typeof ZALO_FEATURES[number];
+type ZaloFeature = typeof ZALO_FEATURES[number];
 
 function defaultFeatures(): Record<ZaloFeature, boolean> {
   return Object.fromEntries(ZALO_FEATURES.map(f => [f, true])) as any;

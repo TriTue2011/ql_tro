@@ -19,3 +19,9 @@ export type { BuildingOption } from './building-selector';
 export { default as ConfirmPopover } from './confirm-popover';
 
 export { default as PermissionToggle } from './permission-toggle';
+
+export { default as PermissionLevelSelector } from './permission-level-selector';
+export type { PermissionLevel, PermissionLevelItem } from './permission-level-selector';
+
+export { default as ShiftSchedule } from './shift-schedule';
+export type { ShiftType, ShiftRecord, ShiftUser } from './shift-schedule';

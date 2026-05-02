@@ -10,6 +10,7 @@
  */
 
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 /**
  * So sánh tên nhóm (case-insensitive, normalize dấu cách).
@@ -39,7 +40,7 @@ export async function autoMatchGroupThread(
   try {
     // Lấy tất cả tòa nhà có cấu hình nhóm Zalo
     const buildings = await prisma.toaNha.findMany({
-      where: { zaloNhomChat: { not: null } },
+      where: { zaloNhomChat: { not: Prisma.DbNull } },
       select: { id: true, zaloNhomChat: true },
     });
 
