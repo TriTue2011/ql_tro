@@ -35,6 +35,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronUp,
   User,
   CreditCard,
   Calendar,
@@ -427,28 +428,115 @@ const createColumns = (props: KhachThueTableProps): ColumnDef<KhachThue>[] => [
   } as ColumnDef<KhachThue>] : []),
 ]
 
-function DraggableRow({ row }: { row: Row<KhachThue> }) {
+function DraggableRow({ row, isExpanded, onToggle }: { row: Row<KhachThue>; isExpanded: boolean; onToggle: (id: string) => void }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id!,
   })
 
   return (
-    <TableRow
-      data-state={row.getIsSelected() && "selected"}
-      data-dragging={isDragging}
-      ref={setNodeRef}
-      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition: transition,
-      }}
-    >
-      {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-        </TableCell>
-      ))}
-    </TableRow>
+    <>
+      <TableRow
+        data-state={row.getIsSelected() && "selected"}
+        data-dragging={isDragging}
+        ref={setNodeRef}
+        className={`relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80 ${isExpanded ? 'bg-blue-50/50' : ''}`}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition: transition,
+        }}
+      >
+        {row.getVisibleCells().map((cell) => {
+          if (cell.column.id === 'select') {
+            return (
+              <TableCell key={cell.id}>
+                <div className="flex items-center justify-center">
+                  <Checkbox
+                    checked={isExpanded}
+                    onCheckedChange={() => onToggle(row.original.id!)}
+                    aria-label="Xem chi tiết"
+                  />
+                </div>
+              </TableCell>
+            )
+          }
+          return (
+            <TableCell key={cell.id}>
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          )
+        })}
+      </TableRow>
+      {isExpanded && (
+        <TableRow className="hover:bg-inherit">
+          <TableCell colSpan={row.getVisibleCells().length} className="p-0">
+            <div className="border-t border-blue-200 bg-blue-50/30">
+              <div className="p-4 space-y-3">
+                {/* Thông tin cơ bản */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-xs text-muted-foreground">Họ tên</span>
+                    <p className="text-sm font-medium">{row.original.hoTen}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Giới tính</span>
+                    <p className="text-sm font-medium capitalize">{row.original.gioiTinh}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Số điện thoại</span>
+                    <p className="text-sm font-medium">{row.original.soDienThoai || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Email</span>
+                    <p className="text-sm font-medium">{row.original.email || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">CCCD</span>
+                    <p className="text-sm font-medium font-mono">{row.original.cccd}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Ngày sinh</span>
+                    <p className="text-sm font-medium">{new Date(row.original.ngaySinh).toLocaleDateString('vi-VN')}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Quê quán</span>
+                    <p className="text-sm font-medium">{row.original.queQuan}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Nghề nghiệp</span>
+                    <p className="text-sm font-medium">{row.original.ngheNghiep || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Trạng thái</span>
+                    <div className="mt-0.5">{getStatusBadge(row.original.trangThai)}</div>
+                  </div>
+                </div>
+
+                {/* Phòng đang thuê */}
+                {(row.original as any).hopDongHienTai && (
+                  <div>
+                    <span className="text-xs text-muted-foreground">Phòng đang thuê</span>
+                    <div className="mt-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Home className="h-3.5 w-3.5 text-green-600" />
+                        <span className="font-medium">
+                          {(row.original as any).hopDongHienTai?.phong?.maPhong || 'N/A'}
+                        </span>
+                        {(row.original as any).hopDongHienTai?.phong?.toaNha?.tenToaNha && (
+                          <span className="text-muted-foreground">
+                            <Building2 className="h-3 w-3 inline mr-1" />
+                            {(row.original as any).hopDongHienTai.phong.toaNha.tenToaNha}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   )
 }
 
@@ -464,6 +552,7 @@ export function KhachThueDataTable(props: KhachThueDataTableProps) {
   const { data: initialData, searchTerm, onSearchChange, selectedTrangThai, onTrangThaiChange, ...tableProps } = props
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})
+  const [expandedId, setExpandedId] = React.useState<string | null>(null)
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -633,7 +722,12 @@ export function KhachThueDataTable(props: KhachThueDataTableProps) {
                   strategy={verticalListSortingStrategy}
                 >
                   {table.getRowModel().rows.map((row) => (
-                    <DraggableRow key={row.id} row={row} />
+                    <DraggableRow
+                      key={row.id}
+                      row={row}
+                      isExpanded={expandedId === row.original.id}
+                      onToggle={(id) => setExpandedId(expandedId === id ? null : id)}
+                    />
                   ))}
                 </SortableContext>
               ) : (

@@ -34,6 +34,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronUp,
   CircleCheck,
   AlertCircle,
   Image as ImageIcon,
@@ -41,6 +42,7 @@ import {
   Search,
   User,
   Users,
+  Phone,
 } from "lucide-react"
 import {
   ColumnDef,
@@ -384,28 +386,133 @@ const createColumns = (props: PhongTableProps): ColumnDef<Phong>[] => [
   }] : []),
 ]
 
-function DraggableRow({ row }: { row: Row<Phong> }) {
+function DraggableRow({ row, isExpanded, onToggle, toaNhaList }: { row: Row<Phong>; isExpanded: boolean; onToggle: (id: string) => void; toaNhaList: ToaNha[] }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id!,
   })
 
   return (
-    <TableRow
-      data-state={row.getIsSelected() && "selected"}
-      data-dragging={isDragging}
-      ref={setNodeRef}
-      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition: transition,
-      }}
-    >
-      {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-        </TableCell>
-      ))}
-    </TableRow>
+    <>
+      <TableRow
+        data-state={row.getIsSelected() && "selected"}
+        data-dragging={isDragging}
+        ref={setNodeRef}
+        className={`relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80 ${isExpanded ? 'bg-blue-50/50' : ''}`}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition: transition,
+        }}
+      >
+        {row.getVisibleCells().map((cell) => {
+          if (cell.column.id === 'select') {
+            return (
+              <TableCell key={cell.id}>
+                <div className="flex items-center justify-center">
+                  <Checkbox
+                    checked={isExpanded}
+                    onCheckedChange={() => onToggle(row.original.id!)}
+                    aria-label="Xem chi tiết"
+                  />
+                </div>
+              </TableCell>
+            )
+          }
+          return (
+            <TableCell key={cell.id}>
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          )
+        })}
+      </TableRow>
+      {isExpanded && (
+        <TableRow className="hover:bg-inherit">
+          <TableCell colSpan={row.getVisibleCells().length} className="p-0">
+            <div className="border-t border-blue-200 bg-blue-50/30">
+              <div className="p-4 space-y-3">
+                {/* Thông tin cơ bản */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-xs text-muted-foreground">Mã phòng</span>
+                    <p className="text-sm font-medium">{row.original.maPhong}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Tòa nhà</span>
+                    <p className="text-sm font-medium">{getToaNhaName(row.original.toaNha, toaNhaList)}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Tầng</span>
+                    <p className="text-sm font-medium">Tầng {row.original.tang}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Diện tích</span>
+                    <p className="text-sm font-medium">{row.original.dienTich} m²</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Giá thuê</span>
+                    <p className="text-sm font-medium">{formatCurrency(row.original.giaThue)}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Tiền cọc</span>
+                    <p className="text-sm font-medium">{formatCurrency(row.original.tienCoc)}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Trạng thái</span>
+                    <div className="mt-0.5">{getStatusBadge(row.original.trangThai)}</div>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Số người tối đa</span>
+                    <p className="text-sm font-medium">{row.original.soNguoiToiDa} người</p>
+                  </div>
+                </div>
+
+                {/* Mô tả */}
+                {row.original.moTa && (
+                  <div>
+                    <span className="text-xs text-muted-foreground">Mô tả</span>
+                    <p className="text-sm text-muted-foreground mt-0.5">{row.original.moTa}</p>
+                  </div>
+                )}
+
+                {/* Tiện nghi */}
+                {row.original.tienNghi && row.original.tienNghi.length > 0 && (
+                  <div>
+                    <span className="text-xs text-muted-foreground">Tiện nghi</span>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {row.original.tienNghi.map((tienNghi, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">
+                          {tienNghi}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Người thuê hiện tại */}
+                {(row.original as any).hopDongHienTai && (
+                  <div>
+                    <span className="text-xs text-muted-foreground">Người thuê hiện tại</span>
+                    <div className="mt-1 space-y-1">
+                      {(row.original as any).hopDongHienTai?.khachThue?.map((kt: any, idx: number) => (
+                        <div key={idx} className="flex items-center gap-2 text-sm">
+                          <User className="h-3.5 w-3.5 text-blue-600" />
+                          <span className="font-medium">{kt.hoTen}</span>
+                          {kt.soDienThoai && (
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              {kt.soDienThoai}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   )
 }
 
@@ -424,6 +531,8 @@ export function PhongDataTable(props: PhongDataTableProps) {
   const { data: initialData, searchTerm, onSearchChange, selectedToaNha, onToaNhaChange, selectedTrangThai, onTrangThaiChange, allToaNhaList, ...tableProps } = props
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})
+  const [expandedId, setExpandedId] = React.useState<string | null>(null)
+  const toaNhaList = allToaNhaList || []
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -607,7 +716,13 @@ export function PhongDataTable(props: PhongDataTableProps) {
                   strategy={verticalListSortingStrategy}
                 >
                   {table.getRowModel().rows.map((row) => (
-                    <DraggableRow key={row.id} row={row} />
+                    <DraggableRow
+                      key={row.id}
+                      row={row}
+                      isExpanded={expandedId === row.original.id}
+                      onToggle={(id) => setExpandedId(expandedId === id ? null : id)}
+                      toaNhaList={toaNhaList}
+                    />
                   ))}
                 </SortableContext>
               ) : (

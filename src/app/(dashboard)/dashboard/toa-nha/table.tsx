@@ -37,6 +37,9 @@ import {
   Home,
   Users,
   Search,
+  Phone,
+  User,
+  ChevronUp,
 } from "lucide-react"
 import {
   ColumnDef,
@@ -276,28 +279,126 @@ const createColumns = (props: ToaNhaTableProps): ColumnDef<ToaNha>[] => [
   } as ColumnDef<ToaNha>] : []),
 ]
 
-function DraggableRow({ row }: { row: Row<ToaNha> }) {
+function DraggableRow({ row, isExpanded, onToggle }: { row: Row<ToaNha>; isExpanded: boolean; onToggle: (id: string) => void }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id!,
   })
 
   return (
-    <TableRow
-      data-state={row.getIsSelected() && "selected"}
-      data-dragging={isDragging}
-      ref={setNodeRef}
-      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition: transition,
-      }}
-    >
-      {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-        </TableCell>
-      ))}
-    </TableRow>
+    <>
+      <TableRow
+        data-state={row.getIsSelected() && "selected"}
+        data-dragging={isDragging}
+        ref={setNodeRef}
+        className={`relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80 ${isExpanded ? 'bg-blue-50/50' : ''}`}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition: transition,
+        }}
+      >
+        {row.getVisibleCells().map((cell) => {
+          // Override the select column's checkbox to also toggle expand
+          if (cell.column.id === 'select') {
+            return (
+              <TableCell key={cell.id}>
+                <div className="flex items-center justify-center">
+                  <Checkbox
+                    checked={isExpanded}
+                    onCheckedChange={() => onToggle(row.original.id!)}
+                    aria-label="Xem chi tiết"
+                  />
+                </div>
+              </TableCell>
+            )
+          }
+          return (
+            <TableCell key={cell.id}>
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          )
+        })}
+      </TableRow>
+      {isExpanded && (
+        <TableRow className="hover:bg-inherit">
+          <TableCell colSpan={row.getVisibleCells().length} className="p-0">
+            <div className="border-t border-blue-200 bg-blue-50/30">
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-2 text-blue-800 font-medium text-sm border-b border-blue-200 pb-2">
+                  <Building2 className="h-4 w-4" />
+                  Chi tiết tòa nhà
+                </div>
+                
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Địa chỉ:</span>
+                    <p className="font-medium mt-0.5">{formatAddress(row.original.diaChi)}</p>
+                  </div>
+                  
+                  {row.original.moTa && (
+                    <div>
+                      <span className="text-gray-500">Mô tả:</span>
+                      <p className="mt-0.5">{row.original.moTa}</p>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <span className="text-gray-500">Chủ sở hữu:</span>
+                    <p className="font-medium mt-0.5">{row.original.chuSoHuu}</p>
+                  </div>
+                </div>
+                
+                {row.original.tienNghiChung && row.original.tienNghiChung.length > 0 && (
+                  <div className="text-sm">
+                    <span className="text-gray-500">Tiện nghi:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {row.original.tienNghiChung.map((tienNghi) => (
+                        <Badge key={tienNghi} variant="secondary" className="text-xs">
+                          {tienNghi}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {row.original.lienHePhuTrach && row.original.lienHePhuTrach.length > 0 && (
+                  <div className="text-sm">
+                    <span className="text-gray-500">Liên hệ phụ trách:</span>
+                    <div className="space-y-1.5 mt-1">
+                      {row.original.lienHePhuTrach.map((contact, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-xs bg-white/60 rounded-md p-2">
+                          <User className="h-3.5 w-3.5 text-blue-500" />
+                          <span className="font-medium">{contact.ten}</span>
+                          {contact.soDienThoai && (
+                            <span className="flex items-center gap-1 text-gray-600">
+                              <Phone className="h-3 w-3" />{contact.soDienThoai}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-3 gap-2 text-center text-sm bg-white/60 rounded-md p-2">
+                  <div>
+                    <div className="text-gray-500 text-xs">Tổng phòng</div>
+                    <div className="font-semibold">{row.original.tongSoPhong}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-xs">Phòng trống</div>
+                    <div className="font-semibold text-green-600">{(row.original as any).phongTrong || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-xs">Đang thuê</div>
+                    <div className="font-semibold text-blue-600">{(row.original as any).phongDangThue || 0}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   )
 }
 
@@ -311,6 +412,7 @@ export function ToaNhaDataTable(props: ToaNhaDataTableProps) {
   const { data: initialData, searchTerm, onSearchChange, ...tableProps } = props
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})
+  const [expandedId, setExpandedId] = React.useState<string | null>(null)
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -467,7 +569,7 @@ export function ToaNhaDataTable(props: ToaNhaDataTableProps) {
                   strategy={verticalListSortingStrategy}
                 >
                   {table.getRowModel().rows.map((row) => (
-                    <DraggableRow key={row.id} row={row} />
+                    <DraggableRow key={row.id} row={row} isExpanded={expandedId === row.original.id} onToggle={(id) => setExpandedId(expandedId === id ? null : id)} />
                   ))}
                 </SortableContext>
               ) : (
