@@ -14,6 +14,7 @@ import {
   X,
   Phone,
   UserCircle,
+  Building2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { LienHePhuTrach } from '@/types';
@@ -112,14 +113,17 @@ export default function ThemMoiToaNhaPage() {
     <div className="space-y-4 md:space-y-6">
       <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
         <div className="flex items-center gap-3 md:gap-4 p-4 md:p-6">
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+            <Building2 className="h-4 w-4 text-white" />
+          </div>
+          <div className="flex-1">
+            <h1 className="text-lg md:text-xl font-bold">Thêm tòa nhà mới</h1>
+            <p className="text-sm text-gray-500">Nhập thông tin tòa nhà mới</p>
+          </div>
           <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/toa-nha')}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             Quay lại
           </Button>
-          <div>
-            <h1 className="text-lg md:text-xl font-bold">Thêm tòa nhà mới</h1>
-            <p className="text-sm text-gray-500">Nhập thông tin tòa nhà mới</p>
-          </div>
         </div>
       </div>
 

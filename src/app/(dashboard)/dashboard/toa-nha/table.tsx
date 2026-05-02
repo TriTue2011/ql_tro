@@ -344,7 +344,11 @@ function DraggableRow({ row, isExpanded, onToggle }: { row: Row<ToaNha>; isExpan
                   
                   <div>
                     <span className="text-gray-500">Chủ sở hữu:</span>
-                    <p className="font-medium mt-0.5">{row.original.chuSoHuu}</p>
+                    <p className="font-medium mt-0.5">
+                      {typeof row.original.chuSoHuu === 'object' && row.original.chuSoHuu !== null
+                        ? (row.original.chuSoHuu as any).ten || (row.original.chuSoHuu as any).id || 'N/A'
+                        : row.original.chuSoHuu || 'N/A'}
+                    </p>
                   </div>
                 </div>
                 
