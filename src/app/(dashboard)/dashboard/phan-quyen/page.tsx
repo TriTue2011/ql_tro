@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   AlertCircle,
   Building2,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Eye,
   EyeOff,
@@ -269,6 +270,7 @@ export default function PhanQuyenPage() {
   const [activeTab, setActiveTab] = useState('business');
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
+  const [businessExpandedPosition, setBusinessExpandedPosition] = useState<string | null>(null);
   const [hideBusinessTab, setHideBusinessTab] = useState(false);
   const canEditZalo = (isAdmin || isChuNha || isQuanLy) && (isAdmin || canManageZaloPerms[selectedBuildingId] !== false);
 
@@ -743,20 +745,10 @@ export default function PhanQuyenPage() {
 
           <div className="p-4">
             <div className="flex flex-col lg:flex-row gap-4">
-              {/* Left column: positions grouped with people inside */}
+              {/* Left column: positions grouped by role (Quản lý / Nhân viên) — tree-style like Zalo tab */}
               <div className="w-full lg:w-80 shrink-0 space-y-3">
                 {(() => {
-                  // Group users by chucVu, preserving CHUC_VU_QUAN_LY then CHUC_VU_NHAN_VIEN order
-                  const grouped = new Map<string, User[]>();
-                  for (const cv of [...CHUC_VU_QUAN_LY, ...CHUC_VU_NHAN_VIEN]) {
-                    const usersWithCV = businessUsers.filter(u => u.chucVu === cv.value);
-                    if (usersWithCV.length > 0) grouped.set(cv.value, usersWithCV);
-                  }
-                  // Also catch any users with unknown chucVu
-                  const unknown = businessUsers.filter(u => !Array.from(grouped.values()).flat().includes(u));
-                  if (unknown.length > 0) grouped.set('_unknown', unknown);
-
-                  if (grouped.size === 0) {
+                  if (businessUsers.length === 0) {
                     return (
                       <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
                         <Users className="mx-auto mb-2 h-6 w-6 text-indigo-300" />
@@ -765,44 +757,119 @@ export default function PhanQuyenPage() {
                     );
                   }
 
-                  return Array.from(grouped.entries()).map(([chucVuKey, usersInGroup]) => {
-                    const cvOption = [...CHUC_VU_QUAN_LY, ...CHUC_VU_NHAN_VIEN].find(c => c.value === chucVuKey);
-                    const groupLabel = cvOption?.label ?? 'Khác';
+                  // Group users by chucVu, preserving CHUC_VU_QUAN_LY then CHUC_VU_NHAN_VIEN order
+                  const grouped = new Map<string, User[]>();
+                  for (const cv of [...CHUC_VU_QUAN_LY, ...CHUC_VU_NHAN_VIEN]) {
+                    const usersWithCV = businessUsers.filter(u => u.chucVu === cv.value);
+                    if (usersWithCV.length > 0) grouped.set(cv.value, usersWithCV);
+                  }
+                  const unknown = businessUsers.filter(u => !Array.from(grouped.values()).flat().includes(u));
+                  if (unknown.length > 0) grouped.set('_unknown', unknown);
+
+                  // Separate into Quản lý and Nhân viên position groups
+                  const quanLyPositions = [...CHUC_VU_QUAN_LY].filter(cv => grouped.has(cv.value));
+                  const nhanVienPositions = [...CHUC_VU_NHAN_VIEN].filter(cv => grouped.has(cv.value));
+                  const hasUnknown = grouped.has('_unknown');
+
+                  const renderPositionGroup = (roleLabel: string, posList: readonly { value: string; label: string }[]) => {
+                    if (posList.length < 1) return null;
                     return (
-                      <div key={chucVuKey} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
-                        <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider px-1">
-                          {groupLabel}
+                      <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
+                        <p className="text-sm font-bold text-indigo-600 uppercase tracking-wider px-1">
+                          {roleLabel}
                         </p>
-                        {usersInGroup.map(user => {
-                          const isSelected = expandedUser === user.id;
+                        {posList.map(cv => {
+                          const usersInPos = grouped.get(cv.value) ?? [];
+                          const isExpanded = businessExpandedPosition === cv.value;
                           return (
-                            <button
-                              key={user.id}
-                              type="button"
-                              onClick={() => setExpandedUser(isSelected ? null : user.id)}
-                              className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-sm ${
-                                isSelected
-                                  ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
-                                  : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
-                              }`}
-                            >
-                              <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-                                isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
-                              }`}>
-                                {(user.ten || '?').charAt(0).toUpperCase()}
-                              </div>
-                              <span className="truncate rounded px-1">{user.ten || 'Không có tên'}</span>
-                              {user.chucVu && (
-                                <Badge variant="outline" className={`text-[10px] rounded-full ml-auto shrink-0 ${isSelected ? 'text-white/70 border-white/30 bg-white/10' : 'text-indigo-500 border-indigo-200 bg-indigo-50'}`}>
-                                  {getChucVuLabel(user.chucVu)}
-                                </Badge>
+                            <div key={cv.value}>
+                              <button
+                                type="button"
+                                onClick={() => setBusinessExpandedPosition(isExpanded ? null : cv.value)}
+                                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all duration-200 text-sm ${
+                                  isExpanded
+                                    ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                                    : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                                }`}
+                              >
+                                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isExpanded ? 'bg-white shadow-sm' : 'bg-indigo-300'}`} />
+                                <span className="truncate">{cv.label}</span>
+                                <span className={`text-[10px] ml-auto shrink-0 ${isExpanded ? 'text-white/70' : 'text-indigo-400'}`}>
+                                  {usersInPos.length} người
+                                </span>
+                                {isExpanded
+                                  ? <ChevronDown className="h-3.5 w-3.5 shrink-0 ml-1" />
+                                  : <ChevronRight className="h-3.5 w-3.5 shrink-0 ml-1" />
+                                }
+                              </button>
+
+                              {/* Expanded people list */}
+                              {isExpanded && (
+                                <div className="ml-4 mt-1.5 space-y-1 border-l-2 border-indigo-200 pl-3">
+                                  {usersInPos.map(user => {
+                                    const isSelected = expandedUser === user.id;
+                                    return (
+                                      <button
+                                        key={user.id}
+                                        type="button"
+                                        onClick={() => setExpandedUser(isSelected ? null : user.id)}
+                                        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-left transition-all duration-200 text-xs ${
+                                          isSelected
+                                            ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-md shadow-indigo-200'
+                                            : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300'
+                                        }`}
+                                      >
+                                        <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                                          isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
+                                        }`}>
+                                          {(user.ten || '?').charAt(0).toUpperCase()}
+                                        </div>
+                                        <span className="truncate">{user.ten || 'Không tên'}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               )}
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
                     );
-                  });
+                  };
+
+                  return (
+                    <>
+                      {renderPositionGroup('Quản lý', quanLyPositions)}
+                      {renderPositionGroup('Nhân viên', nhanVienPositions)}
+                      {hasUnknown && (
+                        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
+                          <p className="text-sm font-bold text-indigo-600 uppercase tracking-wider px-1">Khác</p>
+                          {(grouped.get('_unknown') ?? []).map(user => {
+                            const isSelected = expandedUser === user.id;
+                            return (
+                              <button
+                                key={user.id}
+                                type="button"
+                                onClick={() => setExpandedUser(isSelected ? null : user.id)}
+                                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-left transition-all duration-200 text-xs ${
+                                  isSelected
+                                    ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-md shadow-indigo-200'
+                                    : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300'
+                                }`}
+                              >
+                                <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                                  isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
+                                }`}>
+                                  {(user.ten || '?').charAt(0).toUpperCase()}
+                                </div>
+                                <span className="truncate">{user.ten || 'Không tên'}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  );
                 })()}
               </div>
 
@@ -1128,85 +1195,132 @@ export default function PhanQuyenPage() {
           </div>
 
           <div className="p-4">
-            <div className="grid gap-4 lg:grid-cols-2">
-              {/* Global limits */}
-              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
-                  <p className="font-bold text-indigo-900 text-sm">Giới hạn chung</p>
-                </div>
-                <div className="space-y-2">
-                  {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => (
-                    <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
-                      <div>
-                        <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
-                        <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
-                        <p className="text-[11px] text-indigo-400">Mặc định dùng khi tòa nhà không đặt giới hạn riêng.</p>
-                      </div>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={globalLimits[roleKey] ?? 0}
-                        disabled={!canEditLimits}
-                        onChange={(event) => setGlobalLimits(prev => ({ ...prev, [roleKey]: Math.max(0, Number(event.target.value) || 0) }))}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Per-building limits */}
-              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <Building2 className="h-4 w-4 text-indigo-600" />
-                  <p className="font-bold text-indigo-900 text-sm">Giới hạn riêng của tòa đang chọn</p>
-                </div>
-                <div className="space-y-2">
-                  {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => {
-                    const effectiveLimit = selectedLimits[roleKey] ?? globalLimits[roleKey] ?? 0;
-                    return (
-                      <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_80px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
-                        <div>
-                          <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
-                          <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
-                          <p className="text-[11px] text-indigo-400">
-                            Đang dùng {roleCounts[roleKey]}/{effectiveLimit || 'không giới hạn'} slot. Nhập 0 để quay về giới hạn chung.
-                          </p>
-                        </div>
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Left column: global limits + building tree */}
+              <div className="w-full lg:w-72 shrink-0 space-y-2">
+                {/* Global limits — compact */}
+                <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
+                    <p className="font-bold text-indigo-900 text-sm">Giới hạn chung</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => (
+                      <div key={roleKey} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-indigo-100">
+                        <Label className="text-xs font-semibold text-indigo-800 w-20 shrink-0">{ROLE_LABELS[roleKey]}</Label>
                         <Input
                           type="number"
                           min={0}
                           max={100}
-                          value={selectedLimits[roleKey] ?? 0}
-                          disabled={!canEditLimits || !selectedBuildingId}
-                          onChange={(event) => setLimitValue(selectedBuildingId, roleKey, Math.max(0, Number(event.target.value) || 0))}
+                          value={globalLimits[roleKey] ?? 0}
+                          disabled={!canEditLimits}
+                          className="h-7 w-16 text-xs text-center"
+                          onChange={(event) => setGlobalLimits(prev => ({ ...prev, [roleKey]: Math.max(0, Number(event.target.value) || 0) }))}
                         />
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                </div>
+
+                {/* Building list — tree-style */}
+                <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building2 className="h-4 w-4 text-indigo-600" />
+                    <p className="font-bold text-indigo-900 text-sm">Chọn tòa nhà</p>
+                  </div>
+                  <div className="space-y-1">
+                    {buildings.length === 0 ? (
+                      <p className="text-xs text-indigo-400 italic px-1">Không có tòa nhà</p>
+                    ) : (
+                      buildings.map(b => {
+                        const isSelected = selectedBuildingId === b.id;
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => setSelectedBuildingId(isSelected ? '' : b.id)}
+                            className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-xs ${
+                              isSelected
+                                ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-md shadow-indigo-200'
+                                : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300'
+                            }`}
+                          >
+                            <Building2 className={`h-3.5 w-3.5 shrink-0 ${isSelected ? 'text-white' : 'text-indigo-400'}`} />
+                            <span className="truncate">{b.tenToaNha}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <Separator className="my-4 bg-indigo-100" />
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-2 text-sm">
-                {canEditLimits ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-600 shrink-0" />
+              {/* Right column: per-building limits */}
+              <div className="flex-1 min-w-0">
+                {selectedBuildingId ? (
+                  <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                        <Building2 className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-indigo-900">
+                          Giới hạn riêng — {buildings.find(b => b.id === selectedBuildingId)?.tenToaNha}
+                        </p>
+                        <p className="text-xs text-indigo-500">Nhập 0 để dùng giới hạn chung</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {(Object.keys(ROLE_LABELS) as RoleKey[]).map(roleKey => {
+                        const effectiveLimit = selectedLimits[roleKey] ?? globalLimits[roleKey] ?? 0;
+                        return (
+                          <div key={roleKey} className="rounded-xl border-2 border-indigo-100 bg-white p-3 grid grid-cols-[1fr_100px] gap-3 items-start hover:border-indigo-300 hover:shadow-sm transition-all duration-200">
+                            <div>
+                              <Label className="text-sm font-semibold text-indigo-900">{ROLE_LABELS[roleKey]}</Label>
+                              <p className="text-[11px] text-indigo-500 leading-tight mt-0.5">{ROLE_DESCRIPTIONS[roleKey]}</p>
+                              <p className="text-[11px] text-indigo-400">
+                                Đang dùng {roleCounts[roleKey]}/{effectiveLimit || 'không giới hạn'} slot.
+                              </p>
+                            </div>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={selectedLimits[roleKey] ?? 0}
+                              disabled={!canEditLimits || !selectedBuildingId}
+                              onChange={(event) => setLimitValue(selectedBuildingId, roleKey, Math.max(0, Number(event.target.value) || 0))}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <Separator className="my-4 bg-indigo-100" />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-start gap-2 text-sm">
+                        {canEditLimits ? (
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-600 shrink-0" />
+                        ) : (
+                          <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 shrink-0" />
+                        )}
+                        <span className="text-xs text-indigo-600">
+                          {canEditLimits
+                            ? 'Sau khi lưu, màn tạo/sửa tài khoản sẽ dùng giới hạn mới để chặn vượt số lượng.'
+                            : 'Bạn có thể xem giới hạn để hiểu vì sao không thêm được người vào một vai trò.'}
+                        </span>
+                      </div>
+                      <Button onClick={() => void saveLimits()} disabled={!canEditLimits || savingLimits || !selectedBuildingId} size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
+                        <Save className="mr-1.5 h-3.5 w-3.5" />
+                        {savingLimits ? 'Đang lưu...' : 'Lưu giới hạn'}
+                      </Button>
+                    </div>
+                  </div>
                 ) : (
-                  <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600 shrink-0" />
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
+                    <Building2 className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
+                    Chọn một tòa nhà bên trái để xem/cấu hình giới hạn
+                  </div>
                 )}
-                <span className="text-xs text-indigo-600">
-                  {canEditLimits
-                    ? 'Sau khi lưu, màn tạo/sửa tài khoản sẽ dùng giới hạn mới để chặn vượt số lượng.'
-                    : 'Bạn có thể xem giới hạn để hiểu vì sao không thêm được người vào một vai trò.'}
-                </span>
               </div>
-              <Button onClick={() => void saveLimits()} disabled={!canEditLimits || savingLimits || !selectedBuildingId} size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
-                <Save className="mr-1.5 h-3.5 w-3.5" />
-                {savingLimits ? 'Đang lưu...' : 'Lưu giới hạn'}
-              </Button>
             </div>
           </div>
         </div>

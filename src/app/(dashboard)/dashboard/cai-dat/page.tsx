@@ -2511,7 +2511,11 @@ export default function CaiDatPage() {
   useEffect(() => {
     document.title = "Cài đặt";
     const savedFont = localStorage.getItem("fontSettings");
-    if (savedFont) setFontSettings(JSON.parse(savedFont));
+    if (savedFont) {
+      setFontSettings(JSON.parse(savedFont));
+      // Apply font settings immediately so they take effect on page load
+      applyFontSettings();
+    }
     const savedUi = localStorage.getItem("uiSettings");
     if (savedUi) {
       const ui = JSON.parse(savedUi);

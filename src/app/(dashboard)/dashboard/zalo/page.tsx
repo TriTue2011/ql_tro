@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import {
   Building2, QrCode, Save, RefreshCw, Smartphone,
@@ -11,6 +11,7 @@ import {
   Bot, Copy, ExternalLink, ChevronLeft,
   HardDrive, Folder, UserPlus, AlertCircle, Zap, LogOut,
   Globe, QrCode as QrCodeIcon, Plus, Trash2, WifiOff, X,
+  Bell, Wrench, MessageCircle, Radio,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useRealtimeEvents } from "@/hooks/use-realtime";
+import PillTabs from "@/components/dashboard/pill-tabs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -4070,6 +4072,280 @@ function BuildingZaloMonitorSection({ buildingId, canEdit }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 
+// ─── Zalo Tab Keys ─────────────────────────────────────────────────────────────
+
+type ZaloTabKey = 'thongBao' | 'congCu' | 'nhomZalo' | 'theoDoi';
+
+const ZALO_TABS: { value: ZaloTabKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { value: 'thongBao', label: 'Cài đặt thông báo', icon: Bell },
+  { value: 'congCu',   label: 'Công cụ Zalo',      icon: Wrench },
+  { value: 'nhomZalo', label: 'Nhóm Zalo',          icon: MessageCircle },
+  { value: 'theoDoi',  label: 'Theo dõi tin',       icon: Radio },
+];
+
+// ─── Tree-Style Building Accordion (2-column layout) ──────────────────────────
+
+function TreeBuildingAccordion({
+  building,
+  isAdmin,
+  userRole,
+  sessionUserId,
+  onRefresh,
+  onlineOwnIds,
+  zaloStatus,
+  activeTab,
+}: {
+  building: BuildingData;
+  isAdmin: boolean;
+  userRole: string;
+  sessionUserId: string;
+  onRefresh: () => void;
+  onlineOwnIds: Set<string>;
+  zaloStatus: { mode: string; directOnline: Set<string>; botOnline: Set<string> };
+  activeTab: ZaloTabKey;
+}) {
+  const [buildingOpen, setBuildingOpen] = useState(false);
+  const [expandedRole, setExpandedRole] = useState<'chuTro' | 'quanLy' | null>(null);
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+
+  // Gom tất cả từ chuTro + quanLys, loại trùng và loại vaiTro admin
+  const allPeople = [building.chuTro, ...building.quanLys];
+  const seen = new Set<string>();
+  const uniquePeople = allPeople.filter(p => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+  const visiblePeople = uniquePeople.filter(p => p.vaiTro !== 'admin');
+
+  // Phân quyền hiển thị theo role
+  let filteredPeople = visiblePeople;
+  if (userRole === 'dongChuTro' || userRole === 'nhanVien') {
+    filteredPeople = visiblePeople.filter(p => p.id === sessionUserId);
+  } else if (userRole === 'quanLy') {
+    filteredPeople = visiblePeople.filter(p => p.id === sessionUserId || p.vaiTro === 'nhanVien');
+  }
+
+  const chuTroGroup = isAdmin
+    ? filteredPeople.filter(p => p.vaiTro === 'chuNha')
+    : filteredPeople.filter(p => p.vaiTro === 'chuNha' || p.vaiTro === 'dongChuTro');
+  const quanLyGroup = isAdmin
+    ? []
+    : filteredPeople.filter(p => p.vaiTro === 'quanLy' || p.vaiTro === 'nhanVien');
+
+  const totalPeople = chuTroGroup.length + quanLyGroup.length;
+  if (totalPeople === 0 && !isAdmin) return null;
+
+  const selectedPerson = selectedPersonId
+    ? filteredPeople.find(p => p.id === selectedPersonId)
+    : null;
+
+  const handleSelectPerson = (personId: string) => {
+    setSelectedPersonId(prev => prev === personId ? null : personId);
+  };
+
+  const renderRoleGroup = (role: 'chuTro' | 'quanLy', people: AccountData[]) => {
+    if (people.length === 0) return null;
+    const isChuTroRole = role === 'chuTro';
+    const roleLabel = isChuTroRole ? 'Chủ trọ' : 'Quản lý';
+    const RoleIcon = isChuTroRole ? Crown : Users;
+    const iconColor = isChuTroRole ? 'text-amber-500' : 'text-blue-400';
+    const isExpanded = expandedRole === role;
+
+    return (
+      <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-2 space-y-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => {
+            setExpandedRole(isExpanded ? null : role);
+            if (!isExpanded) setSelectedPersonId(null);
+          }}
+          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-sm hover:bg-indigo-50"
+        >
+          <RoleIcon className={`h-3.5 w-3.5 ${iconColor}`} />
+          <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{roleLabel}</span>
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-auto shrink-0 text-indigo-400 border-indigo-200">
+            {people.length}
+          </Badge>
+          {isExpanded
+            ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+            : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+          }
+        </button>
+
+        {isExpanded && (
+          <div className="ml-2 space-y-1 border-l-2 border-indigo-200 pl-2">
+            {people.map(person => {
+              const isSelected = selectedPersonId === person.id;
+              return (
+                <button
+                  key={person.id}
+                  type="button"
+                  onClick={() => handleSelectPerson(person.id)}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-all duration-200 text-xs ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-md shadow-indigo-200'
+                      : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300'
+                  }`}
+                >
+                  <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
+                  }`}>
+                    {(person.ten || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <span className="truncate">{person.ten || 'Không tên'}</span>
+                  {person.id === sessionUserId && (
+                    <span className="text-[9px] opacity-70">(bạn)</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderRightPanel = () => {
+    if (!selectedPerson) {
+      return (
+        <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
+          <User className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
+          Chọn một người bên trái để xem cài đặt
+        </div>
+      );
+    }
+
+    const isChuTroPerson = chuTroGroup.some(p => p.id === selectedPerson.id);
+    const isSelf = selectedPerson.id === sessionUserId;
+
+    switch (activeTab) {
+      case 'thongBao':
+        return (
+          <AccountSettings
+            account={selectedPerson}
+            buildingId={building.id}
+            isChuTro={isChuTroPerson}
+            isAdmin={isAdmin}
+            userRole={userRole}
+            isSelf={isSelf}
+            onSaved={onRefresh}
+          />
+        );
+      case 'congCu':
+        return (
+          <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <Wrench className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-indigo-900">Công cụ Zalo — {selectedPerson.ten}</p>
+                <p className="text-xs text-indigo-500">Các công cụ Zalo được phép sử dụng</p>
+              </div>
+            </div>
+            <PerAccountCards
+              account={selectedPerson}
+              isAdmin={isAdmin}
+              userRole={userRole}
+              canEdit={isAdmin || isSelf}
+              buildingId={building.id}
+            />
+          </div>
+        );
+      case 'nhomZalo':
+        return (
+          <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <MessageCircle className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-indigo-900">Nhóm Zalo — {selectedPerson.ten}</p>
+                <p className="text-xs text-indigo-500">Quản lý nhóm chat Zalo cho tòa nhà</p>
+              </div>
+            </div>
+            <BuildingZaloGroupsSection
+              buildingId={building.id}
+              canEdit={isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro'}
+            />
+          </div>
+        );
+      case 'theoDoi':
+        return (
+          <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <Radio className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-indigo-900">Theo dõi tin — {selectedPerson.ten}</p>
+                <p className="text-xs text-indigo-500">Bộ lọc theo dõi tin nhắn Zalo</p>
+              </div>
+            </div>
+            <BuildingZaloMonitorSection
+              buildingId={building.id}
+              canEdit={isAdmin || userRole === 'chuNha' || userRole === 'dongChuTro'}
+            />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="border rounded-xl overflow-hidden shadow-sm">
+      <button
+        type="button"
+        onClick={() => {
+          setBuildingOpen(v => !v);
+          if (buildingOpen) {
+            setExpandedRole(null);
+            setSelectedPersonId(null);
+          }
+        }}
+        className="w-full flex items-center justify-between p-4 bg-white hover:bg-blue-50 transition-colors"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Building2 className="h-5 w-5 text-blue-600 shrink-0" />
+          <span className="font-semibold text-gray-800 truncate">{building.tenToaNha}</span>
+          {totalPeople > 0 && (
+            <Badge variant="outline" className="text-[10px] px-1.5 text-gray-500 shrink-0">
+              {totalPeople} người
+            </Badge>
+          )}
+        </div>
+        {buildingOpen
+          ? <ChevronDown className="h-5 w-5 text-gray-400 shrink-0" />
+          : <ChevronRight className="h-5 w-5 text-gray-400 shrink-0" />
+        }
+      </button>
+      {buildingOpen && (
+        <div className="bg-gray-50 border-t p-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Left column: tree-style role/person selection */}
+            <div className="w-full lg:w-72 shrink-0 space-y-2">
+              {renderRoleGroup('chuTro', chuTroGroup)}
+              {renderRoleGroup('quanLy', quanLyGroup)}
+              {totalPeople === 0 && (
+                <p className="text-xs text-gray-400 text-center py-2">Chưa gán người quản lý cho tòa nhà này</p>
+              )}
+            </div>
+
+            {/* Right column: content panel */}
+            <div className="flex-1 min-w-0">
+              {renderRightPanel()}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function ZaloSettingsPage() {
   const { data: session } = useSession();
   const userRole = session?.user?.role ?? "";
@@ -4078,6 +4354,7 @@ export default function ZaloSettingsPage() {
 
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<ZaloTabKey>('thongBao');
   const [onlineOwnIds, setOnlineOwnIds] = useState<Set<string>>(new Set());
   const [zaloStatus, setZaloStatus] = useState<{
     mode: string;
@@ -4168,12 +4445,21 @@ export default function ZaloSettingsPage() {
             Làm mới
           </Button>
         </div>
+
+        {/* Tabs */}
+        <div className="px-4 md:px-6 py-3">
+          <PillTabs
+            tabs={ZALO_TABS}
+            value={activeTab}
+            onChange={(v) => setActiveTab(v as ZaloTabKey)}
+          />
+        </div>
       </div>
 
       {/* Zalo Connection Overview (admin only) */}
       {isAdmin && <ZaloConnectionOverview />}
 
-      {/* Building list */}
+      {/* Building list with tree-style selection */}
       <div className="space-y-3">
         {!isAdmin && (
           <h2 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
@@ -4200,16 +4486,16 @@ export default function ZaloSettingsPage() {
         ) : (
           <div className="space-y-3">
             {buildings.map((b, i) => (
-              <BuildingAccordion
+              <TreeBuildingAccordion
                 key={b.id}
                 building={b}
                 isAdmin={isAdmin}
                 userRole={userRole}
                 sessionUserId={sessionUserId}
-                defaultOpen={false}
                 onRefresh={loadBuildings}
                 onlineOwnIds={onlineOwnIds}
                 zaloStatus={zaloStatus}
+                activeTab={activeTab}
               />
             ))}
           </div>

@@ -487,12 +487,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [session]);
 
-  // ── Apply saved font settings globally ──────────────────────────────────
+  // ── Apply saved font / theme / density settings globally ───────────────
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('fontSettings');
-      if (saved) {
-        const fontSettings = JSON.parse(saved);
+      // Font settings
+      const savedFont = localStorage.getItem('fontSettings');
+      if (savedFont) {
+        const fontSettings = JSON.parse(savedFont);
         const fontSizeMap: Record<string, string> = {
           small: '14px',
           medium: '16px',
@@ -505,11 +506,45 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           large: 1.125,
           'extra-large': 1.25,
         };
+        const lineHeightMap: Record<string, string> = {
+          tight: '1.2',
+          normal: '1.5',
+          relaxed: '1.75',
+          loose: '2',
+        };
         const size = fontSizeMap[fontSettings.fontSize] || '16px';
         const scale = fontSizeScaleMap[fontSettings.fontSize] ?? 1;
+        // Quote multi-word font names for CSS
+        const fontValue = fontSettings.fontFamily?.includes(' ')
+          ? `'${fontSettings.fontFamily}'`
+          : fontSettings.fontFamily || 'Inter';
+        document.documentElement.style.setProperty('--font-geist-sans', fontValue);
+        document.documentElement.style.setProperty('--font-family', fontValue);
         document.documentElement.style.setProperty('--app-font-size', size);
         document.documentElement.style.setProperty('--font-size-scale', String(scale));
+        document.body.style.fontFamily = fontValue;
         document.body.style.fontSize = size;
+        document.body.style.lineHeight = lineHeightMap[fontSettings.lineHeight] || '1.5';
+      }
+
+      // Theme & density settings
+      const savedUi = localStorage.getItem('uiSettings');
+      if (savedUi) {
+        const ui = JSON.parse(savedUi);
+        // Apply theme
+        if (ui.theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else if (ui.theme === 'light') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.classList.toggle('dark', prefersDark);
+        }
+        // Apply density
+        if (ui.density) {
+          document.body.classList.remove('density-compact', 'density-comfortable', 'density-spacious');
+          document.body.classList.add(`density-${ui.density}`);
+        }
       }
     } catch { /* ignore */ }
   }, []);
