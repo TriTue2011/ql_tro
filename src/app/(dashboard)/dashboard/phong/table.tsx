@@ -559,7 +559,7 @@ export function PhongDataTable(props: PhongDataTableProps) {
   )
 
   const dataIds = React.useMemo<UniqueIdentifier[]>(
-    () => data?.map(({ _id }) => _id!) || [],
+    () => data?.map((row) => row.id!) || [],
     [data]
   )
 
