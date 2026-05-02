@@ -95,10 +95,10 @@ export default function VatTuPage() {
       <div className="flex flex-col sm:flex-row gap-3">
         <Input placeholder="Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)}
           className="max-w-xs" />
-        <Select value={nhomFilter} onValueChange={setNhomFilter}>
+        <Select value={nhomFilter || 'all'} onValueChange={v => setNhomFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="max-w-[180px]"><SelectValue placeholder="Tất cả nhóm" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Tất cả</SelectItem>
+            <SelectItem value="all">Tất cả</SelectItem>
             {NHOM_VAT_TU.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
           </SelectContent>
         </Select>

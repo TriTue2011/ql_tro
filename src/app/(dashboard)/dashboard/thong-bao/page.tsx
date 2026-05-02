@@ -78,7 +78,7 @@ export default function ThongBaoPage() {
     loai: 'chung' as string,
     nguoiNhan: [] as string[],
     phong: [] as string[],
-    toaNha: '',
+    toaNha: 'all',
   });
 
   // Inline edit state
@@ -298,7 +298,7 @@ export default function ThongBaoPage() {
       loai: 'chung',
       nguoiNhan: [],
       phong: [],
-      toaNha: '',
+      toaNha: 'all',
     });
   };
 
@@ -692,9 +692,9 @@ export default function ThongBaoPage() {
                   <SelectValue placeholder="Chọn tòa nhà" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Tất cả tòa nhà</SelectItem>
+                  <SelectItem value="all">Tất cả tòa nhà</SelectItem>
                   {toaNhaList.map(tn => (
-                    <SelectItem key={tn.id} value={tn.id || ''}>{tn.tenToaNha}</SelectItem>
+                    <SelectItem key={tn.id} value={tn.id || 'none'}>{tn.tenToaNha}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -702,16 +702,16 @@ export default function ThongBaoPage() {
             <div className="space-y-2">
               <Label className="text-indigo-700">Phòng</Label>
               <Select
-                value={createForm.phong[0] || ''}
-                onValueChange={(value) => setCreateForm(prev => ({ ...prev, phong: value ? [value] : [] }))}
+                value={createForm.phong[0] || 'all'}
+                onValueChange={(value) => setCreateForm(prev => ({ ...prev, phong: value === 'all' ? [] : [value] }))}
               >
                 <SelectTrigger className="border-indigo-200">
                   <SelectValue placeholder="Chọn phòng" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Tất cả phòng</SelectItem>
+                  <SelectItem value="all">Tất cả phòng</SelectItem>
                   {phongList.map(p => (
-                    <SelectItem key={p.id} value={p.id || ''}>{p.maPhong}</SelectItem>
+                    <SelectItem key={p.id} value={p.id || 'none'}>{p.maPhong}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
