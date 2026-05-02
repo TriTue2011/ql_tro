@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getToaNhaRepo, getPhongRepo } from '@/lib/repositories';
+import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { sseEmit } from '@/lib/sse-emitter';
 
@@ -104,7 +105,23 @@ export async function PUT(
     }
 
     // Check if user has permission to update this toa nha
-    if (toaNha.chuSoHuuId !== session.user.id && session.user.role !== 'admin') {
+    const isOwner = toaNha.chuSoHuuId === session.user.id;
+    const isAdmin = session.user.role === 'admin';
+    
+    // Admin và chủ sở hữu luôn có quyền
+    let hasPermission = isOwner || isAdmin;
+    
+    // Nếu không phải admin/chủ sở hữu, kiểm tra trong ToaNhaNguoiQuanLy
+    if (!hasPermission) {
+      const managerRecord = await prisma.toaNhaNguoiQuanLy.findUnique({
+        where: {
+          toaNhaId_nguoiDungId: { toaNhaId: id, nguoiDungId: session.user.id },
+        },
+      });
+      hasPermission = !!managerRecord;
+    }
+    
+    if (!hasPermission) {
       return NextResponse.json(
         { message: 'Bạn không có quyền chỉnh sửa tòa nhà này' },
         { status: 403 }
@@ -174,7 +191,23 @@ export async function DELETE(
     }
 
     // Check if user has permission to delete this toa nha
-    if (toaNha.chuSoHuuId !== session.user.id && session.user.role !== 'admin') {
+    const isOwner = toaNha.chuSoHuuId === session.user.id;
+    const isAdmin = session.user.role === 'admin';
+    
+    // Admin và chủ sở hữu luôn có quyền
+    let hasPermission = isOwner || isAdmin;
+    
+    // Nếu không phải admin/chủ sở hữu, kiểm tra trong ToaNhaNguoiQuanLy
+    if (!hasPermission) {
+      const managerRecord = await prisma.toaNhaNguoiQuanLy.findUnique({
+        where: {
+          toaNhaId_nguoiDungId: { toaNhaId: id, nguoiDungId: session.user.id },
+        },
+      });
+      hasPermission = !!managerRecord;
+    }
+    
+    if (!hasPermission) {
       return NextResponse.json(
         { message: 'Bạn không có quyền xóa tòa nhà này' },
         { status: 403 }
