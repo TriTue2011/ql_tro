@@ -42,6 +42,8 @@ import {
   FileText,
   MessageSquare,
   ChevronDown,
+  ChevronRight,
+  MessageCircle,
   ChevronUp,
   Plus,
   Upload,
@@ -450,33 +452,39 @@ function AutoZaloCard({
   onChange,
   onSave,
   saving,
+  filterCategory,
 }: {
   items: CaiDatItem[];
   values: Record<string, string>;
   onChange: (khoa: string, val: string) => void;
   onSave: () => void;
   saving: boolean;
+  filterCategory?: string | null;
 }) {
-  const sections = [
+  const allSections: { key: string; label?: string; icon?: React.ReactNode; keys: string[] }[] = [
     {
+      key: 'autoHoaDon',
       label: "Hóa đơn",
       icon: <FileText className="h-3.5 w-3.5 text-blue-500" />,
       keys: ["auto_zalo_hoa_don_tao", "auto_zalo_hoa_don_thanh_toan", "auto_zalo_hoa_don_huy", "auto_zalo_hoa_don_huy_kem_ly_do"],
     },
     {
+      key: 'autoSuCo',
       label: "Sự cố",
       icon: <AlertTriangle className="h-3.5 w-3.5 text-red-500" />,
       keys: ["auto_zalo_su_co_ghi_nhan", "auto_zalo_su_co_tiep_nhan", "auto_zalo_su_co_xu_ly_xong", "auto_zalo_su_co_huy", "auto_zalo_su_co_huy_kem_ly_do"],
     },
     {
-      keys: ["auto_zalo_yeu_cau_phe_duyet"],
-    },
-    {
+      key: 'autoThongBao',
       label: "Thông báo & Cảnh báo",
       icon: <Bell className="h-3.5 w-3.5 text-yellow-500" />,
-      keys: ["auto_zalo_thong_bao_da_xu_ly"],
+      keys: ["auto_zalo_yeu_cau_phe_duyet", "auto_zalo_thong_bao_da_xu_ly"],
     },
   ];
+
+  const sections = filterCategory
+    ? allSections.filter(s => s.key === filterCategory)
+    : allSections;
 
   return (
     <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
@@ -494,7 +502,7 @@ function AutoZaloCard({
           const secItems = sec.keys.map(k => items.find(i => i.khoa === k)).filter(Boolean) as CaiDatItem[];
           if (!secItems.length) return null;
           return (
-            <div key={sec.label} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-2">
+            <div key={sec.key} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-2">
               <p className="text-xs font-semibold text-indigo-700 flex items-center gap-1.5">
                 {sec.icon} {sec.label}
               </p>
@@ -791,35 +799,45 @@ function AlertSettingsCard({
   onChange,
   onSave,
   saving,
+  filterCategory,
 }: {
   items: CaiDatItem[];
   values: Record<string, string>;
   onChange: (khoa: string, val: string) => void;
   onSave: () => void;
   saving: boolean;
+  filterCategory?: string | null;
 }) {
-  const sections: { label: string; icon: React.ReactNode; keys: string[] }[] = [
+  const allSections: { key: string; label: string; icon: React.ReactNode; keys: string[] }[] = [
     {
+      key: 'hoaDonQuaHan',
       label: "Hóa đơn quá hạn",
       icon: <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />,
       keys: ["thong_bao_qua_han_hoa_don", "hoa_don_canh_bao_lan_1", "hoa_don_canh_bao_lan_2", "hoa_don_canh_bao_lan_3"],
     },
     {
+      key: 'hopDongSapHetHan',
       label: "Hợp đồng sắp hết hạn",
       icon: <FileText className="h-3.5 w-3.5 text-blue-500" />,
       keys: ["thong_bao_truoc_han_hop_dong", "hop_dong_canh_bao_lan_1", "hop_dong_canh_bao_lan_2", "hop_dong_canh_bao_lan_3"],
     },
     {
+      key: 'chotChiSo',
       label: "Chốt chỉ số điện nước",
       icon: <Zap className="h-3.5 w-3.5 text-yellow-500" />,
       keys: ["chot_chi_so_ngay_trong_thang", "chot_chi_so_truoc_ngay"],
     },
     {
+      key: 'suCo',
       label: "Sự cố",
       icon: <Clock className="h-3.5 w-3.5 text-red-500" />,
       keys: ["su_co_chua_nhan_gio", "su_co_chua_xu_ly_gio"],
     },
   ];
+
+  const sections = filterCategory
+    ? allSections.filter(s => s.key === filterCategory)
+    : allSections;
 
   return (
     <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
@@ -834,7 +852,7 @@ function AlertSettingsCard({
           const secItems = sec.keys.map((k) => items.find((i) => i.khoa === k)).filter(Boolean) as CaiDatItem[];
           if (!secItems.length) return null;
           return (
-            <div key={sec.label} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-2">
+            <div key={sec.key} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-2">
               <p className="text-xs font-semibold text-indigo-700 flex items-center gap-1.5">
                 {sec.icon} {sec.label}
               </p>
@@ -2495,6 +2513,7 @@ export default function CaiDatPage() {
   const [activeTab, setActiveTab] = useState(
     isAdmin ? "homeAssistant" : isChuNha ? "thanhToan" : isQuanLy ? "bankQL" : "display"
   );
+  const [selectedAlertCategory, setSelectedAlertCategory] = useState<string | null>(null);
 
   // --- Cài đặt giao diện (cho tất cả users) ---
   const [fontSettings, setFontSettings] = useState({
@@ -3305,50 +3324,168 @@ export default function CaiDatPage() {
 
         {/* ── Tab Cảnh báo ──────────────────────────────────────────────────── */}
         {activeTab === "canhBao" && isChuNha && !loadingSystem && !errorSystem && (
-          <div className="space-y-4 mt-4">
-            {alertItems.length > 0 ? (
-              <AlertSettingsCard
-                items={alertItems}
-                values={settingValues}
-                onChange={handleSettingChange}
-                onSave={() => handleSaveGroup("thongBao")}
-                saving={savingGroup === "thongBao"}
-              />
+          <div className="mt-4">
+            {alertItems.length > 0 || autoZaloItems.length > 0 ? (
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Left column: tree-style category list */}
+                <div className="w-full lg:w-72 shrink-0 space-y-2">
+                  {/* Alert settings categories */}
+                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
+                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
+                      <Bell className="h-3.5 w-3.5 inline mr-1" />
+                      Cảnh báo & Nhắc nhở
+                    </p>
+                    {[
+                      { key: 'hoaDonQuaHan', label: 'Hóa đơn quá hạn', icon: <AlertTriangle className="h-3.5 w-3.5 text-orange-500" /> },
+                      { key: 'hopDongSapHetHan', label: 'Hợp đồng sắp hết hạn', icon: <FileText className="h-3.5 w-3.5 text-blue-500" /> },
+                      { key: 'chotChiSo', label: 'Chốt chỉ số điện nước', icon: <Zap className="h-3.5 w-3.5 text-yellow-500" /> },
+                      { key: 'suCo', label: 'Sự cố', icon: <Clock className="h-3.5 w-3.5 text-red-500" /> },
+                    ].map(cat => {
+                      const isSelected = selectedAlertCategory === cat.key;
+                      return (
+                        <button
+                          key={cat.key}
+                          type="button"
+                          onClick={() => setSelectedAlertCategory(isSelected ? null : cat.key)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                              : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                          }`}
+                        >
+                          <span className="shrink-0">{cat.icon}</span>
+                          <span className="truncate">{cat.label}</span>
+                          {isSelected
+                            ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
+                            : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
+                          }
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Auto Zalo categories */}
+                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
+                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
+                      <MessageCircle className="h-3.5 w-3.5 inline mr-1" />
+                      Gửi Zalo tự động
+                    </p>
+                    {[
+                      { key: 'autoHoaDon', label: 'Hóa đơn', icon: <FileText className="h-3.5 w-3.5 text-blue-500" /> },
+                      { key: 'autoSuCo', label: 'Sự cố', icon: <AlertTriangle className="h-3.5 w-3.5 text-red-500" /> },
+                      { key: 'autoThongBao', label: 'Thông báo & Cảnh báo', icon: <Bell className="h-3.5 w-3.5 text-yellow-500" /> },
+                    ].map(cat => {
+                      const isSelected = selectedAlertCategory === cat.key;
+                      return (
+                        <button
+                          key={cat.key}
+                          type="button"
+                          onClick={() => setSelectedAlertCategory(isSelected ? null : cat.key)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                              : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                          }`}
+                        >
+                          <span className="shrink-0">{cat.icon}</span>
+                          <span className="truncate">{cat.label}</span>
+                          {isSelected
+                            ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
+                            : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
+                          }
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Webhook category */}
+                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
+                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
+                      <Webhook className="h-3.5 w-3.5 inline mr-1" />
+                      Webhook
+                    </p>
+                    {[
+                      { key: 'webhook', label: 'Cấu hình Webhook', icon: <Webhook className="h-3.5 w-3.5 text-indigo-500" /> },
+                    ].map(cat => {
+                      const isSelected = selectedAlertCategory === cat.key;
+                      return (
+                        <button
+                          key={cat.key}
+                          type="button"
+                          onClick={() => setSelectedAlertCategory(isSelected ? null : cat.key)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                              : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                          }`}
+                        >
+                          <span className="shrink-0">{cat.icon}</span>
+                          <span className="truncate">{cat.label}</span>
+                          {isSelected
+                            ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
+                            : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
+                          }
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right column: content for selected category */}
+                <div className="flex-1 min-w-0">
+                  {!selectedAlertCategory ? (
+                    <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-8 text-center">
+                      <Bell className="mx-auto h-8 w-8 text-indigo-300 mb-2" />
+                      <p className="text-sm text-indigo-400">Chọn một danh mục bên trái để xem cài đặt</p>
+                    </div>
+                  ) : selectedAlertCategory === 'webhook' ? (
+                    <ZaloWebhookCard
+                      currentWebhookId={currentWebhookId}
+                      webhookBaseUrl={webhookBaseUrl}
+                      webhookDomainUrl={webhookDomainUrl}
+                      webhookFullUrl={webhookFullUrl}
+                      webhookDomainFullUrl={webhookDomainFullUrl}
+                      webhookIdGenerating={webhookIdGenerating}
+                      webhookTestLoading={webhookTestLoading}
+                      webhookTestResult={webhookTestResult}
+                      botWebhookUrl={botWebhookUrl}
+                      botWebhookLoading={botWebhookLoading}
+                      botWebhookResult={botWebhookResult}
+                      onChangeBaseUrl={setWebhookBaseUrl}
+                      onChangeDomainUrl={setWebhookDomainUrl}
+                      onSaveBaseUrl={handleSaveBaseUrl}
+                      onSaveDomainUrl={handleSaveDomainUrl}
+                      onGenerate={handleGenerateWebhookId}
+                      onTest={handleTestWebhook}
+                      onChangeBotUrl={setBotWebhookUrl}
+                      onSetBotWebhook={() => handleBotSetWebhook()}
+                    />
+                  ) : ['autoHoaDon', 'autoSuCo', 'autoThongBao'].includes(selectedAlertCategory) ? (
+                    <AutoZaloCard
+                      items={autoZaloItems}
+                      values={settingValues}
+                      onChange={handleSettingChange}
+                      onSave={() => handleSaveGroup("thongBao")}
+                      saving={savingGroup === "thongBao"}
+                      filterCategory={selectedAlertCategory}
+                    />
+                  ) : (
+                    <AlertSettingsCard
+                      items={alertItems}
+                      values={settingValues}
+                      onChange={handleSettingChange}
+                      onSave={() => handleSaveGroup("thongBao")}
+                      saving={savingGroup === "thongBao"}
+                      filterCategory={selectedAlertCategory}
+                    />
+                  )}
+                </div>
+              </div>
             ) : (
               <p className="text-sm text-indigo-400 text-center py-8">
                 Chưa có cài đặt cảnh báo nào.
               </p>
             )}
-            {autoZaloItems.length > 0 && (
-              <AutoZaloCard
-                items={autoZaloItems}
-                values={settingValues}
-                onChange={handleSettingChange}
-                onSave={() => handleSaveGroup("thongBao")}
-                saving={savingGroup === "thongBao"}
-              />
-            )}
-            <ZaloWebhookCard
-              currentWebhookId={currentWebhookId}
-              webhookBaseUrl={webhookBaseUrl}
-              webhookDomainUrl={webhookDomainUrl}
-              webhookFullUrl={webhookFullUrl}
-              webhookDomainFullUrl={webhookDomainFullUrl}
-              webhookIdGenerating={webhookIdGenerating}
-              webhookTestLoading={webhookTestLoading}
-              webhookTestResult={webhookTestResult}
-              botWebhookUrl={botWebhookUrl}
-              botWebhookLoading={botWebhookLoading}
-              botWebhookResult={botWebhookResult}
-              onChangeBaseUrl={setWebhookBaseUrl}
-              onChangeDomainUrl={setWebhookDomainUrl}
-              onSaveBaseUrl={handleSaveBaseUrl}
-              onSaveDomainUrl={handleSaveDomainUrl}
-              onGenerate={handleGenerateWebhookId}
-              onTest={handleTestWebhook}
-              onChangeBotUrl={setBotWebhookUrl}
-              onSetBotWebhook={() => handleBotSetWebhook()}
-            />
           </div>
         )}
 
