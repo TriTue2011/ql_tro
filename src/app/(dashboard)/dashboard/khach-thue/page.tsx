@@ -10,6 +10,7 @@ import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -36,6 +37,8 @@ import {
   DoorOpen,
   AlertTriangle,
   X as CloseIcon,
+  Home,
+  Globe,
 } from 'lucide-react';
 import { KhachThue } from '@/types';
 import { KhachThueDataTable } from './table';
@@ -65,6 +68,7 @@ export default function KhachThuePage() {
     setOpenBuildings(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const togglePhong = (id: string) =>
     setOpenPhong(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const [selectedKhachThueId, setSelectedKhachThueId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = 'Quản lý Khách thuê';
@@ -476,34 +480,111 @@ export default function KhachThuePage() {
                                 </div>
                                 {/* Mobile cards */}
                                 <div className="md:hidden space-y-2">
-                                  {pg.tenants.map(kt => (
-                                    <Card key={kt.id} className="p-3">
-                                      <div className="flex justify-between items-start mb-2">
-                                        <div>
-                                          <p className="font-medium text-sm">{kt.hoTen}</p>
-                                          <p className="text-xs text-gray-500">{kt.gioiTinh}</p>
-                                        </div>
-                                        <TrangThaiBadge trangThai={kt.trangThai} />
+                                  {pg.tenants.map(kt => {
+                                    const isSelected = selectedKhachThueId === kt.id;
+                                    return (
+                                      <div key={kt.id}>
+                                        <Card className={`p-3 ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+                                          <div className="flex justify-between items-start mb-2">
+                                            <div className="flex items-start gap-2 flex-1">
+                                              <Checkbox
+                                                checked={isSelected}
+                                                onCheckedChange={(v) => setSelectedKhachThueId(v === true ? kt.id! : null)}
+                                                className="mt-0.5"
+                                              />
+                                              <div>
+                                                <p className="font-medium text-sm">{kt.hoTen}</p>
+                                                <p className="text-xs text-gray-500">{kt.gioiTinh}</p>
+                                              </div>
+                                            </div>
+                                            <TrangThaiBadge trangThai={kt.trangThai} />
+                                          </div>
+                                          <div className="space-y-1 text-xs text-gray-600">
+                                            {kt.soDienThoai && <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" />{kt.soDienThoai}</div>}
+                                            {kt.email && <div className="flex items-center gap-1.5"><Mail className="h-3 w-3" />{kt.email}</div>}
+                                            <div className="flex items-center gap-1.5"><CreditCard className="h-3 w-3 font-mono" />{kt.cccd}</div>
+                                          </div>
+                                          {canEdit && (
+                                          <div className="flex justify-between items-center mt-2 pt-2 border-t">
+                                            <Button variant="outline" size="sm" onClick={() => handleEdit(kt)} disabled={actionLoading === `edit-${kt.id}`}>
+                                              <Edit className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)}
+                                              disabled={actionLoading === `delete-${kt.id}`}
+                                              className="text-red-600 hover:bg-red-50">
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
+                                          )}
+                                        </Card>
+                                        
+                                        {/* Detail panel */}
+                                        {isSelected && (
+                                          <Card className="mt-2 border-blue-200 bg-blue-50/30 rounded-xl overflow-hidden">
+                                            <CardContent className="p-4 space-y-3">
+                                              <div className="flex items-center gap-2 text-blue-800 font-medium text-sm border-b border-blue-200 pb-2">
+                                                <Users className="h-4 w-4" />
+                                                Chi tiết khách thuê
+                                              </div>
+                                              
+                                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                                <div>
+                                                  <span className="text-gray-500">Họ tên:</span>
+                                                  <p className="font-medium">{kt.hoTen}</p>
+                                                </div>
+                                                <div>
+                                                  <span className="text-gray-500">Giới tính:</span>
+                                                  <p className="font-medium">{{ nam: 'Nam', nu: 'Nữ', khac: 'Khác' }[kt.gioiTinh] || kt.gioiTinh}</p>
+                                                </div>
+                                                <div>
+                                                  <span className="text-gray-500">SĐT:</span>
+                                                  <p className="font-medium">{kt.soDienThoai || 'N/A'}</p>
+                                                </div>
+                                                <div>
+                                                  <span className="text-gray-500">Email:</span>
+                                                  <p className="font-medium">{kt.email || 'N/A'}</p>
+                                                </div>
+                                                <div>
+                                                  <span className="text-gray-500">CCCD:</span>
+                                                  <p className="font-medium">{kt.cccd}</p>
+                                                </div>
+                                                <div>
+                                                  <span className="text-gray-500">Ngày sinh:</span>
+                                                  <p className="font-medium">{new Date(kt.ngaySinh).toLocaleDateString('vi-VN')}</p>
+                                                </div>
+                                                <div>
+                                                  <span className="text-gray-500">Quê quán:</span>
+                                                  <p className="font-medium">{kt.queQuan}</p>
+                                                </div>
+                                                {kt.ngheNghiep && (
+                                                  <div>
+                                                    <span className="text-gray-500">Nghề nghiệp:</span>
+                                                    <p className="font-medium">{kt.ngheNghiep}</p>
+                                                  </div>
+                                                )}
+                                              </div>
+                                              
+                                              {kt.hopDongHienTai && (
+                                                <div className="text-sm border-t border-blue-200 pt-2">
+                                                  <span className="text-gray-500">Phòng hiện tại:</span>
+                                                  <div className="mt-1 bg-white/60 rounded-md p-2">
+                                                    <p className="font-medium flex items-center gap-1">
+                                                      <Home className="h-3.5 w-3.5 text-blue-500" />
+                                                      {kt.hopDongHienTai.phong.maPhong}
+                                                    </p>
+                                                    <p className="text-xs text-gray-600 flex items-center gap-1 mt-0.5">
+                                                      <Building2 className="h-3 w-3" />
+                                                      {kt.hopDongHienTai.phong.toaNha.tenToaNha}
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </CardContent>
+                                          </Card>
+                                        )}
                                       </div>
-                                      <div className="space-y-1 text-xs text-gray-600">
-                                        {kt.soDienThoai && <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" />{kt.soDienThoai}</div>}
-                                        {kt.email && <div className="flex items-center gap-1.5"><Mail className="h-3 w-3" />{kt.email}</div>}
-                                        <div className="flex items-center gap-1.5"><CreditCard className="h-3 w-3 font-mono" />{kt.cccd}</div>
-                                      </div>
-                                      {canEdit && (
-                                      <div className="flex justify-between items-center mt-2 pt-2 border-t">
-                                        <Button variant="outline" size="sm" onClick={() => handleEdit(kt)} disabled={actionLoading === `edit-${kt.id}`}>
-                                          <Edit className="h-3.5 w-3.5" />
-                                        </Button>
-                                        <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)}
-                                          disabled={actionLoading === `delete-${kt.id}`}
-                                          className="text-red-600 hover:bg-red-50">
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </div>
-                                      )}
-                                    </Card>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
@@ -541,23 +622,84 @@ export default function KhachThuePage() {
                         actionLoading={actionLoading} canEdit={canEdit} searchTerm="" onSearchChange={() => {}} selectedTrangThai="" onTrangThaiChange={() => {}} />
                     </div>
                     <div className="md:hidden space-y-2">
-                      {buildingGroups.noRoom.map(kt => (
-                        <Card key={kt.id} className="p-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium text-sm">{kt.hoTen}</p>
-                              <p className="text-xs text-gray-500">{kt.soDienThoai}</p>
-                            </div>
-                            <TrangThaiBadge trangThai={kt.trangThai} />
+                      {buildingGroups.noRoom.map(kt => {
+                        const isSelected = selectedKhachThueId === kt.id;
+                        return (
+                          <div key={kt.id}>
+                            <Card className={`p-3 ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+                              <div className="flex justify-between items-start">
+                                <div className="flex items-start gap-2 flex-1">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(v) => setSelectedKhachThueId(v === true ? kt.id! : null)}
+                                    className="mt-0.5"
+                                  />
+                                  <div>
+                                    <p className="font-medium text-sm">{kt.hoTen}</p>
+                                    <p className="text-xs text-gray-500">{kt.soDienThoai}</p>
+                                  </div>
+                                </div>
+                                <TrangThaiBadge trangThai={kt.trangThai} />
+                              </div>
+                              {canEdit && (
+                              <div className="flex justify-end gap-2 mt-2 pt-2 border-t">
+                                <Button variant="outline" size="sm" onClick={() => handleEdit(kt)}><Edit className="h-3.5 w-3.5" /></Button>
+                                <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)} className="text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></Button>
+                              </div>
+                              )}
+                            </Card>
+                            
+                            {/* Detail panel */}
+                            {isSelected && (
+                              <Card className="mt-2 border-blue-200 bg-blue-50/30 rounded-xl overflow-hidden">
+                                <CardContent className="p-4 space-y-3">
+                                  <div className="flex items-center gap-2 text-blue-800 font-medium text-sm border-b border-blue-200 pb-2">
+                                    <Users className="h-4 w-4" />
+                                    Chi tiết khách thuê
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                      <span className="text-gray-500">Họ tên:</span>
+                                      <p className="font-medium">{kt.hoTen}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Giới tính:</span>
+                                      <p className="font-medium">{{ nam: 'Nam', nu: 'Nữ', khac: 'Khác' }[kt.gioiTinh] || kt.gioiTinh}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">SĐT:</span>
+                                      <p className="font-medium">{kt.soDienThoai || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Email:</span>
+                                      <p className="font-medium">{kt.email || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">CCCD:</span>
+                                      <p className="font-medium">{kt.cccd}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Ngày sinh:</span>
+                                      <p className="font-medium">{new Date(kt.ngaySinh).toLocaleDateString('vi-VN')}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Quê quán:</span>
+                                      <p className="font-medium">{kt.queQuan}</p>
+                                    </div>
+                                    {kt.ngheNghiep && (
+                                      <div>
+                                        <span className="text-gray-500">Nghề nghiệp:</span>
+                                        <p className="font-medium">{kt.ngheNghiep}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )}
                           </div>
-                          {canEdit && (
-                          <div className="flex justify-end gap-2 mt-2 pt-2 border-t">
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(kt)}><Edit className="h-3.5 w-3.5" /></Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)} className="text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></Button>
-                          </div>
-                          )}
-                        </Card>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

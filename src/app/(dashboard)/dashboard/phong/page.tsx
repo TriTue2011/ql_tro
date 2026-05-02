@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -23,6 +24,10 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+  Phone,
+  MapPin,
+  Ruler,
+  DollarSign,
 } from 'lucide-react';
 import {
   Carousel,
@@ -60,6 +65,7 @@ export default function PhongPage() {
   const [viewingTenantsPhongName, setViewingTenantsPhongName] = useState('');
   const [showTenantsViewer, setShowTenantsViewer] = useState(false);
   const [openBuildings, setOpenBuildings] = useState<Set<string>>(new Set());
+  const [selectedPhongId, setSelectedPhongId] = useState<string | null>(null);
 
   const toggleBuilding = (id: string) =>
     setOpenBuildings(prev => {
@@ -332,53 +338,134 @@ export default function PhongPage() {
                     <div className="md:hidden grid grid-cols-1 gap-3">
                       {phongs.map((phong) => {
                         const hopDong = (phong as any).hopDongHienTai;
+                        const isSelected = selectedPhongId === phong.id;
                         return (
-                          <Card key={phong.id} className="hover:shadow-md transition-shadow">
-                            <CardContent className="p-3">
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex-1">
-                                  <h3 className="font-semibold text-base">{phong.maPhong}</h3>
-                                  <p className="text-xs text-gray-600">Tầng {phong.tang} • {phong.dienTich}m²</p>
-                                </div>
-                                <Badge className={`text-xs ${{ trong: 'bg-green-100 text-green-800', daDat: 'bg-yellow-100 text-yellow-800', dangThue: 'bg-green-600 text-white', baoTri: 'bg-red-100 text-red-800' }[phong.trangThai] ?? 'bg-gray-100 text-gray-800'}`}>
-                                  {{ trong: 'Trống', daDat: 'Đã đặt', dangThue: 'Đang thuê', baoTri: 'Bảo trì' }[phong.trangThai] ?? phong.trangThai}
-                                </Badge>
-                              </div>
-                              <div className="space-y-1 mb-3">
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Giá thuê:</span>
-                                  <span className="font-semibold text-green-600">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(phong.giaThue)}</span>
-                                </div>
-                              </div>
-                              {hopDong?.khachThue?.length > 0 && (
-                                <div className="mb-3 p-2 bg-blue-50 rounded-md border border-blue-200">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <Users className="h-3.5 w-3.5 text-blue-600" />
-                                    <span className="text-xs font-medium text-blue-900">Người thuê</span>
+                          <div key={phong.id}>
+                            <Card className={`hover:shadow-md transition-shadow ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+                              <CardContent className="p-3">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div className="flex items-start gap-2 flex-1">
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onCheckedChange={(v) => setSelectedPhongId(v === true ? phong.id! : null)}
+                                      className="mt-1"
+                                    />
+                                    <div className="flex-1">
+                                      <h3 className="font-semibold text-base">{phong.maPhong}</h3>
+                                      <p className="text-xs text-gray-600">Tầng {phong.tang} • {phong.dienTich}m²</p>
+                                    </div>
                                   </div>
-                                  <p className="text-sm font-medium">{hopDong.nguoiDaiDien?.hoTen || 'N/A'}</p>
-                                  {hopDong.khachThue.length > 1 && (
-                                    <Button variant="link" size="sm" className="text-xs text-blue-600 h-auto p-0 mt-0.5" onClick={() => handleViewTenants(phong)}>
-                                      +{hopDong.khachThue.length - 1} người khác
+                                  <Badge className={`text-xs ${{ trong: 'bg-green-100 text-green-800', daDat: 'bg-yellow-100 text-yellow-800', dangThue: 'bg-green-600 text-white', baoTri: 'bg-red-100 text-red-800' }[phong.trangThai] ?? 'bg-gray-100 text-gray-800'}`}>
+                                    {{ trong: 'Trống', daDat: 'Đã đặt', dangThue: 'Đang thuê', baoTri: 'Bảo trì' }[phong.trangThai] ?? phong.trangThai}
+                                  </Badge>
+                                </div>
+                                <div className="space-y-1 mb-3">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-gray-600">Giá thuê:</span>
+                                    <span className="font-semibold text-green-600">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(phong.giaThue)}</span>
+                                  </div>
+                                </div>
+                                {hopDong?.khachThue?.length > 0 && (
+                                  <div className="mb-3 p-2 bg-blue-50 rounded-md border border-blue-200">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      <Users className="h-3.5 w-3.5 text-blue-600" />
+                                      <span className="text-xs font-medium text-blue-900">Người thuê</span>
+                                    </div>
+                                    <p className="text-sm font-medium">{hopDong.nguoiDaiDien?.hoTen || 'N/A'}</p>
+                                    {hopDong.khachThue.length > 1 && (
+                                      <Button variant="link" size="sm" className="text-xs text-blue-600 h-auto p-0 mt-0.5" onClick={() => handleViewTenants(phong)}>
+                                        +{hopDong.khachThue.length - 1} người khác
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                                {canEdit && (
+                                  <div className="flex gap-2">
+                                    <Button variant="outline" size="sm" onClick={() => handleEdit(phong)} className="flex-1 text-xs">
+                                      <Edit className="h-3.5 w-3.5 mr-1" />Sửa
                                     </Button>
+                                    <DeleteConfirmPopover
+                                      onConfirm={() => handleDelete(phong.id!)}
+                                      title="Xóa phòng"
+                                      description="Bạn có chắc chắn muốn xóa phòng này?"
+                                      className="text-black hover:text-red-700 hover:bg-red-50"
+                                    />
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                            
+                            {/* Detail panel - shown when checkbox is checked */}
+                            {isSelected && (
+                              <Card className="mt-2 border-blue-200 bg-blue-50/30 rounded-xl overflow-hidden">
+                                <CardContent className="p-4 space-y-3">
+                                  <div className="flex items-center gap-2 text-blue-800 font-medium text-sm border-b border-blue-200 pb-2">
+                                    <Home className="h-4 w-4" />
+                                    Chi tiết phòng {phong.maPhong}
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                      <span className="text-gray-500">Mã phòng:</span>
+                                      <p className="font-medium">{phong.maPhong}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Tầng:</span>
+                                      <p className="font-medium">{phong.tang}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Diện tích:</span>
+                                      <p className="font-medium">{phong.dienTich}m²</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Số người tối đa:</span>
+                                      <p className="font-medium">{phong.soNguoiToiDa}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Giá thuê:</span>
+                                      <p className="font-semibold text-green-600">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(phong.giaThue)}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Tiền cọc:</span>
+                                      <p className="font-semibold text-blue-600">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(phong.tienCoc)}</p>
+                                    </div>
+                                  </div>
+                                  
+                                  {phong.moTa && (
+                                    <div className="text-sm">
+                                      <span className="text-gray-500">Mô tả:</span>
+                                      <p className="mt-0.5">{phong.moTa}</p>
+                                    </div>
                                   )}
-                                </div>
-                              )}
-                              {canEdit && (
-                                <div className="flex gap-2">
-                                  <Button variant="outline" size="sm" onClick={() => handleEdit(phong)} className="flex-1 text-xs">
-                                    <Edit className="h-3.5 w-3.5 mr-1" />Sửa
-                                  </Button>
-                                  <DeleteConfirmPopover
-                                    onConfirm={() => handleDelete(phong.id!)}
-                                    title="Xóa phòng"
-                                    description="Bạn có chắc chắn muốn xóa phòng này?"
-                                    className="text-black hover:text-red-700 hover:bg-red-50"
-                                  />
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
+                                  
+                                  {phong.tienNghi && phong.tienNghi.length > 0 && (
+                                    <div className="text-sm">
+                                      <span className="text-gray-500">Tiện nghi:</span>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {phong.tienNghi.map((tn) => (
+                                          <Badge key={tn} variant="secondary" className="text-xs">{tn}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {hopDong && (
+                                    <div className="text-sm border-t border-blue-200 pt-2">
+                                      <span className="text-gray-500">Hợp đồng hiện tại:</span>
+                                      <div className="mt-1 bg-white/60 rounded-md p-2 space-y-1">
+                                        <p className="font-medium">{hopDong.nguoiDaiDien?.hoTen || 'N/A'}</p>
+                                        {hopDong.khachThue?.map((kt: any) => (
+                                          <p key={kt.id} className="text-xs text-gray-600 flex items-center gap-1">
+                                            <Users className="h-3 w-3" />{kt.hoTen} - {kt.soDienThoai}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            )}
+                          </div>
                         );
                       })}
                     </div>

@@ -8,6 +8,7 @@ import { useCache } from '@/hooks/use-cache';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -27,7 +28,10 @@ import {
   RefreshCw,
   Users,
   Building2,
-  Home
+  Home,
+  DollarSign,
+  Phone,
+  Mail,
 } from 'lucide-react';
 import { HopDong, Phong, KhachThue, ToaNha } from '@/types';
 import { HopDongDataTable } from './table';
@@ -58,6 +62,7 @@ export default function HopDongPage() {
   const [toaNhaFilter, setToaNhaFilter] = useState<string>('all');
   const [viewingHopDong, setViewingHopDong] = useState<HopDong | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selectedHopDongId, setSelectedHopDongId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = 'Quản lý Hợp đồng';
@@ -1218,117 +1223,204 @@ export default function HopDongPage() {
             const nguoiDaiDien = getKhachThueName(hopDong.nguoiDaiDien);
             const isExpiring = isExpiringSoon(hopDong.ngayKetThuc);
             const isExpiredNow = isExpired(hopDong.ngayKetThuc);
+            const isSelected = selectedHopDongId === hopDong.id;
 
             return (
-              <Card key={hopDong.id} className="p-4">
-                <div className="space-y-3">
-                  {/* Header with contract code and status */}
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-gray-900">{hopDong.maHopDong}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Home className="h-3 w-3 text-gray-400" />
-                        <span className="text-sm text-gray-600">{phongInfo.maPhong}</span>
+              <div key={hopDong.id}>
+                <Card className={`p-4 ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+                  <div className="space-y-3">
+                    {/* Header with contract code and status */}
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-start gap-2 flex-1">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(v) => setSelectedHopDongId(v === true ? hopDong.id! : null)}
+                          className="mt-1"
+                        />
+                        <div>
+                          <h3 className="font-medium text-gray-900">{hopDong.maHopDong}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Home className="h-3 w-3 text-gray-400" />
+                            <span className="text-sm text-gray-600">{phongInfo.maPhong}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 items-end">
+                        {(() => {
+                          switch (hopDong.trangThai) {
+                            case 'hoatDong':
+                              return <Badge variant="default" className="text-xs">Hoạt động</Badge>;
+                            case 'hetHan':
+                              return <Badge variant="destructive" className="text-xs">Hết hạn</Badge>;
+                            case 'daHuy':
+                              return <Badge variant="secondary" className="text-xs">Đã hủy</Badge>;
+                            default:
+                              return <Badge variant="outline" className="text-xs">{hopDong.trangThai}</Badge>;
+                          }
+                        })()}
+                        {isExpiring && hopDong.trangThai === 'hoatDong' && (
+                          <Badge variant="outline" className="text-xs text-orange-600 border-orange-600">
+                            Sắp hết hạn
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-1 items-end">
-                      {(() => {
-                        switch (hopDong.trangThai) {
-                          case 'hoatDong':
-                            return <Badge variant="default" className="text-xs">Hoạt động</Badge>;
-                          case 'hetHan':
-                            return <Badge variant="destructive" className="text-xs">Hết hạn</Badge>;
-                          case 'daHuy':
-                            return <Badge variant="secondary" className="text-xs">Đã hủy</Badge>;
-                          default:
-                            return <Badge variant="outline" className="text-xs">{hopDong.trangThai}</Badge>;
-                        }
-                      })()}
-                      {isExpiring && hopDong.trangThai === 'hoatDong' && (
-                        <Badge variant="outline" className="text-xs text-orange-600 border-orange-600">
-                          Sắp hết hạn
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Building and tenant info */}
-                  <div className="space-y-1 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-3 w-3 text-gray-400" />
-                      <span className="text-gray-600">{phongInfo.toaNha}</span>
+                    {/* Building and tenant info */}
+                    <div className="space-y-1 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-3 w-3 text-gray-400" />
+                        <span className="text-gray-600">{phongInfo.toaNha}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3 w-3 text-gray-400" />
+                        <span className="text-gray-600">{nguoiDaiDien}</span>
+                        {hopDong.khachThueIds?.length > 1 && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            +{hopDong.khachThueIds?.length - 1}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="h-3 w-3 text-gray-400" />
-                      <span className="text-gray-600">{nguoiDaiDien}</span>
-                      {hopDong.khachThueIds?.length > 1 && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          +{hopDong.khachThueIds?.length - 1}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Contract dates */}
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 border-t pt-2">
-                    <div>
-                      <Calendar className="h-3 w-3 inline mr-1" />
-                      Từ: {new Date(hopDong.ngayBatDau).toLocaleDateString('vi-VN')}
-                    </div>
-                    <div>
-                      <Calendar className="h-3 w-3 inline mr-1" />
-                      Đến: {new Date(hopDong.ngayKetThuc).toLocaleDateString('vi-VN')}
-                    </div>
-                  </div>
-
-                  {/* Pricing info */}
-                  <div className="border-t pt-2">
-                    <div className="grid grid-cols-2 gap-2 text-sm">
+                    {/* Contract dates */}
+                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 border-t pt-2">
                       <div>
-                        <span className="text-gray-500">Giá thuê:</span>
-                        <p className="font-semibold text-green-600">{formatCurrency(hopDong.giaThue)}</p>
+                        <Calendar className="h-3 w-3 inline mr-1" />
+                        Từ: {new Date(hopDong.ngayBatDau).toLocaleDateString('vi-VN')}
                       </div>
                       <div>
-                        <span className="text-gray-500">Tiền cọc:</span>
-                        <p className="font-semibold text-blue-600">{formatCurrency(hopDong.tienCoc)}</p>
+                        <Calendar className="h-3 w-3 inline mr-1" />
+                        Đến: {new Date(hopDong.ngayKetThuc).toLocaleDateString('vi-VN')}
                       </div>
                     </div>
-                  </div>
 
-                  {/* Action buttons */}
-                  <div className="flex flex-wrap gap-2 pt-2 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleView(hopDong)}
-                      className="flex-1"
-                    >
-                      <FileText className="h-3.5 w-3.5 mr-1" />
-                      Xem
-                    </Button>
-                    {canEdit && (
+                    {/* Pricing info */}
+                    <div className="border-t pt-2">
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-gray-500">Giá thuê:</span>
+                          <p className="font-semibold text-green-600">{formatCurrency(hopDong.giaThue)}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Tiền cọc:</span>
+                          <p className="font-semibold text-blue-600">{formatCurrency(hopDong.tienCoc)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap gap-2 pt-2 border-t">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEdit(hopDong)}
+                        onClick={() => handleView(hopDong)}
                         className="flex-1"
                       >
-                        <Edit className="h-3.5 w-3.5 mr-1" />
-                        Sửa
+                        <FileText className="h-3.5 w-3.5 mr-1" />
+                        Xem
                       </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownload(hopDong)}
-                      className="flex-1"
-                    >
-                      <Download className="h-3.5 w-3.5 mr-1" />
-                      Tải
-                    </Button>
+                      {canEdit && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(hopDong)}
+                          className="flex-1"
+                        >
+                          <Edit className="h-3.5 w-3.5 mr-1" />
+                          Sửa
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownload(hopDong)}
+                        className="flex-1"
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1" />
+                        Tải
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
+                
+                {/* Detail panel - shown when checkbox is checked */}
+                {isSelected && (
+                  <Card className="mt-2 border-blue-200 bg-blue-50/30 rounded-xl overflow-hidden">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-blue-800 font-medium text-sm border-b border-blue-200 pb-2">
+                        <FileText className="h-4 w-4" />
+                        Chi tiết hợp đồng
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-gray-500">Mã hợp đồng:</span>
+                          <p className="font-medium">{hopDong.maHopDong}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Phòng:</span>
+                          <p className="font-medium">{phongInfo.maPhong}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Tòa nhà:</span>
+                          <p className="font-medium">{phongInfo.toaNha}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Người đại diện:</span>
+                          <p className="font-medium">{nguoiDaiDien}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Ngày bắt đầu:</span>
+                          <p className="font-medium">{new Date(hopDong.ngayBatDau).toLocaleDateString('vi-VN')}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Ngày kết thúc:</span>
+                          <p className="font-medium">{new Date(hopDong.ngayKetThuc).toLocaleDateString('vi-VN')}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Giá thuê:</span>
+                          <p className="font-semibold text-green-600">{formatCurrency(hopDong.giaThue)}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Tiền cọc:</span>
+                          <p className="font-semibold text-blue-600">{formatCurrency(hopDong.tienCoc)}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Chu kỳ thanh toán:</span>
+                          <p className="font-medium">{{ thang: 'Hàng tháng', quy: 'Theo quý', nam: 'Hàng năm' }[hopDong.chuKyThanhToan] || hopDong.chuKyThanhToan}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Ngày thanh toán:</span>
+                          <p className="font-medium">Ngày {hopDong.ngayThanhToan}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Giá điện:</span>
+                          <p className="font-medium">{formatCurrency(hopDong.giaDien)}/kWh</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Giá nước:</span>
+                          <p className="font-medium">{formatCurrency(hopDong.giaNuoc)}/m³</p>
+                        </div>
+                      </div>
+                      
+                      {hopDong.phiDichVu && hopDong.phiDichVu.length > 0 && (
+                        <div className="text-sm border-t border-blue-200 pt-2">
+                          <span className="text-gray-500">Phí dịch vụ:</span>
+                          <div className="mt-1 space-y-1">
+                            {hopDong.phiDichVu.map((phi, idx) => (
+                              <div key={idx} className="flex justify-between bg-white/60 rounded-md p-2 text-xs">
+                                <span className="font-medium">{phi.ten}</span>
+                                <span className="text-gray-600">{formatCurrency(phi.gia)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             );
           })}
         </div>
