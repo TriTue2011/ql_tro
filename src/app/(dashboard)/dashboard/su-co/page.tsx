@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -266,10 +265,10 @@ export default function SuCoPage() {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-          <div className="h-10 bg-gray-200 rounded w-32 animate-pulse"></div>
+          <div className="h-8 bg-indigo-200 rounded w-48 animate-pulse"></div>
+          <div className="h-10 bg-indigo-200 rounded w-32 animate-pulse"></div>
         </div>
-        <div className="h-96 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-96 bg-indigo-100/50 rounded-xl animate-pulse"></div>
       </div>
     );
   }
@@ -287,62 +286,75 @@ export default function SuCoPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Tổng sự cố</p>
-              <p className="text-base md:text-2xl font-bold">{suCoList.length}</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Tổng sự cố</p>
+              <p className="text-base md:text-2xl font-bold text-indigo-900">{suCoList.length}</p>
             </div>
-            <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <AlertTriangle className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Mới</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Mới</p>
               <p className="text-base md:text-2xl font-bold text-red-600">
                 {suCoList.filter(s => s.trangThai === 'moi').length}
               </p>
             </div>
-            <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-md shadow-red-200">
+              <AlertTriangle className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Đang xử lý</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Đang xử lý</p>
               <p className="text-base md:text-2xl font-bold text-orange-600">
                 {suCoList.filter(s => s.trangThai === 'dangXuLy').length}
               </p>
             </div>
-            <Clock className="h-3 w-3 md:h-4 md:w-4 text-orange-600" />
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-md shadow-orange-200">
+              <Clock className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Đã xong</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Đã xong</p>
               <p className="text-base md:text-2xl font-bold text-green-600">
                 {suCoList.filter(s => s.trangThai === 'daXong').length}
               </p>
             </div>
-            <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-md shadow-green-200">
+              <CheckCircle className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Desktop Table */}
-      <Card className="hidden md:block">
-        <CardHeader>
-          <CardTitle>Danh sách sự cố</CardTitle>
-          <CardDescription>
+      <div className="hidden md:block rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="px-6 pt-5 pb-2">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <AlertTriangle className="h-3.5 w-3.5 text-white" />
+            </div>
+            <h3 className="font-semibold text-indigo-900">Danh sách sự cố</h3>
+          </div>
+          <p className="text-xs text-indigo-500/70 mt-0.5 ml-9">
             {filteredSuCo.length} sự cố được tìm thấy
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
+          </p>
+        </div>
+        <div className="p-6">
           <SuCoDataTable
             data={filteredSuCo}
             phongList={phongList}
@@ -360,14 +372,17 @@ export default function SuCoPage() {
             priorityFilter={priorityFilter}
             onPriorityChange={setPriorityFilter}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Mobile Cards */}
       <div className="md:hidden">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Danh sách sự cố</h2>
-          <span className="text-sm text-gray-500">{filteredSuCo.length} sự cố</span>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-6 w-6 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+            <AlertTriangle className="h-3 w-3 text-white" />
+          </div>
+          <h2 className="text-lg font-semibold text-indigo-900">Danh sách sự cố</h2>
+          <span className="text-xs text-indigo-500/70 ml-auto">{filteredSuCo.length} sự cố</span>
         </div>
         
         {/* Mobile Filters */}
@@ -425,15 +440,15 @@ export default function SuCoPage() {
             const khachThueInfo = typeof suCo.nguoiBaoCao === 'object' ? suCo.nguoiBaoCao : khachThueList.find(k => k.id === suCo.nguoiBaoCao);
             
             return (
-              <Card key={suCo.id} className="p-4">
+              <div key={suCo.id} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
                 <div className="space-y-3">
                   {/* Header with title and status */}
                   <div className="flex justify-between items-start gap-2">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 truncate">{suCo.tieuDe}</h3>
+                      <h3 className="font-medium text-indigo-900 truncate">{suCo.tieuDe}</h3>
                       <div className="flex items-center gap-2 mt-1">
-                        <Home className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                        <span className="text-sm text-gray-600 truncate">
+                        <Home className="h-3 w-3 text-indigo-400 flex-shrink-0" />
+                        <span className="text-sm text-indigo-600/70 truncate">
                           {phongInfo?.maPhong || 'N/A'}
                         </span>
                       </div>
@@ -447,34 +462,35 @@ export default function SuCoPage() {
                   {/* Reporter and type info */}
                   <div className="space-y-1 text-sm">
                     <div className="flex items-center gap-2">
-                      <Users className="h-3 w-3 text-gray-400" />
-                      <span className="text-gray-600 truncate">
+                      <Users className="h-3 w-3 text-indigo-400" />
+                      <span className="text-indigo-600/70 truncate">
                         {khachThueInfo?.hoTen || 'N/A'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Wrench className="h-3 w-3 text-gray-400" />
-                      <span className="text-gray-600">{getTypeBadge(suCo.loaiSuCo)}</span>
+                      <Wrench className="h-3 w-3 text-indigo-400" />
+                      <span className="text-indigo-600/70">{getTypeBadge(suCo.loaiSuCo)}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <Calendar className="h-3 w-3" />
+                    <div className="flex items-center gap-2 text-xs text-indigo-500/70">
+                      <Calendar className="h-3 w-3 text-indigo-400" />
                       <span>Báo cáo: {new Date(suCo.ngayBaoCao).toLocaleDateString('vi-VN')}</span>
                     </div>
                   </div>
 
                   {/* Description */}
-                  <div className="border-t pt-2">
-                    <p className="text-xs text-gray-600 line-clamp-2">{suCo.moTa}</p>
+                  <div className="border-t border-indigo-100 pt-2">
+                    <p className="text-xs text-indigo-600/70 line-clamp-2">{suCo.moTa}</p>
                   </div>
 
                   {/* Action buttons */}
                   {canEdit && (
-                    <div className="flex justify-between items-center pt-2 border-t">
+                    <div className="flex justify-between items-center pt-2 border-t border-indigo-100">
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleEdit(suCo)}
+                          className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                         >
                           <Edit className="h-3.5 w-3.5" />
                         </Button>
@@ -483,22 +499,22 @@ export default function SuCoPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(suCo.id!)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   )}
                 </div>
-              </Card>
+              </div>
             );
           })}
         </div>
 
         {filteredSuCo.length === 0 && (
-          <div className="text-center py-8">
-            <AlertTriangle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Không có sự cố nào</p>
+          <div className="text-center py-8 rounded-xl border-2 border-dashed border-indigo-200 bg-white/40">
+            <AlertTriangle className="h-12 w-12 text-indigo-300 mx-auto mb-4" />
+            <p className="text-indigo-400">Không có sự cố nào</p>
           </div>
         )}
       </div>

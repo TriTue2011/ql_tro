@@ -5,7 +5,6 @@ import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1094,62 +1093,72 @@ export default function HopDongPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Tổng hợp đồng</p>
-              <p className="text-base md:text-2xl font-bold">{hopDongList.length}</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Tổng hợp đồng</p>
+              <p className="text-base md:text-2xl font-bold text-indigo-900">{hopDongList.length}</p>
             </div>
-            <FileText className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <FileText className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Hoạt động</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Hoạt động</p>
               <p className="text-base md:text-2xl font-bold text-green-600">
                 {hopDongList.filter(h => h.trangThai === 'hoatDong').length}
               </p>
             </div>
-            <FileText className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <FileText className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Sắp hết hạn</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Sắp hết hạn</p>
               <p className="text-base md:text-2xl font-bold text-orange-600">
                 {hopDongList.filter(h => isExpiringSoon(h.ngayKetThuc)).length}
               </p>
             </div>
-            <Calendar className="h-3 w-3 md:h-4 md:w-4 text-orange-600" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <Calendar className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Đã hết hạn</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Đã hết hạn</p>
               <p className="text-base md:text-2xl font-bold text-red-600">
                 {hopDongList.filter(h => isExpired(h.ngayKetThuc)).length}
               </p>
             </div>
-            <Calendar className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <Calendar className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Desktop Table */}
-      <Card className="hidden md:block">
-        <CardHeader>
-          <CardTitle>Danh sách hợp đồng</CardTitle>
-          <CardDescription>
-            {filteredHopDong.length} hợp đồng được tìm thấy
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
+      <div className="hidden md:block rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-indigo-100">
+          <div>
+            <h3 className="text-base font-semibold text-indigo-900">Danh sách hợp đồng</h3>
+            <p className="text-sm text-indigo-600">
+              {filteredHopDong.length} hợp đồng được tìm thấy
+            </p>
+          </div>
+        </div>
+        <div className="p-4 md:p-6">
           <HopDongDataTable
             data={filteredHopDong}
             phongList={phongList}
@@ -1171,14 +1180,14 @@ export default function HopDongPage() {
             onToaNhaChange={setToaNhaFilter}
             allToaNhaList={toaNhaList}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Mobile Cards */}
       <div className="md:hidden">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Danh sách hợp đồng</h2>
-          <span className="text-sm text-gray-500">{filteredHopDong.length} hợp đồng</span>
+          <h2 className="text-lg font-semibold text-indigo-900">Danh sách hợp đồng</h2>
+          <span className="text-sm text-indigo-500">{filteredHopDong.length} hợp đồng</span>
         </div>
         
         {/* Mobile Filters */}
@@ -1227,7 +1236,7 @@ export default function HopDongPage() {
 
             return (
               <div key={hopDong.id}>
-                <Card className={`p-4 ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+                <div className={`rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm ${isSelected ? 'ring-2 ring-indigo-400' : ''}`}>
                   <div className="space-y-3">
                     {/* Header with contract code and status */}
                     <div className="flex justify-between items-start">
@@ -1235,13 +1244,13 @@ export default function HopDongPage() {
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={(v) => setSelectedHopDongId(v === true ? hopDong.id! : null)}
-                          className="mt-1"
+                          className="mt-1 text-indigo-600"
                         />
                         <div>
-                          <h3 className="font-medium text-gray-900">{hopDong.maHopDong}</h3>
+                          <h3 className="font-medium text-indigo-900">{hopDong.maHopDong}</h3>
                           <div className="flex items-center gap-2 mt-1">
-                            <Home className="h-3 w-3 text-gray-400" />
-                            <span className="text-sm text-gray-600">{phongInfo.maPhong}</span>
+                            <Home className="h-3 w-3 text-indigo-400" />
+                            <span className="text-sm text-indigo-600">{phongInfo.maPhong}</span>
                           </div>
                         </div>
                       </div>
@@ -1249,13 +1258,13 @@ export default function HopDongPage() {
                         {(() => {
                           switch (hopDong.trangThai) {
                             case 'hoatDong':
-                              return <Badge variant="default" className="text-xs">Hoạt động</Badge>;
+                              return <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">Hoạt động</Badge>;
                             case 'hetHan':
                               return <Badge variant="destructive" className="text-xs">Hết hạn</Badge>;
                             case 'daHuy':
                               return <Badge variant="secondary" className="text-xs">Đã hủy</Badge>;
                             default:
-                              return <Badge variant="outline" className="text-xs">{hopDong.trangThai}</Badge>;
+                              return <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">{hopDong.trangThai}</Badge>;
                           }
                         })()}
                         {isExpiring && hopDong.trangThai === 'hoatDong' && (
@@ -1269,14 +1278,14 @@ export default function HopDongPage() {
                     {/* Building and tenant info */}
                     <div className="space-y-1 text-sm">
                       <div className="flex items-center gap-2">
-                        <Building2 className="h-3 w-3 text-gray-400" />
-                        <span className="text-gray-600">{phongInfo.toaNha}</span>
+                        <Building2 className="h-3 w-3 text-indigo-400" />
+                        <span className="text-indigo-600">{phongInfo.toaNha}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Users className="h-3 w-3 text-gray-400" />
-                        <span className="text-gray-600">{nguoiDaiDien}</span>
+                        <Users className="h-3 w-3 text-indigo-400" />
+                        <span className="text-indigo-600">{nguoiDaiDien}</span>
                         {hopDong.khachThueIds?.length > 1 && (
-                          <Badge variant="secondary" className="text-[10px]">
+                          <Badge variant="outline" className="text-[10px] border-indigo-200 text-indigo-600 bg-indigo-50">
                             +{hopDong.khachThueIds?.length - 1}
                           </Badge>
                         )}
@@ -1284,38 +1293,38 @@ export default function HopDongPage() {
                     </div>
 
                     {/* Contract dates */}
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 border-t pt-2">
+                    <div className="grid grid-cols-2 gap-2 text-xs text-indigo-500 border-t border-indigo-100 pt-2">
                       <div>
-                        <Calendar className="h-3 w-3 inline mr-1" />
+                        <Calendar className="h-3 w-3 inline mr-1 text-indigo-400" />
                         Từ: {new Date(hopDong.ngayBatDau).toLocaleDateString('vi-VN')}
                       </div>
                       <div>
-                        <Calendar className="h-3 w-3 inline mr-1" />
+                        <Calendar className="h-3 w-3 inline mr-1 text-indigo-400" />
                         Đến: {new Date(hopDong.ngayKetThuc).toLocaleDateString('vi-VN')}
                       </div>
                     </div>
 
                     {/* Pricing info */}
-                    <div className="border-t pt-2">
+                    <div className="border-t border-indigo-100 pt-2">
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
-                          <span className="text-gray-500">Giá thuê:</span>
+                          <span className="text-indigo-500">Giá thuê:</span>
                           <p className="font-semibold text-green-600">{formatCurrency(hopDong.giaThue)}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Tiền cọc:</span>
+                          <span className="text-indigo-500">Tiền cọc:</span>
                           <p className="font-semibold text-blue-600">{formatCurrency(hopDong.tienCoc)}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex flex-wrap gap-2 pt-2 border-t">
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-indigo-100">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleView(hopDong)}
-                        className="flex-1"
+                        className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                       >
                         <FileText className="h-3.5 w-3.5 mr-1" />
                         Xem
@@ -1325,7 +1334,7 @@ export default function HopDongPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleEdit(hopDong)}
-                          className="flex-1"
+                          className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                         >
                           <Edit className="h-3.5 w-3.5 mr-1" />
                           Sửa
@@ -1335,90 +1344,92 @@ export default function HopDongPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownload(hopDong)}
-                        className="flex-1"
+                        className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                       >
                         <Download className="h-3.5 w-3.5 mr-1" />
                         Tải
                       </Button>
                     </div>
                   </div>
-                </Card>
+                </div>
                 
                 {/* Detail panel - shown when checkbox is checked */}
                 {isSelected && (
-                  <Card className="mt-2 border-blue-200 bg-blue-50/30 rounded-xl overflow-hidden">
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center gap-2 text-blue-800 font-medium text-sm border-b border-blue-200 pb-2">
-                        <FileText className="h-4 w-4" />
+                  <div className="mt-2 rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-indigo-900 font-medium text-sm border-b border-indigo-200 pb-2">
+                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                          <FileText className="h-3.5 w-3.5 text-white" />
+                        </div>
                         Chi tiết hợp đồng
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <span className="text-gray-500">Mã hợp đồng:</span>
-                          <p className="font-medium">{hopDong.maHopDong}</p>
+                          <span className="text-indigo-500">Mã hợp đồng:</span>
+                          <p className="font-medium text-indigo-900">{hopDong.maHopDong}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Phòng:</span>
-                          <p className="font-medium">{phongInfo.maPhong}</p>
+                          <span className="text-indigo-500">Phòng:</span>
+                          <p className="font-medium text-indigo-900">{phongInfo.maPhong}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Tòa nhà:</span>
-                          <p className="font-medium">{phongInfo.toaNha}</p>
+                          <span className="text-indigo-500">Tòa nhà:</span>
+                          <p className="font-medium text-indigo-900">{phongInfo.toaNha}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Người đại diện:</span>
-                          <p className="font-medium">{nguoiDaiDien}</p>
+                          <span className="text-indigo-500">Người đại diện:</span>
+                          <p className="font-medium text-indigo-900">{nguoiDaiDien}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Ngày bắt đầu:</span>
-                          <p className="font-medium">{new Date(hopDong.ngayBatDau).toLocaleDateString('vi-VN')}</p>
+                          <span className="text-indigo-500">Ngày bắt đầu:</span>
+                          <p className="font-medium text-indigo-900">{new Date(hopDong.ngayBatDau).toLocaleDateString('vi-VN')}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Ngày kết thúc:</span>
-                          <p className="font-medium">{new Date(hopDong.ngayKetThuc).toLocaleDateString('vi-VN')}</p>
+                          <span className="text-indigo-500">Ngày kết thúc:</span>
+                          <p className="font-medium text-indigo-900">{new Date(hopDong.ngayKetThuc).toLocaleDateString('vi-VN')}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Giá thuê:</span>
+                          <span className="text-indigo-500">Giá thuê:</span>
                           <p className="font-semibold text-green-600">{formatCurrency(hopDong.giaThue)}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Tiền cọc:</span>
+                          <span className="text-indigo-500">Tiền cọc:</span>
                           <p className="font-semibold text-blue-600">{formatCurrency(hopDong.tienCoc)}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Chu kỳ thanh toán:</span>
-                          <p className="font-medium">{{ thang: 'Hàng tháng', quy: 'Theo quý', nam: 'Hàng năm' }[hopDong.chuKyThanhToan] || hopDong.chuKyThanhToan}</p>
+                          <span className="text-indigo-500">Chu kỳ thanh toán:</span>
+                          <p className="font-medium text-indigo-900">{{ thang: 'Hàng tháng', quy: 'Theo quý', nam: 'Hàng năm' }[hopDong.chuKyThanhToan] || hopDong.chuKyThanhToan}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Ngày thanh toán:</span>
-                          <p className="font-medium">Ngày {hopDong.ngayThanhToan}</p>
+                          <span className="text-indigo-500">Ngày thanh toán:</span>
+                          <p className="font-medium text-indigo-900">Ngày {hopDong.ngayThanhToan}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Giá điện:</span>
-                          <p className="font-medium">{formatCurrency(hopDong.giaDien)}/kWh</p>
+                          <span className="text-indigo-500">Giá điện:</span>
+                          <p className="font-medium text-indigo-900">{formatCurrency(hopDong.giaDien)}/kWh</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Giá nước:</span>
-                          <p className="font-medium">{formatCurrency(hopDong.giaNuoc)}/m³</p>
+                          <span className="text-indigo-500">Giá nước:</span>
+                          <p className="font-medium text-indigo-900">{formatCurrency(hopDong.giaNuoc)}/m³</p>
                         </div>
                       </div>
                       
                       {hopDong.phiDichVu && hopDong.phiDichVu.length > 0 && (
-                        <div className="text-sm border-t border-blue-200 pt-2">
-                          <span className="text-gray-500">Phí dịch vụ:</span>
+                        <div className="text-sm border-t border-indigo-200 pt-2">
+                          <span className="text-indigo-500">Phí dịch vụ:</span>
                           <div className="mt-1 space-y-1">
                             {hopDong.phiDichVu.map((phi, idx) => (
-                              <div key={idx} className="flex justify-between bg-white/60 rounded-md p-2 text-xs">
-                                <span className="font-medium">{phi.ten}</span>
-                                <span className="text-gray-600">{formatCurrency(phi.gia)}</span>
+                              <div key={idx} className="flex justify-between rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-2 text-xs">
+                                <span className="font-medium text-indigo-900">{phi.ten}</span>
+                                <span className="text-indigo-600">{formatCurrency(phi.gia)}</span>
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 )}
               </div>
             );
@@ -1426,9 +1437,9 @@ export default function HopDongPage() {
         </div>
 
         {filteredHopDong.length === 0 && (
-          <div className="text-center py-8">
-            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Không có hợp đồng nào</p>
+          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center">
+            <FileText className="h-12 w-12 text-indigo-300 mx-auto mb-4" />
+            <p className="text-indigo-400">Không có hợp đồng nào</p>
           </div>
         )}
       </div>

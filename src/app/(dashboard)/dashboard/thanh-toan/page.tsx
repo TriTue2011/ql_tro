@@ -7,7 +7,6 @@ import { useSession } from 'next-auth/react';
 import { useCanEdit } from '@/hooks/use-can-edit';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -232,10 +231,10 @@ export default function ThanhToanPage() {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-          <div className="h-10 bg-gray-200 rounded w-32 animate-pulse"></div>
+          <div className="h-8 bg-indigo-200 rounded w-48 animate-pulse"></div>
+          <div className="h-10 bg-indigo-200 rounded w-32 animate-pulse"></div>
         </div>
-        <div className="h-96 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-96 bg-indigo-100/50 rounded-xl animate-pulse"></div>
       </div>
     );
   }
@@ -253,62 +252,75 @@ export default function ThanhToanPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Tổng giao dịch</p>
-              <p className="text-base md:text-2xl font-bold">{thanhToanList.length}</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Tổng giao dịch</p>
+              <p className="text-base md:text-2xl font-bold text-indigo-900">{thanhToanList.length}</p>
             </div>
-            <CreditCard className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <CreditCard className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Tiền mặt</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Tiền mặt</p>
               <p className="text-base md:text-2xl font-bold text-green-600">
                 {thanhToanList.filter(t => t.phuongThuc === 'tienMat').length}
               </p>
             </div>
-            <CreditCard className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-md shadow-green-200">
+              <CreditCard className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Chuyển khoản</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Chuyển khoản</p>
               <p className="text-base md:text-2xl font-bold text-blue-600">
                 {thanhToanList.filter(t => t.phuongThuc === 'chuyenKhoan').length}
               </p>
             </div>
-            <CreditCard className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-md shadow-blue-200">
+              <CreditCard className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Tổng tiền</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Tổng tiền</p>
               <p className="text-xs md:text-2xl font-bold text-green-600 truncate">
                 {formatCurrency(thanhToanList.reduce((sum, t) => sum + t.soTien, 0))}
               </p>
             </div>
-            <Receipt className="h-3 w-3 md:h-4 md:w-4 text-green-600 flex-shrink-0" />
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-md shadow-green-200 flex-shrink-0">
+              <Receipt className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Desktop Table */}
-      <Card className="hidden md:block">
-        <CardHeader>
-          <CardTitle>Danh sách thanh toán</CardTitle>
-          <CardDescription>
+      <div className="hidden md:block rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="px-6 pt-5 pb-2">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <CreditCard className="h-3.5 w-3.5 text-white" />
+            </div>
+            <h3 className="font-semibold text-indigo-900">Danh sách thanh toán</h3>
+          </div>
+          <p className="text-xs text-indigo-500/70 mt-0.5 ml-9">
             {filteredThanhToan.length} giao dịch được tìm thấy
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
+          </p>
+        </div>
+        <div className="p-6">
           <ThanhToanDataTable
             data={filteredThanhToan}
             hoaDonList={hoaDonList}
@@ -324,14 +336,17 @@ export default function ThanhToanPage() {
             dateFilter={dateFilter}
             onDateChange={setDateFilter}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Mobile Cards */}
       <div className="md:hidden">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Danh sách thanh toán</h2>
-          <span className="text-sm text-gray-500">{filteredThanhToan.length} giao dịch</span>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-6 w-6 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+            <CreditCard className="h-3 w-3 text-white" />
+          </div>
+          <h2 className="text-lg font-semibold text-indigo-900">Danh sách thanh toán</h2>
+          <span className="text-xs text-indigo-500/70 ml-auto">{filteredThanhToan.length} giao dịch</span>
         </div>
         
         {/* Mobile Filters */}
@@ -375,15 +390,15 @@ export default function ThanhToanPage() {
             const khachThueInfo = hoaDonInfo && typeof hoaDonInfo.khachThue === 'object' ? (hoaDonInfo.khachThue as any) : null;
             
             return (
-              <Card key={thanhToan.id} className="p-4">
+              <div key={thanhToan.id} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
                 <div className="space-y-3">
                   {/* Header with invoice code and method */}
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-medium text-gray-900">
+                      <h3 className="font-medium text-indigo-900">
                         {hoaDonInfo?.maHoaDon || getHoaDonInfo(thanhToan.hoaDon)}
                       </h3>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-indigo-500/70">
                         {new Date(thanhToan.ngayThanhToan).toLocaleDateString('vi-VN')}
                       </p>
                     </div>
@@ -394,20 +409,20 @@ export default function ThanhToanPage() {
                   {hoaDonInfo && (
                     <div className="space-y-1 text-sm">
                       <div className="flex items-center gap-2">
-                        <Receipt className="h-3 w-3 text-gray-400" />
-                        <span className="text-gray-600">
+                        <Receipt className="h-3 w-3 text-indigo-400" />
+                        <span className="text-indigo-600/70">
                           Phòng: {phongInfo?.maPhong || 'N/A'}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Users className="h-3 w-3 text-gray-400" />
-                        <span className="text-gray-600">
+                        <Users className="h-3 w-3 text-indigo-400" />
+                        <span className="text-indigo-600/70">
                           {khachThueInfo?.hoTen || 'N/A'}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Calendar className="h-3 w-3 text-gray-400" />
-                        <span className="text-gray-600">
+                        <Calendar className="h-3 w-3 text-indigo-400" />
+                        <span className="text-indigo-600/70">
                           Tháng {hoaDonInfo.thang}/{hoaDonInfo.nam}
                         </span>
                       </div>
@@ -415,23 +430,23 @@ export default function ThanhToanPage() {
                   )}
 
                   {/* Amount */}
-                  <div className="border-t pt-2">
-                    <span className="text-gray-500 text-sm">Số tiền:</span>
+                  <div className="border-t border-indigo-100 pt-2">
+                    <span className="text-indigo-500/70 text-sm">Số tiền:</span>
                     <p className="text-lg font-bold text-green-600">{formatCurrency(thanhToan.soTien)}</p>
                   </div>
 
                   {/* Transfer info if available */}
                   {thanhToan.phuongThuc === 'chuyenKhoan' && thanhToan.thongTinChuyenKhoan && (
-                    <div className="text-xs text-gray-500 space-y-1">
+                    <div className="text-xs text-indigo-500/70 space-y-1">
                       {thanhToan.thongTinChuyenKhoan.nganHang && (
                         <div className="flex items-center gap-2">
-                          <CreditCard className="h-3 w-3" />
+                          <CreditCard className="h-3 w-3 text-indigo-400" />
                           <span>{thanhToan.thongTinChuyenKhoan.nganHang}</span>
                         </div>
                       )}
                       {thanhToan.thongTinChuyenKhoan.soGiaoDich && (
                         <div className="flex items-center gap-2">
-                          <FileText className="h-3 w-3" />
+                          <FileText className="h-3 w-3 text-indigo-400" />
                           <span className="font-mono">{thanhToan.thongTinChuyenKhoan.soGiaoDich}</span>
                         </div>
                       )}
@@ -440,19 +455,20 @@ export default function ThanhToanPage() {
 
                   {/* Note if available */}
                   {thanhToan.ghiChu && (
-                    <div className="text-xs text-gray-500 border-t pt-2">
-                      <span className="font-medium">Ghi chú: </span>
+                    <div className="text-xs text-indigo-500/70 border-t border-indigo-100 pt-2">
+                      <span className="font-medium text-indigo-600">Ghi chú: </span>
                       <span>{thanhToan.ghiChu}</span>
                     </div>
                   )}
 
                   {/* Action buttons */}
                   {canEdit && (
-                  <div className="flex justify-between items-center pt-2 border-t">
+                  <div className="flex justify-between items-center pt-2 border-t border-indigo-100">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleEdit(thanhToan)}
+                      className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                     >
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
@@ -460,22 +476,22 @@ export default function ThanhToanPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDelete(thanhToan.id!)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                   )}
                 </div>
-              </Card>
+              </div>
             );
           })}
         </div>
 
         {filteredThanhToan.length === 0 && (
-          <div className="text-center py-8">
-            <CreditCard className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Không có giao dịch nào</p>
+          <div className="text-center py-8 rounded-xl border-2 border-dashed border-indigo-200 bg-white/40">
+            <CreditCard className="h-12 w-12 text-indigo-300 mx-auto mb-4" />
+            <p className="text-indigo-400">Không có giao dịch nào</p>
           </div>
         )}
       </div>

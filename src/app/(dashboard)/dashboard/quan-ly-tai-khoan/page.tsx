@@ -250,10 +250,10 @@ export default function AccountManagementPage() {
   if (!isAdmin && !isChuNha && !isDongChuTro && !isQuanLy) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <Shield className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Không có quyền truy cập</h2>
-          <p className="text-gray-600">Chỉ quản trị viên, chủ trọ, đồng chủ trọ hoặc quản lý mới truy cập được trang này.</p>
+        <div className="text-center rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8">
+          <Shield className="h-12 w-12 text-indigo-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-indigo-900 mb-2">Không có quyền truy cập</h2>
+          <p className="text-indigo-600/70">Chỉ quản trị viên, chủ trọ, đồng chủ trọ hoặc quản lý mới truy cập được trang này.</p>
         </div>
       </div>
     );
@@ -262,9 +262,9 @@ export default function AccountManagementPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Đang tải danh sách người dùng...</p>
+        <div className="text-center rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-indigo-600/70">Đang tải danh sách người dùng...</p>
         </div>
       </div>
     );
@@ -303,36 +303,36 @@ export default function AccountManagementPage() {
             const isCurrentUser = session?.user?.id === user.id;
             const chucVuLabel = getChucVuLabel(user.chucVu);
             return (
-              <div key={user.id ?? user._id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-50">
-                <Avatar className="h-9 w-9 shrink-0">
+              <div key={user.id ?? user._id} className="flex items-center gap-3 py-2.5 px-3 rounded-xl border border-indigo-100/60 bg-white/60 backdrop-blur-sm hover:border-indigo-200 transition-all">
+                <Avatar className="h-9 w-9 shrink-0 ring-2 ring-indigo-100">
                   <AvatarImage src={getUserAvatar(user)} />
-                  <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
+                  <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-blue-600 text-white text-xs">
                     {getInitials(getUserName(user))}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm text-gray-900 truncate">{getUserName(user)}</span>
-                    {chucVuLabel && <Badge variant="outline" className="text-[10px] h-4 px-1 text-emerald-700 border-emerald-200 bg-emerald-50">{chucVuLabel}</Badge>}
-                    {isCurrentUser && <Badge variant="outline" className="text-[10px] h-4 px-1">Bạn</Badge>}
-                    <Badge variant={getUserIsActive(user) ? 'default' : 'secondary'} className="text-[10px] h-4 px-1">
+                    <span className="font-medium text-sm text-indigo-900 truncate">{getUserName(user)}</span>
+                    {chucVuLabel && <Badge variant="outline" className="text-[10px] h-4 px-1 text-indigo-600 border-indigo-200 bg-indigo-50">{chucVuLabel}</Badge>}
+                    {isCurrentUser && <Badge variant="outline" className="text-[10px] h-4 px-1 border-indigo-200 text-indigo-600 bg-indigo-50">Bạn</Badge>}
+                    <Badge variant={getUserIsActive(user) ? 'default' : 'secondary'} className={`text-[10px] h-4 px-1 ${getUserIsActive(user) ? 'bg-gradient-to-r from-indigo-500 to-blue-600 text-white border-0' : 'border-indigo-200 text-indigo-400 bg-indigo-50'}`}>
                       {getUserIsActive(user) ? 'Hoạt động' : 'Ngừng'}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5 flex-wrap">
+                  <div className="flex items-center gap-3 text-xs text-indigo-500/70 mt-0.5 flex-wrap">
                     {user.email && <span className="truncate">{user.email}</span>}
                     {getUserPhone(user) && (
-                      <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{getUserPhone(user)}</span>
+                      <span className="flex items-center gap-1"><Phone className="h-3 w-3 text-indigo-400" />{getUserPhone(user)}</span>
                     )}
                     <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
+                      <Calendar className="h-3 w-3 text-indigo-400" />
                       {(() => { const d = new Date(user.createdAt || user.ngayTao || ''); return !isNaN(d.getTime()) ? d.toLocaleDateString('vi-VN') : '&mdash;'; })()}
                     </span>
                   </div>
                 </div>
                 {!isCurrentUser && !quanLyReadOnly && (
                   <div className="flex gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => router.push(`/dashboard/quan-ly-tai-khoan/${user.id}`)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50" onClick={() => router.push(`/dashboard/quan-ly-tai-khoan/${user.id}`)}>
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
                     <ConfirmPopover
@@ -357,20 +357,20 @@ export default function AccountManagementPage() {
             const limit = roleKey && buildingId ? getRoleLimitForBuilding(buildingId, roleKey) : null;
 
             return (
-              <div key={key} className="border rounded-xl overflow-hidden">
+              <div key={key} className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
                 <button
                   type="button"
-                  className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-left"
+                  className="w-full flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-blue-600 text-white text-left hover:from-indigo-600 hover:to-blue-700 transition-all"
                   onClick={() => toggleSection(key)}
                 >
-                  <span className="text-sm font-medium text-gray-700">
-                    {label} <span className="text-gray-400 font-normal">({sectionUsers.length}{limit ? `/${limit}` : ''})</span>
+                  <span className="text-sm font-medium">
+                    {label} <span className="text-indigo-200 font-normal">({sectionUsers.length}{limit ? `/${limit}` : ''})</span>
                   </span>
-                  {isOpen ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
+                  {isOpen ? <ChevronDown className="h-4 w-4 text-white/80" /> : <ChevronRight className="h-4 w-4 text-white/80" />}
                 </button>
                 {isOpen && (
                   <div>
-                    <div className="divide-y divide-gray-100 px-1">
+                    <div className="divide-y divide-indigo-100/50 px-2 py-1">
                       {sectionUsers.map(u => renderUserRow(u, buildingId, roleKey))}
                     </div>
                   </div>
@@ -400,11 +400,13 @@ export default function AccountManagementPage() {
             <>
               {buildingGroups.map(g => (
                 <div key={g.building.id} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-blue-500 shrink-0" />
-                    <h3 className="font-semibold text-gray-800">{g.building.tenToaNha}</h3>
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                      <Building2 className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <h3 className="font-semibold text-indigo-900">{g.building.tenToaNha}</h3>
                   </div>
-                  <div className="ml-6 space-y-1.5">
+                  <div className="ml-9 space-y-1.5">
                     {renderSection(`${g.building.id}-chuNha`, 'Chủ trọ', g.chuNha, 'chuNha', g.building.id)}
                     {renderSection(`${g.building.id}-dongChuTro`, 'Đồng chủ trọ', g.dongChuTro, 'dongChuTro', g.building.id)}
                     {renderSection(`${g.building.id}-quanLy`, 'Quản lý', g.quanLy, 'quanLy', g.building.id)}
@@ -415,11 +417,13 @@ export default function AccountManagementPage() {
 
               {adminUsers.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-red-500 shrink-0" />
-                    <h3 className="font-semibold text-gray-800">Hệ thống</h3>
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                      <Shield className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <h3 className="font-semibold text-indigo-900">Hệ thống</h3>
                   </div>
-                  <div className="ml-6">
+                  <div className="ml-9">
                     {renderSection('admin', 'Quản trị viên', adminUsers)}
                   </div>
                 </div>
@@ -427,20 +431,22 @@ export default function AccountManagementPage() {
 
               {unassignedUsers.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-orange-500 shrink-0" />
-                    <h3 className="font-semibold text-gray-800">Chưa phân công</h3>
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                      <Users className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <h3 className="font-semibold text-indigo-900">Chưa phân công</h3>
                   </div>
-                  <div className="ml-6">
+                  <div className="ml-9">
                     {renderSection('unassigned', 'Người dùng chưa gán tòa nhà', unassignedUsers)}
                   </div>
                 </div>
               )}
 
               {buildingGroups.length === 0 && adminUsers.length === 0 && unassignedUsers.length === 0 && (
-                <div className="text-center py-12">
-                  <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">Không tìm thấy tài khoản nào</p>
+                <div className="text-center py-12 rounded-xl border-2 border-dashed border-indigo-200 bg-white/40">
+                  <Users className="h-12 w-12 text-indigo-300 mx-auto mb-4" />
+                  <p className="text-indigo-400">Không tìm thấy tài khoản nào</p>
                 </div>
               )}
             </>

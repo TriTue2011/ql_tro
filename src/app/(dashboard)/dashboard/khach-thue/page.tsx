@@ -7,7 +7,6 @@ import { useCanEdit } from '@/hooks/use-can-edit';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -345,51 +344,59 @@ export default function KhachThuePage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Tổng khách thuê</p>
-              <p className="text-base md:text-2xl font-bold">{khachThueList.length}</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Tổng khách thuê</p>
+              <p className="text-base md:text-2xl font-bold text-indigo-900">{khachThueList.length}</p>
             </div>
-            <Users className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <Users className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Đang thuê</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Đang thuê</p>
               <p className="text-base md:text-2xl font-bold text-blue-600">
                 {khachThueList.filter(k => k.trangThai === 'dangThue').length}
               </p>
             </div>
-            <Users className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <Users className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Đã trả phòng</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Đã trả phòng</p>
               <p className="text-base md:text-2xl font-bold text-gray-600">
                 {khachThueList.filter(k => k.trangThai === 'daTraPhong').length}
               </p>
             </div>
-            <Users className="h-3 w-3 md:h-4 md:w-4 text-gray-600" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <Users className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Chưa thuê</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Chưa thuê</p>
               <p className="text-base md:text-2xl font-bold text-orange-600">
                 {khachThueList.filter(k => k.trangThai === 'chuaThue').length}
               </p>
             </div>
-            <Users className="h-3 w-3 md:h-4 md:w-4 text-orange-600" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <Users className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Search + filter bar */}
@@ -414,50 +421,50 @@ export default function KhachThuePage() {
       {/* Grouped by Building → Room */}
       <div className="space-y-3">
         {filteredKhachThue.length === 0 ? (
-          <div className="text-center py-8">
-            <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Không có khách thuê nào</p>
+          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center">
+            <Users className="h-12 w-12 text-indigo-300 mx-auto mb-4" />
+            <p className="text-indigo-400">Không có khách thuê nào</p>
           </div>
         ) : (
           <>
             {buildingGroups.groups.map(bg => {
               const isBuildingOpen = openBuildings.has(bg.toaNhaId);
               return (
-                <div key={bg.toaNhaId} className="border rounded-xl overflow-hidden shadow-sm">
+                <div key={bg.toaNhaId} className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
                   {/* Building header */}
                   <button type="button" onClick={() => toggleBuilding(bg.toaNhaId)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
+                    className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 transition-colors text-left">
                     <div className="flex items-center gap-3">
-                      <Building2 className="h-5 w-5 text-blue-600 shrink-0" />
+                      <Building2 className="h-5 w-5 text-white shrink-0" />
                       <div>
-                        <span className="font-semibold text-gray-900 text-sm">{bg.tenToaNha}</span>
-                        <p className="text-[10px] text-gray-500">
+                        <span className="font-semibold text-white text-sm">{bg.tenToaNha}</span>
+                        <p className="text-[10px] text-indigo-100">
                           {bg.rooms.reduce((s, r) => s + r.tenants.length, 0)} khách • {bg.rooms.length} phòng
                         </p>
                       </div>
                     </div>
                     {isBuildingOpen
-                      ? <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
-                      : <ChevronRight className="h-4 w-4 text-gray-500 shrink-0" />}
+                      ? <ChevronDown className="h-4 w-4 text-white shrink-0" />
+                      : <ChevronRight className="h-4 w-4 text-white shrink-0" />}
                   </button>
 
                   {isBuildingOpen && (
-                    <div className="p-3 space-y-2 bg-white">
+                    <div className="p-3 space-y-2">
                       {bg.rooms.map(pg => {
                         const isPhongOpen = openPhong.has(pg.phongId);
                         return (
-                          <div key={pg.phongId} className="border rounded-md overflow-hidden">
+                          <div key={pg.phongId} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm overflow-hidden">
                             {/* Room header */}
                             <button type="button" onClick={() => togglePhong(pg.phongId)}
-                              className="w-full flex items-center justify-between px-3 py-2 bg-blue-50 hover:bg-blue-100 transition-colors text-left">
+                              className="w-full flex items-center justify-between px-3 py-2 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left">
                               <div className="flex items-center gap-2">
-                                <DoorOpen className="h-4 w-4 text-blue-600 shrink-0" />
-                                <span className="font-medium text-sm text-blue-900">{pg.maPhong}</span>
-                                <span className="text-[10px] text-blue-600">{pg.tenants.length} người</span>
+                                <DoorOpen className="h-4 w-4 text-indigo-600 shrink-0" />
+                                <span className="font-medium text-sm text-indigo-900">{pg.maPhong}</span>
+                                <span className="text-[10px] text-indigo-600">{pg.tenants.length} người</span>
                               </div>
                               {isPhongOpen
-                                ? <ChevronDown className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                                : <ChevronRight className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                                ? <ChevronDown className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                                : <ChevronRight className="h-3.5 w-3.5 text-indigo-500 shrink-0" />}
                             </button>
 
                             {isPhongOpen && (
@@ -484,103 +491,105 @@ export default function KhachThuePage() {
                                     const isSelected = selectedKhachThueId === kt.id;
                                     return (
                                       <div key={kt.id}>
-                                        <Card className={`p-3 ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+                                        <div className={`rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm ${isSelected ? 'ring-2 ring-indigo-400' : ''}`}>
                                           <div className="flex justify-between items-start mb-2">
                                             <div className="flex items-start gap-2 flex-1">
                                               <Checkbox
                                                 checked={isSelected}
                                                 onCheckedChange={(v) => setSelectedKhachThueId(v === true ? kt.id! : null)}
-                                                className="mt-0.5"
+                                                className="mt-0.5 text-indigo-600"
                                               />
                                               <div>
-                                                <p className="font-medium text-sm">{kt.hoTen}</p>
-                                                <p className="text-xs text-gray-500">{kt.gioiTinh}</p>
+                                                <p className="font-medium text-sm text-indigo-900">{kt.hoTen}</p>
+                                                <p className="text-xs text-indigo-500">{kt.gioiTinh}</p>
                                               </div>
                                             </div>
                                             <TrangThaiBadge trangThai={kt.trangThai} />
                                           </div>
-                                          <div className="space-y-1 text-xs text-gray-600">
-                                            {kt.soDienThoai && <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" />{kt.soDienThoai}</div>}
-                                            {kt.email && <div className="flex items-center gap-1.5"><Mail className="h-3 w-3" />{kt.email}</div>}
-                                            <div className="flex items-center gap-1.5"><CreditCard className="h-3 w-3 font-mono" />{kt.cccd}</div>
+                                          <div className="space-y-1 text-xs text-indigo-600">
+                                            {kt.soDienThoai && <div className="flex items-center gap-1.5"><Phone className="h-3 w-3 text-indigo-400" />{kt.soDienThoai}</div>}
+                                            {kt.email && <div className="flex items-center gap-1.5"><Mail className="h-3 w-3 text-indigo-400" />{kt.email}</div>}
+                                            <div className="flex items-center gap-1.5"><CreditCard className="h-3 w-3 text-indigo-400 font-mono" />{kt.cccd}</div>
                                           </div>
                                           {canEdit && (
-                                          <div className="flex justify-between items-center mt-2 pt-2 border-t">
-                                            <Button variant="outline" size="sm" onClick={() => handleEdit(kt)} disabled={actionLoading === `edit-${kt.id}`}>
+                                          <div className="flex justify-between items-center mt-2 pt-2 border-t border-indigo-100">
+                                            <Button variant="outline" size="sm" onClick={() => handleEdit(kt)} disabled={actionLoading === `edit-${kt.id}`} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                                               <Edit className="h-3.5 w-3.5" />
                                             </Button>
                                             <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)}
                                               disabled={actionLoading === `delete-${kt.id}`}
-                                              className="text-red-600 hover:bg-red-50">
+                                              className="text-red-600 hover:bg-red-50 border-indigo-200">
                                               <Trash2 className="h-3.5 w-3.5" />
                                             </Button>
                                           </div>
                                           )}
-                                        </Card>
+                                        </div>
                                         
                                         {/* Detail panel */}
                                         {isSelected && (
-                                          <Card className="mt-2 border-blue-200 bg-blue-50/30 rounded-xl overflow-hidden">
-                                            <CardContent className="p-4 space-y-3">
-                                              <div className="flex items-center gap-2 text-blue-800 font-medium text-sm border-b border-blue-200 pb-2">
-                                                <Users className="h-4 w-4" />
+                                          <div className="mt-2 rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
+                                            <div className="p-4 space-y-3">
+                                              <div className="flex items-center gap-2 text-indigo-900 font-medium text-sm border-b border-indigo-200 pb-2">
+                                                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                                                  <Users className="h-3.5 w-3.5 text-white" />
+                                                </div>
                                                 Chi tiết khách thuê
                                               </div>
                                               
                                               <div className="grid grid-cols-2 gap-3 text-sm">
                                                 <div>
-                                                  <span className="text-gray-500">Họ tên:</span>
-                                                  <p className="font-medium">{kt.hoTen}</p>
+                                                  <span className="text-indigo-500">Họ tên:</span>
+                                                  <p className="font-medium text-indigo-900">{kt.hoTen}</p>
                                                 </div>
                                                 <div>
-                                                  <span className="text-gray-500">Giới tính:</span>
-                                                  <p className="font-medium">{{ nam: 'Nam', nu: 'Nữ', khac: 'Khác' }[kt.gioiTinh] || kt.gioiTinh}</p>
+                                                  <span className="text-indigo-500">Giới tính:</span>
+                                                  <p className="font-medium text-indigo-900">{{ nam: 'Nam', nu: 'Nữ', khac: 'Khác' }[kt.gioiTinh] || kt.gioiTinh}</p>
                                                 </div>
                                                 <div>
-                                                  <span className="text-gray-500">SĐT:</span>
-                                                  <p className="font-medium">{kt.soDienThoai || 'N/A'}</p>
+                                                  <span className="text-indigo-500">SĐT:</span>
+                                                  <p className="font-medium text-indigo-900">{kt.soDienThoai || 'N/A'}</p>
                                                 </div>
                                                 <div>
-                                                  <span className="text-gray-500">Email:</span>
-                                                  <p className="font-medium">{kt.email || 'N/A'}</p>
+                                                  <span className="text-indigo-500">Email:</span>
+                                                  <p className="font-medium text-indigo-900">{kt.email || 'N/A'}</p>
                                                 </div>
                                                 <div>
-                                                  <span className="text-gray-500">CCCD:</span>
-                                                  <p className="font-medium">{kt.cccd}</p>
+                                                  <span className="text-indigo-500">CCCD:</span>
+                                                  <p className="font-medium text-indigo-900">{kt.cccd}</p>
                                                 </div>
                                                 <div>
-                                                  <span className="text-gray-500">Ngày sinh:</span>
-                                                  <p className="font-medium">{new Date(kt.ngaySinh).toLocaleDateString('vi-VN')}</p>
+                                                  <span className="text-indigo-500">Ngày sinh:</span>
+                                                  <p className="font-medium text-indigo-900">{new Date(kt.ngaySinh).toLocaleDateString('vi-VN')}</p>
                                                 </div>
                                                 <div>
-                                                  <span className="text-gray-500">Quê quán:</span>
-                                                  <p className="font-medium">{kt.queQuan}</p>
+                                                  <span className="text-indigo-500">Quê quán:</span>
+                                                  <p className="font-medium text-indigo-900">{kt.queQuan}</p>
                                                 </div>
                                                 {kt.ngheNghiep && (
                                                   <div>
-                                                    <span className="text-gray-500">Nghề nghiệp:</span>
-                                                    <p className="font-medium">{kt.ngheNghiep}</p>
+                                                    <span className="text-indigo-500">Nghề nghiệp:</span>
+                                                    <p className="font-medium text-indigo-900">{kt.ngheNghiep}</p>
                                                   </div>
                                                 )}
                                               </div>
                                               
                                               {kt.hopDongHienTai && (
-                                                <div className="text-sm border-t border-blue-200 pt-2">
-                                                  <span className="text-gray-500">Phòng hiện tại:</span>
-                                                  <div className="mt-1 bg-white/60 rounded-md p-2">
-                                                    <p className="font-medium flex items-center gap-1">
-                                                      <Home className="h-3.5 w-3.5 text-blue-500" />
+                                                <div className="text-sm border-t border-indigo-200 pt-2">
+                                                  <span className="text-indigo-500">Phòng hiện tại:</span>
+                                                  <div className="mt-1 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-2">
+                                                    <p className="font-medium flex items-center gap-1 text-indigo-900">
+                                                      <Home className="h-3.5 w-3.5 text-indigo-500" />
                                                       {kt.hopDongHienTai.phong.maPhong}
                                                     </p>
-                                                    <p className="text-xs text-gray-600 flex items-center gap-1 mt-0.5">
+                                                    <p className="text-xs text-indigo-600 flex items-center gap-1 mt-0.5">
                                                       <Building2 className="h-3 w-3" />
                                                       {kt.hopDongHienTai.phong.toaNha.tenToaNha}
                                                     </p>
                                                   </div>
                                                 </div>
                                               )}
-                                            </CardContent>
-                                          </Card>
+                                            </div>
+                                          </div>
                                         )}
                                       </div>
                                     );
@@ -599,22 +608,22 @@ export default function KhachThuePage() {
 
             {/* Tenants without room */}
             {buildingGroups.noRoom.length > 0 && (
-              <div className="border rounded-xl overflow-hidden shadow-sm">
+              <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
                 <button type="button" onClick={() => toggleBuilding('__noRoom__')}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 transition-colors text-left">
                   <div className="flex items-center gap-3">
-                    <Users className="h-5 w-5 text-gray-500 shrink-0" />
+                    <Users className="h-5 w-5 text-white shrink-0" />
                     <div>
-                      <span className="font-semibold text-gray-700 text-sm">Chưa có phòng</span>
-                      <p className="text-[10px] text-gray-500">{buildingGroups.noRoom.length} khách</p>
+                      <span className="font-semibold text-white text-sm">Chưa có phòng</span>
+                      <p className="text-[10px] text-indigo-100">{buildingGroups.noRoom.length} khách</p>
                     </div>
                   </div>
                   {openBuildings.has('__noRoom__')
-                    ? <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
-                    : <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />}
+                    ? <ChevronDown className="h-4 w-4 text-white shrink-0" />
+                    : <ChevronRight className="h-4 w-4 text-white shrink-0" />}
                 </button>
                 {openBuildings.has('__noRoom__') && (
-                  <div className="p-3 bg-white">
+                  <div className="p-3">
                     <div className="hidden md:block">
                       <KhachThueDataTable data={buildingGroups.noRoom} onEdit={handleEdit} onDelete={handleDelete}
                         onKichHoatTaiKhoan={handleKichHoatTaiKhoan}
@@ -626,76 +635,78 @@ export default function KhachThuePage() {
                         const isSelected = selectedKhachThueId === kt.id;
                         return (
                           <div key={kt.id}>
-                            <Card className={`p-3 ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+                            <div className={`rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm ${isSelected ? 'ring-2 ring-indigo-400' : ''}`}>
                               <div className="flex justify-between items-start">
                                 <div className="flex items-start gap-2 flex-1">
                                   <Checkbox
                                     checked={isSelected}
                                     onCheckedChange={(v) => setSelectedKhachThueId(v === true ? kt.id! : null)}
-                                    className="mt-0.5"
+                                    className="mt-0.5 text-indigo-600"
                                   />
                                   <div>
-                                    <p className="font-medium text-sm">{kt.hoTen}</p>
-                                    <p className="text-xs text-gray-500">{kt.soDienThoai}</p>
+                                    <p className="font-medium text-sm text-indigo-900">{kt.hoTen}</p>
+                                    <p className="text-xs text-indigo-500">{kt.soDienThoai}</p>
                                   </div>
                                 </div>
                                 <TrangThaiBadge trangThai={kt.trangThai} />
                               </div>
                               {canEdit && (
-                              <div className="flex justify-end gap-2 mt-2 pt-2 border-t">
-                                <Button variant="outline" size="sm" onClick={() => handleEdit(kt)}><Edit className="h-3.5 w-3.5" /></Button>
-                                <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)} className="text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></Button>
+                              <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-indigo-100">
+                                <Button variant="outline" size="sm" onClick={() => handleEdit(kt)} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"><Edit className="h-3.5 w-3.5" /></Button>
+                                <Button variant="outline" size="sm" onClick={() => handleDelete(kt.id!)} className="text-red-600 hover:bg-red-50 border-indigo-200"><Trash2 className="h-3.5 w-3.5" /></Button>
                               </div>
                               )}
-                            </Card>
+                            </div>
                             
                             {/* Detail panel */}
                             {isSelected && (
-                              <Card className="mt-2 border-blue-200 bg-blue-50/30 rounded-xl overflow-hidden">
-                                <CardContent className="p-4 space-y-3">
-                                  <div className="flex items-center gap-2 text-blue-800 font-medium text-sm border-b border-blue-200 pb-2">
-                                    <Users className="h-4 w-4" />
+                              <div className="mt-2 rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
+                                <div className="p-4 space-y-3">
+                                  <div className="flex items-center gap-2 text-indigo-900 font-medium text-sm border-b border-indigo-200 pb-2">
+                                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                                      <Users className="h-3.5 w-3.5 text-white" />
+                                    </div>
                                     Chi tiết khách thuê
                                   </div>
                                   
                                   <div className="grid grid-cols-2 gap-3 text-sm">
                                     <div>
-                                      <span className="text-gray-500">Họ tên:</span>
-                                      <p className="font-medium">{kt.hoTen}</p>
+                                      <span className="text-indigo-500">Họ tên:</span>
+                                      <p className="font-medium text-indigo-900">{kt.hoTen}</p>
                                     </div>
                                     <div>
-                                      <span className="text-gray-500">Giới tính:</span>
-                                      <p className="font-medium">{{ nam: 'Nam', nu: 'Nữ', khac: 'Khác' }[kt.gioiTinh] || kt.gioiTinh}</p>
+                                      <span className="text-indigo-500">Giới tính:</span>
+                                      <p className="font-medium text-indigo-900">{{ nam: 'Nam', nu: 'Nữ', khac: 'Khác' }[kt.gioiTinh] || kt.gioiTinh}</p>
                                     </div>
                                     <div>
-                                      <span className="text-gray-500">SĐT:</span>
-                                      <p className="font-medium">{kt.soDienThoai || 'N/A'}</p>
+                                      <span className="text-indigo-500">SĐT:</span>
+                                      <p className="font-medium text-indigo-900">{kt.soDienThoai || 'N/A'}</p>
                                     </div>
                                     <div>
-                                      <span className="text-gray-500">Email:</span>
-                                      <p className="font-medium">{kt.email || 'N/A'}</p>
+                                      <span className="text-indigo-500">Email:</span>
+                                      <p className="font-medium text-indigo-900">{kt.email || 'N/A'}</p>
                                     </div>
                                     <div>
-                                      <span className="text-gray-500">CCCD:</span>
-                                      <p className="font-medium">{kt.cccd}</p>
+                                      <span className="text-indigo-500">CCCD:</span>
+                                      <p className="font-medium text-indigo-900">{kt.cccd}</p>
                                     </div>
                                     <div>
-                                      <span className="text-gray-500">Ngày sinh:</span>
-                                      <p className="font-medium">{new Date(kt.ngaySinh).toLocaleDateString('vi-VN')}</p>
+                                      <span className="text-indigo-500">Ngày sinh:</span>
+                                      <p className="font-medium text-indigo-900">{new Date(kt.ngaySinh).toLocaleDateString('vi-VN')}</p>
                                     </div>
                                     <div>
-                                      <span className="text-gray-500">Quê quán:</span>
-                                      <p className="font-medium">{kt.queQuan}</p>
+                                      <span className="text-indigo-500">Quê quán:</span>
+                                      <p className="font-medium text-indigo-900">{kt.queQuan}</p>
                                     </div>
                                     {kt.ngheNghiep && (
                                       <div>
-                                        <span className="text-gray-500">Nghề nghiệp:</span>
-                                        <p className="font-medium">{kt.ngheNghiep}</p>
+                                        <span className="text-indigo-500">Nghề nghiệp:</span>
+                                        <p className="font-medium text-indigo-900">{kt.ngheNghiep}</p>
                                       </div>
                                     )}
                                   </div>
-                                </CardContent>
-                              </Card>
+                                </div>
+                              </div>
                             )}
                           </div>
                         );
@@ -739,7 +750,7 @@ export default function KhachThuePage() {
         {/* Mobile Card List */}
         <div className="space-y-3">
           {filteredKhachThue.map((khachThue) => (
-            <Card key={khachThue.id} className="p-4">
+            <div key={khachThue.id} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
               <div className="space-y-3">
                 {/* Header with name and status */}
                 <div className="flex justify-between items-start">
@@ -858,7 +869,7 @@ export default function KhachThuePage() {
                   </Button>
                 </div>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
 
@@ -872,18 +883,20 @@ export default function KhachThuePage() {
 
       {/* Smart delete: khách thuê đang đứng hợp đồng */}
       {isDeleteDialogOpen && deleteTarget && (
-        <Card className="border-amber-200 bg-amber-50/30">
-          <CardContent className="p-4 md:p-6">
+        <div className="rounded-xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/80 to-orange-50/80 shadow-lg shadow-amber-100/50">
+          <div className="p-4 md:p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
-                <h3 className="text-base font-semibold">Khách thuê đang có hợp đồng</h3>
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md shadow-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-white" />
+                </div>
+                <h3 className="text-base font-semibold text-amber-900">Khách thuê đang có hợp đồng</h3>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { setIsDeleteDialogOpen(false); setDeleteTarget(null); }}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-amber-600 hover:bg-amber-100" onClick={() => { setIsDeleteDialogOpen(false); setDeleteTarget(null); }}>
                 <CloseIcon className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-amber-800 mb-4">
               <strong>{deleteTarget.hoTen}</strong> đang đứng tên hợp đồng phòng{' '}
               <strong>{deleteTarget.hopDongHienTai?.phong?.maPhong}</strong>
               {deleteTarget.hopDongHienTai?.phong?.toaNha?.tenToaNha && (
@@ -893,31 +906,31 @@ export default function KhachThuePage() {
             </p>
             <div className="flex flex-col gap-3">
               <button
-                className="w-full text-left px-4 py-3 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
+                className="w-full text-left px-4 py-3 rounded-xl border-2 border-indigo-200 bg-white/60 hover:bg-indigo-50 transition-colors backdrop-blur-sm"
                 onClick={() => {
                   setIsDeleteDialogOpen(false);
                   router.push(`/dashboard/hop-dong/${deleteTarget.hopDongHienTai?.id}`);
                 }}
               >
-                <p className="font-medium text-blue-800 text-sm">Thay đổi người đứng tên hợp đồng</p>
-                <p className="text-xs text-blue-600 mt-0.5">Mở hợp đồng để chọn người đứng tên mới</p>
+                <p className="font-medium text-indigo-900 text-sm">Thay đổi người đứng tên hợp đồng</p>
+                <p className="text-xs text-indigo-600 mt-0.5">Mở hợp đồng để chọn người đứng tên mới</p>
               </button>
               <button
-                className="w-full text-left px-4 py-3 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 transition-colors"
+                className="w-full text-left px-4 py-3 rounded-xl border-2 border-red-200 bg-white/60 hover:bg-red-50 transition-colors backdrop-blur-sm"
                 onClick={handleDeleteWithHopDong}
               >
                 <p className="font-medium text-red-800 text-sm">Xóa hợp đồng và khách thuê</p>
                 <p className="text-xs text-red-600 mt-0.5">Xóa hẳn cả hợp đồng lẫn khách thuê này</p>
               </button>
               <button
-                className="w-full text-center px-4 py-2 rounded-lg border hover:bg-gray-50 transition-colors text-sm text-gray-600"
+                className="w-full text-center px-4 py-2 rounded-xl border-2 border-indigo-100 bg-white/60 hover:bg-indigo-50 transition-colors text-sm text-indigo-600 backdrop-blur-sm"
                 onClick={() => { setIsDeleteDialogOpen(false); setDeleteTarget(null); }}
               >
                 Hủy
               </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -926,10 +939,10 @@ export default function KhachThuePage() {
 // Helper badge component
 function TrangThaiBadge({ trangThai }: { trangThai: string }) {
   switch (trangThai) {
-    case 'dangThue':  return <Badge variant="default" className="text-xs">Đang thuê</Badge>;
+    case 'dangThue':  return <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">Đang thuê</Badge>;
     case 'daTraPhong': return <Badge variant="secondary" className="text-xs">Đã trả phòng</Badge>;
-    case 'chuaThue':  return <Badge variant="outline" className="text-xs">Chưa thuê</Badge>;
-    default:          return <Badge variant="outline" className="text-xs">{trangThai}</Badge>;
+    case 'chuaThue':  return <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">Chưa thuê</Badge>;
+    default:          return <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">{trangThai}</Badge>;
   }
 }
 

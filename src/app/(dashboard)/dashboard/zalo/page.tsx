@@ -12,7 +12,6 @@ import {
   HardDrive, Folder, UserPlus, AlertCircle, Zap, LogOut,
   Globe, QrCode as QrCodeIcon, Plus, Trash2, WifiOff, X,
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -234,19 +233,19 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
   }, [qrCode, account?.id]);
 
   return (
-    <Card className="rounded-none border-0 shadow-none">
-      <CardHeader className="pb-2 pt-3 px-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Server className="h-4 w-4 text-blue-600" />
-            Bot Server
-          </CardTitle>
-          <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-7 px-2">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          </Button>
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+      <div className="flex items-center justify-between p-3 border-b border-indigo-100">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm shadow-indigo-200">
+            <Server className="h-3.5 w-3.5 text-white" />
+          </div>
+          <span className="text-sm font-semibold text-indigo-900">Bot Server</span>
         </div>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 space-y-4">
+        <Button size="sm" variant="ghost" onClick={fetchStatus} disabled={loading} className="h-7 px-2 text-indigo-600 hover:bg-indigo-50">
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
+      <div className="p-3 space-y-4">
         {/* Status */}
         <div className="space-y-2">
           {loading && !status && (
@@ -365,8 +364,8 @@ function BotServerCard({ account, canEdit = false, isAdmin = false }: {
             )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -426,8 +425,7 @@ function ZaloConnectionOverview() {
   const isActive = state.mode === "direct";
 
   return (
-    <Card>
-      <CardContent className="p-4 space-y-3">
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm p-4 space-y-3">
         {/* Status grid */}
         <div className="grid grid-cols-2 gap-3">
           <div className={`rounded-lg p-2.5 border ${isActive ? "bg-emerald-50 border-emerald-200" : "bg-gray-50 border-gray-200"}`}>
@@ -518,8 +516,7 @@ function ZaloConnectionOverview() {
             })}
           </div>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 
@@ -709,19 +706,19 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
   };
 
   return (
-    <Card className="rounded-none border-0 shadow-none">
-      <CardHeader className="pb-2 pt-3 px-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Zap className="h-4 w-4 text-emerald-600" />
-            Trực tiếp (Direct)
-          </CardTitle>
-          <Button size="sm" variant="ghost" onClick={reload} disabled={loading} className="h-7 px-2">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          </Button>
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+      <div className="flex items-center justify-between p-3 border-b border-indigo-100">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm shadow-indigo-200">
+            <Zap className="h-3.5 w-3.5 text-white" />
+          </div>
+          <span className="text-sm font-semibold text-indigo-900">Trực tiếp (Direct)</span>
         </div>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 space-y-4">
+        <Button size="sm" variant="ghost" onClick={reload} disabled={loading} className="h-7 px-2 text-indigo-600 hover:bg-indigo-50">
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
+      <div className="p-3 space-y-4">
         {/* Status */}
         <div className="space-y-2">
           {loading && !state && (
@@ -847,8 +844,8 @@ function DirectCard({ account, canEdit = false, isAdmin = false }: {
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -902,19 +899,19 @@ function ProxyCard({ canEdit = false }: { canEdit?: boolean }) {
   };
 
   return (
-    <Card className="rounded-none border-0 shadow-none">
-      <CardHeader className="pb-2 pt-3 px-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Globe className="h-4 w-4 text-cyan-600" />
-            Proxy ({proxies.length})
-          </CardTitle>
-          <Button size="sm" variant="ghost" onClick={reload} disabled={loading} className="h-7 px-2">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          </Button>
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+      <div className="flex items-center justify-between p-3 border-b border-indigo-100">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm shadow-indigo-200">
+            <Globe className="h-3.5 w-3.5 text-white" />
+          </div>
+          <span className="text-sm font-semibold text-indigo-900">Proxy ({proxies.length})</span>
         </div>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 space-y-3">
+        <Button size="sm" variant="ghost" onClick={reload} disabled={loading} className="h-7 px-2 text-indigo-600 hover:bg-indigo-50">
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
+      <div className="p-3 space-y-3">
         <p className="text-[10px] text-gray-400">Mỗi tài khoản Zalo có thể dùng proxy riêng để tránh bị khóa IP</p>
 
         {/* Add proxy */}
@@ -961,8 +958,8 @@ function ProxyCard({ canEdit = false }: { canEdit?: boolean }) {
             })}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -1068,15 +1065,19 @@ function WebhookCard({ account }: { account?: AccountData }) {
   };
 
   return (
-    <Card className="rounded-none border-0 shadow-none">
-      <CardHeader className="pb-2 pt-3 px-4">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Webhook className="h-4 w-4 text-violet-600" />
-          Webhook
-        </CardTitle>
-        <CardDescription className="text-xs">Cài webhook cho tài khoản Zalo {account?.ten ? `của ${account.ten}` : ""}</CardDescription>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 space-y-3">
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+      <div className="flex items-center justify-between p-3 border-b border-indigo-100">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm shadow-indigo-200">
+            <Webhook className="h-3.5 w-3.5 text-white" />
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-indigo-900">Webhook</span>
+            <p className="text-[10px] text-indigo-400">Cài webhook cho tài khoản Zalo {account?.ten ? `của ${account.ten}` : ""}</p>
+          </div>
+        </div>
+      </div>
+      <div className="p-3 space-y-3">
         {/* Trạng thái webhook trên bot server */}
         {loadingStatus ? (
           <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
@@ -1185,8 +1186,8 @@ function WebhookCard({ account }: { account?: AccountData }) {
             Test
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -1403,15 +1404,19 @@ function TestSendCard({ account }: { account?: AccountData }) {
   const typeIcon = { text: MessageSquare, image: Image, file: FileText };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Send className="h-4 w-4 text-green-600" />
-          Test gửi tin
-        </CardTitle>
-        <CardDescription className="text-xs">Kiểm tra gửi tin nhắn, hình ảnh hoặc file qua Zalo Bot</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+      <div className="flex items-center justify-between p-3 border-b border-indigo-100">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm shadow-indigo-200">
+            <Send className="h-3.5 w-3.5 text-white" />
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-indigo-900">Test gửi tin</span>
+            <p className="text-[10px] text-indigo-400">Kiểm tra gửi tin nhắn, hình ảnh hoặc file qua Zalo Bot</p>
+          </div>
+        </div>
+      </div>
+      <div className="p-3 space-y-3">
         {/* Loại gửi */}
         <div className="flex gap-2">
           {(["text", "image", "file"] as const).map(t => {
@@ -1584,8 +1589,8 @@ function TestSendCard({ account }: { account?: AccountData }) {
           <Send className="h-3.5 w-3.5" />
           {sending ? "Đang gửi..." : "Gửi thử"}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -1961,17 +1966,19 @@ function AutoMessageCard({ account, buildingId }: { account?: AccountData; build
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-indigo-600" />
-          Tin nhắn tự động
-        </CardTitle>
-        <CardDescription className="text-xs">
-          Gửi tin nhắn hàng loạt cho khách thuê và quản lý trong tòa nhà
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+      <div className="flex items-center justify-between p-3 border-b border-indigo-100">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm shadow-indigo-200">
+            <MessageSquare className="h-3.5 w-3.5 text-white" />
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-indigo-900">Tin nhắn tự động</span>
+            <p className="text-[10px] text-indigo-400">Gửi tin nhắn hàng loạt cho khách thuê và quản lý trong tòa nhà</p>
+          </div>
+        </div>
+      </div>
+      <div className="p-3 space-y-3">
         {/* Nội dung tin nhắn */}
         <div className="space-y-1">
           <div className="flex items-center justify-between">
@@ -2074,8 +2081,8 @@ function AutoMessageCard({ account, buildingId }: { account?: AccountData; build
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -2253,17 +2260,19 @@ function FriendRequestCard({ account, buildingId }: { account?: AccountData; bui
   const friendMsgOverLimit = friendMsg.length > MAX_FRIEND;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <UserPlus className="h-4 w-4 text-pink-600" />
-          Kết bạn &amp; gửi tin nhắn
-        </CardTitle>
-        <CardDescription className="text-xs">
-          Tìm SĐT trên Zalo → kết bạn hoặc gửi tin nhắn. Bấm "Văn mẫu" để tự điền theo tòa nhà.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+      <div className="flex items-center justify-between p-3 border-b border-indigo-100">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm shadow-indigo-200">
+            <UserPlus className="h-3.5 w-3.5 text-white" />
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-indigo-900">Kết bạn & gửi tin nhắn</span>
+            <p className="text-[10px] text-indigo-400">Tìm SĐT trên Zalo → kết bạn hoặc gửi tin nhắn. Bấm "Văn mẫu" để tự điền theo tòa nhà.</p>
+          </div>
+        </div>
+      </div>
+      <div className="p-3 space-y-3">
         {/* ── Thông tin chung ── */}
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
@@ -2511,8 +2520,8 @@ function FriendRequestCard({ account, buildingId }: { account?: AccountData; bui
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -2539,26 +2548,28 @@ function MonitorCard({ account }: { account?: AccountData }) {
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-2 px-4 pt-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Eye className="h-4 w-4 text-amber-600" />
-              Theo dõi tin nhắn
-            </CardTitle>
-            <div className="flex items-center gap-1">
-              <a href="/dashboard/zalo-monitor" target="_blank"
-                className="text-[10px] text-blue-500 hover:underline flex items-center gap-0.5 mr-1">
-                <ExternalLink className="h-3 w-3" />Xem đầy đủ
-              </a>
-              <Button size="sm" variant="ghost" onClick={fetchConvs} disabled={loading} className="h-7 w-7 p-0">
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
+      <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+        <div className="flex items-center justify-between p-3 border-b border-indigo-100">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm shadow-indigo-200">
+              <Eye className="h-3.5 w-3.5 text-white" />
+            </div>
+            <div>
+              <span className="text-sm font-semibold text-indigo-900">Theo dõi tin nhắn</span>
+              <p className="text-[10px] text-indigo-400">Hội thoại gần đây — click để xem lịch sử chat</p>
             </div>
           </div>
-          <CardDescription className="text-xs">Hội thoại gần đây — click để xem lịch sử chat</CardDescription>
-        </CardHeader>
-        <CardContent className="px-3 pb-3">
+          <div className="flex items-center gap-1">
+            <a href="/dashboard/zalo-monitor" target="_blank"
+              className="text-[10px] text-blue-500 hover:underline flex items-center gap-0.5 mr-1">
+              <ExternalLink className="h-3 w-3" />Xem đầy đủ
+            </a>
+            <Button size="sm" variant="ghost" onClick={fetchConvs} disabled={loading} className="h-7 w-7 p-0">
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
+        <div className="p-3 space-y-3">
           {loading && convs.length === 0 ? (
             <div className="flex items-center gap-2 text-xs text-gray-400 py-4 justify-center">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải...
@@ -2618,8 +2629,8 @@ function MonitorCard({ account }: { account?: AccountData }) {
               })}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {selected && (
         <ChatHistoryDialog
@@ -2733,53 +2744,53 @@ function ApiExplorerCard({ defaultAccountId = "" }: { defaultAccountId?: string 
   }, {});
 
   return (
-    <Card className="md:col-span-2">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Terminal className="h-4 w-4 text-gray-600" />
-            Bot Server API Explorer
-            {apis.length > 0 && (
-              <Badge variant="outline" className="text-[10px] h-4 px-1">{apis.length}</Badge>
-            )}
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={fetchApis} disabled={loadingApis} className="h-7 px-2">
-              <RefreshCw className={`h-3.5 w-3.5 ${loadingApis ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing} className="h-7 px-2 text-xs gap-1">
-              {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-              Đồng bộ DB
-            </Button>
+    <div className="md:col-span-2 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+      <div className="flex items-center justify-between p-3 border-b border-indigo-100 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm shadow-indigo-200">
+            <Terminal className="h-3.5 w-3.5 text-white" />
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-indigo-900">Bot Server API Explorer</span>
+            <p className="text-[10px] text-indigo-400">{apis.length} endpoints từ DB — click để mở rộng và gọi thử</p>
           </div>
         </div>
-        <CardDescription className="text-xs">
-          {apis.length} endpoints từ DB — click để mở rộng và gọi thử
-        </CardDescription>
-        {/* Filter by nhom */}
-        {nhomList.length > 1 && (
-          <div className="flex flex-wrap gap-1 pt-1">
+        <div className="flex items-center gap-2">
+          {apis.length > 0 && (
+            <Badge variant="outline" className="text-[10px] h-4 px-1 border-indigo-200 text-indigo-600 bg-indigo-50">{apis.length}</Badge>
+          )}
+          <Button size="sm" variant="ghost" onClick={fetchApis} disabled={loadingApis} className="h-7 px-2">
+            <RefreshCw className={`h-3.5 w-3.5 ${loadingApis ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing} className="h-7 px-2 text-xs gap-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50">
+            {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            Đồng bộ DB
+          </Button>
+        </div>
+      </div>
+      {/* Filter by nhom */}
+      {nhomList.length > 1 && (
+        <div className="flex flex-wrap gap-1 px-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setFilterNhom('all')}
+            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${filterNhom === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-300 text-gray-500 hover:border-gray-500'}`}
+          >
+            Tất cả
+          </button>
+          {nhomList.map(n => (
             <button
+              key={n}
               type="button"
-              onClick={() => setFilterNhom('all')}
-              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${filterNhom === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-300 text-gray-500 hover:border-gray-500'}`}
+              onClick={() => setFilterNhom(n)}
+              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${filterNhom === n ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-500 hover:border-gray-500'}`}
             >
-              Tất cả
+              {n}
             </button>
-            {nhomList.map(n => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setFilterNhom(n)}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${filterNhom === n ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-500 hover:border-gray-500'}`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-3">
+          ))}
+        </div>
+      )}
+      <div className="p-3 space-y-3">
         {loadingApis && apis.length === 0 && (
           <div className="flex items-center gap-2 text-xs text-gray-400 py-4 justify-center">
             <Loader2 className="h-4 w-4 animate-spin" /> Đang tải danh sách API...
@@ -2853,8 +2864,8 @@ function ApiExplorerCard({ defaultAccountId = "" }: { defaultAccountId?: string 
             </div>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -4139,47 +4150,53 @@ export default function ZaloSettingsPage() {
   }, [loadBuildings, loadOnlineIds]);
 
   return (
-    <div className="space-y-4 p-4 md:p-6 max-w-3xl">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Smartphone className="h-6 w-6 text-blue-600" />
-            Cài đặt Zalo
-          </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Quản lý tài khoản Zalo, thông báo và phân quyền theo từng tòa nhà
-          </p>
+      <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+            <Smartphone className="h-5 w-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <h1 className="text-lg md:text-xl font-bold text-indigo-900">Cài đặt Zalo</h1>
+            <p className="text-xs md:text-sm text-indigo-500">
+              Quản lý tài khoản Zalo, thông báo và phân quyền theo từng tòa nhà
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => loadBuildings()} disabled={loading} className="gap-1.5 text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50">
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Làm mới
+          </Button>
         </div>
-        <Button size="sm" variant="outline" onClick={() => loadBuildings()} disabled={loading} className="gap-1.5 text-xs">
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          Làm mới
-        </Button>
       </div>
 
       {/* Zalo Connection Overview (admin only) */}
       {isAdmin && <ZaloConnectionOverview />}
 
       {/* Building list */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {!isAdmin && (
-          <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-blue-600" />
+          <h2 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-indigo-600" />
             Tòa nhà của bạn
           </h2>
         )}
         {isAdmin && (
-          <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-blue-600" />
+          <h2 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-indigo-600" />
             Danh sách tòa nhà
           </h2>
         )}
         {loading ? (
-          <div className="text-center py-10 text-gray-400 text-sm flex items-center justify-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-indigo-400 mx-auto mb-3" />
+            <p className="text-sm text-indigo-400">Đang tải...</p>
           </div>
         ) : buildings.length === 0 ? (
-          <div className="text-center py-10 text-gray-400 text-sm">Chưa có tòa nhà nào</div>
+          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center">
+            <Building2 className="h-10 w-10 text-indigo-300 mx-auto mb-3" />
+            <p className="text-sm text-indigo-400">Chưa có tòa nhà nào</p>
+          </div>
         ) : (
           <div className="space-y-3">
             {buildings.map((b, i) => (

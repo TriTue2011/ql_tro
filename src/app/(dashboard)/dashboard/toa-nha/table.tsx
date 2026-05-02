@@ -123,7 +123,7 @@ const createColumns = (props: ToaNhaTableProps): ColumnDef<ToaNha>[] => [
   {
     id: "drag",
     header: () => null,
-    cell: ({ row }) => <DragHandle id={row.original.id!} />,
+    cell: ({ row }) => <DragHandle id={row.original.id ?? row.original._id ?? ''} />,
     enableHiding: false,
   },
   {
@@ -267,7 +267,7 @@ const createColumns = (props: ToaNhaTableProps): ColumnDef<ToaNha>[] => [
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-destructive"
-            onClick={() => props.onDelete(row.original.id!)}
+            onClick={() => props.onDelete(row.original.id ?? row.original._id ?? '')}
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Xóa
@@ -280,8 +280,9 @@ const createColumns = (props: ToaNhaTableProps): ColumnDef<ToaNha>[] => [
 ]
 
 function DraggableRow({ row, isExpanded, onToggle }: { row: Row<ToaNha>; isExpanded: boolean; onToggle: (id: string) => void }) {
+  const rowId = row.original.id ?? row.original._id ?? '';
   const { transform, transition, setNodeRef, isDragging } = useSortable({
-    id: row.original.id!,
+    id: rowId,
   })
 
   return (
@@ -304,7 +305,7 @@ function DraggableRow({ row, isExpanded, onToggle }: { row: Row<ToaNha>; isExpan
                 <div className="flex items-center justify-center">
                   <Checkbox
                     checked={isExpanded}
-                    onCheckedChange={() => onToggle(row.original.id!)}
+                    onCheckedChange={() => onToggle(rowId)}
                     aria-label="Xem chi tiết"
                   />
                 </div>
@@ -439,7 +440,7 @@ export function ToaNhaDataTable(props: ToaNhaDataTableProps) {
   )
 
   const dataIds = React.useMemo<UniqueIdentifier[]>(
-    () => data?.map((row) => row.id!) || [],
+    () => data?.map((row) => row.id ?? row._id ?? '') || [],
     [data]
   )
 
@@ -453,7 +454,7 @@ export function ToaNhaDataTable(props: ToaNhaDataTableProps) {
       columnFilters,
       pagination,
     },
-    getRowId: (row) => row.id!,
+    getRowId: (row) => row.id ?? row._id ?? '',
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,

@@ -4,15 +4,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import PillTabs from '@/components/dashboard/pill-tabs';
 import {
   User,
   Mail,
@@ -281,67 +280,59 @@ export default function ProfilePage() {
     );
   }
 
+  const [activeTab, setActiveTab] = useState('profile');
+
+  const profileTabs = [
+    { value: 'profile', label: 'Thông tin', icon: User },
+    { value: 'security', label: 'Bảo mật', icon: Key },
+  ];
+  if (profile?.vaiTro !== 'admin') {
+    profileTabs.push({ value: 'notifications', label: 'Thông báo', icon: Bell });
+  }
+
   return (
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Hồ sơ cá nhân</h1>
-          <p className="text-xs md:text-sm text-gray-600">Quản lý thông tin tài khoản của bạn</p>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-indigo-900">Hồ sơ cá nhân</h1>
+          <p className="text-xs md:text-sm text-indigo-500/70">Quản lý thông tin tài khoản của bạn</p>
         </div>
         {!isEditing && (
-          <Button size="sm" onClick={() => setIsEditing(true)}>
+          <Button size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={() => setIsEditing(true)}>
             <Edit3 className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Chỉnh sửa</span>
           </Button>
         )}
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-4 md:space-y-6">
-        <TabsList className={`grid w-full ${profile?.vaiTro === 'admin' ? 'grid-cols-2' : 'grid-cols-3'}`}>
-          <TabsTrigger value="profile" className="text-xs md:text-sm">
-            <User className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-            <span className="hidden sm:inline">Thông tin</span>
-            <span className="sm:hidden">TT</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="text-xs md:text-sm">
-            <Key className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-            <span className="hidden sm:inline">Bảo mật</span>
-            <span className="sm:hidden">BM</span>
-          </TabsTrigger>
-          {profile?.vaiTro !== 'admin' && (
-            <TabsTrigger value="notifications" className="text-xs md:text-sm">
-              <Bell className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-              <span className="hidden sm:inline">Thông báo</span>
-              <span className="sm:hidden">TB</span>
-            </TabsTrigger>
-          )}
-        </TabsList>
+      <PillTabs tabs={profileTabs} value={activeTab} onChange={setActiveTab} />
 
-        <TabsContent value="profile" className="space-y-4 md:space-y-6">
-          <Card>
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <User className="h-4 w-4 md:h-5 md:w-5" />
-                Thông tin cơ bản
-              </CardTitle>
-              <CardDescription className="text-xs md:text-sm">
-                Cập nhật thông tin cá nhân và ảnh đại diện
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 md:space-y-6 p-4 md:p-6">
+      {activeTab === 'profile' && (
+        <div className="space-y-4 md:space-y-6">
+          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+            <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <User className="h-4 w-4 md:h-5 md:w-5 text-white" />
+              </div>
+              <div>
+                <div className="text-base md:text-lg font-semibold text-indigo-900">Thông tin cơ bản</div>
+                <div className="text-xs text-indigo-500/70">Cập nhật thông tin cá nhân và ảnh đại diện</div>
+              </div>
+            </div>
+            <div className="space-y-4 md:space-y-6 p-4 md:p-6">
               {/* Avatar Section */}
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-6">
-                <Avatar className="h-16 w-16 md:h-20 md:w-20">
+                <Avatar className="h-16 w-16 md:h-20 md:w-20 ring-2 ring-indigo-200">
                   <AvatarImage src={formData.avatar} alt={formData.name} />
-                  <AvatarFallback className="text-base md:text-lg">
+                  <AvatarFallback className="text-base md:text-lg bg-gradient-to-br from-indigo-100 to-blue-100 text-indigo-700">
                     {getInitials(formData.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="space-y-2 text-center sm:text-left">
-                  <h3 className="text-base md:text-lg font-medium">{formData.name}</h3>
+                  <h3 className="text-base md:text-lg font-semibold text-indigo-900">{formData.name}</h3>
                   {profile?.vaiTro && getRoleBadge(profile.vaiTro)}
                   {isEditing && (
-                    <Button variant="outline" size="sm" className="text-xs md:text-sm">
+                    <Button variant="outline" size="sm" className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                       <Camera className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                       Thay đổi ảnh
                     </Button>
@@ -349,12 +340,12 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <Separator />
+              <Separator className="bg-indigo-100" />
 
               {/* Form Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-xs md:text-sm">Họ và tên</Label>
+                  <Label className="text-xs md:text-sm font-semibold text-indigo-900">Họ và tên</Label>
                   {isEditing ? (
                     <Input
                       id="name"
@@ -364,24 +355,24 @@ export default function ProfilePage() {
                       className="text-sm"
                     />
                   ) : (
-                    <div className="flex items-center gap-2 p-2 md:p-3 border rounded-md bg-gray-50">
-                      <User className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                      <span className="text-sm">{formData.name}</span>
+                    <div className="flex items-center gap-2 p-2 md:p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm">
+                      <User className="h-3 w-3 md:h-4 md:w-4 text-indigo-400" />
+                      <span className="text-sm text-indigo-800">{formData.name}</span>
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-xs md:text-sm">Email</Label>
-                  <div className="flex items-center gap-2 p-2 md:p-3 border rounded-md bg-gray-50">
-                    <Mail className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                    <span className="text-sm truncate">{profile?.email}</span>
+                  <Label className="text-xs md:text-sm font-semibold text-indigo-900">Email</Label>
+                  <div className="flex items-center gap-2 p-2 md:p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm">
+                    <Mail className="h-3 w-3 md:h-4 md:w-4 text-indigo-400" />
+                    <span className="text-sm text-indigo-800 truncate">{profile?.email}</span>
                   </div>
-                  <p className="text-[10px] md:text-xs text-gray-500">Email không thể thay đổi</p>
+                  <p className="text-[10px] md:text-xs text-indigo-400">Email không thể thay đổi</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-xs md:text-sm">Số điện thoại</Label>
+                  <Label className="text-xs md:text-sm font-semibold text-indigo-900">Số điện thoại</Label>
                   {isEditing ? (
                     <Input
                       id="phone"
@@ -391,17 +382,17 @@ export default function ProfilePage() {
                       className="text-sm"
                     />
                   ) : (
-                    <div className="flex items-center gap-2 p-2 md:p-3 border rounded-md bg-gray-50">
-                      <Phone className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                      <span className="text-sm">{formData.phone || 'Chưa cập nhật'}</span>
+                    <div className="flex items-center gap-2 p-2 md:p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm">
+                      <Phone className="h-3 w-3 md:h-4 md:w-4 text-indigo-400" />
+                      <span className="text-sm text-indigo-800">{formData.phone || 'Chưa cập nhật'}</span>
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="role" className="text-xs md:text-sm">Vai trò</Label>
-                  <div className="flex items-center gap-2 p-2 md:p-3 border rounded-md bg-gray-50">
-                    <Shield className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+                  <Label className="text-xs md:text-sm font-semibold text-indigo-900">Vai trò</Label>
+                  <div className="flex items-center gap-2 p-2 md:p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm">
+                    <Shield className="h-3 w-3 md:h-4 md:w-4 text-indigo-400" />
                     {profile?.vaiTro && getRoleBadge(profile.vaiTro)}
                   </div>
                 </div>
@@ -418,7 +409,7 @@ export default function ProfilePage() {
               {/* Action Buttons */}
               {isEditing && (
                 <div className="flex flex-col sm:flex-row gap-2 md:gap-3 pt-4">
-                  <Button size="sm" onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
+                  <Button size="sm" onClick={handleSave} disabled={saving} className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
                     {saving ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -431,65 +422,69 @@ export default function ProfilePage() {
                       </>
                     )}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleCancel} className="w-full sm:w-auto">
+                  <Button variant="outline" size="sm" onClick={handleCancel} className="w-full sm:w-auto border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                     <X className="h-4 w-4 mr-2" />
                     Hủy
                   </Button>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Account Information */}
-          <Card>
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <Calendar className="h-4 w-4 md:h-5 md:w-5" />
-                Thông tin tài khoản
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 md:space-y-4 p-4 md:p-6">
+          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+            <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <Calendar className="h-4 w-4 md:h-5 md:w-5 text-white" />
+              </div>
+              <div>
+                <div className="text-base md:text-lg font-semibold text-indigo-900">Thông tin tài khoản</div>
+              </div>
+            </div>
+            <div className="space-y-3 md:space-y-4 p-4 md:p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+                <div className="flex items-center gap-2 p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm">
+                  <Calendar className="h-3 w-3 md:h-4 md:w-4 text-indigo-400" />
                   <div>
-                    <p className="text-xs md:text-sm font-medium">Ngày tạo tài khoản</p>
-                    <p className="text-xs md:text-sm text-gray-600">
+                    <p className="text-xs md:text-sm font-semibold text-indigo-900">Ngày tạo tài khoản</p>
+                    <p className="text-xs md:text-sm text-indigo-600/80">
                       {profile?.ngayTao ? new Date(profile.ngayTao).toLocaleDateString('vi-VN') : 'N/A'}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+                <div className="flex items-center gap-2 p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm">
+                  <Calendar className="h-3 w-3 md:h-4 md:w-4 text-indigo-400" />
                   <div>
-                    <p className="text-xs md:text-sm font-medium">Lần đăng nhập cuối</p>
-                    <p className="text-xs md:text-sm text-gray-600">
+                    <p className="text-xs md:text-sm font-semibold text-indigo-900">Lần đăng nhập cuối</p>
+                    <p className="text-xs md:text-sm text-indigo-600/80">
                       {profile?.hoatDongCuoi ? new Date(profile.hoatDongCuoi).toLocaleString('vi-VN') : profile?.ngayCapNhat ? new Date(profile.ngayCapNhat).toLocaleDateString('vi-VN') : 'N/A'}
                     </p>
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* ── Bảo mật ── */}
-        <TabsContent value="security" className="space-y-4 md:space-y-6">
-          <Card>
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <Lock className="h-4 w-4 md:h-5 md:w-5" />
-                Đổi mật khẩu
-              </CardTitle>
-              <CardDescription className="text-xs md:text-sm">
-                Sử dụng mật khẩu mạnh để bảo vệ tài khoản của bạn
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6">
+      {/* ── Bảo mật ── */}
+      {activeTab === 'security' && (
+        <div className="space-y-4 md:space-y-6">
+          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+            <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <Lock className="h-4 w-4 md:h-5 md:w-5 text-white" />
+              </div>
+              <div>
+                <div className="text-base md:text-lg font-semibold text-indigo-900">Đổi mật khẩu</div>
+                <div className="text-xs text-indigo-500/70">Sử dụng mật khẩu mạnh để bảo vệ tài khoản của bạn</div>
+              </div>
+            </div>
+            <div className="p-4 md:p-6">
               <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
                 {/* Current password */}
                 <div className="space-y-2">
-                  <Label htmlFor="matKhauHienTai" className="text-sm">Mật khẩu hiện tại</Label>
+                  <Label htmlFor="matKhauHienTai" className="text-xs md:text-sm font-semibold text-indigo-900">Mật khẩu hiện tại</Label>
                   <div className="relative">
                     <Input
                       id="matKhauHienTai"
@@ -511,11 +506,11 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <Separator />
+                <Separator className="bg-indigo-100" />
 
                 {/* New password */}
                 <div className="space-y-2">
-                  <Label htmlFor="matKhauMoi" className="text-sm">Mật khẩu mới</Label>
+                  <Label htmlFor="matKhauMoi" className="text-xs md:text-sm font-semibold text-indigo-900">Mật khẩu mới</Label>
                   <div className="relative">
                     <Input
                       id="matKhauMoi"
@@ -569,7 +564,7 @@ export default function ProfilePage() {
 
                 {/* Confirm password */}
                 <div className="space-y-2">
-                  <Label htmlFor="xacNhanMatKhau" className="text-sm">Xác nhận mật khẩu mới</Label>
+                  <Label htmlFor="xacNhanMatKhau" className="text-xs md:text-sm font-semibold text-indigo-900">Xác nhận mật khẩu mới</Label>
                   <div className="relative">
                     <Input
                       id="xacNhanMatKhau"
@@ -598,7 +593,7 @@ export default function ProfilePage() {
                   type="submit"
                   size="sm"
                   disabled={pwSaving || !pwForm.matKhauHienTai || !pwForm.matKhauMoi || pwForm.matKhauMoi !== pwForm.xacNhanMatKhau}
-                  className="w-full sm:w-auto"
+                  className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
                 >
                   {pwSaving ? (
                     <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />Đang lưu...</>
@@ -607,55 +602,59 @@ export default function ProfilePage() {
                   )}
                 </Button>
               </form>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Session info */}
-          <Card>
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <Shield className="h-4 w-4 md:h-5 md:w-5" />
-                Thông tin bảo mật
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 p-4 md:p-6">
+          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+            <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <Shield className="h-4 w-4 md:h-5 md:w-5 text-white" />
+              </div>
+              <div>
+                <div className="text-base md:text-lg font-semibold text-indigo-900">Thông tin bảo mật</div>
+              </div>
+            </div>
+            <div className="space-y-3 p-4 md:p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
-                  <Calendar className="h-4 w-4 text-gray-500 shrink-0" />
+                <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm">
+                  <Calendar className="h-4 w-4 text-indigo-400 shrink-0" />
                   <div>
-                    <p className="text-xs font-medium text-gray-700">Ngày tạo tài khoản</p>
-                    <p className="text-xs text-gray-500">{profile?.ngayTao ? new Date(profile.ngayTao).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</p>
+                    <p className="text-xs font-semibold text-indigo-900">Ngày tạo tài khoản</p>
+                    <p className="text-xs text-indigo-600/80">{profile?.ngayTao ? new Date(profile.ngayTao).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
-                  <Key className="h-4 w-4 text-gray-500 shrink-0" />
+                <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm">
+                  <Key className="h-4 w-4 text-indigo-400 shrink-0" />
                   <div>
-                    <p className="text-xs font-medium text-gray-700">Đăng nhập cuối</p>
-                    <p className="text-xs text-gray-500">{profile?.hoatDongCuoi ? new Date(profile.hoatDongCuoi).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : profile?.ngayCapNhat ? new Date(profile.ngayCapNhat).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
+                    <p className="text-xs font-semibold text-indigo-900">Đăng nhập cuối</p>
+                    <p className="text-xs text-indigo-600/80">{profile?.hoatDongCuoi ? new Date(profile.hoatDongCuoi).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : profile?.ngayCapNhat ? new Date(profile.ngayCapNhat).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
                   </div>
                 </div>
               </div>
-              <div className="flex items-start gap-2 p-3 rounded-lg border border-blue-100 bg-blue-50 text-xs text-blue-700">
-                <Shield className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm text-xs text-indigo-700">
+                <Shield className="h-4 w-4 shrink-0 mt-0.5 text-indigo-400" />
                 <span>Nên đổi mật khẩu định kỳ và không chia sẻ mật khẩu với người khác để bảo vệ tài khoản của bạn.</span>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* ── Thông báo (ẩn với admin) ── */}
-        {profile?.vaiTro !== 'admin' && <TabsContent value="notifications" className="space-y-4 md:space-y-6">
-          <Card>
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <Bell className="h-4 w-4 md:h-5 md:w-5" />
-                Tùy chọn thông báo
-              </CardTitle>
-              <CardDescription className="text-xs md:text-sm">
-                Chọn loại thông báo bạn muốn nhận trong ứng dụng
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6 space-y-1">
+      {/* ── Thông báo (ẩn với admin) ── */}
+      {activeTab === 'notifications' && profile?.vaiTro !== 'admin' && (
+        <div className="space-y-4 md:space-y-6">
+          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+            <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <Bell className="h-4 w-4 md:h-5 md:w-5 text-white" />
+              </div>
+              <div>
+                <div className="text-base md:text-lg font-semibold text-indigo-900">Tùy chọn thông báo</div>
+                <div className="text-xs text-indigo-500/70">Chọn loại thông báo bạn muốn nhận trong ứng dụng</div>
+              </div>
+            </div>
+            <div className="p-4 md:p-6 space-y-1">
               {NOTIF_TYPES.map((item, idx) => {
                 const Icon = item.icon;
                 const enabled = notifPrefs[item.key] ?? true;
@@ -663,12 +662,12 @@ export default function ProfilePage() {
                   <div key={item.key}>
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${enabled ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${enabled ? 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white' : 'bg-indigo-100 text-indigo-400'}`}>
                           <Icon className="h-4 w-4" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium">{item.label}</p>
-                          <p className="text-xs text-gray-500">{item.desc}</p>
+                          <p className="text-sm font-medium text-indigo-900">{item.label}</p>
+                          <p className="text-xs text-indigo-500/70">{item.desc}</p>
                         </div>
                       </div>
                       <Checkbox
@@ -676,36 +675,37 @@ export default function ProfilePage() {
                         onCheckedChange={v => handleNotifToggle(item.key, v === true)}
                       />
                     </div>
-                    {idx < NOTIF_TYPES.length - 1 && <Separator />}
+                    {idx < NOTIF_TYPES.length - 1 && <Separator className="bg-indigo-100" />}
                   </div>
                 );
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <Bell className="h-4 w-4 md:h-5 md:w-5" />
-                Cấu hình thông báo toàn hệ thống
-              </CardTitle>
-              <CardDescription className="text-xs md:text-sm">
-                Cài đặt nâng cao như Zalo, số ngày cảnh báo... được quản lý trong trang Cài đặt
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6">
+          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+            <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <Bell className="h-4 w-4 md:h-5 md:w-5 text-white" />
+              </div>
+              <div>
+                <div className="text-base md:text-lg font-semibold text-indigo-900">Cấu hình thông báo toàn hệ thống</div>
+                <div className="text-xs text-indigo-500/70">Cài đặt nâng cao như Zalo, số ngày cảnh báo... được quản lý trong trang Cài đặt</div>
+              </div>
+            </div>
+            <div className="p-4 md:p-6">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => router.push('/dashboard/cai-dat')}
+                className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
               >
                 <Shield className="h-4 w-4 mr-2" />
                 Đi đến trang Cài đặt hệ thống
               </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>}
-      </Tabs>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -740,9 +740,9 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
       const res = await fetch('/api/admin/zalo/danh-ba-ngoai');
       const data = await res.json();
       if (data.ok) setExternalContacts(data.contacts.map((c: any) => ({
-        id: String(c.id || ''), 
-        ten: typeof c.ten === 'object' ? JSON.stringify(c.ten) : String(c.ten || ''), 
-        soDienThoai: typeof c.soDienThoai === 'object' ? JSON.stringify(c.soDienThoai) : String(c.soDienThoai || ''), 
+        id: String(c.id || ''),
+        ten: typeof c.ten === 'object' ? JSON.stringify(c.ten) : String(c.ten || ''),
+        soDienThoai: typeof c.soDienThoai === 'object' ? JSON.stringify(c.soDienThoai) : String(c.soDienThoai || ''),
         threadId: typeof c.threadId === 'object' ? JSON.stringify(c.threadId) : String(c.threadId || ''),
       })));
     } catch { /* ignore */ }
@@ -817,11 +817,11 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
           return p.vaiTro !== 'admin' && p.id !== currentUserId;
         });
 
-        const mapP = (p: any) => ({ 
-          id: String(p.id || ''), 
-          ten: typeof p.ten === 'object' ? JSON.stringify(p.ten) : String(p.ten || ''), 
-          soDienThoai: typeof p.soDienThoai === 'object' ? JSON.stringify(p.soDienThoai) : String(p.soDienThoai || ''), 
-          zaloChatId: resolveThreadId(p) 
+        const mapP = (p: any) => ({
+          id: String(p.id || ''),
+          ten: typeof p.ten === 'object' ? JSON.stringify(p.ten) : String(p.ten || ''),
+          soDienThoai: typeof p.soDienThoai === 'object' ? JSON.stringify(p.soDienThoai) : String(p.soDienThoai || ''),
+          zaloChatId: resolveThreadId(p)
         });
         const chuNha = unique.filter((p: any) => p.vaiTro === 'chuNha').map(mapP);
         const dongChuTro = unique.filter((p: any) => p.vaiTro === 'dongChuTro').map(mapP);
@@ -835,26 +835,26 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
           const ktData = await ktRes.json();
           if (ktData.ok) {
             khachThue = (ktData.khachThues || []).map((kt: any) => ({
-              id: String(kt.id || ''), 
-              ten: typeof kt.hoTen === 'object' ? JSON.stringify(kt.hoTen) : String(kt.hoTen || ''), 
-              soDienThoai: typeof kt.soDienThoai === 'object' ? JSON.stringify(kt.soDienThoai) : String(kt.soDienThoai || ''), 
+              id: String(kt.id || ''),
+              ten: typeof kt.hoTen === 'object' ? JSON.stringify(kt.hoTen) : String(kt.hoTen || ''),
+              soDienThoai: typeof kt.soDienThoai === 'object' ? JSON.stringify(kt.soDienThoai) : String(kt.soDienThoai || ''),
               zaloChatId: typeof kt.zaloChatId === 'object' && kt.zaloChatId ? JSON.stringify(kt.zaloChatId) : (kt.zaloChatId ? String(kt.zaloChatId) : ''),
-              phong: typeof kt.phong?.maPhong === 'object' ? JSON.stringify(kt.phong?.maPhong) : (kt.phong?.maPhong ? String(kt.phong?.maPhong) : undefined), 
+              phong: typeof kt.phong?.maPhong === 'object' ? JSON.stringify(kt.phong?.maPhong) : (kt.phong?.maPhong ? String(kt.phong?.maPhong) : undefined),
               tang: kt.phong?.tang,
             }));
           }
         } catch { /* ignore */ }
 
-        result.push({ 
-          id: b.id, 
-          tenToaNha: b.tenToaNha, 
-          chuNha, 
-          dongChuTro, 
-          quanLy, 
-          nhanVien, 
+        result.push({
+          id: b.id,
+          tenToaNha: b.tenToaNha,
+          chuNha,
+          dongChuTro,
+          quanLy,
+          nhanVien,
           khachThue,
-          zaloNhomChat: Array.isArray(b.zaloNhomChat) 
-            ? b.zaloNhomChat 
+          zaloNhomChat: Array.isArray(b.zaloNhomChat)
+            ? b.zaloNhomChat
             : (typeof b.zaloNhomChat === 'string' ? JSON.parse(b.zaloNhomChat || '[]') : [])
         });
       }
@@ -903,20 +903,20 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <Label className="text-xs md:text-sm flex items-center gap-1.5">
-          <Building2 className="h-3.5 w-3.5 text-blue-500" />
+        <Label className="text-xs md:text-sm flex items-center gap-1.5 text-indigo-900">
+          <Building2 className="h-3.5 w-3.5 text-indigo-500" />
           Danh bạ Zalo theo tòa nhà
         </Label>
-        <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={load} disabled={loading}>
-          {loading ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-400" /> : '↻ Tải lại'}
+        <Button type="button" size="sm" variant="ghost" className="h-7 text-xs text-indigo-600 hover:bg-indigo-50" onClick={load} disabled={loading}>
+          {loading ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-indigo-400" /> : '↻ Tải lại'}
         </Button>
       </div>
 
       {loading && !loaded && (
-        <div className="text-xs text-muted-foreground text-center py-3">Đang tải...</div>
+        <div className="text-xs text-indigo-500/70 text-center py-3">Đang tải...</div>
       )}
       {loaded && buildings.length === 0 && (
-        <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
+        <div className="text-xs text-indigo-400 text-center py-2 border-2 border-dashed border-indigo-200 rounded-xl bg-white/40">
           Chưa có tòa nhà
         </div>
       )}
@@ -930,11 +930,11 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
       {/* Danh bạ ngoài — thêm thủ công */}
       <div className="mt-3 space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-xs md:text-sm flex items-center gap-1.5">
+          <Label className="text-xs md:text-sm flex items-center gap-1.5 text-indigo-900">
             <Plus className="h-3.5 w-3.5 text-green-500" />
             Liên hệ khác
           </Label>
-          <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1"
+          <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
             onClick={() => setShowAddForm(v => !v)}>
             <Plus className="h-3.5 w-3.5" />
             Thêm
@@ -942,21 +942,21 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
         </div>
 
         {showAddForm && (
-          <div className="border rounded-md p-2 bg-gray-50 space-y-2">
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-2">
             <div className="grid grid-cols-3 gap-1.5">
               <Input value={newContact.ten} onChange={e => setNewContact(p => ({ ...p, ten: e.target.value }))}
-                placeholder="Tên *" className="h-8 text-xs" />
+                placeholder="Tên *" className="h-8 text-xs border-indigo-100" />
               <Input value={newContact.soDienThoai} onChange={e => setNewContact(p => ({ ...p, soDienThoai: e.target.value }))}
-                placeholder="Số điện thoại" className="h-8 text-xs" />
+                placeholder="Số điện thoại" className="h-8 text-xs border-indigo-100" />
               <Input value={newContact.threadId} onChange={e => setNewContact(p => ({ ...p, threadId: e.target.value }))}
-                placeholder="Thread ID" className="h-8 text-xs font-mono" />
+                placeholder="Thread ID" className="h-8 text-xs font-mono border-indigo-100" />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button type="button" size="sm" variant="ghost" className="h-7 text-xs"
+              <Button type="button" size="sm" variant="ghost" className="h-7 text-xs text-indigo-600 hover:bg-indigo-50"
                 onClick={() => { setShowAddForm(false); setNewContact({ ten: '', soDienThoai: '', threadId: '' }); }}>
                 Hủy
               </Button>
-              <Button type="button" size="sm" className="h-7 text-xs" onClick={handleAddExternal} disabled={addingSaving}>
+              <Button type="button" size="sm" className="h-7 text-xs bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={handleAddExternal} disabled={addingSaving}>
                 {addingSaving ? 'Đang lưu...' : 'Lưu'}
               </Button>
             </div>
@@ -964,18 +964,18 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
         )}
 
         {externalContacts.length > 0 && (
-          <div className="border rounded-md overflow-hidden bg-white">
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <thead><tr className="bg-gray-100 text-gray-600">
+                <thead><tr className="bg-indigo-50 text-indigo-600">
                   <th className="text-left px-2 py-1.5 font-medium">Tên</th>
                   <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
                   <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
                   <th className="w-7" />
                 </tr></thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-indigo-100">
                   {externalContacts.map(c => (
-                    <tr key={c.id} className="hover:bg-gray-50">
+                    <tr key={c.id} className="hover:bg-indigo-50/50">
                       <td className="px-2 py-1.5">
                         <DirEditableCell value={c.ten} placeholder="Tên" onSave={v => handleUpdateExternal(c.id, 'ten', v)} />
                       </td>
@@ -1001,7 +1001,7 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
         )}
 
         {externalContacts.length === 0 && !showAddForm && (
-          <div className="text-xs text-muted-foreground text-center py-2 border border-dashed rounded-md">
+          <div className="text-xs text-indigo-400 text-center py-2 border-2 border-dashed border-indigo-200 rounded-xl bg-white/40">
             Chưa có liên hệ ngoài — nhấn "Thêm" để thêm mới
           </div>
         )}
@@ -1013,17 +1013,17 @@ function ZaloContactDirectory({ currentUserId, currentBotAccountId }: {
 function DirBuilding({ building, currentBotAccountId, onUpdate }: { building: any; currentBotAccountId?: string | null; onUpdate: (id: string, type: 'nguoiDung' | 'khachThue' | 'nhomZalo', v: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border rounded-md overflow-hidden">
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm overflow-hidden">
       <button type="button" onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-gray-50 transition-colors">
+        className="w-full flex items-center justify-between px-3 py-2 bg-white/80 hover:bg-indigo-50/50 transition-colors">
         <div className="flex items-center gap-2 min-w-0">
-          <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
-          <span className="text-xs font-semibold text-gray-800 truncate">{building.tenToaNha}</span>
+          <Building2 className="h-4 w-4 text-indigo-600 shrink-0" />
+          <span className="text-xs font-semibold text-indigo-900 truncate">{building.tenToaNha}</span>
         </div>
-        {open ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
+        {open ? <ChevronDown className="h-3.5 w-3.5 text-indigo-400" /> : <ChevronRight className="h-3.5 w-3.5 text-indigo-400" />}
       </button>
       {open && (
-        <div className="border-t bg-gray-50 p-2 space-y-1.5">
+        <div className="border-t border-indigo-100 bg-indigo-50/30 p-2 space-y-1.5">
           {building.chuNha?.length > 0 && (
             <DirRoleGroup label="Chủ nhà" people={building.chuNha}
               onUpdate={(id, v) => onUpdate(id, 'nguoiDung', v)} />
@@ -1044,8 +1044,8 @@ function DirBuilding({ building, currentBotAccountId, onUpdate }: { building: an
             <DirTenantGroup tenants={building.khachThue} onUpdate={(id, v) => onUpdate(id, 'khachThue', v)} />
           )}
           {building.zaloNhomChat?.length > 0 && (
-            <DirGroupGroup 
-              groups={building.zaloNhomChat} 
+            <DirGroupGroup
+              groups={building.zaloNhomChat}
               currentBotAccountId={currentBotAccountId}
               onUpdate={(index, val) => onUpdate(building.id, 'nhomZalo', JSON.stringify({ index, newThreadId: val, groups: building.zaloNhomChat }))}
             />
@@ -1062,28 +1062,28 @@ function DirRoleGroup({ label, people, onUpdate }: {
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border rounded-md overflow-hidden bg-white">
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm overflow-hidden">
       <button type="button" onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-indigo-50/50 transition-colors">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium">{label}</span>
-          <span className="text-[10px] text-gray-400">({people.length})</span>
+          <span className="text-xs font-medium text-indigo-900">{label}</span>
+          <span className="text-[10px] text-indigo-400">({people.length})</span>
         </div>
-        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+        {open ? <ChevronDown className="h-3 w-3 text-indigo-400" /> : <ChevronRight className="h-3 w-3 text-indigo-400" />}
       </button>
       {open && (
-        <div className="border-t overflow-x-auto">
+        <div className="border-t border-indigo-100 overflow-x-auto">
           <table className="w-full text-xs">
-            <thead><tr className="bg-gray-100 text-gray-600">
+            <thead><tr className="bg-indigo-50 text-indigo-600">
               <th className="text-left px-2 py-1.5 font-medium">Tên</th>
               <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
               <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
             </tr></thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-indigo-100">
               {people.map(p => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-2 py-1.5 font-medium text-gray-800">{p.ten}</td>
-                  <td className="px-2 py-1.5 text-gray-600">{p.soDienThoai || '—'}</td>
+                <tr key={p.id} className="hover:bg-indigo-50/50">
+                  <td className="px-2 py-1.5 font-medium text-indigo-900">{p.ten}</td>
+                  <td className="px-2 py-1.5 text-indigo-500/70">{p.soDienThoai || '—'}</td>
                   <td className="px-2 py-1.5">
                     <DirEditableCell value={p.zaloChatId || ''} placeholder="Chưa có" onSave={v => onUpdate(p.id, v)} />
                   </td>
@@ -1107,18 +1107,18 @@ function DirTenantGroup({ tenants, onUpdate }: { tenants: ContactEntry[]; onUpda
   const sortedFloors = Object.keys(floors).map(Number).sort((a, b) => a - b);
 
   return (
-    <div className="border rounded-md overflow-hidden bg-white">
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm overflow-hidden">
       <button type="button" onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-indigo-50/50 transition-colors">
         <div className="flex items-center gap-1.5">
           <User className="h-3 w-3 text-green-500" />
-          <span className="text-xs font-medium">Khách thuê</span>
-          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-green-100 text-green-700">{tenants.length}</Badge>
+          <span className="text-xs font-medium text-indigo-900">Khách thuê</span>
+          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-indigo-200 text-indigo-600 bg-indigo-50">{tenants.length}</Badge>
         </div>
-        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+        {open ? <ChevronDown className="h-3 w-3 text-indigo-400" /> : <ChevronRight className="h-3 w-3 text-indigo-400" />}
       </button>
       {open && (
-        <div className="border-t p-1.5 space-y-1">
+        <div className="border-t border-indigo-100 p-1.5 space-y-1">
           {sortedFloors.map(f => (
             <DirFloorGroup key={f} tang={f} tenants={floors[f]} onUpdate={onUpdate} />
           ))}
@@ -1131,30 +1131,30 @@ function DirTenantGroup({ tenants, onUpdate }: { tenants: ContactEntry[]; onUpda
 function DirFloorGroup({ tang, tenants, onUpdate }: { tang: number; tenants: ContactEntry[]; onUpdate: (id: string, v: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border rounded overflow-hidden">
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm overflow-hidden">
       <button type="button" onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-indigo-50/50 transition-colors">
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-medium text-gray-600">Tầng {tang}</span>
-          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-gray-50">{tenants.length}</Badge>
+          <span className="text-[11px] font-medium text-indigo-600">Tầng {tang}</span>
+          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-indigo-200 text-indigo-600 bg-indigo-50">{tenants.length}</Badge>
         </div>
-        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+        {open ? <ChevronDown className="h-3 w-3 text-indigo-400" /> : <ChevronRight className="h-3 w-3 text-indigo-400" />}
       </button>
       {open && (
-        <div className="border-t overflow-x-auto">
+        <div className="border-t border-indigo-100 overflow-x-auto">
           <table className="w-full text-xs">
-            <thead><tr className="bg-gray-100 text-gray-600">
+            <thead><tr className="bg-indigo-50 text-indigo-600">
               <th className="text-left px-2 py-1.5 font-medium">Phòng</th>
               <th className="text-left px-2 py-1.5 font-medium">Tên</th>
               <th className="text-left px-2 py-1.5 font-medium">SĐT</th>
               <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
             </tr></thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-indigo-100">
               {tenants.map(t => (
-                <tr key={t.id} className="hover:bg-gray-50">
-                  <td className="px-2 py-1.5 font-medium text-gray-800">{t.phong || '—'}</td>
-                  <td className="px-2 py-1.5 text-gray-700">{t.ten}</td>
-                  <td className="px-2 py-1.5 text-gray-600">{t.soDienThoai || '—'}</td>
+                <tr key={t.id} className="hover:bg-indigo-50/50">
+                  <td className="px-2 py-1.5 font-medium text-indigo-900">{t.phong || '—'}</td>
+                  <td className="px-2 py-1.5 text-indigo-700">{t.ten}</td>
+                  <td className="px-2 py-1.5 text-indigo-500/70">{t.soDienThoai || '—'}</td>
                   <td className="px-2 py-1.5">
                     <DirEditableCell value={t.zaloChatId || ''} placeholder="Chưa có" onSave={v => onUpdate(t.id, v)} />
                   </td>
@@ -1171,39 +1171,39 @@ function DirFloorGroup({ tang, tenants, onUpdate }: { tang: number; tenants: Con
 function DirGroupGroup({ groups, currentBotAccountId, onUpdate }: { groups: any[], currentBotAccountId?: string | null, onUpdate?: (index: number, val: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border rounded-md overflow-hidden bg-white">
+    <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm overflow-hidden">
       <button type="button" onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
-        <div className="flex items-center gap-1.5 text-purple-600">
+        className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-indigo-50/50 transition-colors">
+        <div className="flex items-center gap-1.5 text-indigo-600">
           <Bot className="h-3 w-3" />
-          <span className="text-xs font-medium">Nhóm Zalo tòa nhà</span>
-          <span className="text-[10px] opacity-70">({groups.length})</span>
+          <span className="text-xs font-medium text-indigo-900">Nhóm Zalo tòa nhà</span>
+          <span className="text-[10px] text-indigo-400">({groups.length})</span>
         </div>
-        {open ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+        {open ? <ChevronDown className="h-3 w-3 text-indigo-400" /> : <ChevronRight className="h-3 w-3 text-indigo-400" />}
       </button>
       {open && (
-        <div className="border-t overflow-x-auto">
+        <div className="border-t border-indigo-100 overflow-x-auto">
           <table className="w-full text-xs">
-            <thead><tr className="bg-gray-100 text-gray-600">
+            <thead><tr className="bg-indigo-50 text-indigo-600">
               <th className="text-left px-2 py-1.5 font-medium">Tên nhóm</th>
               <th className="text-left px-2 py-1.5 font-medium">Tầng</th>
               <th className="text-left px-2 py-1.5 font-medium">Nhãn</th>
               <th className="text-left px-2 py-1.5 font-medium">Thread ID</th>
             </tr></thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-indigo-100">
               {(Array.isArray(groups) ? groups : []).map((g, idx) => {
                 let threadId = currentBotAccountId && g?.threadIds && g.threadIds[currentBotAccountId] ? g.threadIds[currentBotAccountId] : g?.threadId;
                 if (threadId && typeof threadId !== 'string') threadId = JSON.stringify(threadId);
                 return (
-                  <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-2 py-1.5 font-medium text-gray-800">{typeof g?.name === 'object' && g?.name ? JSON.stringify(g.name) : String(g?.name || '—')}</td>
-                    <td className="px-2 py-1.5 text-gray-600">{g?.tang != null ? `Tầng ${g.tang}` : '—'}</td>
-                    <td className="px-2 py-1.5 text-gray-600">{typeof g?.label === 'object' && g?.label ? JSON.stringify(g.label) : String(g?.label || '—')}</td>
+                  <tr key={idx} className="hover:bg-indigo-50/50">
+                    <td className="px-2 py-1.5 font-medium text-indigo-900">{typeof g?.name === 'object' && g?.name ? JSON.stringify(g.name) : String(g?.name || '—')}</td>
+                    <td className="px-2 py-1.5 text-indigo-500/70">{g?.tang != null ? `Tầng ${g.tang}` : '—'}</td>
+                    <td className="px-2 py-1.5 text-indigo-500/70">{typeof g?.label === 'object' && g?.label ? JSON.stringify(g.label) : String(g?.label || '—')}</td>
                     <td className="px-2 py-1.5">
                       {onUpdate ? (
                         <DirEditableCell value={threadId || ''} placeholder="Chưa có" onSave={v => onUpdate(idx, v)} />
                       ) : (
-                        <span className="font-mono text-gray-500">{threadId || '—'}</span>
+                        <span className="font-mono text-indigo-400">{threadId || '—'}</span>
                       )}
                     </td>
                   </tr>
@@ -1231,12 +1231,12 @@ function DirEditableCell({ value, placeholder, onSave }: { value: string; placeh
     return (
       <Input ref={ref} value={draft} onChange={e => setDraft(e.target.value)}
         onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
-        className="h-6 text-xs px-1 font-mono" placeholder={placeholder} />
+        className="h-6 text-xs px-1 font-mono border-indigo-200" placeholder={placeholder} />
     );
   }
   return (
     <span onClick={() => setEditing(true)}
-      className={`cursor-pointer hover:bg-blue-50 rounded px-1 py-0.5 text-xs font-mono ${!value ? 'text-gray-300 italic' : ''}`}
+      className={`cursor-pointer hover:bg-indigo-50 rounded px-1 py-0.5 text-xs font-mono text-indigo-700 ${!value ? 'text-indigo-300 italic' : ''}`}
       title="Nhấn để sửa">
       {value || placeholder || '—'}
     </span>

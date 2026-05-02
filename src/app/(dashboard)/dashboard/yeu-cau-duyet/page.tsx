@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -56,12 +55,12 @@ function renderChange(noiDung: any, loai: string) {
       .filter(([k]) => truoc[k] !== sau[k])
       .map(([k, label]) => (
         <div key={k} className="text-xs">
-          <span className="text-muted-foreground">{label}: </span>
+          <span className="text-indigo-500">{label}: </span>
           {truoc[k] && <span className="line-through text-red-500 mr-1">{truoc[k] || '(trống)'}</span>}
           <span className="text-green-600">{sau[k] || '(trống)'}</span>
         </div>
       ));
-    return rows.length > 0 ? <div className="space-y-1">{rows}</div> : <p className="text-xs text-muted-foreground">Không có thay đổi</p>;
+    return rows.length > 0 ? <div className="space-y-1">{rows}</div> : <p className="text-xs text-indigo-400">Không có thay đổi</p>;
   }
 
   if (loai === 'anhCCCD') {
@@ -69,13 +68,13 @@ function renderChange(noiDung: any, loai: string) {
       <div className="space-y-2 text-xs">
         {sau?.anhCCCD?.matTruoc && (
           <div>
-            <p className="text-muted-foreground">Mặt trước mới:</p>
+            <p className="text-indigo-500">Mặt trước mới:</p>
             <img src={sau.anhCCCD.matTruoc} alt="CCCD mặt trước" className="h-24 rounded border mt-1" />
           </div>
         )}
         {sau?.anhCCCD?.matSau && (
           <div>
-            <p className="text-muted-foreground">Mặt sau mới:</p>
+            <p className="text-indigo-500">Mặt sau mới:</p>
             <img src={sau.anhCCCD.matSau} alt="CCCD mặt sau" className="h-24 rounded border mt-1" />
           </div>
         )}
@@ -150,7 +149,7 @@ export default function YeuCauDuyetPage() {
   const fmtDate = (d: string) => new Date(d).toLocaleString('vi-VN');
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 md:space-y-6">
       <PageHeader
         title="Yêu cầu phê duyệt"
         description="Xem xét và phê duyệt thay đổi từ khách thuê"
@@ -172,23 +171,20 @@ export default function YeuCauDuyetPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
         </div>
       ) : yeuCaus.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <CheckCircle2 className="h-12 w-12 mb-3 opacity-30" />
-            <p>Không có yêu cầu nào</p>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center">
+          <CheckCircle2 className="h-12 w-12 mb-3 mx-auto text-indigo-300" />
+          <p className="text-indigo-400">Không có yêu cầu nào</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {yeuCaus.map(yc => {
             const tt = trangThaiMap[yc.trangThai];
             const phong = yc.khachThue.hopDong?.[0]?.phong;
             return (
-              <Card key={yc.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/dashboard/yeu-cau-duyet/' + yc.id)}>
-                <CardContent className="pt-4">
+              <div key={yc.id} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 cursor-pointer hover:border-indigo-200 hover:shadow-md transition-all" onClick={() => router.push('/dashboard/yeu-cau-duyet/' + yc.id)}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
@@ -196,18 +192,18 @@ export default function YeuCauDuyetPage() {
                         <Badge className={`${tt?.class} flex items-center gap-1 text-xs`}>{tt?.icon}{tt?.label}</Badge>
                       </div>
                       <div className="flex items-center gap-1.5 text-sm font-medium">
-                        <User className="h-3.5 w-3.5 text-muted-foreground" />
+                        <User className="h-3.5 w-3.5 text-indigo-400" />
                         {yc.khachThue.hoTen}
-                        <span className="text-muted-foreground font-normal text-xs">· {yc.khachThue.soDienThoai}</span>
-                        {phong && <span className="text-xs text-muted-foreground">· P.{phong.maPhong} — {phong.toaNha.tenToaNha}</span>}
+                        <span className="text-indigo-400 font-normal text-xs">· {yc.khachThue.soDienThoai}</span>
+                        {phong && <span className="text-xs text-indigo-400">· P.{phong.maPhong} — {phong.toaNha.tenToaNha}</span>}
                       </div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <div className="text-xs text-indigo-400 flex items-center gap-1">
                         <Calendar className="h-3 w-3" /> {fmtDate(yc.ngayTao)}
                       </div>
                     </div>
                     {canEdit && yc.trangThai === 'choPheduyet' && (
                       <div className="flex gap-2 shrink-0">
-                        <Button size="sm" variant="outline" className="text-green-600 border-green-300 hover:bg-green-50"
+                        <Button size="sm" variant="outline" className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
                           onClick={e => { e.stopPropagation(); router.push('/dashboard/yeu-cau-duyet/' + yc.id); }}>
                           Xem xét
                         </Button>
@@ -216,18 +212,17 @@ export default function YeuCauDuyetPage() {
                   </div>
 
                   {/* Preview thay đổi */}
-                  <div className="mt-3 pt-3 border-t">
+                  <div className="mt-3 pt-3 border-t border-indigo-100">
                     {renderChange(yc.noiDung, yc.loai)}
                   </div>
 
                   {yc.ghiChuPheDuyet && (
-                    <p className="mt-2 text-xs text-muted-foreground italic">Ghi chú: {yc.ghiChuPheDuyet}</p>
+                    <p className="mt-2 text-xs text-indigo-400 italic">Ghi chú: {yc.ghiChuPheDuyet}</p>
                   )}
                   {yc.nguoiPheDuyet && (
-                    <p className="mt-1 text-xs text-muted-foreground">Người duyệt: {yc.nguoiPheDuyet.ten}</p>
+                    <p className="mt-1 text-xs text-indigo-400">Người duyệt: {yc.nguoiPheDuyet.ten}</p>
                   )}
-                </CardContent>
-              </Card>
+              </div>
             );
           })}
         </div>

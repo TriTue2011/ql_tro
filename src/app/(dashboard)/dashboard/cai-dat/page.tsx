@@ -3,13 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,8 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   Settings,
   Type,
@@ -63,7 +56,7 @@ import {
   Radio,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/dashboard";
+import { PageHeader, PillTabs } from "@/components/dashboard";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -281,20 +274,20 @@ function SettingGroupCard({
   };
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          {meta.icon}
-          {meta.label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 space-y-4">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <div className="text-white">{meta.icon}</div>
+        </div>
+        <h3 className="text-base font-bold text-indigo-900">{meta.label}</h3>
+      </div>
+      <div className="p-4 space-y-4">
         {items.map((item) => (
-          <div key={item.khoa} className="space-y-1">
-            <Label className="text-xs md:text-sm font-medium">
+          <div key={item.khoa} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">
               {item.moTa}
               {item.laBiMat && (
-                <Badge variant="outline" className="ml-2 text-xs py-0">
+                <Badge variant="outline" className="ml-2 text-xs py-0 border-indigo-200 text-indigo-600 bg-indigo-50">
                   <Lock className="h-2.5 w-2.5 mr-1" />
                   bí mật
                 </Badge>
@@ -309,7 +302,7 @@ function SettingGroupCard({
         ))}
         <Button
           size="sm"
-          className="w-full mt-2"
+          className="w-full mt-2 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
           onClick={() => onSave(nhom)}
           disabled={saving}
         >
@@ -320,8 +313,8 @@ function SettingGroupCard({
           )}
           Lưu {meta.label}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -350,17 +343,17 @@ function StorageSettingsCard({
   const cloudinaryItems = items.filter((i) => i.khoa.startsWith("cloudinary_"));
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <HardDrive className="h-4 w-4" />
-          Lưu trữ ảnh
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 space-y-4">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <HardDrive className="h-4 w-4 text-white" />
+        </div>
+        <h3 className="text-base font-bold text-indigo-900">Lưu trữ ảnh</h3>
+      </div>
+      <div className="p-4 space-y-4">
         {providerItem && (
-          <div className="space-y-1">
-            <Label className="text-xs md:text-sm font-medium">{providerItem.moTa}</Label>
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">{providerItem.moTa}</Label>
             <SettingInput
               item={providerItem}
               value={values["storage_provider"] ?? ""}
@@ -369,8 +362,8 @@ function StorageSettingsCard({
           </div>
         )}
         {maxSizeItem && (
-          <div className="space-y-1">
-            <Label className="text-xs md:text-sm font-medium">{maxSizeItem.moTa}</Label>
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">{maxSizeItem.moTa}</Label>
             <SettingInput
               item={maxSizeItem}
               value={values["upload_max_size_mb"] ?? ""}
@@ -379,16 +372,16 @@ function StorageSettingsCard({
           </div>
         )}
         {showMinio && minioItems.length > 0 && (
-          <div className="space-y-3 pt-3 border-t">
-            <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+          <div className="space-y-3 pt-3 border-t border-indigo-100">
+            <p className="text-xs font-semibold text-indigo-700 flex items-center gap-1.5">
               <HardDrive className="h-3.5 w-3.5" /> MinIO (self-hosted)
             </p>
             {minioItems.map((item) => (
-              <div key={item.khoa} className="space-y-1">
-                <Label className="text-xs md:text-sm font-medium">
+              <div key={item.khoa} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                <Label className="text-xs md:text-sm font-semibold text-indigo-900">
                   {item.moTa}
                   {item.laBiMat && (
-                    <Badge variant="outline" className="ml-2 text-xs py-0">
+                    <Badge variant="outline" className="ml-2 text-xs py-0 border-indigo-200 text-indigo-600 bg-indigo-50">
                       <Lock className="h-2.5 w-2.5 mr-1" />bí mật
                     </Badge>
                   )}
@@ -403,16 +396,16 @@ function StorageSettingsCard({
           </div>
         )}
         {showCloudinary && cloudinaryItems.length > 0 && (
-          <div className="space-y-3 pt-3 border-t">
-            <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+          <div className="space-y-3 pt-3 border-t border-indigo-100">
+            <p className="text-xs font-semibold text-indigo-700 flex items-center gap-1.5">
               <Cloud className="h-3.5 w-3.5" /> Cloudinary (online)
             </p>
             {cloudinaryItems.map((item) => (
-              <div key={item.khoa} className="space-y-1">
-                <Label className="text-xs md:text-sm font-medium">
+              <div key={item.khoa} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                <Label className="text-xs md:text-sm font-semibold text-indigo-900">
                   {item.moTa}
                   {item.laBiMat && (
-                    <Badge variant="outline" className="ml-2 text-xs py-0">
+                    <Badge variant="outline" className="ml-2 text-xs py-0 border-indigo-200 text-indigo-600 bg-indigo-50">
                       <Lock className="h-2.5 w-2.5 mr-1" />bí mật
                     </Badge>
                   )}
@@ -427,13 +420,13 @@ function StorageSettingsCard({
           </div>
         )}
         {provider === "local" && (
-          <p className="text-xs text-gray-400 italic border-t pt-3">
+          <p className="text-xs text-indigo-400 italic border-t border-indigo-100 pt-3">
             Lưu trữ local — ảnh lưu trực tiếp trên server, không cần cấu hình thêm.
           </p>
         )}
         <Button
           size="sm"
-          className="w-full mt-2"
+          className="w-full mt-2 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
           onClick={() => onSave("luuTru")}
           disabled={saving}
         >
@@ -444,8 +437,8 @@ function StorageSettingsCard({
           )}
           Lưu Lưu trữ
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -486,29 +479,29 @@ function AutoZaloCard({
   ];
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <Bell className="h-4 w-4" />
-          Gửi Zalo tự động
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Tự động gửi thông báo Zalo cho khách thuê khi có sự kiện tương ứng.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 space-y-4">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <Bell className="h-4 w-4 text-white" />
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-indigo-900">Gửi Zalo tự động</h3>
+          <p className="text-xs text-indigo-500/70">Tự động gửi thông báo Zalo cho khách thuê khi có sự kiện tương ứng.</p>
+        </div>
+      </div>
+      <div className="p-4 space-y-4">
         {sections.map((sec) => {
           const secItems = sec.keys.map(k => items.find(i => i.khoa === k)).filter(Boolean) as CaiDatItem[];
           if (!secItems.length) return null;
           return (
-            <div key={sec.label} className="space-y-2">
-              <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5 pt-1">
+            <div key={sec.label} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-2">
+              <p className="text-xs font-semibold text-indigo-700 flex items-center gap-1.5">
                 {sec.icon} {sec.label}
               </p>
-              <div className="space-y-2 pl-1">
+              <div className="space-y-1">
                 {secItems.map((item) => (
-                  <div key={item.khoa} className="flex items-center justify-between gap-3 py-1">
-                    <Label className="text-xs text-gray-700 flex-1">{item.moTa}</Label>
+                  <div key={item.khoa} className="flex items-center justify-between gap-3 py-1.5 border-b border-indigo-100/50 last:border-b-0">
+                    <Label className="text-xs text-indigo-800 flex-1">{item.moTa}</Label>
                     <Checkbox
                       checked={values[item.khoa] === 'true'}
                       onCheckedChange={(checked) => onChange(item.khoa, checked ? 'true' : 'false')}
@@ -519,7 +512,7 @@ function AutoZaloCard({
             </div>
           );
         })}
-        <Button size="sm" className="w-full mt-2" onClick={onSave} disabled={saving}>
+        <Button size="sm" className="w-full mt-2 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={onSave} disabled={saving}>
           {saving ? (
             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
           ) : (
@@ -527,8 +520,8 @@ function AutoZaloCard({
           )}
           Lưu cài đặt tự động
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -673,21 +666,20 @@ function ZaloHotlineCard() {
   };
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <Phone className="h-4 w-4" />
-          Zalo Hotline — 3 công tắc quyền hạn
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Cấu hình luồng giao tiếp Zalo giữa khách thuê, quản lý và chủ trọ.
-          Xem chi tiết 8 kịch bản vận hành trong tài liệu hướng dẫn.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 space-y-4">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <Phone className="h-4 w-4 text-white" />
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-indigo-900">Zalo Hotline — 3 công tắc quyền hạn</h3>
+          <p className="text-xs text-indigo-500/70">Cấu hình luồng giao tiếp Zalo giữa khách thuê, quản lý và chủ trọ.</p>
+        </div>
+      </div>
+      <div className="p-4 space-y-4">
         {/* Chọn tòa nhà */}
-        <div className="space-y-1">
-          <Label className="text-xs md:text-sm font-medium">Chọn tòa nhà</Label>
+        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Chọn tòa nhà</Label>
           <Select value={selectedId} onValueChange={setSelectedId}>
             <SelectTrigger className="text-sm">
               <SelectValue placeholder="-- Chọn tòa nhà --" />
@@ -701,61 +693,63 @@ function ZaloHotlineCard() {
         </div>
 
         {!selectedId ? (
-          <p className="text-xs text-gray-400 italic text-center py-4">
+          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
             Vui lòng chọn tòa nhà để cấu hình Zalo Hotline.
-          </p>
+          </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-4">
-            <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
+            <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
           </div>
         ) : (
           <>
             {/* Kịch bản hiện tại */}
             {scenario && (
-              <div className={`text-xs font-medium px-3 py-2 rounded-md border ${scenarioColors[scenario.id] ?? 'text-gray-600 bg-gray-50 border-gray-200'}`}>
+              <div className={`text-xs font-medium px-3 py-2 rounded-md border ${scenarioColors[scenario.id] ?? 'text-indigo-600 bg-indigo-50 border-indigo-200'}`}>
                 <span className="font-bold">Kịch bản {scenario.id}:</span> {scenario.label}
               </div>
             )}
 
             {/* Cảnh báo quyền */}
             {permWarning && (
-              <div className="text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-md">
+              <div className="rounded-full border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
                 {permWarning}
                 <br />
-                <span className="text-red-500">
+                <span className="text-amber-700">
                   Cấp đủ 4 nhóm quyền (Sự cố, Hóa đơn, Thông báo, Phê duyệt Yêu cầu) cho ít nhất 1 quản lý.
                 </span>
               </div>
             )}
 
             {/* 3 công tắc */}
-            {switchConfigs.map(cfg => (
-              <div key={cfg.key} className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 last:border-b-0">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm">{cfg.icon}</span>
-                    <Label className="text-xs md:text-sm font-medium cursor-pointer">
-                      {cfg.label}
-                    </Label>
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1">
+              {switchConfigs.map(cfg => (
+                <div key={cfg.key} className="flex items-center justify-between gap-3 py-2 border-b border-indigo-100/50 last:border-b-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">{cfg.icon}</span>
+                      <Label className="text-xs md:text-sm font-semibold text-indigo-900 cursor-pointer">
+                        {cfg.label}
+                      </Label>
+                    </div>
+                    <p className="text-xs text-indigo-500/70 mt-0.5 ml-6">{cfg.moTa}</p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5 ml-6">{cfg.moTa}</p>
+                  <Checkbox
+                    checked={switches[cfg.key]}
+                    onCheckedChange={() => handleToggle(cfg.key)}
+                    disabled={saving}
+                  />
                 </div>
-                <Checkbox
-                  checked={switches[cfg.key]}
-                  onCheckedChange={() => handleToggle(cfg.key)}
-                  disabled={saving}
-                />
-              </div>
-            ))}
+              ))}
+            </div>
 
             {/* Nút lưu — không cần vì toggle tự động lưu */}
-            <p className="text-xs text-gray-400 italic">
+            <p className="text-xs text-indigo-400 italic">
               Thay đổi được lưu tự động khi bật/tắt công tắc.
             </p>
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -828,26 +822,26 @@ function AlertSettingsCard({
   ];
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <Bell className="h-4 w-4" />
-          Cài đặt cảnh báo & nhắc nhở
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 space-y-4">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <Bell className="h-4 w-4 text-white" />
+        </div>
+        <h3 className="text-base font-bold text-indigo-900">Cài đặt cảnh báo & nhắc nhở</h3>
+      </div>
+      <div className="p-4 space-y-4">
         {sections.map((sec) => {
           const secItems = sec.keys.map((k) => items.find((i) => i.khoa === k)).filter(Boolean) as CaiDatItem[];
           if (!secItems.length) return null;
           return (
-            <div key={sec.label} className="space-y-3">
-              <p className="text-xs font-semibold text-gray-600 flex items-center gap-1.5 pt-1">
+            <div key={sec.label} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-2">
+              <p className="text-xs font-semibold text-indigo-700 flex items-center gap-1.5">
                 {sec.icon} {sec.label}
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {secItems.map((item) => (
                   <div key={item.khoa} className="space-y-1">
-                    <Label className="text-xs font-medium text-gray-700">{item.moTa}</Label>
+                    <Label className="text-xs font-semibold text-indigo-900">{item.moTa}</Label>
                     <SettingInput
                       item={item}
                       value={values[item.khoa] ?? ""}
@@ -859,7 +853,7 @@ function AlertSettingsCard({
             </div>
           );
         })}
-        <Button size="sm" className="w-full mt-2" onClick={onSave} disabled={saving}>
+        <Button size="sm" className="w-full mt-2 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={onSave} disabled={saving}>
           {saving ? (
             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
           ) : (
@@ -867,8 +861,8 @@ function AlertSettingsCard({
           )}
           Lưu cảnh báo
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -928,19 +922,20 @@ function ChuNhaHeThongTab() {
   ] as const;
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <Building2 className="h-4 w-4" /> Thông tin hệ thống
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Thông tin công ty / nhà trọ của bạn. Mỗi chủ trọ có dữ liệu riêng.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 space-y-4">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <Building2 className="h-4 w-4 text-white" />
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-indigo-900">Thông tin hệ thống</h3>
+          <p className="text-xs text-indigo-500/70">Thông tin công ty / nhà trọ của bạn. Mỗi chủ trọ có dữ liệu riêng.</p>
+        </div>
+      </div>
+      <div className="p-4 space-y-4">
         {fields.map(f => (
-          <div key={f.key} className="space-y-1">
-            <Label className="text-xs md:text-sm font-medium">{f.label}</Label>
+          <div key={f.key} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">{f.label}</Label>
             <Input
               value={data[f.key]}
               onChange={e => setData(prev => ({ ...prev, [f.key]: e.target.value }))}
@@ -949,12 +944,12 @@ function ChuNhaHeThongTab() {
             />
           </div>
         ))}
-        <Button size="sm" className="w-full mt-2" onClick={handleSave} disabled={saving}>
+        <Button size="sm" className="w-full mt-2 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={handleSave} disabled={saving}>
           {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
           Lưu hệ thống
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -1008,41 +1003,39 @@ function QuanLyBankTab() {
     }
   }
 
-  if (enabled === null) return <p className="text-sm text-gray-500 text-center py-8">Đang kiểm tra...</p>;
+  if (enabled === null) return <p className="text-sm text-indigo-400 text-center py-8">Đang kiểm tra...</p>;
   if (enabled === false) {
     return (
-      <Card>
-        <CardContent className="p-6 text-center space-y-2">
-          <CreditCard className="h-10 w-10 mx-auto text-gray-400" />
-          <p className="text-sm font-medium text-gray-700">Tính năng chưa được kích hoạt</p>
-          <p className="text-xs text-gray-500">
-            Chủ trọ chưa cho phép quản lý tự cấu hình tài khoản nhận tiền riêng.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center space-y-2">
+        <CreditCard className="h-10 w-10 mx-auto text-indigo-300" />
+        <p className="text-sm font-medium text-indigo-700">Tính năng chưa được kích hoạt</p>
+        <p className="text-xs text-indigo-400">
+          Chủ trọ chưa cho phép quản lý tự cấu hình tài khoản nhận tiền riêng.
+        </p>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <CreditCard className="h-4 w-4" />
-          Tài khoản ngân hàng cá nhân
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Tài khoản này sẽ được dùng trên các hóa đơn do bạn tạo, thay cho tài khoản chung của chủ trọ.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 space-y-4">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <CreditCard className="h-4 w-4 text-white" />
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-indigo-900">Tài khoản ngân hàng cá nhân</h3>
+          <p className="text-xs text-indigo-500/70">Tài khoản này sẽ được dùng trên các hóa đơn do bạn tạo, thay cho tài khoản chung của chủ trọ.</p>
+        </div>
+      </div>
+      <div className="p-4 space-y-4">
         {loading ? (
           <div className="flex items-center justify-center py-6">
-            <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
+            <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
           </div>
         ) : (
           <>
-            <div className="space-y-1">
-              <Label className="text-xs md:text-sm font-medium">Ngân hàng</Label>
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+              <Label className="text-xs md:text-sm font-semibold text-indigo-900">Ngân hàng</Label>
               <Input
                 value={data.nganHangTen}
                 onChange={(e) => setData({ ...data, nganHangTen: e.target.value })}
@@ -1050,8 +1043,8 @@ function QuanLyBankTab() {
                 className="text-sm"
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs md:text-sm font-medium">Số tài khoản</Label>
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+              <Label className="text-xs md:text-sm font-semibold text-indigo-900">Số tài khoản</Label>
               <Input
                 value={data.nganHangSoTaiKhoan}
                 onChange={(e) => setData({ ...data, nganHangSoTaiKhoan: e.target.value })}
@@ -1059,8 +1052,8 @@ function QuanLyBankTab() {
                 className="text-sm"
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs md:text-sm font-medium">Chủ tài khoản</Label>
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+              <Label className="text-xs md:text-sm font-semibold text-indigo-900">Chủ tài khoản</Label>
               <Input
                 value={data.nganHangChuTaiKhoan}
                 onChange={(e) => setData({ ...data, nganHangChuTaiKhoan: e.target.value })}
@@ -1068,7 +1061,7 @@ function QuanLyBankTab() {
                 className="text-sm"
               />
             </div>
-            <Button size="sm" className="w-full mt-2" onClick={handleSave} disabled={saving}>
+            <Button size="sm" className="w-full mt-2 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={handleSave} disabled={saving}>
               {saving ? (
                 <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -1078,8 +1071,8 @@ function QuanLyBankTab() {
             </Button>
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -1133,21 +1126,21 @@ function ZaloWebhookCard({
   }
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <MessageSquare className="h-4 w-4" />
-          Zalo Webhook
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          URL để Zalo Bot gửi tin nhắn về hệ thống. Dán URL này vào cấu hình bot server.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 space-y-4">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <MessageSquare className="h-4 w-4 text-white" />
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-indigo-900">Zalo Webhook</h3>
+          <p className="text-xs text-indigo-500/70">URL để Zalo Bot gửi tin nhắn về hệ thống. Dán URL này vào cấu hình bot server.</p>
+        </div>
+      </div>
+      <div className="p-4 space-y-4">
         {/* App URL settings */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs font-medium">URL LAN (IP nội bộ)</Label>
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs font-semibold text-indigo-900">URL LAN (IP nội bộ)</Label>
             <div className="flex gap-1.5">
               <Input
                 value={webhookBaseUrl}
@@ -1155,13 +1148,13 @@ function ZaloWebhookCard({
                 placeholder="http://192.168.x.x:3000"
                 className="text-sm"
               />
-              <Button size="sm" variant="outline" onClick={() => onSaveBaseUrl(webhookBaseUrl)}>
+              <Button size="sm" variant="outline" onClick={() => onSaveBaseUrl(webhookBaseUrl)} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                 <Save className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-medium">URL Domain (internet)</Label>
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs font-semibold text-indigo-900">URL Domain (internet)</Label>
             <div className="flex gap-1.5">
               <Input
                 value={webhookDomainUrl}
@@ -1169,7 +1162,7 @@ function ZaloWebhookCard({
                 placeholder="https://yourdomain.com"
                 className="text-sm"
               />
-              <Button size="sm" variant="outline" onClick={() => onSaveDomainUrl(webhookDomainUrl)}>
+              <Button size="sm" variant="outline" onClick={() => onSaveDomainUrl(webhookDomainUrl)} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                 <Save className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -1178,8 +1171,8 @@ function ZaloWebhookCard({
 
         {/* Webhook ID section */}
         {!currentWebhookId ? (
-          <div className="rounded-md border border-dashed p-4 space-y-3">
-            <p className="text-sm text-gray-500 text-center">Chưa có Webhook ID. Tạo ngẫu nhiên hoặc nhập ID từ bot server.</p>
+          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-4 space-y-3">
+            <p className="text-sm text-indigo-400 text-center">Chưa có Webhook ID. Tạo ngẫu nhiên hoặc nhập ID từ bot server.</p>
             <div className="flex gap-1.5">
               <Input
                 value={customId}
@@ -1187,7 +1180,7 @@ function ZaloWebhookCard({
                 placeholder="Nhập webhook_id từ bot server (tuỳ chọn)"
                 className="text-xs font-mono"
               />
-              <Button size="sm" onClick={() => onGenerate(customId.trim() || undefined)} disabled={webhookIdGenerating}>
+              <Button size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={() => onGenerate(customId.trim() || undefined)} disabled={webhookIdGenerating}>
                 {webhookIdGenerating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                 <span className="ml-1">{customId.trim() ? 'Dùng ID này' : 'Tạo ngẫu nhiên'}</span>
               </Button>
@@ -1195,40 +1188,40 @@ function ZaloWebhookCard({
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-gray-600">Webhook URL (dán vào bot server)</Label>
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+              <Label className="text-xs font-semibold text-indigo-900">Webhook URL (dán vào bot server)</Label>
               {webhookFullUrl && (
-                <div className="flex items-center gap-1.5 rounded-md border bg-gray-50 px-3 py-2">
-                  <Wifi className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                  <span className="text-xs font-mono flex-1 break-all text-gray-700">{webhookFullUrl}</span>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 flex-shrink-0" onClick={() => copyToClipboard(webhookFullUrl)}>
+                <div className="flex items-center gap-1.5 rounded-md border border-indigo-100 bg-indigo-50/50 px-3 py-2">
+                  <Wifi className="h-3.5 w-3.5 text-indigo-400 flex-shrink-0" />
+                  <span className="text-xs font-mono flex-1 break-all text-indigo-700">{webhookFullUrl}</span>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 flex-shrink-0 text-indigo-500 hover:text-indigo-700" onClick={() => copyToClipboard(webhookFullUrl)}>
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               )}
               {webhookDomainFullUrl && webhookDomainFullUrl !== webhookFullUrl && (
-                <div className="flex items-center gap-1.5 rounded-md border bg-gray-50 px-3 py-2">
-                  <Cloud className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                  <span className="text-xs font-mono flex-1 break-all text-gray-700">{webhookDomainFullUrl}</span>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 flex-shrink-0" onClick={() => copyToClipboard(webhookDomainFullUrl)}>
+                <div className="flex items-center gap-1.5 rounded-md border border-indigo-100 bg-indigo-50/50 px-3 py-2">
+                  <Cloud className="h-3.5 w-3.5 text-indigo-400 flex-shrink-0" />
+                  <span className="text-xs font-mono flex-1 break-all text-indigo-700">{webhookDomainFullUrl}</span>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 flex-shrink-0 text-indigo-500 hover:text-indigo-700" onClick={() => copyToClipboard(webhookDomainFullUrl)}>
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               )}
               {!webhookFullUrl && !webhookDomainFullUrl && (
-                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                <div className="rounded-full border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
                   Cần nhập URL LAN hoặc URL Domain ở trên để hiển thị webhook URL đầy đủ.
-                </p>
+                </div>
               )}
             </div>
 
             {/* Test + Regenerate */}
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={onTest} disabled={webhookTestLoading} className="flex-1">
+              <Button size="sm" variant="outline" onClick={onTest} disabled={webhookTestLoading} className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                 {webhookTestLoading ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5 mr-1.5" />}
                 Test nhận tin
               </Button>
-              <Button size="sm" variant="outline" onClick={() => onGenerate()} disabled={webhookIdGenerating}>
+              <Button size="sm" variant="outline" onClick={() => onGenerate()} disabled={webhookIdGenerating} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                 {webhookIdGenerating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                 <span className="ml-1.5">Tạo ID mới</span>
               </Button>
@@ -1242,7 +1235,7 @@ function ZaloWebhookCard({
                 placeholder="Dán webhook_id từ bot server để đổi"
                 className="text-xs font-mono"
               />
-              <Button size="sm" variant="outline" disabled={!customId.trim() || webhookIdGenerating}
+              <Button size="sm" variant="outline" disabled={!customId.trim() || webhookIdGenerating} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                 onClick={() => { onGenerate(customId.trim()); setCustomId(''); }}>
                 Dùng ID này
               </Button>
@@ -1255,8 +1248,8 @@ function ZaloWebhookCard({
             )}
 
             {/* Set bot webhook */}
-            <div className="space-y-1.5 pt-2 border-t">
-              <Label className="text-xs font-medium">Cài webhook cho bot server</Label>
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+              <Label className="text-xs font-semibold text-indigo-900">Cài webhook cho bot server</Label>
               <div className="flex gap-1.5">
                 <Input
                   value={botWebhookUrl}
@@ -1264,7 +1257,7 @@ function ZaloWebhookCard({
                   placeholder="URL webhook (tự điền từ trên)"
                   className="text-sm"
                 />
-                <Button size="sm" onClick={onSetBotWebhook} disabled={botWebhookLoading}>
+                <Button size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={onSetBotWebhook} disabled={botWebhookLoading}>
                   {botWebhookLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
                   <span className="ml-1.5">Cài</span>
                 </Button>
@@ -1278,8 +1271,8 @@ function ZaloWebhookCard({
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -1552,20 +1545,26 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
   const showCloudinary = provider === 'cloudinary' || provider === 'both';
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          {tab === 'ha' ? <Webhook className="h-4 w-4" /> : <HardDrive className="h-4 w-4" />}
-          {tab === 'ha' ? 'Home Assistant' : 'Lưu trữ'} — theo tòa nhà
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Mỗi tòa nhà có cấu hình {tab === 'ha' ? 'Home Assistant' : 'lưu trữ ảnh'} riêng.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 space-y-4">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      {/* Header */}
+      <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          {tab === 'ha' ? <Webhook className="h-4 w-4 text-white" /> : <HardDrive className="h-4 w-4 text-white" />}
+        </div>
+        <div>
+          <h3 className="text-base md:text-lg font-semibold text-indigo-900">
+            {tab === 'ha' ? 'Home Assistant' : 'Lưu trữ'} — theo tòa nhà
+          </h3>
+          <p className="text-xs text-indigo-500/70">
+            Mỗi tòa nhà có cấu hình {tab === 'ha' ? 'Home Assistant' : 'lưu trữ ảnh'} riêng.
+          </p>
+        </div>
+      </div>
+
+      <div className="p-4 md:p-6 space-y-4">
         {/* Building selector */}
-        <div className="space-y-1">
-          <Label className="text-xs font-medium">Chọn tòa nhà</Label>
+        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Chọn tòa nhà</Label>
           <Select value={selectedId} onValueChange={setSelectedId}>
             <SelectTrigger className="text-sm">
               <SelectValue placeholder={buildings.length === 0 ? 'Đang tải...' : '— Chọn tòa nhà —'} />
@@ -1576,7 +1575,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
           </Select>
         </div>
 
-        {loading && <div className="flex justify-center py-4"><RefreshCw className="h-4 w-4 animate-spin text-gray-400" /></div>}
+        {loading && <div className="flex justify-center py-4"><RefreshCw className="h-4 w-4 animate-spin text-blue-600" /></div>}
 
         {/* ── HA fields ── */}
         {selectedId && !loading && tab === 'ha' && (
@@ -1585,8 +1584,8 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
               { key: 'haUrl', label: 'Home Assistant URL', placeholder: 'https://ha.myhouse.com hoặc http://192.168.1.x:8123' },
               { key: 'haToken', label: 'Long-lived access token', placeholder: 'eyJ0...' },
             ].map(f => (
-              <div key={f.key} className="space-y-1">
-                <Label className="text-xs font-medium">{f.label}</Label>
+              <div key={f.key} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                <Label className="text-xs md:text-sm font-semibold text-indigo-900">{f.label}</Label>
                 <Input
                   value={settings[f.key] ?? ''}
                   onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
@@ -1597,9 +1596,9 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
             ))}
 
             {/* Webhook URL */}
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Webhook URL</Label>
-              <p className="text-[11px] text-gray-400">URL webhook nhận / gửi thông báo HA (local hoặc domain đều dùng được)</p>
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+              <Label className="text-xs md:text-sm font-semibold text-indigo-900">Webhook URL</Label>
+              <p className="text-xs text-indigo-500/70">URL webhook nhận / gửi thông báo HA (local hoặc domain đều dùng được)</p>
               <Input
                 value={settings.haWebhookUrl ?? ''}
                 onChange={e => setSettings(prev => ({ ...prev, haWebhookUrl: e.target.value }))}
@@ -1609,9 +1608,9 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
             </div>
 
             {/* Thread filter */}
-            <div className="space-y-2 border rounded-md p-3 bg-gray-50">
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-gray-600">Bộ lọc chuyển tiếp</p>
+                <p className="text-xs font-semibold text-indigo-700">Bộ lọc chuyển tiếp</p>
                 <button
                   type="button"
                   onClick={() => setHaThreadEntries(prev => [...prev, { threadId: '', type: 0 }])}
@@ -1620,9 +1619,9 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                   <Plus className="h-3.5 w-3.5" /> Thêm
                 </button>
               </div>
-              <p className="text-[11px] text-gray-400">Giới hạn tin nhắn forward đến HA theo Thread ID. Trống = chuyển tiếp tất cả.</p>
+              <p className="text-xs text-indigo-500/70">Giới hạn tin nhắn forward đến HA theo Thread ID. Trống = chuyển tiếp tất cả.</p>
               {haThreadEntries.length === 0 && (
-                <p className="text-[11px] text-gray-400 italic">Chưa có thread — tất cả tin nhắn sẽ được chuyển tiếp.</p>
+                <p className="text-xs text-indigo-500/70 italic">Chưa có thread — tất cả tin nhắn sẽ được chuyển tiếp.</p>
               )}
               <div className="space-y-2">
                 {haThreadEntries.map((entry, i) => (
@@ -1659,14 +1658,15 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
             </div>
 
             {/* Save button */}
-            <Button size="sm" className="w-full" onClick={handleSave} disabled={saving}>
+            <Button size="sm" className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={handleSave} disabled={saving}>
               {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Lưu cài đặt Home Assistant
             </Button>
 
             {/* Test Webhook */}
-            <div className="border-t pt-3 space-y-2">
-              <Button size="sm" variant="outline" className="w-full" onClick={handleTestHaWebhook} disabled={haWebhookTestLoading}>
+            <Separator className="my-2 bg-indigo-100" />
+            <div className="space-y-2">
+              <Button size="sm" variant="outline" className="w-full border-indigo-200 text-indigo-600 hover:bg-indigo-50" onClick={handleTestHaWebhook} disabled={haWebhookTestLoading}>
                 {haWebhookTestLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
                 Test Webhook
               </Button>
@@ -1683,8 +1683,8 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
         {/* ── Storage fields ── */}
         {selectedId && !loading && tab === 'storage' && (
           <div className="space-y-4">
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Nhà cung cấp lưu trữ</Label>
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+              <Label className="text-xs md:text-sm font-semibold text-indigo-900">Nhà cung cấp lưu trữ</Label>
               <Select value={provider} onValueChange={v => setSettings(prev => ({ ...prev, storageProvider: v }))}>
                 <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1696,8 +1696,8 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
               </Select>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Dung lượng tối đa (MB)</Label>
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+              <Label className="text-xs md:text-sm font-semibold text-indigo-900">Dung lượng tối đa (MB)</Label>
               <Input
                 type="number" min={1} max={100}
                 value={settings.uploadMaxSizeMb ?? '10'}
@@ -1707,12 +1707,12 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
             </div>
 
             {showMinio && (
-              <div className="space-y-3 border rounded-md p-3 bg-gray-50">
-                <p className="text-xs font-semibold text-gray-600">MinIO</p>
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-3">
+                <p className="text-xs font-semibold text-indigo-700">MinIO</p>
 
                 {/* Endpoint */}
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium">Endpoint</Label>
+                  <Label className="text-xs font-medium text-indigo-900">Endpoint</Label>
                   <Input
                     value={settings.minioEndpoint ?? ''}
                     onChange={e => { setSettings(prev => ({ ...prev, minioEndpoint: e.target.value })); setMinioBuckets([]); setMinioConnected(false); }}
@@ -1723,7 +1723,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
 
                 {/* Username */}
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium">Username (Access Key)</Label>
+                  <Label className="text-xs font-medium text-indigo-900">Username (Access Key)</Label>
                   <Input
                     value={settings.minioAccessKey ?? ''}
                     onChange={e => { setSettings(prev => ({ ...prev, minioAccessKey: e.target.value })); setMinioBuckets([]); setMinioConnected(false); }}
@@ -1734,7 +1734,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
 
                 {/* Password */}
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium">Password (Secret Key)</Label>
+                  <Label className="text-xs font-medium text-indigo-900">Password (Secret Key)</Label>
                   <Input
                     type="password"
                     value={settings.minioSecretKey ?? ''}
@@ -1747,7 +1747,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="w-full"
+                  className="w-full border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                   onClick={handleMinioConnect}
                   disabled={minioConnecting}
                 >
@@ -1764,7 +1764,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
 
                 {/* Bucket */}
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium">Bucket</Label>
+                  <Label className="text-xs font-medium text-indigo-900">Bucket</Label>
                   {minioBuckets.length > 0 ? (
                     <Select
                       value={settings.minioBucket ?? ''}
@@ -1782,7 +1782,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                   ) : minioConnected ? (
                     /* Đã kết nối nhưng chưa có bucket → tạo mới */
                     <div className="space-y-2">
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <p className="rounded-full border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm flex items-center gap-1">
                         <WifiOff className="h-3.5 w-3.5 shrink-0" />
                         Chưa có bucket nào. Nhập tên để tạo mới.
                       </p>
@@ -1796,6 +1796,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                         />
                         <Button
                           size="sm"
+                          className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
                           onClick={handleMinioCreateBucket}
                           disabled={creatingBucket || !newBucketName.trim()}
                         >
@@ -1816,8 +1817,8 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
             )}
 
             {showCloudinary && (
-              <div className="space-y-3 border rounded-md p-3 bg-gray-50">
-                <p className="text-xs font-semibold text-gray-600">Cloudinary</p>
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-3">
+                <p className="text-xs font-semibold text-indigo-700">Cloudinary</p>
                 {[
                   { key: 'cloudinaryCloudName', label: 'Cloud Name', placeholder: 'mycloud' },
                   { key: 'cloudinaryApiKey', label: 'API Key', placeholder: '' },
@@ -1825,7 +1826,7 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
                   { key: 'cloudinaryPreset', label: 'Upload Preset', placeholder: 'unsigned_preset' },
                 ].map(f => (
                   <div key={f.key} className="space-y-1">
-                    <Label className="text-xs font-medium">{f.label}</Label>
+                    <Label className="text-xs font-medium text-indigo-900">{f.label}</Label>
                     <Input
                       value={settings[f.key] ?? ''}
                       onChange={e => setSettings(prev => ({ ...prev, [f.key]: e.target.value }))}
@@ -1837,15 +1838,16 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
               </div>
             )}
 
-            <Button size="sm" className="w-full" onClick={handleSave} disabled={saving}>
+            <Button size="sm" className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={handleSave} disabled={saving}>
               {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Lưu cài đặt lưu trữ
             </Button>
 
             {/* MinIO test connection */}
             {showMinio && (
-              <div className="border-t pt-3 space-y-2">
-                <Button size="sm" variant="outline" className="w-full" onClick={handleTestMinio} disabled={minioTestLoading}>
+              <div className="space-y-2">
+                <Separator className="my-2 bg-indigo-100" />
+                <Button size="sm" variant="outline" className="w-full border-indigo-200 text-indigo-600 hover:bg-indigo-50" onClick={handleTestMinio} disabled={minioTestLoading}>
                   {minioTestLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
                   Kiểm tra kết nối MinIO
                 </Button>
@@ -1868,8 +1870,8 @@ function AdminToaNhaSettingsPanel({ tab }: { tab: 'ha' | 'storage' }) {
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -1977,8 +1979,8 @@ function ChuNhaDangNhapKTTab() {
   if (loadingBuildings) {
     return (
       <div className="flex items-center justify-center py-8">
-        <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
-        <span className="ml-2 text-gray-500 text-sm">Đang tải...</span>
+        <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
+        <span className="ml-2 text-indigo-500 text-sm">Đang tải...</span>
       </div>
     );
   }
@@ -1986,43 +1988,41 @@ function ChuNhaDangNhapKTTab() {
   // Hiện thông báo nếu admin chưa bật cho bất kỳ tòa nhà nào
   if (!hasAnyEnabled) {
     return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Admin chưa bật tính năng đăng nhập web cho tòa nhà nào.</p>
-          <p className="text-xs text-gray-400 mt-1">Liên hệ admin để bật tính năng này.</p>
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center">
+        <Users className="h-8 w-8 text-indigo-300 mx-auto mb-3" />
+        <p className="text-sm text-indigo-400">Admin chưa bật tính năng đăng nhập web cho tòa nhà nào.</p>
+        <p className="text-xs text-indigo-300 mt-1">Liên hệ admin để bật tính năng này.</p>
+      </div>
     );
   }
 
   const enabledBuildings = buildings.filter(b => buildingStates[b.id]?.adminBat);
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <Users className="h-4 w-4 md:h-5 md:w-5" />
-          Đăng nhập web khách thuê
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Bật/tắt cho phép khách thuê đăng nhập web xem hóa đơn, báo sự cố... theo từng tòa nhà
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-3">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <Users className="h-4 w-4 md:h-5 md:w-5 text-white" />
+        </div>
+        <div>
+          <h3 className="text-base md:text-lg font-semibold text-indigo-900">Đăng nhập web khách thuê</h3>
+          <p className="text-xs text-indigo-500/70">Bật/tắt cho phép khách thuê đăng nhập web xem hóa đơn, báo sự cố... theo từng tòa nhà</p>
+        </div>
+      </div>
+      <div className="p-4 md:p-6 space-y-3">
         {enabledBuildings.map(b => {
           const state = buildingStates[b.id];
           if (!state || state.loading) return (
             <div key={b.id} className="flex items-center gap-2 py-2">
-              <RefreshCw className="h-4 w-4 animate-spin text-gray-400" />
-              <span className="text-sm text-gray-500">{b.tenToaNha}...</span>
+              <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+              <span className="text-sm text-indigo-500">{b.tenToaNha}...</span>
             </div>
           );
           return (
-            <div key={b.id} className="flex items-center justify-between p-3 rounded-xl border bg-gray-50">
+            <div key={b.id} className="flex items-center justify-between p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
               <div className="space-y-0.5">
-                <Label className="text-sm font-medium">{b.tenToaNha}</Label>
-                <p className="text-xs text-gray-500">
+                <Label className="text-sm font-semibold text-indigo-900">{b.tenToaNha}</Label>
+                <p className="text-xs text-indigo-500/70">
                   {state.soLuongDaBat} đã kích hoạt
                   {state.gioiHan !== null && <> / {state.gioiHan} giới hạn</>}
                 </p>
@@ -2035,8 +2035,8 @@ function ChuNhaDangNhapKTTab() {
             </div>
           );
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -2109,21 +2109,21 @@ function AdminDangNhapKTPanel() {
   }
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <Users className="h-4 w-4 md:h-5 md:w-5" />
-          Quản lý đăng nhập web khách thuê
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Bật/tắt tính năng đăng nhập web cho khách thuê theo từng tòa nhà. Admin bật = mặc định cho phép. Chủ trọ có thể tắt thêm nếu muốn.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-4">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <Users className="h-4 w-4 md:h-5 md:w-5 text-white" />
+        </div>
+        <div>
+          <h3 className="text-base md:text-lg font-semibold text-indigo-900">Quản lý đăng nhập web khách thuê</h3>
+          <p className="text-xs text-indigo-500/70">Bật/tắt tính năng đăng nhập web cho khách thuê theo từng tòa nhà. Admin bật = mặc định cho phép. Chủ trọ có thể tắt thêm nếu muốn.</p>
+        </div>
+      </div>
+      <div className="p-4 md:p-6 space-y-4">
         {/* Chọn tòa nhà */}
         {buildings.length > 1 && (
-          <div>
-            <Label className="text-xs font-medium mb-1.5 block">Chọn tòa nhà</Label>
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">Chọn tòa nhà</Label>
             <Select value={selectedId} onValueChange={setSelectedId}>
               <SelectTrigger className="w-full"><SelectValue placeholder="Chọn tòa nhà" /></SelectTrigger>
               <SelectContent>
@@ -2137,16 +2137,16 @@ function AdminDangNhapKTPanel() {
 
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-500 text-sm">Đang tải...</span>
+            <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
+            <span className="ml-2 text-indigo-500 text-sm">Đang tải...</span>
           </div>
         ) : (
           <>
             {/* Toggle admin bật đăng nhập KT */}
-            <div className="flex items-center justify-between p-3 rounded-xl border bg-gray-50">
+            <div className="flex items-center justify-between p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
               <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Cho phép đăng nhập web khách thuê</Label>
-                <p className="text-xs text-gray-500">
+                <Label className="text-sm font-semibold text-indigo-900">Cho phép đăng nhập web khách thuê</Label>
+                <p className="text-xs text-indigo-500/70">
                   Bật = khách thuê tòa nhà này được đăng nhập web. Chủ trọ có thể tắt thêm nếu muốn.
                 </p>
               </div>
@@ -2155,8 +2155,8 @@ function AdminDangNhapKTPanel() {
 
             {/* Giới hạn số lượng */}
             {adminBat && (
-              <div className="space-y-2 p-3 rounded-xl border">
-                <Label className="text-sm font-medium">Giới hạn số khách thuê được đăng nhập</Label>
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                <Label className="text-xs md:text-sm font-semibold text-indigo-900">Giới hạn số khách thuê được đăng nhập</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
@@ -2166,37 +2166,37 @@ function AdminDangNhapKTPanel() {
                     onChange={e => setGioiHan(e.target.value)}
                     className="w-40"
                   />
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-indigo-500/70">
                     (để trống = không giới hạn)
                   </span>
                 </div>
-                <p className="text-xs text-gray-500">
-                  Hiện tại: <span className="font-medium">{soLuongDaBat}</span> khách thuê đã kích hoạt
-                  {gioiHan !== '' && <> / <span className="font-medium">{gioiHan}</span> giới hạn</>}
+                <p className="text-xs text-indigo-500/70">
+                  Hiện tại: <span className="font-medium text-indigo-900">{soLuongDaBat}</span> khách thuê đã kích hoạt
+                  {gioiHan !== '' && <> / <span className="font-medium text-indigo-900">{gioiHan}</span> giới hạn</>}
                 </p>
               </div>
             )}
 
             {/* Trạng thái */}
             {adminBat && (
-              <div className="flex items-center gap-2 p-3 rounded-xl border bg-green-50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-700">
+              <div className="flex items-center gap-2 p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+                <CheckCircle className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-indigo-700">
                   Đăng nhập web khách thuê đang hoạt động{!chuTroBat && ' (chủ trọ đã tắt — khách thuê sẽ không đăng nhập được)'}
                 </span>
               </div>
             )}
 
             <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={saving || !selectedId} size="sm">
+              <Button onClick={handleSave} disabled={saving || !selectedId} size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
                 {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Lưu cài đặt
               </Button>
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -2249,21 +2249,21 @@ function AdminAiSettingsPanel({
   }
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <Bot className="h-4 w-4 md:h-5 md:w-5" />
-          Cấu hình AI
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Thiết lập nhà cung cấp AI, API key và model. Hỗ trợ OpenAI, Gemini và các API tương thích OpenAI.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 pt-0 space-y-5">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <Bot className="h-4 w-4 md:h-5 md:w-5 text-white" />
+        </div>
+        <div>
+          <h3 className="text-base md:text-lg font-semibold text-indigo-900">Cấu hình AI</h3>
+          <p className="text-xs text-indigo-500/70">Thiết lập nhà cung cấp AI, API key và model. Hỗ trợ OpenAI, Gemini và các API tương thích OpenAI.</p>
+        </div>
+      </div>
+      <div className="p-4 md:p-6 space-y-5">
 
         {/* Provider */}
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium">Nhà cung cấp AI</Label>
+        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Nhà cung cấp AI</Label>
           <Select value={provider} onValueChange={v => onChange('ai_provider', v)}>
             <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -2276,8 +2276,8 @@ function AdminAiSettingsPanel({
 
         {/* API Key */}
         {provider !== 'none' && (
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">API Key</Label>
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">API Key</Label>
             <div className="relative">
               <Input
                 type={showKey ? 'text' : 'password'}
@@ -2301,9 +2301,9 @@ function AdminAiSettingsPanel({
 
         {/* Base URL — chỉ OpenAI */}
         {provider === 'openai' && (
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              Base URL <span className="text-gray-400 font-normal">(để trống = dùng api.openai.com)</span>
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">
+              Base URL <span className="text-indigo-400 font-normal">(để trống = dùng api.openai.com)</span>
             </Label>
             <Input
               value={baseUrl}
@@ -2316,8 +2316,8 @@ function AdminAiSettingsPanel({
 
         {/* Model */}
         {provider !== 'none' && (
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Model</Label>
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">Model</Label>
             <div className="flex gap-2">
               {models.length > 0 ? (
                 <Select value={model} onValueChange={v => onChange('ai_model', v)}>
@@ -2341,7 +2341,7 @@ function AdminAiSettingsPanel({
                 size="sm"
                 onClick={handleFetchModels}
                 disabled={loadingModels || !apiKey || provider === 'none'}
-                className="shrink-0"
+                className="shrink-0 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                 title="Tải danh sách model từ API"
               >
                 {loadingModels
@@ -2352,19 +2352,19 @@ function AdminAiSettingsPanel({
             </div>
             {modelError && <p className="text-xs text-red-500">{modelError}</p>}
             {models.length > 0 && (
-              <p className="text-xs text-gray-500">{models.length} model khả dụng — nhập tay hoặc chọn từ danh sách.</p>
+              <p className="text-xs text-indigo-500/70">{models.length} model khả dụng — nhập tay hoặc chọn từ danh sách.</p>
             )}
           </div>
         )}
 
         <div className="flex justify-end pt-2">
-          <Button onClick={() => onSave('ai')} disabled={saving} size="sm">
+          <Button onClick={() => onSave('ai')} disabled={saving} size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
             {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Lưu cài đặt AI
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -2420,47 +2420,47 @@ function AdminAiAccountsPanel() {
   }, {});
 
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <Bot className="h-4 w-4 md:h-5 md:w-5" />
-          Kích hoạt AI theo tài khoản
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Bật/tắt tính năng trợ lý AI cho từng tài khoản trong hệ thống. Admin luôn có quyền dùng AI.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+    <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+      <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+          <Bot className="h-4 w-4 md:h-5 md:w-5 text-white" />
+        </div>
+        <div>
+          <h3 className="text-base md:text-lg font-semibold text-indigo-900">Kích hoạt AI theo tài khoản</h3>
+          <p className="text-xs text-indigo-500/70">Bật/tắt tính năng trợ lý AI cho từng tài khoản trong hệ thống. Admin luôn có quyền dùng AI.</p>
+        </div>
+      </div>
+      <div className="p-4 md:p-6">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <RefreshCw className="h-5 w-5 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-500 text-sm">Đang tải...</span>
+            <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
+            <span className="ml-2 text-indigo-500 text-sm">Đang tải...</span>
           </div>
         ) : accounts.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-8">Chưa có tài khoản nào.</p>
+          <p className="text-sm text-indigo-400 text-center py-8">Chưa có tài khoản nào.</p>
         ) : (
           <div className="space-y-6">
             {Object.entries(grouped).map(([label, list]) => (
               <div key={label}>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{label}</p>
+                <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide mb-3">{label}</p>
                 <div className="space-y-2">
                   {list.map(account => (
                     <div
                       key={account.id}
-                      className="flex items-center justify-between p-3 rounded-xl border bg-gray-50 hover:bg-gray-100 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm hover:border-indigo-300 transition-all duration-200"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${account.trangThai === 'hoatDong' ? 'bg-green-500' : 'bg-gray-400'}`} />
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{account.ten}</p>
-                          <p className="text-xs text-gray-500 truncate">
+                          <p className="text-sm font-semibold text-indigo-900 truncate">{account.ten}</p>
+                          <p className="text-xs text-indigo-500/70 truncate">
                             {account.email ?? account.soDienThoai ?? '—'}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {account.aiEnabled && (
-                          <Badge variant="outline" className="text-xs text-green-600 border-green-300 bg-green-50">
+                          <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
                             AI bật
                           </Badge>
                         )}
@@ -2477,8 +2477,8 @@ function AdminAiAccountsPanel() {
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -2491,6 +2491,10 @@ export default function CaiDatPage() {
   const isQuanLy = session?.user?.role === "quanLy";
   // Admin quản lý HA + lưu trữ theo tòa nhà; chuNha quản lý thanh toán + cảnh báo + hệ thống
   const canManage = isAdmin || isChuNha;
+
+  const [activeTab, setActiveTab] = useState(
+    isAdmin ? "homeAssistant" : isChuNha ? "thanhToan" : isQuanLy ? "bankQL" : "display"
+  );
 
   // --- Cài đặt giao diện (cho tất cả users) ---
   const [fontSettings, setFontSettings] = useState({
@@ -3216,106 +3220,37 @@ export default function CaiDatPage() {
         descriptionClassName="text-lg rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-1.5"
       />
 
-      <Tabs defaultValue={isAdmin ? "homeAssistant" : isChuNha ? "thanhToan" : isQuanLy ? "bankQL" : "display"}>
-        <TabsList className="flex flex-wrap h-auto gap-1 w-full md:w-auto">
-          {/* Admin: Home Assistant + Lưu trữ (per tòa nhà) */}
-          {isAdmin && (
-            <>
-              <TabsTrigger
-                value="homeAssistant"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <Webhook className="h-3.5 w-3.5" />
-                Home Assistant
-              </TabsTrigger>
-              <TabsTrigger
-                value="luuTru"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <HardDrive className="h-3.5 w-3.5" />
-                Lưu trữ
-              </TabsTrigger>
-              <TabsTrigger
-                value="ai"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <Bot className="h-3.5 w-3.5" />
-                AI
-              </TabsTrigger>
-              <TabsTrigger
-                value="dangNhapKT"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <Users className="h-3.5 w-3.5" />
-                Đăng nhập KT
-              </TabsTrigger>
-              <TabsTrigger
-                value="zaloHotline"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <Phone className="h-3.5 w-3.5" />
-                Zalo Hotline
-              </TabsTrigger>
-            </>
-          )}
-          {/* Chủ trọ: Thanh toán + Cảnh báo + Hệ thống */}
-          {isChuNha && (
-            <>
-              <TabsTrigger
-                value="thanhToan"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <CreditCard className="h-3.5 w-3.5" />
-                Thanh toán
-              </TabsTrigger>
-              <TabsTrigger
-                value="canhBao"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <Clock className="h-3.5 w-3.5" />
-                Cảnh báo
-              </TabsTrigger>
-              <TabsTrigger
-                value="heThong"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <Shield className="h-3.5 w-3.5" />
-                Hệ thống
-              </TabsTrigger>
-              <TabsTrigger
-                value="dangNhapKT"
-                className="flex items-center gap-1.5 text-xs md:text-sm"
-              >
-                <Users className="h-3.5 w-3.5" />
-                Đăng nhập KT
-              </TabsTrigger>
-            </>
-          )}
-          {isQuanLy && (
-            <TabsTrigger
-              value="bankQL"
-              className="flex items-center gap-1.5 text-xs md:text-sm"
-            >
-              <CreditCard className="h-3.5 w-3.5" />
-              Tài khoản ngân hàng
-            </TabsTrigger>
-          )}
-          <TabsTrigger
-            value="display"
-            className="flex items-center gap-1.5 text-xs md:text-sm"
-          >
-            <Monitor className="h-3.5 w-3.5" />
-            Giao diện
-          </TabsTrigger>
-        </TabsList>
+      <PillTabs
+        tabs={[
+          ...(isAdmin ? [
+            { value: "homeAssistant", label: "Home Assistant", icon: Webhook },
+            { value: "luuTru", label: "Lưu trữ", icon: HardDrive },
+            { value: "ai", label: "AI", icon: Bot },
+            { value: "dangNhapKT", label: "Đăng nhập KT", icon: Users },
+            { value: "zaloHotline", label: "Zalo Hotline", icon: Phone },
+          ] as const : []),
+          ...(isChuNha ? [
+            { value: "thanhToan", label: "Thanh toán", icon: CreditCard },
+            { value: "canhBao", label: "Cảnh báo", icon: Clock },
+            { value: "heThong", label: "Hệ thống", icon: Shield },
+            { value: "dangNhapKT", label: "Đăng nhập KT", icon: Users },
+          ] as const : []),
+          ...(isQuanLy ? [
+            { value: "bankQL", label: "Tài khoản ngân hàng", icon: CreditCard },
+          ] as const : []),
+          { value: "display", label: "Giao diện", icon: Monitor },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
         {/* ── Skeleton lỗi/loading dùng chung ── */}
         {canManage && (loadingSystem || errorSystem) && (
           <div className="mt-4">
             {loadingSystem ? (
               <div className="flex items-center justify-center py-12">
-                <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
-                <span className="ml-2 text-gray-500">
+                <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+                <span className="ml-2 text-indigo-500">
                   Đang tải cài đặt hệ thống...
                 </span>
               </div>
@@ -3334,6 +3269,7 @@ export default function CaiDatPage() {
                   variant="outline"
                   size="sm"
                   onClick={fetchSystemSettings}
+                  className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Thử lại
@@ -3344,8 +3280,8 @@ export default function CaiDatPage() {
         )}
 
         {/* ── Tab Thanh toán ─────────────────────────────────────────────────── */}
-        {isChuNha && !loadingSystem && !errorSystem && (
-          <TabsContent value="thanhToan" className="space-y-4 mt-4">
+        {activeTab === "thanhToan" && isChuNha && !loadingSystem && !errorSystem && (
+          <div className="space-y-4 mt-4">
             {settingsByGroup["thanhToan"]?.length ? (
               <SettingGroupCard
                 nhom="thanhToan"
@@ -3356,16 +3292,16 @@ export default function CaiDatPage() {
                 saving={savingGroup === "thanhToan"}
               />
             ) : (
-              <p className="text-sm text-gray-500 text-center py-8">
+              <p className="text-sm text-indigo-400 text-center py-8">
                 Chưa có cài đặt thanh toán nào.
               </p>
             )}
-          </TabsContent>
+          </div>
         )}
 
         {/* ── Tab Cảnh báo ──────────────────────────────────────────────────── */}
-        {isChuNha && !loadingSystem && !errorSystem && (
-          <TabsContent value="canhBao" className="space-y-4 mt-4">
+        {activeTab === "canhBao" && isChuNha && !loadingSystem && !errorSystem && (
+          <div className="space-y-4 mt-4">
             {alertItems.length > 0 ? (
               <AlertSettingsCard
                 items={alertItems}
@@ -3375,7 +3311,7 @@ export default function CaiDatPage() {
                 saving={savingGroup === "thongBao"}
               />
             ) : (
-              <p className="text-sm text-gray-500 text-center py-8">
+              <p className="text-sm text-indigo-400 text-center py-8">
                 Chưa có cài đặt cảnh báo nào.
               </p>
             )}
@@ -3409,13 +3345,13 @@ export default function CaiDatPage() {
               onChangeBotUrl={setBotWebhookUrl}
               onSetBotWebhook={() => handleBotSetWebhook()}
             />
-          </TabsContent>
+          </div>
         )}
 
 
         {/* ── Tab Home Assistant ──────────────────────────────────────────────── */}
-        {isAdmin && !loadingSystem && !errorSystem && (
-          <TabsContent value="homeAssistant" className="space-y-4 mt-4">
+        {activeTab === "homeAssistant" && isAdmin && !loadingSystem && !errorSystem && (
+          <div className="space-y-4 mt-4">
             <AdminToaNhaSettingsPanel tab="ha" />
             <ZaloWebhookCard
               currentWebhookId={currentWebhookId}
@@ -3438,29 +3374,29 @@ export default function CaiDatPage() {
               onChangeBotUrl={setBotWebhookUrl}
               onSetBotWebhook={() => handleBotSetWebhook()}
             />
-          </TabsContent>
+          </div>
         )}
 
         {/* ── Tab Lưu trữ ───────────────────────────────────────────────────── */}
-        {isAdmin && !loadingSystem && !errorSystem && (
-          <TabsContent value="luuTru" className="space-y-4 mt-4">
+        {activeTab === "luuTru" && isAdmin && !loadingSystem && !errorSystem && (
+          <div className="space-y-4 mt-4">
             <AdminToaNhaSettingsPanel tab="storage" />
-            <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <HardDrive className="h-4 w-4" />
-                  Tự động xóa file cũ
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Sau bao nhiêu ngày thì xóa file/ảnh khỏi lưu trữ để tránh đầy bộ nhớ.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6 space-y-4">
+            <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+              <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                  <HardDrive className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base md:text-lg font-semibold text-indigo-900">Tự động xóa file cũ</h3>
+                  <p className="text-xs text-indigo-500/70">Sau bao nhiêu ngày thì xóa file/ảnh khỏi lưu trữ để tránh đầy bộ nhớ.</p>
+                </div>
+              </div>
+              <div className="p-4 md:p-6 space-y-4">
                 {(settingsByGroup["luuTru"] ?? [])
                   .filter(s => s.khoa === 'storage_cleanup_days_zalo' || s.khoa === 'storage_cleanup_days_invoice')
                   .map(item => (
-                    <div key={item.khoa} className="space-y-1">
-                      <Label className="text-xs md:text-sm font-medium">{item.moTa}</Label>
+                    <div key={item.khoa} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                      <Label className="text-xs md:text-sm font-semibold text-indigo-900">{item.moTa}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -3473,7 +3409,7 @@ export default function CaiDatPage() {
                   ))}
                 <Button
                   size="sm"
-                  className="w-full mt-2"
+                  className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
                   onClick={() => handleSaveGroup("luuTru")}
                   disabled={savingGroup === "luuTru"}
                 >
@@ -3484,14 +3420,14 @@ export default function CaiDatPage() {
                   )}
                   Lưu cài đặt xóa tự động
                 </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ── Tab AI (chỉ admin) ─────────────────────────────────────────────── */}
-        {isAdmin && !loadingSystem && !errorSystem && (
-          <TabsContent value="ai" className="space-y-4 mt-4">
+        {activeTab === "ai" && isAdmin && !loadingSystem && !errorSystem && (
+          <div className="space-y-4 mt-4">
             <AdminAiSettingsPanel
               items={settingsByGroup["ai"] ?? []}
               values={settingValues}
@@ -3500,243 +3436,246 @@ export default function CaiDatPage() {
               saving={savingGroup === "ai"}
             />
             <AdminAiAccountsPanel />
-          </TabsContent>
+          </div>
         )}
 
         {/* ── Tab Đăng nhập khách thuê (admin) ───────────────────────────────── */}
-        {isAdmin && (
-          <TabsContent value="dangNhapKT" className="space-y-4 mt-4">
+        {activeTab === "dangNhapKT" && isAdmin && (
+          <div className="space-y-4 mt-4">
             <AdminDangNhapKTPanel />
-          </TabsContent>
+          </div>
         )}
 
         {/* ── Tab Zalo Hotline (admin) ──────────────────────────────────────── */}
-        {isAdmin && (
-          <TabsContent value="zaloHotline" className="space-y-4 mt-4">
+        {activeTab === "zaloHotline" && isAdmin && (
+          <div className="space-y-4 mt-4">
             <ZaloHotlineCard />
-          </TabsContent>
+          </div>
         )}
 
         {/* ── Tab Hệ thống — chủ trọ: thông tin công ty riêng ─────────────── */}
-        {isChuNha && !loadingSystem && (
-          <TabsContent value="heThong" className="space-y-4 mt-4">
+        {activeTab === "heThong" && isChuNha && !loadingSystem && (
+          <div className="space-y-4 mt-4">
             <ChuNhaHeThongTab />
-          </TabsContent>
+          </div>
         )}
 
         {/* ── Tab Đăng nhập khách thuê (chủ trọ) ────────────────────────────── */}
-        {isChuNha && (
-          <TabsContent value="dangNhapKT" className="space-y-4 mt-4">
+        {activeTab === "dangNhapKT" && isChuNha && (
+          <div className="space-y-4 mt-4">
             <ChuNhaDangNhapKTTab />
-          </TabsContent>
+          </div>
         )}
 
         {/* ── Tab Tài khoản ngân hàng (chỉ quản lý) ─────────────────────────── */}
-        {isQuanLy && (
-          <TabsContent value="bankQL" className="space-y-4 mt-4">
+        {activeTab === "bankQL" && isQuanLy && (
+          <div className="space-y-4 mt-4">
             <QuanLyBankTab />
-          </TabsContent>
+          </div>
         )}
 
         {/* ── Tab Giao diện (tất cả users) ──────────────────────────────────── */}
-        <TabsContent value="display" className="space-y-4 mt-4">
-          {/* Font Settings */}
-          <Card>
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <Type className="h-4 w-4 md:h-5 md:w-5" />
-                Cài đặt Font chữ
-              </CardTitle>
-              <CardDescription className="text-xs md:text-sm">
-                Tùy chỉnh font chữ và kích thước hiển thị
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 p-4 md:p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs md:text-sm">Font chữ</Label>
-                  <Select
-                    value={fontSettings.fontFamily}
-                    onValueChange={(v) =>
-                      setFontSettings((p) => ({ ...p, fontFamily: v }))
-                    }
-                  >
-                    <SelectTrigger className="text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[
-                        "Inter",
-                        "Roboto",
-                        "Open Sans",
-                        "Lato",
-                        "Montserrat",
-                        "Poppins",
-                        "Nunito",
-                        "Times New Roman",
-                      ].map((f) => (
-                        <SelectItem key={f} value={f} className="text-sm">
-                          {f}
+        {activeTab === "display" && (
+          <div className="space-y-4 mt-4">
+            {/* Font Settings */}
+            <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+              <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                  <Type className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base md:text-lg font-semibold text-indigo-900">Cài đặt Font chữ</h3>
+                  <p className="text-xs text-indigo-500/70">Tùy chỉnh font chữ và kích thước hiển thị</p>
+                </div>
+              </div>
+              <div className="space-y-4 p-4 md:p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Font chữ</Label>
+                    <Select
+                      value={fontSettings.fontFamily}
+                      onValueChange={(v) =>
+                        setFontSettings((p) => ({ ...p, fontFamily: v }))
+                      }
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[
+                          "Inter",
+                          "Roboto",
+                          "Open Sans",
+                          "Lato",
+                          "Montserrat",
+                          "Poppins",
+                          "Nunito",
+                          "Times New Roman",
+                        ].map((f) => (
+                          <SelectItem key={f} value={f} className="text-sm">
+                            {f}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Cỡ chữ</Label>
+                    <Select
+                      value={fontSettings.fontSize}
+                      onValueChange={(v) =>
+                        setFontSettings((p) => ({ ...p, fontSize: v }))
+                      }
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="small" className="text-sm">
+                          Nhỏ
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        <SelectItem value="medium" className="text-sm">
+                          Trung bình
+                        </SelectItem>
+                        <SelectItem value="large" className="text-sm">
+                          Lớn
+                        </SelectItem>
+                        <SelectItem value="extra-large" className="text-sm">
+                          Rất lớn
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Khoảng cách dòng</Label>
+                    <Select
+                      value={fontSettings.lineHeight}
+                      onValueChange={(v) =>
+                        setFontSettings((p) => ({ ...p, lineHeight: v }))
+                      }
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tight" className="text-sm">
+                          Chặt
+                        </SelectItem>
+                        <SelectItem value="normal" className="text-sm">
+                          Bình thường
+                        </SelectItem>
+                        <SelectItem value="relaxed" className="text-sm">
+                          Thoải mái
+                        </SelectItem>
+                        <SelectItem value="loose" className="text-sm">
+                          Rộng rãi
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Độ đậm chữ</Label>
+                    <Select
+                      value={fontSettings.fontWeight}
+                      onValueChange={(v) =>
+                        setFontSettings((p) => ({ ...p, fontWeight: v }))
+                      }
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light" className="text-sm">
+                          Nhạt
+                        </SelectItem>
+                        <SelectItem value="normal" className="text-sm">
+                          Bình thường
+                        </SelectItem>
+                        <SelectItem value="medium" className="text-sm">
+                          Vừa
+                        </SelectItem>
+                        <SelectItem value="semibold" className="text-sm">
+                          Đậm vừa
+                        </SelectItem>
+                        <SelectItem value="bold" className="text-sm">
+                          Đậm
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs md:text-sm">Cỡ chữ</Label>
-                  <Select
-                    value={fontSettings.fontSize}
-                    onValueChange={(v) =>
-                      setFontSettings((p) => ({ ...p, fontSize: v }))
-                    }
-                  >
-                    <SelectTrigger className="text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="small" className="text-sm">
-                        Nhỏ
-                      </SelectItem>
-                      <SelectItem value="medium" className="text-sm">
-                        Trung bình
-                      </SelectItem>
-                      <SelectItem value="large" className="text-sm">
-                        Lớn
-                      </SelectItem>
-                      <SelectItem value="extra-large" className="text-sm">
-                        Rất lớn
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs md:text-sm">Khoảng cách dòng</Label>
-                  <Select
-                    value={fontSettings.lineHeight}
-                    onValueChange={(v) =>
-                      setFontSettings((p) => ({ ...p, lineHeight: v }))
-                    }
-                  >
-                    <SelectTrigger className="text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tight" className="text-sm">
-                        Chặt
-                      </SelectItem>
-                      <SelectItem value="normal" className="text-sm">
-                        Bình thường
-                      </SelectItem>
-                      <SelectItem value="relaxed" className="text-sm">
-                        Thoải mái
-                      </SelectItem>
-                      <SelectItem value="loose" className="text-sm">
-                        Rộng rãi
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs md:text-sm">Độ đậm chữ</Label>
-                  <Select
-                    value={fontSettings.fontWeight}
-                    onValueChange={(v) =>
-                      setFontSettings((p) => ({ ...p, fontWeight: v }))
-                    }
-                  >
-                    <SelectTrigger className="text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="light" className="text-sm">
-                        Nhạt
-                      </SelectItem>
-                      <SelectItem value="normal" className="text-sm">
-                        Bình thường
-                      </SelectItem>
-                      <SelectItem value="medium" className="text-sm">
-                        Vừa
-                      </SelectItem>
-                      <SelectItem value="semibold" className="text-sm">
-                        Đậm vừa
-                      </SelectItem>
-                      <SelectItem value="bold" className="text-sm">
-                        Đậm
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Button
+                  size="sm"
+                  className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
+                  onClick={handleSaveFontSettings}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Lưu font chữ
+                </Button>
               </div>
-              <Button
-                size="sm"
-                className="w-full"
-                onClick={handleSaveFontSettings}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                Lưu font chữ
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* UI Settings */}
-          <Card>
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <Monitor className="h-4 w-4 md:h-5 md:w-5" />
-                Giao diện
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 p-4 md:p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs md:text-sm">Chủ đề</Label>
-                  <Select
-                    value={uiSettings.theme}
-                    onValueChange={handleThemeChange}
-                  >
-                    <SelectTrigger className="text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="light" className="text-sm">
-                        Sáng
-                      </SelectItem>
-                      <SelectItem value="dark" className="text-sm">
-                        Tối
-                      </SelectItem>
-                      <SelectItem value="auto" className="text-sm">
-                        Tự động
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+            {/* UI Settings */}
+            <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+              <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                  <Monitor className="h-4 w-4 md:h-5 md:w-5 text-white" />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs md:text-sm">Mật độ hiển thị</Label>
-                  <Select
-                    value={uiSettings.density}
-                    onValueChange={handleDensityChange}
-                  >
-                    <SelectTrigger className="text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="compact" className="text-sm">
-                        Chật
-                      </SelectItem>
-                      <SelectItem value="comfortable" className="text-sm">
-                        Thoải mái
-                      </SelectItem>
-                      <SelectItem value="spacious" className="text-sm">
-                        Rộng rãi
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div>
+                  <h3 className="text-base md:text-lg font-semibold text-indigo-900">Giao diện</h3>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <div className="space-y-4 p-4 md:p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Chủ đề</Label>
+                    <Select
+                      value={uiSettings.theme}
+                      onValueChange={handleThemeChange}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light" className="text-sm">
+                          Sáng
+                        </SelectItem>
+                        <SelectItem value="dark" className="text-sm">
+                          Tối
+                        </SelectItem>
+                        <SelectItem value="auto" className="text-sm">
+                          Tự động
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Mật độ hiển thị</Label>
+                    <Select
+                      value={uiSettings.density}
+                      onValueChange={handleDensityChange}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="compact" className="text-sm">
+                          Chật
+                        </SelectItem>
+                        <SelectItem value="comfortable" className="text-sm">
+                          Thoải mái
+                        </SelectItem>
+                        <SelectItem value="spacious" className="text-sm">
+                          Rộng rãi
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* ── MinIO File Browser Modal ── */}
       {minioBrowserOpen && (

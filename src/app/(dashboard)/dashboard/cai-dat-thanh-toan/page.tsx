@@ -9,7 +9,6 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -90,26 +89,33 @@ export default function CaiDatThanhToanPage() {
   };
 
   if (status === "loading" || loading) {
-    return <div className="p-6 text-sm text-gray-500">Đang tải...</div>;
+    return <div className="p-6 text-sm text-indigo-500/70">Đang tải...</div>;
   }
 
   if (denied) {
     return (
       <div className="p-6 max-w-xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Không có quyền</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-gray-600 space-y-3">
-            <p>
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-base md:text-lg font-semibold text-indigo-900">Không có quyền</div>
+            </div>
+          </div>
+          <div className="p-4 md:p-6 space-y-3">
+            <p className="text-sm text-indigo-600/80">
               Chủ trọ chưa bật quyền cho quản lý tự cấu hình tài khoản nhận
               tiền. Liên hệ chủ trọ để được cấp quyền.
             </p>
-            <Button variant="outline" onClick={() => router.push("/dashboard")}>
+            <Button variant="outline" onClick={() => router.push("/dashboard")} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
               Về trang chủ
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -117,22 +123,25 @@ export default function CaiDatThanhToanPage() {
   return (
     <div className="p-4 md:p-6 max-w-2xl space-y-4">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold">Tài khoản nhận tiền</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-xl md:text-2xl font-bold text-indigo-900">Tài khoản nhận tiền</h1>
+        <p className="text-sm text-indigo-500/70 mt-1">
           Thông tin tài khoản này sẽ hiển thị trên hóa đơn PDF của các hóa đơn
           do bạn tạo.
         </p>
       </div>
 
-      <Card>
-        <CardHeader className="p-4 md:p-6">
-          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-            <CreditCard className="h-4 w-4" /> Thanh toán
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 md:p-6 space-y-4">
-          <div className="space-y-1">
-            <Label className="text-sm font-medium">Tên chủ tài khoản</Label>
+      <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+            <CreditCard className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <div className="text-base md:text-lg font-semibold text-indigo-900">Thanh toán</div>
+          </div>
+        </div>
+        <div className="p-4 md:p-6 space-y-4">
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">Tên chủ tài khoản</Label>
             <Input
               value={form.nganHangChuTaiKhoan}
               onChange={(e) =>
@@ -142,8 +151,8 @@ export default function CaiDatThanhToanPage() {
             />
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-sm font-medium">Số tài khoản ngân hàng</Label>
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">Số tài khoản ngân hàng</Label>
             <Input
               value={form.nganHangSoTaiKhoan}
               onChange={(e) =>
@@ -153,8 +162,8 @@ export default function CaiDatThanhToanPage() {
             />
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-sm font-medium">Ngân hàng</Label>
+          <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+            <Label className="text-xs md:text-sm font-semibold text-indigo-900">Ngân hàng</Label>
             <Select
               value={form.nganHangTen}
               onValueChange={(v) => setForm((f) => ({ ...f, nganHangTen: v }))}
@@ -172,12 +181,12 @@ export default function CaiDatThanhToanPage() {
             </Select>
           </div>
 
-          <Button onClick={save} disabled={saving} className="w-full md:w-auto">
+          <Button onClick={save} disabled={saving} className="w-full md:w-auto bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
             <Save className="h-4 w-4 mr-2" />
             {saving ? "Đang lưu..." : "Lưu cài đặt"}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

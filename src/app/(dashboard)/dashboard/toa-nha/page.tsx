@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -150,11 +149,16 @@ export default function ToaNhaPage() {
       />
 
       {/* Desktop Table View */}
-      <Card className="hidden md:block">
-        <CardHeader>
-          <CardTitle>Tổng tòa nhà quản lý: {toaNhaList.length}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
+      <div className="hidden md:block rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+            <Building2 className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-base md:text-lg font-semibold text-indigo-900">Tổng tòa nhà quản lý: {toaNhaList.length}</h3>
+          </div>
+        </div>
+        <div className="p-4 md:p-6">
           <ToaNhaDataTable
             data={filteredToaNha}
             onEdit={handleEdit}
@@ -163,13 +167,18 @@ export default function ToaNhaPage() {
             onSearchChange={setSearchTerm}
             canEdit={canEdit}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-3">
-        <div className="flex justify-between items-center">
-          <h2 className="text-base font-semibold">Tổng tòa nhà quản lý: {toaNhaList.length}</h2>
+        <div className="flex items-center gap-3 p-4 rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+            <Building2 className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-base md:text-lg font-semibold text-indigo-900">Tổng tòa nhà quản lý: {toaNhaList.length}</h3>
+          </div>
         </div>
 
         {/* Mobile Filters */}
@@ -182,36 +191,37 @@ export default function ToaNhaPage() {
         </div>
         
         {filteredToaNha.length === 0 ? (
-          <Card className="p-6 text-center">
-            <Building2 className="h-10 w-10 mx-auto text-gray-400 mb-3" />
-            <h3 className="text-base font-medium text-gray-900 mb-1">Không tìm thấy tòa nhà nào</h3>
-            <p className="text-sm text-gray-600">Thử thay đổi tìm kiếm</p>
-          </Card>
+          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center">
+            <Building2 className="h-10 w-10 mx-auto text-indigo-300 mb-3" />
+            <h3 className="text-base font-medium text-indigo-900 mb-1">Không tìm thấy tòa nhà nào</h3>
+            <p className="text-sm text-indigo-400">Thử thay đổi tìm kiếm</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
             {filteredToaNha.map((toaNha) => {
               const phongTrong = (toaNha as any).phongTrong || 0;
               const phongDangThue = (toaNha as any).phongDangThue || 0;
               const tongPhong = toaNha.tongSoPhong;
-              const isSelected = selectedId === toaNha.id;
+              const itemId = toaNha.id ?? toaNha._id ?? '';
+              const isSelected = selectedId === itemId;
               
               return (
-                <div key={toaNha.id}>
-                  <Card className={`hover:shadow-md transition-shadow ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
-                    <CardContent className="p-3">
-                      <div className="flex justify-between items-start mb-2">
+                <div key={itemId}>
+                  <div className={`rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 transition-shadow ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+                    <div className="p-3 space-y-3">
+                      <div className="flex justify-between items-start">
                         <div className="flex items-start gap-2 flex-1">
                           <Checkbox
                             checked={isSelected}
-                            onCheckedChange={(v) => setSelectedId(v === true ? toaNha.id! : null)}
+                            onCheckedChange={(v) => setSelectedId(v === true ? itemId : null)}
                             className="mt-1"
                           />
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <Building2 className="h-4 w-4 text-blue-600" />
-                              <h3 className="font-semibold text-base">{toaNha.tenToaNha}</h3>
+                              <Building2 className="h-4 w-4 text-indigo-500" />
+                              <h3 className="font-semibold text-base text-indigo-900">{toaNha.tenToaNha}</h3>
                             </div>
-                            <div className="flex items-start gap-1.5 text-xs text-gray-600">
+                            <div className="flex items-start gap-1.5 text-xs text-indigo-500/70">
                               <MapPin className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                               <span className="line-clamp-2">{formatAddress(toaNha.diaChi)}</span>
                             </div>
@@ -219,32 +229,32 @@ export default function ToaNhaPage() {
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-3 gap-2 mb-3 p-2 bg-gray-50 rounded-md">
+                      <div className="grid grid-cols-3 gap-2 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-2 shadow-sm">
                         <div className="text-center">
-                          <div className="text-xs text-gray-600">Tổng</div>
-                          <div className="text-sm font-semibold">{tongPhong}</div>
+                          <div className="text-xs text-indigo-500/70">Tổng</div>
+                          <div className="text-sm font-semibold text-indigo-900">{tongPhong}</div>
                         </div>
-                        <div className="text-center border-x border-gray-200">
-                          <div className="text-xs text-gray-600">Trống</div>
+                        <div className="text-center border-x border-indigo-100">
+                          <div className="text-xs text-indigo-500/70">Trống</div>
                           <div className="text-sm font-semibold text-green-600">{phongTrong}</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-xs text-gray-600">Thuê</div>
+                          <div className="text-xs text-indigo-500/70">Thuê</div>
                           <div className="text-sm font-semibold text-blue-600">{phongDangThue}</div>
                         </div>
                       </div>
 
                       {toaNha.tienNghiChung && toaNha.tienNghiChung.length > 0 && (
-                        <div className="mb-3">
-                          <div className="text-xs text-gray-600 mb-1">Tiện nghi:</div>
+                        <div>
+                          <div className="text-xs text-indigo-500/70 mb-1">Tiện nghi:</div>
                           <div className="flex flex-wrap gap-1">
                             {toaNha.tienNghiChung.slice(0, 3).map((tienNghi) => (
-                              <Badge key={tienNghi} variant="secondary" className="text-xs">
+                              <Badge key={tienNghi} variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
                                 {tienNghi}
                               </Badge>
                             ))}
                             {toaNha.tienNghiChung.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
                                 +{toaNha.tienNghiChung.length - 3}
                               </Badge>
                             )}
@@ -262,7 +272,7 @@ export default function ToaNhaPage() {
                               navigator.clipboard.writeText(publicUrl);
                               toast.success('Đã sao chép link trang xem phòng');
                             }}
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                            className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                             title="Copy link trang xem phòng"
                           >
                             <Copy className="h-3.5 w-3.5" />
@@ -273,13 +283,13 @@ export default function ToaNhaPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleEdit(toaNha)}
-                            className="flex-1 text-xs"
+                            className="flex-1 text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                           >
                             <Edit className="h-3.5 w-3.5 mr-1" />
                             Sửa
                           </Button>
                           <DeleteConfirmPopover
-                            onConfirm={() => handleDelete(toaNha.id!)}
+                            onConfirm={() => handleDelete(itemId)}
                             title="Xóa tòa nhà"
                             description="Bạn có chắc chắn muốn xóa tòa nhà này?"
                             className="text-black hover:text-red-700 hover:bg-red-50"
@@ -288,39 +298,39 @@ export default function ToaNhaPage() {
                           )}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                   
                   {/* Detail panel - shown when checkbox is checked */}
                   {isSelected && (
-                    <Card className="mt-2 border-blue-200 bg-blue-50/30 rounded-xl overflow-hidden">
-                      <CardContent className="p-4 space-y-3">
-                        <div className="flex items-center gap-2 text-blue-800 font-medium text-sm border-b border-blue-200 pb-2">
+                    <div className="mt-2 rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/60 to-blue-50/60 shadow-md overflow-hidden">
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-center gap-2 text-indigo-700 font-medium text-sm border-b border-indigo-200 pb-2">
                           <Building2 className="h-4 w-4" />
                           Chi tiết tòa nhà
                         </div>
                         
                         {/* Full address */}
                         <div className="text-sm">
-                          <span className="text-gray-500">Địa chỉ:</span>
-                          <p className="font-medium mt-0.5">{formatAddress(toaNha.diaChi)}</p>
+                          <span className="text-indigo-500/70">Địa chỉ:</span>
+                          <p className="font-medium mt-0.5 text-indigo-900">{formatAddress(toaNha.diaChi)}</p>
                         </div>
                         
                         {/* Description */}
                         {toaNha.moTa && (
                           <div className="text-sm">
-                            <span className="text-gray-500">Mô tả:</span>
-                            <p className="mt-0.5">{toaNha.moTa}</p>
+                            <span className="text-indigo-500/70">Mô tả:</span>
+                            <p className="mt-0.5 text-indigo-800">{toaNha.moTa}</p>
                           </div>
                         )}
                         
                         {/* All amenities */}
                         {toaNha.tienNghiChung && toaNha.tienNghiChung.length > 0 && (
                           <div className="text-sm">
-                            <span className="text-gray-500">Tiện nghi:</span>
+                            <span className="text-indigo-500/70">Tiện nghi:</span>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {toaNha.tienNghiChung.map((tienNghi) => (
-                                <Badge key={tienNghi} variant="secondary" className="text-xs">
+                                <Badge key={tienNghi} variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
                                   {tienNghi}
                                 </Badge>
                               ))}
@@ -331,14 +341,14 @@ export default function ToaNhaPage() {
                         {/* Contact persons */}
                         {toaNha.lienHePhuTrach && toaNha.lienHePhuTrach.length > 0 && (
                           <div className="text-sm">
-                            <span className="text-gray-500">Liên hệ phụ trách:</span>
+                            <span className="text-indigo-500/70">Liên hệ phụ trách:</span>
                             <div className="space-y-1.5 mt-1">
                               {toaNha.lienHePhuTrach.map((contact, idx) => (
-                                <div key={idx} className="flex items-center gap-2 text-xs bg-white/60 rounded-md p-2">
-                                  <User className="h-3.5 w-3.5 text-blue-500" />
-                                  <span className="font-medium">{contact.ten}</span>
+                                <div key={idx} className="flex items-center gap-2 text-xs rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-2 shadow-sm">
+                                  <User className="h-3.5 w-3.5 text-indigo-500" />
+                                  <span className="font-medium text-indigo-900">{contact.ten}</span>
                                   {contact.soDienThoai && (
-                                    <span className="flex items-center gap-1 text-gray-600">
+                                    <span className="flex items-center gap-1 text-indigo-500/70">
                                       <Phone className="h-3 w-3" />{contact.soDienThoai}
                                     </span>
                                   )}
@@ -349,22 +359,22 @@ export default function ToaNhaPage() {
                         )}
                         
                         {/* Stats */}
-                        <div className="grid grid-cols-3 gap-2 text-center text-sm bg-white/60 rounded-md p-2">
+                        <div className="grid grid-cols-3 gap-2 text-center text-sm rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-2 shadow-sm">
                           <div>
-                            <div className="text-gray-500 text-xs">Tổng phòng</div>
-                            <div className="font-semibold">{tongPhong}</div>
+                            <div className="text-indigo-500/70 text-xs">Tổng phòng</div>
+                            <div className="font-semibold text-indigo-900">{tongPhong}</div>
                           </div>
                           <div>
-                            <div className="text-gray-500 text-xs">Phòng trống</div>
+                            <div className="text-indigo-500/70 text-xs">Phòng trống</div>
                             <div className="font-semibold text-green-600">{phongTrong}</div>
                           </div>
                           <div>
-                            <div className="text-gray-500 text-xs">Đang thuê</div>
+                            <div className="text-indigo-500/70 text-xs">Đang thuê</div>
                             <div className="font-semibold text-blue-600">{phongDangThue}</div>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   )}
                 </div>
               );

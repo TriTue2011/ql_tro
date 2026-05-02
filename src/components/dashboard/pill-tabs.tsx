@@ -1,10 +1,12 @@
 'use client';
 
+import React from 'react';
 import { cn } from '@/lib/utils';
 
 export interface PillTab {
   value: string;
   label: string;
+  icon?: React.ComponentType<{ className?: string }>;
   badge?: number;
   disabled?: boolean;
 }
@@ -47,6 +49,7 @@ export default function PillTabs({ tabs, value, onChange, className }: PillTabsP
               tab.disabled && 'opacity-50 cursor-not-allowed',
             )}
           >
+            {tab.icon && <tab.icon className="h-3.5 w-3.5" />}
             {tab.label}
             {tab.badge !== undefined && (
               <span

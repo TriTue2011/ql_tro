@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   HardDrive,
@@ -316,11 +316,11 @@ export default function LuuTruPage() {
   };
 
   if (status === 'loading' || (status === 'authenticated' && session?.user?.role !== 'admin')) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>;
+    return <div className="flex items-center justify-center h-64"><Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-blue-600" /></div>;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 md:space-y-6">
       <PageHeader
         title="Quản lý lưu trữ MinIO"
         description="Quản lý bucket, folder và file trực tiếp trên MinIO"
@@ -330,12 +330,12 @@ export default function LuuTruPage() {
 
       <div className="flex gap-4 h-[calc(100vh-180px)] min-h-[500px]">
         {/* ── Sidebar: Bucket list ─────────────────────────────────────────── */}
-        <div className="w-56 shrink-0 flex flex-col border rounded-xl bg-white shadow-sm">
-          <div className="flex items-center justify-between p-3 border-b">
-            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Buckets</span>
+        <div className="w-56 shrink-0 flex flex-col rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="flex items-center justify-between p-3 border-b border-indigo-100">
+            <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Buckets</span>
             <button
               onClick={() => setIsNewBucketOpen(true)}
-              className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-md bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white text-xs font-medium transition-colors shadow-sm shadow-indigo-200"
               title="Tạo bucket mới"
             >
               <Plus className="h-3 w-3" /> Tạo
@@ -345,21 +345,21 @@ export default function LuuTruPage() {
           <div className="flex-1 overflow-y-auto py-1">
             {loadingBuckets ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
               </div>
             ) : buckets.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6 px-3">Chưa có bucket nào</p>
+              <p className="text-xs text-indigo-400 text-center py-6 px-3">Chưa có bucket nào</p>
             ) : (
               buckets.map(b => (
                 <div
                   key={b.name}
                   className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
-                    selectedBucket === b.name ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'
+                    selectedBucket === b.name ? 'bg-indigo-100/70 text-indigo-700' : 'hover:bg-indigo-50/50 text-indigo-700'
                   }`}
                   onClick={() => selectBucket(b.name)}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <HardDrive className={`h-4 w-4 shrink-0 ${selectedBucket === b.name ? 'text-blue-500' : 'text-gray-400'}`} />
+                    <HardDrive className={`h-4 w-4 shrink-0 ${selectedBucket === b.name ? 'text-indigo-600' : 'text-indigo-400'}`} />
                     <span className="text-sm font-medium truncate">{b.name}</span>
                   </div>
                   <button
@@ -376,37 +376,37 @@ export default function LuuTruPage() {
         </div>
 
         {/* ── Main content: File browser ───────────────────────────────────── */}
-        <div className="flex-1 flex flex-col border rounded-xl bg-white shadow-sm overflow-hidden">
+        <div className="flex-1 flex flex-col rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
           {!selectedBucket ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+            <div className="flex-1 flex flex-col items-center justify-center text-indigo-400">
               <HardDrive className="h-16 w-16 mb-4 opacity-30" />
               <p className="text-sm">Chọn một bucket để xem nội dung</p>
             </div>
           ) : (
             <>
               {/* Toolbar */}
-              <div className="flex items-center gap-2 p-3 border-b flex-wrap">
+              <div className="flex items-center gap-2 p-3 border-b border-indigo-100 flex-wrap">
                 {/* Breadcrumb */}
                 <div className="flex items-center gap-1 text-sm flex-1 min-w-0 overflow-hidden">
                   <button
                     onClick={() => { setSelectedBucket(''); setPrefix(''); }}
-                    className="text-blue-600 hover:underline shrink-0"
+                    className="text-indigo-600 hover:underline shrink-0"
                   >
                     Buckets
                   </button>
-                  <ChevronRight className="h-3 w-3 text-gray-400 shrink-0" />
+                  <ChevronRight className="h-3 w-3 text-indigo-400 shrink-0" />
                   <button
                     onClick={() => navigateBreadcrumb(-1)}
-                    className={`font-semibold shrink-0 ${prefix ? 'text-blue-600 hover:underline' : 'text-gray-800'}`}
+                    className={`font-semibold shrink-0 ${prefix ? 'text-indigo-600 hover:underline' : 'text-indigo-800'}`}
                   >
                     {selectedBucket}
                   </button>
                   {breadcrumbParts.map((part, i) => (
                     <span key={i} className="flex items-center gap-1 min-w-0">
-                      <ChevronRight className="h-3 w-3 text-gray-400 shrink-0" />
+                      <ChevronRight className="h-3 w-3 text-indigo-400 shrink-0" />
                       <button
                         onClick={() => navigateBreadcrumb(i)}
-                        className={`truncate ${i === breadcrumbParts.length - 1 ? 'text-gray-800 font-semibold' : 'text-blue-600 hover:underline'}`}
+                        className={`truncate ${i === breadcrumbParts.length - 1 ? 'text-indigo-800 font-semibold' : 'text-indigo-600 hover:underline'}`}
                       >
                         {part}
                       </button>
@@ -417,20 +417,20 @@ export default function LuuTruPage() {
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0">
                   {prefix && (
-                    <Button size="sm" variant="ghost" onClick={goUp} className="h-8 px-2">
+                    <Button size="sm" variant="ghost" onClick={goUp} className="h-8 px-2 text-indigo-600 hover:bg-indigo-50">
                       <ArrowLeft className="h-3.5 w-3.5 mr-1" />
                       Lên
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => setIsNewFolderOpen(true)} className="h-8">
+                  <Button size="sm" variant="outline" onClick={() => setIsNewFolderOpen(true)} className="h-8 border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                     <FolderPlus className="h-3.5 w-3.5 mr-1" />
                     Folder mới
                   </Button>
-                  <Button size="sm" onClick={() => uploadInputRef.current?.click()} className="h-8">
+                  <Button size="sm" onClick={() => uploadInputRef.current?.click()} className="h-8 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
                     <Upload className="h-3.5 w-3.5 mr-1" />
                     Upload
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => fetchObjects(selectedBucket, prefix)} className="h-8 px-2" disabled={loadingObjects}>
+                  <Button size="sm" variant="ghost" onClick={() => fetchObjects(selectedBucket, prefix)} className="h-8 px-2 text-indigo-600 hover:bg-indigo-50" disabled={loadingObjects}>
                     <RefreshCw className={`h-3.5 w-3.5 ${loadingObjects ? 'animate-spin' : ''}`} />
                   </Button>
                 </div>
@@ -441,16 +441,16 @@ export default function LuuTruPage() {
               <div className="flex-1 overflow-y-auto">
                 {loadingObjects ? (
                   <div className="flex justify-center items-center h-32">
-                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
                   </div>
                 ) : folders.length === 0 && files.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-32 text-gray-400">
+                  <div className="flex flex-col items-center justify-center h-32 text-indigo-400">
                     <Folder className="h-10 w-10 mb-2 opacity-30" />
                     <p className="text-sm">Thư mục trống</p>
                   </div>
                 ) : (
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide sticky top-0">
+                    <thead className="bg-indigo-50/70 text-xs text-indigo-600 uppercase tracking-wide sticky top-0">
                       <tr>
                         <th className="text-left px-4 py-2 font-medium">Tên</th>
                         <th className="text-right px-4 py-2 font-medium w-24">Kích thước</th>
@@ -458,18 +458,18 @@ export default function LuuTruPage() {
                         <th className="w-20 px-4 py-2"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-indigo-100">
                       {/* Folders */}
                       {folders.map(f => (
-                        <tr key={f} className="hover:bg-gray-50 cursor-pointer" onClick={() => openFolder(f)}>
+                        <tr key={f} className="hover:bg-indigo-50/50 cursor-pointer" onClick={() => openFolder(f)}>
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-2">
                               <Folder className="h-4 w-4 text-amber-400 shrink-0" />
-                              <span className="font-medium text-gray-800">{folderLabel(f, prefix)}</span>
+                              <span className="font-medium text-indigo-800">{folderLabel(f, prefix)}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-2.5 text-right text-gray-400">—</td>
-                          <td className="px-4 py-2.5 text-right text-gray-400 hidden md:table-cell">—</td>
+                          <td className="px-4 py-2.5 text-right text-indigo-400">—</td>
+                          <td className="px-4 py-2.5 text-right text-indigo-400 hidden md:table-cell">—</td>
                           <td className="px-4 py-2.5 text-right">
                             <button
                               onClick={(e) => { e.stopPropagation(); setDeleteTarget({ prefix: f, label: folderLabel(f, prefix) }); }}
@@ -484,15 +484,15 @@ export default function LuuTruPage() {
 
                       {/* Files */}
                       {files.map(f => (
-                        <tr key={f.name} className="hover:bg-gray-50">
+                        <tr key={f.name} className="hover:bg-indigo-50/50">
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-2">
                               {getFileIcon(f.name)}
-                              <span className="truncate max-w-xs text-gray-800">{shortName(f.name, prefix)}</span>
+                              <span className="truncate max-w-xs text-indigo-800">{shortName(f.name, prefix)}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-2.5 text-right text-gray-500">{formatBytes(f.size)}</td>
-                          <td className="px-4 py-2.5 text-right text-gray-400 hidden md:table-cell text-xs">
+                          <td className="px-4 py-2.5 text-right text-indigo-500">{formatBytes(f.size)}</td>
+                          <td className="px-4 py-2.5 text-right text-indigo-400 hidden md:table-cell text-xs">
                             {new Date(f.lastModified).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
                           </td>
                           <td className="px-4 py-2.5">
@@ -503,7 +503,7 @@ export default function LuuTruPage() {
                                     href={f.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="p-1 rounded hover:bg-blue-100 text-blue-400 hover:text-blue-600 transition-colors"
+                                    className="p-1 rounded hover:bg-indigo-100 text-indigo-400 hover:text-indigo-600 transition-colors"
                                     title="Xem"
                                   >
                                     <Eye className="h-3.5 w-3.5" />
@@ -513,7 +513,7 @@ export default function LuuTruPage() {
                                       navigator.clipboard.writeText(f.url);
                                       toast.success('Đã sao chép URL ảnh');
                                     }}
-                                    className="p-1 rounded hover:bg-purple-100 text-purple-400 hover:text-purple-600 transition-colors"
+                                    className="p-1 rounded hover:bg-indigo-100 text-indigo-400 hover:text-indigo-600 transition-colors"
                                     title="Sao chép URL MinIO"
                                   >
                                     <Copy className="h-3.5 w-3.5" />
@@ -521,7 +521,7 @@ export default function LuuTruPage() {
                                   <a
                                     href={f.url}
                                     download
-                                    className="p-1 rounded hover:bg-green-100 text-green-500 hover:text-green-700 transition-colors"
+                                    className="p-1 rounded hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors"
                                     title="Tải xuống"
                                   >
                                     <Download className="h-3.5 w-3.5" />
@@ -545,7 +545,7 @@ export default function LuuTruPage() {
               </div>
 
               {/* Status bar */}
-              <div className="px-4 py-2 border-t bg-gray-50 flex items-center justify-between text-xs text-gray-500">
+              <div className="px-4 py-2 border-t border-indigo-100 bg-indigo-50/50 flex items-center justify-between text-xs text-indigo-500">
                 <span>{folders.length} folder{folders.length !== 1 ? 's' : ''}, {files.length} file{files.length !== 1 ? 's' : ''}</span>
                 {files.length > 0 && (
                   <span>Tổng: {formatBytes(files.reduce((a, f) => a + f.size, 0))}</span>
@@ -558,15 +558,15 @@ export default function LuuTruPage() {
 
       {/* ── Inline: Tạo bucket ─────────────────────────────────────────────── */}
       {isNewBucketOpen && (
-        <Card className="border-blue-200 bg-blue-50/30">
-          <CardContent className="p-4 md:p-6">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="p-4 md:p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-base">Tạo bucket mới</h3>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setIsNewBucketOpen(false); setNewBucketName(''); }}>
+              <h3 className="font-semibold text-base text-indigo-900">Tạo bucket mới</h3>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-indigo-600 hover:bg-indigo-50" onClick={() => { setIsNewBucketOpen(false); setNewBucketName(''); }}>
                 <CloseIcon className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground mb-3">Tên bucket chỉ dùng chữ thường, số và dấu gạch ngang (3-63 ký tự)</p>
+            <p className="text-sm text-indigo-600 mb-3">Tên bucket chỉ dùng chữ thường, số và dấu gạch ngang (3-63 ký tự)</p>
             <Input
               value={newBucketName}
               onChange={e => setNewBucketName(e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, '-'))}
@@ -574,29 +574,30 @@ export default function LuuTruPage() {
               onKeyDown={e => e.key === 'Enter' && handleCreateBucket()}
               autoFocus
             />
-            <div className="flex justify-end gap-2 pt-3 border-t mt-4">
-              <Button variant="outline" onClick={() => { setIsNewBucketOpen(false); setNewBucketName(''); }}>Hủy</Button>
-              <Button onClick={handleCreateBucket} disabled={actionLoading || newBucketName.length < 3}>
+            <Separator className="my-4 bg-indigo-100" />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" className="border-indigo-200 text-indigo-600 hover:bg-indigo-50" onClick={() => { setIsNewBucketOpen(false); setNewBucketName(''); }}>Hủy</Button>
+              <Button onClick={handleCreateBucket} disabled={actionLoading || newBucketName.length < 3} className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
                 {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
                 Tạo
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* ── Inline: Tạo folder ─────────────────────────────────────────────── */}
       {isNewFolderOpen && (
-        <Card className="border-blue-200 bg-blue-50/30">
-          <CardContent className="p-4 md:p-6">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="p-4 md:p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-base">Tạo folder mới</h3>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setIsNewFolderOpen(false); setNewFolderName(''); }}>
+              <h3 className="font-semibold text-base text-indigo-900">Tạo folder mới</h3>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-indigo-600 hover:bg-indigo-50" onClick={() => { setIsNewFolderOpen(false); setNewFolderName(''); }}>
                 <CloseIcon className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground mb-3">
-              Tạo trong: <strong>{selectedBucket}{prefix ? `/${prefix}` : ''}</strong>
+            <p className="text-sm text-indigo-600 mb-3">
+              Tạo trong: <strong className="text-indigo-900">{selectedBucket}{prefix ? `/${prefix}` : ''}</strong>
             </p>
             <Input
               value={newFolderName}
@@ -605,73 +606,76 @@ export default function LuuTruPage() {
               onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
               autoFocus
             />
-            <div className="flex justify-end gap-2 pt-3 border-t mt-4">
-              <Button variant="outline" onClick={() => { setIsNewFolderOpen(false); setNewFolderName(''); }}>Hủy</Button>
-              <Button onClick={handleCreateFolder} disabled={actionLoading || !newFolderName.trim()}>
+            <Separator className="my-4 bg-indigo-100" />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" className="border-indigo-200 text-indigo-600 hover:bg-indigo-50" onClick={() => { setIsNewFolderOpen(false); setNewFolderName(''); }}>Hủy</Button>
+              <Button onClick={handleCreateFolder} disabled={actionLoading || !newFolderName.trim()} className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
                 {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FolderPlus className="h-4 w-4 mr-2" />}
                 Tạo
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* ── Inline: Xóa bucket ─────────────────────────────────────────────── */}
       {deleteBucket && (
-        <Card className="border-red-200 bg-red-50/30">
-          <CardContent className="p-4 md:p-6">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-red-50/80 to-orange-50/80 shadow-lg shadow-red-100/50">
+          <div className="p-4 md:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-base flex items-center gap-2 text-red-600">
                 <AlertTriangle className="h-5 w-5" />
                 Xóa bucket
               </h3>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteBucket(null)}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => setDeleteBucket(null)}>
                 <CloseIcon className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              Xóa bucket <strong>"{deleteBucket}"</strong> sẽ xóa toàn bộ file bên trong. Hành động này không thể hoàn tác.
+            <p className="text-sm text-red-600 mb-4">
+              Xóa bucket <strong className="text-red-700">"{deleteBucket}"</strong> sẽ xóa toàn bộ file bên trong. Hành động này không thể hoàn tác.
             </p>
-            <div className="flex justify-end gap-2 pt-3 border-t">
-              <Button variant="outline" onClick={() => setDeleteBucket(null)}>Hủy</Button>
+            <Separator className="my-4 bg-red-100" />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => setDeleteBucket(null)}>Hủy</Button>
               <Button variant="destructive" onClick={handleDeleteBucket} disabled={actionLoading}>
                 {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
                 Xóa hẳn
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* ── Inline: Xóa file/folder ───────────────────────────────────────── */}
       {deleteTarget && (
-        <Card className="border-red-200 bg-red-50/30">
-          <CardContent className="p-4 md:p-6">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-red-50/80 to-orange-50/80 shadow-lg shadow-red-100/50">
+          <div className="p-4 md:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-base flex items-center gap-2 text-red-600">
                 <AlertTriangle className="h-5 w-5" />
                 {deleteTarget?.prefix ? 'Xóa folder' : 'Xóa file'}
               </h3>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteTarget(null)}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => setDeleteTarget(null)}>
                 <CloseIcon className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="text-sm text-red-600 mb-4">
               {deleteTarget?.prefix
-                ? <>Xóa folder <strong>"{deleteTarget.label}"</strong> và tất cả file bên trong?</>
-                : <>Xóa file <strong>"{deleteTarget?.label}"</strong>?</>
+                ? <>Xóa folder <strong className="text-red-700">"{deleteTarget.label}"</strong> và tất cả file bên trong?</>
+                : <>Xóa file <strong className="text-red-700">"{deleteTarget?.label}"</strong>?</>
               }
               {' '}Hành động này không thể hoàn tác.
             </p>
-            <div className="flex justify-end gap-2 pt-3 border-t">
-              <Button variant="outline" onClick={() => setDeleteTarget(null)}>Hủy</Button>
+            <Separator className="my-4 bg-red-100" />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => setDeleteTarget(null)}>Hủy</Button>
               <Button variant="destructive" onClick={confirmDelete} disabled={actionLoading}>
                 {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
                 Xóa
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );

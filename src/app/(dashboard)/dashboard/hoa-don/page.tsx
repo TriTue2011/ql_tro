@@ -5,7 +5,6 @@ import { useRealtimeEvents } from '@/hooks/use-realtime';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCache } from '@/hooks/use-cache';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -565,62 +564,72 @@ ${footer}`;
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-4 lg:gap-6">
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Tổng hóa đơn</p>
-              <p className="text-base md:text-2xl font-bold">{hoaDonList.length}</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Tổng hóa đơn</p>
+              <p className="text-base md:text-2xl font-bold text-indigo-900">{hoaDonList.length}</p>
             </div>
-            <Receipt className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <Receipt className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Chưa thanh toán</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Chưa thanh toán</p>
               <p className="text-base md:text-2xl font-bold text-red-600">
                 {hoaDonList.filter(h => h.trangThai === 'chuaThanhToan').length}
               </p>
             </div>
-            <Receipt className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <Receipt className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Quá hạn</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Quá hạn</p>
               <p className="text-base md:text-2xl font-bold text-orange-600">
                 {hoaDonList.filter(h => new Date(h.hanThanhToan) < new Date()).length}
               </p>
             </div>
-            <AlertCircle className="h-3 w-3 md:h-4 md:w-4 text-orange-600" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <AlertCircle className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-2 md:p-4">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 p-2 md:p-4">
           <div className="flex items-center justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] md:text-xs font-medium text-gray-600">Doanh thu</p>
+              <p className="text-[10px] md:text-xs font-medium text-indigo-600">Doanh thu</p>
               <p className="text-xs md:text-2xl font-bold text-green-600 truncate">
                 {formatCurrency(hoaDonList.reduce((sum, h) => sum + h.daThanhToan, 0))}
               </p>
             </div>
-            <Receipt className="h-3 w-3 md:h-4 md:w-4 text-green-600 flex-shrink-0" />
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+              <Receipt className="h-4 w-4 text-white" />
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Desktop Table */}
-      <Card className="hidden md:block">
-        <CardHeader>
-          <CardTitle>Danh sách hóa đơn</CardTitle>
-          <CardDescription>
-            {filteredHoaDon.length} hóa đơn được tìm thấy
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
+      <div className="hidden md:block rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-indigo-100">
+          <div>
+            <h3 className="text-base md:text-lg font-semibold text-indigo-900">Danh sách hóa đơn</h3>
+            <p className="text-xs md:text-sm text-indigo-500/70">
+              {filteredHoaDon.length} hóa đơn được tìm thấy
+            </p>
+          </div>
+        </div>
+        <div className="p-4 md:p-6">
           <HoaDonDataTable
             data={filteredHoaDon}
             phongList={phongList}
@@ -646,8 +655,8 @@ ${footer}`;
             getMonthOptions={getMonthOptions}
             getYearOptions={getYearOptions}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Mobile Cards */}
       <div className="md:hidden">
@@ -710,15 +719,15 @@ ${footer}`;
             const isOverdue = new Date(hoaDon.hanThanhToan) < new Date() && hoaDon.trangThai !== 'daThanhToan';
             
             return (
-              <Card key={hoaDon.id} className="p-4">
+              <div key={hoaDon.id} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-4 shadow-sm">
                 <div className="space-y-3">
                   {/* Header with invoice code and status */}
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-medium text-gray-900">{hoaDon.maHoaDon}</h3>
+                      <h3 className="font-medium text-indigo-900">{hoaDon.maHoaDon}</h3>
                       <div className="flex items-center gap-2 mt-1">
-                        <Home className="h-3 w-3 text-gray-400" />
-                        <span className="text-sm text-gray-600">{getPhongName(hoaDon.phong, phongList)}</span>
+                        <Home className="h-3 w-3 text-indigo-400" />
+                        <span className="text-sm text-indigo-600">{getPhongName(hoaDon.phong, phongList)}</span>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1 items-end">
@@ -734,10 +743,10 @@ ${footer}`;
                   {/* Customer and period info */}
                   <div className="space-y-1 text-sm">
                     <div className="flex items-center gap-2">
-                      <Users className="h-3 w-3 text-gray-400" />
-                      <span className="text-gray-600">{getKhachThueName(hoaDon.khachThue, khachThueList)}</span>
+                      <Users className="h-3 w-3 text-indigo-400" />
+                      <span className="text-indigo-600">{getKhachThueName(hoaDon.khachThue, khachThueList)}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-indigo-500">
                       <Calendar className="h-3 w-3" />
                       <span>Tháng {hoaDon.thang}/{hoaDon.nam}</span>
                       <span className="mx-1">•</span>
@@ -746,30 +755,30 @@ ${footer}`;
                   </div>
 
                   {/* Amount info */}
-                  <div className="border-t pt-2">
+                  <div className="border-t border-indigo-100 pt-2">
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <span className="text-gray-500">Tổng tiền:</span>
-                        <p className="font-semibold text-blue-600">{formatCurrency(hoaDon.tongTien)}</p>
+                        <span className="text-indigo-500">Tổng tiền:</span>
+                        <p className="font-semibold text-indigo-900">{formatCurrency(hoaDon.tongTien)}</p>
                       </div>
                       <div>
-                        <span className="text-gray-500">Đã thanh toán:</span>
+                        <span className="text-indigo-500">Đã thanh toán:</span>
                         <p className="font-semibold text-green-600">{formatCurrency(hoaDon.daThanhToan)}</p>
                       </div>
                       <div className="col-span-2">
-                        <span className="text-gray-500">Còn lại:</span>
+                        <span className="text-indigo-500">Còn lại:</span>
                         <p className="font-semibold text-red-600">{formatCurrency(hoaDon.conLai)}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex flex-wrap gap-2 pt-2 border-t">
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-indigo-100">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleView(hoaDon)}
-                      className="flex-1"
+                      className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                     >
                       <FileText className="h-3.5 w-3.5 mr-1" />
                       Xem
@@ -779,7 +788,7 @@ ${footer}`;
                         variant="outline"
                         size="sm"
                         onClick={() => handlePayment(hoaDon)}
-                        className="flex-1 text-green-600 hover:bg-green-50"
+                        className="flex-1 border-indigo-200 text-green-600 hover:bg-green-50"
                       >
                         <CreditCard className="h-3.5 w-3.5 mr-1" />
                         Thanh toán
@@ -789,7 +798,7 @@ ${footer}`;
                       variant="outline"
                       size="sm"
                       onClick={() => handleCopyLink(hoaDon)}
-                      className="flex-1"
+                      className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                     >
                       <Copy className="h-3.5 w-3.5 mr-1" />
                       Link
@@ -798,14 +807,14 @@ ${footer}`;
                       variant="outline"
                       size="sm"
                       onClick={() => handleSend(hoaDon)}
-                      className="flex-1 text-blue-600 hover:bg-blue-50"
+                      className="flex-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                     >
                       <Send className="h-3.5 w-3.5 mr-1" />
                       Gửi
                     </Button>
                   </div>
                 </div>
-              </Card>
+              </div>
             );
           })}
         </div>
@@ -820,50 +829,50 @@ ${footer}`;
 
       {/* View Invoice Detail */}
       {isViewDialogOpen && viewingHoaDon && (
-        <Card className="border-blue-200 bg-blue-50/30">
-          <div className="flex items-center justify-between p-4 md:p-6 border-b">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="flex items-center justify-between p-4 md:p-6 border-b border-indigo-100">
             <div>
-              <h3 className="text-base md:text-lg font-semibold">Chi tiết hóa đơn</h3>
-              <p className="text-xs md:text-sm text-gray-600">
+              <h3 className="text-base md:text-lg font-semibold text-indigo-900">Chi tiết hóa đơn</h3>
+              <p className="text-xs md:text-sm text-indigo-500/70">
                 Thông tin chi tiết hóa đơn {viewingHoaDon.maHoaDon}
               </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setIsViewDialogOpen(false)} className="h-8 w-8 p-0">
+            <Button variant="ghost" size="sm" onClick={() => setIsViewDialogOpen(false)} className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50">
               <CloseIcon className="h-4 w-4" />
             </Button>
           </div>
           <div className="p-4 md:p-6 space-y-4 md:space-y-6">
             {/* Invoice Header */}
-            <div className="text-center border-b pb-3 md:pb-4">
-              <h2 className="text-lg md:text-2xl font-bold">HÓA ĐƠN THUÊ PHÒNG</h2>
-              <p className="text-base md:text-lg text-gray-600">{viewingHoaDon.maHoaDon}</p>
+            <div className="text-center border-b border-indigo-100 pb-3 md:pb-4">
+              <h2 className="text-lg md:text-2xl font-bold text-indigo-900">HÓA ĐƠN THUÊ PHÒNG</h2>
+              <p className="text-base md:text-lg text-indigo-500">{viewingHoaDon.maHoaDon}</p>
             </div>
 
             {/* Invoice Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <div>
-                <h3 className="text-sm md:text-base font-semibold mb-2">Thông tin phòng</h3>
-                <p className="text-xs md:text-sm"><strong>Phòng:</strong> {getPhongName(viewingHoaDon.phong, phongList)}</p>
-                <p className="text-xs md:text-sm"><strong>Khách thuê:</strong> {getKhachThueName(viewingHoaDon.khachThue, khachThueList)}</p>
-                <p className="text-xs md:text-sm"><strong>Hợp đồng:</strong> {
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+                <h3 className="text-sm md:text-base font-semibold text-indigo-900 mb-2">Thông tin phòng</h3>
+                <p className="text-xs md:text-sm text-indigo-700"><strong>Phòng:</strong> {getPhongName(viewingHoaDon.phong, phongList)}</p>
+                <p className="text-xs md:text-sm text-indigo-700"><strong>Khách thuê:</strong> {getKhachThueName(viewingHoaDon.khachThue, khachThueList)}</p>
+                <p className="text-xs md:text-sm text-indigo-700"><strong>Hợp đồng:</strong> {
                   hopDongList.find(hd => hd.id === viewingHoaDon.hopDong)?.maHopDong || 'N/A'
                 }</p>
               </div>
-              <div>
-                <h3 className="text-sm md:text-base font-semibold mb-2">Thông tin thanh toán</h3>
-                <p className="text-xs md:text-sm"><strong>Tháng/Năm:</strong> {viewingHoaDon.thang}/{viewingHoaDon.nam}</p>
-                <p className="text-xs md:text-sm"><strong>Hạn thanh toán:</strong> {new Date(viewingHoaDon.hanThanhToan).toLocaleDateString('vi-VN')}</p>
-                <p className="text-xs md:text-sm"><strong>Trạng thái:</strong> {getStatusBadge(viewingHoaDon.trangThai)}</p>
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+                <h3 className="text-sm md:text-base font-semibold text-indigo-900 mb-2">Thông tin thanh toán</h3>
+                <p className="text-xs md:text-sm text-indigo-700"><strong>Tháng/Năm:</strong> {viewingHoaDon.thang}/{viewingHoaDon.nam}</p>
+                <p className="text-xs md:text-sm text-indigo-700"><strong>Hạn thanh toán:</strong> {new Date(viewingHoaDon.hanThanhToan).toLocaleDateString('vi-VN')}</p>
+                <p className="text-xs md:text-sm text-indigo-700"><strong>Trạng thái:</strong> {getStatusBadge(viewingHoaDon.trangThai)}</p>
               </div>
             </div>
 
             {/* Chỉ số điện nước */}
             <div>
-              <h3 className="text-sm md:text-base font-semibold mb-3">Chỉ số điện nước</h3>
+              <h3 className="text-sm md:text-base font-semibold text-indigo-900 mb-3">Chỉ số điện nước</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4">
-                <div>
-                  <h4 className="font-medium mb-2">Điện</h4>
-                  <div className="space-y-1 text-sm">
+                <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+                  <h4 className="font-medium text-indigo-900 mb-2">Điện</h4>
+                  <div className="space-y-1 text-sm text-indigo-700">
                     <div className="flex justify-between">
                       <span>Chỉ số ban đầu:</span>
                       <span>{viewingHoaDon.chiSoDienBanDau || 0} kWh</span>
@@ -878,9 +887,9 @@ ${footer}`;
                     </div>
                   </div>
                 </div>
-                <div>
-                  <h4 className="font-medium mb-2">Nước</h4>
-                  <div className="space-y-1 text-sm">
+                <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+                  <h4 className="font-medium text-indigo-900 mb-2">Nước</h4>
+                  <div className="space-y-1 text-sm text-indigo-700">
                     <div className="flex justify-between">
                       <span>Chỉ số ban đầu:</span>
                       <span>{viewingHoaDon.chiSoNuocBanDau || 0} m³</span>
@@ -899,42 +908,42 @@ ${footer}`;
             </div>
 
             {/* Invoice Details */}
-            <div>
-              <h3 className="text-sm md:text-base font-semibold mb-3">Chi tiết hóa đơn</h3>
-              <div className="space-y-2 text-xs md:text-sm">
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+              <h3 className="text-sm md:text-base font-semibold text-indigo-900 mb-3">Chi tiết hóa đơn</h3>
+              <div className="space-y-2 text-xs md:text-sm text-indigo-700">
                 <div className="flex justify-between">
                   <span>Tiền phòng</span>
-                  <span>{formatCurrency(viewingHoaDon.tienPhong)}</span>
+                  <span className="font-medium text-indigo-900">{formatCurrency(viewingHoaDon.tienPhong)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Tiền điện ({viewingHoaDon.soDien} kWh)</span>
-                  <span>{formatCurrency(viewingHoaDon.tienDien)}</span>
+                  <span className="font-medium text-indigo-900">{formatCurrency(viewingHoaDon.tienDien)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Tiền nước ({viewingHoaDon.soNuoc} m³)</span>
-                  <span>{formatCurrency(viewingHoaDon.tienNuoc)}</span>
+                  <span className="font-medium text-indigo-900">{formatCurrency(viewingHoaDon.tienNuoc)}</span>
                 </div>
                 {viewingHoaDon.phiDichVu.map((phi, index) => (
                   <div key={index} className="flex justify-between">
                     <span>{phi.ten}</span>
-                    <span>{formatCurrency(phi.gia)}</span>
+                    <span className="font-medium text-indigo-900">{formatCurrency(phi.gia)}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Total */}
-            <div className="border-t pt-3 md:pt-4">
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
               <div className="flex justify-between text-base md:text-lg font-semibold">
-                <span>Tổng tiền:</span>
-                <span>{formatCurrency(viewingHoaDon.tongTien)}</span>
+                <span className="text-indigo-900">Tổng tiền:</span>
+                <span className="text-indigo-900">{formatCurrency(viewingHoaDon.tongTien)}</span>
               </div>
-              <div className="flex justify-between text-xs md:text-sm">
-                <span>Đã thanh toán:</span>
+              <div className="flex justify-between text-xs md:text-sm mt-1">
+                <span className="text-indigo-500">Đã thanh toán:</span>
                 <span className="text-green-600">{formatCurrency(viewingHoaDon.daThanhToan)}</span>
               </div>
-              <div className="flex justify-between text-xs md:text-sm">
-                <span>Còn lại:</span>
+              <div className="flex justify-between text-xs md:text-sm mt-1">
+                <span className="text-indigo-500">Còn lại:</span>
                 <span className={viewingHoaDon.conLai > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
                   {formatCurrency(viewingHoaDon.conLai)}
                 </span>
@@ -943,9 +952,11 @@ ${footer}`;
 
             {/* QR Thanh toán */}
             {viewingHoaDon.conLai > 0 && bankSettings.soTaiKhoan && bankSettings.tenNganHang && (
-              <div className="border rounded-xl p-4 bg-blue-50 border-blue-200">
-                <h3 className="text-sm md:text-base font-semibold mb-3 text-blue-800 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 md:p-4 shadow-sm">
+                <h3 className="text-sm md:text-base font-semibold mb-3 text-indigo-900 flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                    <CreditCard className="h-3.5 w-3.5 text-white" />
+                  </div>
                   Thanh toán chuyển khoản
                 </h3>
                 <div className="flex flex-col sm:flex-row gap-4 items-start">
@@ -957,16 +968,16 @@ ${footer}`;
                       buildTransferDesc(viewingHoaDon, phongList)
                     )}
                     alt="QR Chuyển khoản"
-                    className="w-48 h-48 rounded-xl border border-blue-200 bg-white"
+                    className="w-48 h-48 rounded-xl border border-indigo-200 bg-white"
                   />
-                  <div className="space-y-1 text-xs md:text-sm">
-                    <div><span className="text-gray-600">Ngân hàng:</span> <strong>{bankSettings.tenNganHang}</strong></div>
-                    <div><span className="text-gray-600">Số tài khoản:</span> <strong>{bankSettings.soTaiKhoan}</strong></div>
+                  <div className="space-y-1 text-xs md:text-sm text-indigo-700">
+                    <div><span className="text-indigo-500">Ngân hàng:</span> <strong className="text-indigo-900">{bankSettings.tenNganHang}</strong></div>
+                    <div><span className="text-indigo-500">Số tài khoản:</span> <strong className="text-indigo-900">{bankSettings.soTaiKhoan}</strong></div>
                     {bankSettings.chuTaiKhoan && (
-                      <div><span className="text-gray-600">Chủ tài khoản:</span> <strong>{bankSettings.chuTaiKhoan}</strong></div>
+                      <div><span className="text-indigo-500">Chủ tài khoản:</span> <strong className="text-indigo-900">{bankSettings.chuTaiKhoan}</strong></div>
                     )}
-                    <div><span className="text-gray-600">Số tiền:</span> <strong className="text-red-600">{formatCurrency(viewingHoaDon.conLai)}</strong></div>
-                    <div><span className="text-gray-600">Nội dung:</span> <strong className="font-mono text-xs">{buildTransferDesc(viewingHoaDon, phongList)}</strong></div>
+                    <div><span className="text-indigo-500">Số tiền:</span> <strong className="text-red-600">{formatCurrency(viewingHoaDon.conLai)}</strong></div>
+                    <div><span className="text-indigo-500">Nội dung:</span> <strong className="font-mono text-xs text-indigo-900">{buildTransferDesc(viewingHoaDon, phongList)}</strong></div>
                   </div>
                 </div>
               </div>
@@ -974,32 +985,32 @@ ${footer}`;
 
             {/* Notes */}
             {viewingHoaDon.ghiChu && (
-              <div>
-                <h3 className="text-sm md:text-base font-semibold mb-2">Ghi chú</h3>
-                <p className="text-xs md:text-sm text-gray-600">{viewingHoaDon.ghiChu}</p>
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+                <h3 className="text-sm md:text-base font-semibold text-indigo-900 mb-2">Ghi chú</h3>
+                <p className="text-xs md:text-sm text-indigo-700">{viewingHoaDon.ghiChu}</p>
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-2 pt-3 md:pt-4 border-t">
-              <Button variant="outline" size="sm" onClick={() => setIsViewDialogOpen(false)} className="w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 pt-3 md:pt-4 border-t border-indigo-100">
+              <Button variant="outline" size="sm" onClick={() => setIsViewDialogOpen(false)} className="w-full sm:w-auto border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                 Đóng
               </Button>
-              <Button variant="outline" size="sm" onClick={() => handleCopyLink(viewingHoaDon)} className="w-full sm:w-auto">
+              <Button variant="outline" size="sm" onClick={() => handleCopyLink(viewingHoaDon)} className="w-full sm:w-auto border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                 <Copy className="h-3 w-3 md:h-4 md:w-4 mr-2" />
                 Copy link
               </Button>
-              <Button variant="outline" size="sm" onClick={() => handleDownload(viewingHoaDon)} className="w-full sm:w-auto">
+              <Button variant="outline" size="sm" onClick={() => handleDownload(viewingHoaDon)} className="w-full sm:w-auto border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                 <Download className="h-3 w-3 md:h-4 md:w-4 mr-2" />
                 Tải HTML
               </Button>
-              <Button size="sm" onClick={() => handleScreenshot(viewingHoaDon)} className="w-full sm:w-auto">
+              <Button size="sm" onClick={() => handleScreenshot(viewingHoaDon)} className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200">
                 <Camera className="h-3 w-3 md:h-4 md:w-4 mr-2" />
                 Xuất PDF
               </Button>
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Send Notification - Inline Card */}
@@ -1081,16 +1092,16 @@ ${footer}`;
         };
 
         return (
-          <Card className="border-blue-200 bg-blue-50/30">
-            <CardContent className="p-4 md:p-6">
+          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+            <div className="p-4 md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-base font-semibold">Gửi thông báo tiền phòng</h3>
-                  <p className="text-xs md:text-sm text-gray-500">
+                  <h3 className="text-base font-semibold text-indigo-900">Gửi thông báo tiền phòng</h3>
+                  <p className="text-xs md:text-sm text-indigo-500/70">
                     Gửi thông tin hóa đơn tháng {sendingHoaDon.thang}/{sendingHoaDon.nam} cho khách thuê
                   </p>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setIsSendDialogOpen(false)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-indigo-600 hover:bg-indigo-50" onClick={() => setIsSendDialogOpen(false)}>
                   <CloseIcon className="h-4 w-4" />
                 </Button>
               </div>
@@ -1098,29 +1109,29 @@ ${footer}`;
               <div className="space-y-4">
                 {/* Preview message */}
                 <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Nội dung tin nhắn</label>
-                  <pre className="text-xs bg-white border rounded p-3 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
+                  <label className="text-xs font-medium text-indigo-700 mb-1 block">Nội dung tin nhắn</label>
+                  <pre className="text-xs bg-white/80 border border-indigo-100 rounded-xl p-3 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto text-indigo-700">
                     {message}
                   </pre>
                 </div>
 
                 {canZalo ? (
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-indigo-600 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
                     Gửi đến:{' '}
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-indigo-900">
                       {phone || `Chat ID: ${zaloChatId}`}
                     </span>
                     {zaloChatId && <span className="ml-1 text-xs text-green-600">(đã liên kết Zalo)</span>}
                   </div>
                 ) : (
-                  <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded">
+                  <div className="rounded-xl border-2 border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-800 backdrop-blur-sm">
                     Khách thuê chưa có số điện thoại hoặc chưa liên kết Zalo Chat ID
                   </div>
                 )}
 
                 {/* Zalo Bot auto send */}
                 <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
                   disabled={!canZalo || isSendingZalo || isSendingZaloPdf}
                   onClick={handleSendViaZaloBot}
                 >
@@ -1131,7 +1142,7 @@ ${footer}`;
                 {/* Gửi kèm PDF */}
                 <Button
                   variant="outline"
-                  className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                  className="w-full border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                   disabled={!canZalo || isSendingZalo || isSendingZaloPdf}
                   onClick={handleSendWithPdf}
                 >
@@ -1141,10 +1152,10 @@ ${footer}`;
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+                    <span className="w-full border-t border-indigo-100" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-gray-400">hoặc thủ công</span>
+                    <span className="bg-gradient-to-br from-indigo-50/80 to-blue-50/80 px-2 text-indigo-400">hoặc thủ công</span>
                   </div>
                 </div>
 
@@ -1157,7 +1168,7 @@ ${footer}`;
                         toast.success('Đã sao chép tin nhắn');
                       });
                     }}
-                    className="w-full text-xs"
+                    className="w-full text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                   >
                     <Copy className="h-3.5 w-3.5 mr-1" />
                     Copy
@@ -1169,7 +1180,7 @@ ${footer}`;
                     onClick={() => {
                       window.location.href = `sms:${phone}?body=${encodedMessage}`;
                     }}
-                    className="w-full text-xs text-green-600 hover:bg-green-50 border-green-200"
+                    className="w-full text-xs border-indigo-200 text-green-600 hover:bg-green-50"
                   >
                     <Send className="h-3.5 w-3.5 mr-1" />
                     SMS
@@ -1181,36 +1192,36 @@ ${footer}`;
                     onClick={() => {
                       window.location.href = `tel:${phone}`;
                     }}
-                    className="w-full text-xs"
+                    className="w-full text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50"
                   >
                     <Phone className="h-3.5 w-3.5 mr-1" />
                     Gọi
                   </Button>
                 </div>
 
-                <div className="flex justify-end pt-2 border-t">
-                  <Button variant="outline" size="sm" onClick={() => setIsSendDialogOpen(false)}>
+                <div className="flex justify-end pt-2 border-t border-indigo-100">
+                  <Button variant="outline" size="sm" onClick={() => setIsSendDialogOpen(false)} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                     Đóng
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         );
       })()}
 
       {/* Payment - Inline Card */}
       {isPaymentDialogOpen && paymentHoaDon && (
-        <Card className="border-blue-200 bg-blue-50/30">
-          <CardContent className="p-4 md:p-6">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+          <div className="p-4 md:p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-semibold">Xác nhận thanh toán</h3>
-                <p className="text-xs md:text-sm text-gray-500">
+                <h3 className="text-base font-semibold text-indigo-900">Xác nhận thanh toán</h3>
+                <p className="text-xs md:text-sm text-indigo-500/70">
                   Tạo thanh toán cho hóa đơn {paymentHoaDon.maHoaDon}
                 </p>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setIsPaymentDialogOpen(false)}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-indigo-600 hover:bg-indigo-50" onClick={() => setIsPaymentDialogOpen(false)}>
                 <CloseIcon className="h-4 w-4" />
               </Button>
             </div>
@@ -1227,28 +1238,28 @@ ${footer}`;
                 }
               }}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Cancel Invoice - Inline Card */}
       {isCancelDialogOpen && (
-        <Card className="border-red-200 bg-red-50/30">
-          <CardContent className="p-4 md:p-6">
+        <div className="rounded-xl border-0 bg-gradient-to-br from-red-50/80 to-orange-50/80 shadow-lg shadow-red-100/50">
+          <div className="p-4 md:p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-semibold">Hủy hóa đơn</h3>
-                <p className="text-sm text-gray-500">
+                <h3 className="text-base font-semibold text-red-800">Hủy hóa đơn</h3>
+                <p className="text-sm text-red-600/70">
                   Bạn đang thực hiện hủy hóa đơn <span className="font-semibold">{cancelHoaDon?.maHoaDon}</span>. Hành động này không thể hoàn tác.
                 </p>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setIsCancelDialogOpen(false)}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-red-600 hover:bg-red-50" onClick={() => setIsCancelDialogOpen(false)}>
                 <CloseIcon className="h-4 w-4" />
               </Button>
             </div>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="cancelReason" className="text-sm">Lý do hủy (bắt buộc) <span className="text-red-500">*</span></Label>
+                <Label htmlFor="cancelReason" className="text-sm text-red-800">Lý do hủy (bắt buộc) <span className="text-red-500">*</span></Label>
                 <Textarea
                   id="cancelReason"
                   placeholder="Nhập lý do hủy hóa đơn..."
@@ -1256,13 +1267,14 @@ ${footer}`;
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCancelReason(e.target.value)}
                   rows={3}
                   required
+                  className="border-red-200 focus:border-red-400"
                 />
               </div>
-              <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+              <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs text-amber-800 backdrop-blur-sm">
                 Lưu ý: Tổng tiền còn lại sẽ được đưa về 0. Khách thuê sẽ nhận được thông báo Zalo hóa đơn đã bị hủy (nếu đã cấu hình).
               </div>
-              <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2 border-t">
-                <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)} disabled={isCanceling} className="w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2 border-t border-red-100">
+                <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)} disabled={isCanceling} className="w-full sm:w-auto border-red-200 text-red-600 hover:bg-red-50">
                   Đóng
                 </Button>
                 <Button variant="destructive" onClick={handleConfirmCancel} disabled={!cancelReason.trim() || isCanceling} className="w-full sm:w-auto">
@@ -1271,8 +1283,8 @@ ${footer}`;
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1348,27 +1360,27 @@ function PaymentForm({
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Thông tin hóa đơn */}
-      <div className="bg-gray-50 p-3 md:p-4 rounded-xl">
-        <h3 className="text-sm md:text-base font-semibold mb-3">Thông tin hóa đơn</h3>
+      <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 md:p-4 shadow-sm">
+        <h3 className="text-sm md:text-base font-semibold text-indigo-900 mb-3">Thông tin hóa đơn</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
           <div>
-            <span className="text-gray-600">Mã hóa đơn:</span>
-            <div className="font-medium">{hoaDon.maHoaDon}</div>
+            <span className="text-indigo-500">Mã hóa đơn:</span>
+            <div className="font-medium text-indigo-900">{hoaDon.maHoaDon}</div>
           </div>
           <div>
-            <span className="text-gray-600">Tháng/Năm:</span>
-            <div className="font-medium">{hoaDon.thang}/{hoaDon.nam}</div>
+            <span className="text-indigo-500">Tháng/Năm:</span>
+            <div className="font-medium text-indigo-900">{hoaDon.thang}/{hoaDon.nam}</div>
           </div>
           <div>
-            <span className="text-gray-600">Tổng tiền:</span>
-            <div className="font-medium">{formatCurrency(hoaDon.tongTien)}</div>
+            <span className="text-indigo-500">Tổng tiền:</span>
+            <div className="font-medium text-indigo-900">{formatCurrency(hoaDon.tongTien)}</div>
           </div>
           <div>
-            <span className="text-gray-600">Đã thanh toán:</span>
+            <span className="text-indigo-500">Đã thanh toán:</span>
             <div className="font-medium text-green-600">{formatCurrency(hoaDon.daThanhToan)}</div>
           </div>
           <div className="col-span-2">
-            <span className="text-gray-600">Còn lại:</span>
+            <span className="text-indigo-500">Còn lại:</span>
             <div className="font-medium text-red-600 text-lg">{formatCurrency(hoaDon.conLai)}</div>
           </div>
         </div>
@@ -1377,7 +1389,7 @@ function PaymentForm({
       {/* Form thanh toán */}
       <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="soTien" className="text-xs md:text-sm">Số tiền thanh toán (VNĐ) *</Label>
+          <Label htmlFor="soTien" className="text-xs md:text-sm font-semibold text-indigo-900">Số tiền thanh toán (VNĐ) *</Label>
           <Input
             id="soTien"
             type="number"
@@ -1388,13 +1400,13 @@ function PaymentForm({
             required
             className="text-base md:text-lg"
           />
-          <div className="text-[10px] md:text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md">
+          <div className="text-[10px] md:text-sm text-indigo-600 bg-indigo-50/80 border border-indigo-100 px-3 py-2 rounded-md">
             💰 Tối đa có thể thanh toán: <span className="font-semibold">{formatCurrency(hoaDon.conLai)}</span>
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phuongThuc" className="text-xs md:text-sm">Phương thức thanh toán *</Label>
+          <Label htmlFor="phuongThuc" className="text-xs md:text-sm font-semibold text-indigo-900">Phương thức thanh toán *</Label>
           <Select value={formData.phuongThuc} onValueChange={(value) => setFormData(prev => ({ ...prev, phuongThuc: value as 'tienMat' | 'chuyenKhoan' | 'viDienTu' }))}>
             <SelectTrigger className="h-10 md:h-12 text-sm">
               <SelectValue placeholder="Chọn phương thức thanh toán" />
@@ -1408,13 +1420,16 @@ function PaymentForm({
         </div>
 
         {formData.phuongThuc === 'chuyenKhoan' && (
-          <div className="space-y-3 md:space-y-4 p-3 md:p-4 bg-green-50 rounded-xl border border-green-200">
-            <h4 className="text-xs md:text-sm font-semibold text-green-800 flex items-center gap-2">
-              🏦 Thông tin chuyển khoản
+          <div className="space-y-3 md:space-y-4 p-3 md:p-4 rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm shadow-sm">
+            <h4 className="text-xs md:text-sm font-semibold text-indigo-900 flex items-center gap-2">
+              <div className="h-6 w-6 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <CreditCard className="h-3 w-3 text-white" />
+              </div>
+              Thông tin chuyển khoản
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               <div className="space-y-2">
-                <Label htmlFor="nganHang" className="text-xs md:text-sm">Ngân hàng</Label>
+                <Label htmlFor="nganHang" className="text-xs md:text-sm font-semibold text-indigo-900">Ngân hàng</Label>
                 <Input
                   id="nganHang"
                   value={formData.nganHang}
@@ -1425,7 +1440,7 @@ function PaymentForm({
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="soGiaoDich" className="text-xs md:text-sm">Số giao dịch/Mã tham chiếu</Label>
+                <Label htmlFor="soGiaoDich" className="text-xs md:text-sm font-semibold text-indigo-900">Số giao dịch/Mã tham chiếu</Label>
                 <Input
                   id="soGiaoDich"
                   value={formData.soGiaoDich}
@@ -1440,7 +1455,7 @@ function PaymentForm({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           <div className="space-y-2">
-            <Label htmlFor="ngayThanhToan" className="text-xs md:text-sm">Ngày thanh toán *</Label>
+            <Label htmlFor="ngayThanhToan" className="text-xs md:text-sm font-semibold text-indigo-900">Ngày thanh toán *</Label>
             <Input
               id="ngayThanhToan"
               type="date"
@@ -1452,7 +1467,7 @@ function PaymentForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="ghiChu" className="text-xs md:text-sm">Ghi chú</Label>
+            <Label htmlFor="ghiChu" className="text-xs md:text-sm font-semibold text-indigo-900">Ghi chú</Label>
             <Input
               id="ghiChu"
               value={formData.ghiChu}
@@ -1464,7 +1479,7 @@ function PaymentForm({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs md:text-sm">Ảnh biên lai thanh toán</Label>
+          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Ảnh biên lai thanh toán</Label>
           <ImageUpload
             imageUrl={formData.anhBienLai}
             onImageChange={(url) => setFormData(prev => ({ ...prev, anhBienLai: url }))}
@@ -1475,14 +1490,14 @@ function PaymentForm({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 pt-4 md:pt-6 border-t">
+        <div className="flex flex-col sm:flex-row gap-2 pt-4 md:pt-6 border-t border-indigo-100">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={onClose}
             disabled={submitting}
-            className="w-full sm:w-auto sm:min-w-[100px]"
+            className="w-full sm:w-auto sm:min-w-[100px] border-indigo-200 text-indigo-600 hover:bg-indigo-50"
           >
             Hủy
           </Button>
@@ -1490,7 +1505,7 @@ function PaymentForm({
             type="submit"
             size="sm"
             disabled={submitting}
-            className="w-full sm:w-auto sm:min-w-[160px]"
+            className="w-full sm:w-auto sm:min-w-[160px] bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
           >
             <CreditCard className="h-3 w-3 md:h-4 md:w-4 mr-2" />
             {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
