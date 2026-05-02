@@ -56,6 +56,7 @@ import {
   Bot,
   Phone,
   Radio,
+  Server,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, PillTabs } from "@/components/dashboard";
@@ -2515,6 +2516,12 @@ export default function CaiDatPage() {
   );
   const [selectedAlertCategory, setSelectedAlertCategory] = useState<string | null>(null);
 
+  // Tree-style category states for multi-section tabs
+  const [selectedHaCategory, setSelectedHaCategory] = useState<string | null>(null);
+  const [selectedLuuTruCategory, setSelectedLuuTruCategory] = useState<string | null>(null);
+  const [selectedAiCategory, setSelectedAiCategory] = useState<string | null>(null);
+  const [selectedDisplayCategory, setSelectedDisplayCategory] = useState<string | null>(null);
+
   // --- Cài đặt giao diện (cho tất cả users) ---
   const [fontSettings, setFontSettings] = useState({
     fontFamily: "Inter",
@@ -3492,75 +3499,171 @@ export default function CaiDatPage() {
 
         {/* ── Tab Home Assistant ──────────────────────────────────────────────── */}
         {activeTab === "homeAssistant" && isAdmin && !loadingSystem && !errorSystem && (
-          <div className="space-y-4 mt-4">
-            <AdminToaNhaSettingsPanel tab="ha" />
-            <ZaloWebhookCard
-              currentWebhookId={currentWebhookId}
-              webhookBaseUrl={webhookBaseUrl}
-              webhookDomainUrl={webhookDomainUrl}
-              webhookFullUrl={webhookFullUrl}
-              webhookDomainFullUrl={webhookDomainFullUrl}
-              webhookIdGenerating={webhookIdGenerating}
-              webhookTestLoading={webhookTestLoading}
-              webhookTestResult={webhookTestResult}
-              botWebhookUrl={botWebhookUrl}
-              botWebhookLoading={botWebhookLoading}
-              botWebhookResult={botWebhookResult}
-              onChangeBaseUrl={setWebhookBaseUrl}
-              onChangeDomainUrl={setWebhookDomainUrl}
-              onSaveBaseUrl={handleSaveBaseUrl}
-              onSaveDomainUrl={handleSaveDomainUrl}
-              onGenerate={handleGenerateWebhookId}
-              onTest={handleTestWebhook}
-              onChangeBotUrl={setBotWebhookUrl}
-              onSetBotWebhook={() => handleBotSetWebhook()}
-            />
+          <div className="mt-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Left column: tree-style category list */}
+              <div className="w-full lg:w-72 shrink-0 space-y-2">
+                <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
+                  <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
+                    <Webhook className="h-3.5 w-3.5 inline mr-1" />
+                    Home Assistant
+                  </p>
+                  {[
+                    { key: 'haConfig', label: 'Cấu hình Home Assistant', icon: <Webhook className="h-3.5 w-3.5 text-indigo-500" /> },
+                    { key: 'webhook', label: 'Webhook', icon: <Webhook className="h-3.5 w-3.5 text-blue-500" /> },
+                  ].map(cat => {
+                    const isSelected = selectedHaCategory === cat.key;
+                    return (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        onClick={() => setSelectedHaCategory(isSelected ? null : cat.key)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
+                          isSelected
+                            ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                            : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                        }`}
+                      >
+                        <span className="shrink-0">{cat.icon}</span>
+                        <span className="truncate">{cat.label}</span>
+                        {isSelected
+                          ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
+                          : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
+                        }
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right column: content for selected category */}
+              <div className="flex-1 min-w-0">
+                {!selectedHaCategory ? (
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-8 text-center">
+                    <Webhook className="mx-auto h-8 w-8 text-indigo-300 mb-2" />
+                    <p className="text-sm text-indigo-400">Chọn một danh mục bên trái để xem cài đặt</p>
+                  </div>
+                ) : selectedHaCategory === 'haConfig' ? (
+                  <AdminToaNhaSettingsPanel tab="ha" />
+                ) : (
+                  <ZaloWebhookCard
+                    currentWebhookId={currentWebhookId}
+                    webhookBaseUrl={webhookBaseUrl}
+                    webhookDomainUrl={webhookDomainUrl}
+                    webhookFullUrl={webhookFullUrl}
+                    webhookDomainFullUrl={webhookDomainFullUrl}
+                    webhookIdGenerating={webhookIdGenerating}
+                    webhookTestLoading={webhookTestLoading}
+                    webhookTestResult={webhookTestResult}
+                    botWebhookUrl={botWebhookUrl}
+                    botWebhookLoading={botWebhookLoading}
+                    botWebhookResult={botWebhookResult}
+                    onChangeBaseUrl={setWebhookBaseUrl}
+                    onChangeDomainUrl={setWebhookDomainUrl}
+                    onSaveBaseUrl={handleSaveBaseUrl}
+                    onSaveDomainUrl={handleSaveDomainUrl}
+                    onGenerate={handleGenerateWebhookId}
+                    onTest={handleTestWebhook}
+                    onChangeBotUrl={setBotWebhookUrl}
+                    onSetBotWebhook={() => handleBotSetWebhook()}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         {/* ── Tab Lưu trữ ───────────────────────────────────────────────────── */}
         {activeTab === "luuTru" && isAdmin && !loadingSystem && !errorSystem && (
-          <div className="space-y-4 mt-4">
-            <AdminToaNhaSettingsPanel tab="storage" />
-            <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-              <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                  <HardDrive className="h-4 w-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-base md:text-lg font-semibold text-indigo-900">Tự động xóa file cũ</h3>
-                  <p className="text-xs text-indigo-500/70">Sau bao nhiêu ngày thì xóa file/ảnh khỏi lưu trữ để tránh đầy bộ nhớ.</p>
+          <div className="mt-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Left column: tree-style category list */}
+              <div className="w-full lg:w-72 shrink-0 space-y-2">
+                <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
+                  <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
+                    <HardDrive className="h-3.5 w-3.5 inline mr-1" />
+                    Lưu trữ
+                  </p>
+                  {[
+                    { key: 'storageConfig', label: 'Cấu hình lưu trữ theo tòa nhà', icon: <Server className="h-3.5 w-3.5 text-indigo-500" /> },
+                    { key: 'cleanup', label: 'Tự động xóa file cũ', icon: <HardDrive className="h-3.5 w-3.5 text-orange-500" /> },
+                  ].map(cat => {
+                    const isSelected = selectedLuuTruCategory === cat.key;
+                    return (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        onClick={() => setSelectedLuuTruCategory(isSelected ? null : cat.key)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
+                          isSelected
+                            ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                            : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                        }`}
+                      >
+                        <span className="shrink-0">{cat.icon}</span>
+                        <span className="truncate">{cat.label}</span>
+                        {isSelected
+                          ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
+                          : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
+                        }
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="p-4 md:p-6 space-y-4">
-                {(settingsByGroup["luuTru"] ?? [])
-                  .filter(s => s.khoa === 'storage_cleanup_days_zalo' || s.khoa === 'storage_cleanup_days_invoice')
-                  .map(item => (
-                    <div key={item.khoa} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                      <Label className="text-xs md:text-sm font-semibold text-indigo-900">{item.moTa}</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={settingValues[item.khoa] ?? ''}
-                        onChange={(e) => handleSettingChange(item.khoa, e.target.value)}
-                        className="text-sm"
-                        placeholder="0 = không xóa"
-                      />
+
+              {/* Right column: content for selected category */}
+              <div className="flex-1 min-w-0">
+                {!selectedLuuTruCategory ? (
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-8 text-center">
+                    <HardDrive className="mx-auto h-8 w-8 text-indigo-300 mb-2" />
+                    <p className="text-sm text-indigo-400">Chọn một danh mục bên trái để xem cài đặt</p>
+                  </div>
+                ) : selectedLuuTruCategory === 'storageConfig' ? (
+                  <AdminToaNhaSettingsPanel tab="storage" />
+                ) : (
+                  <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+                    <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                        <HardDrive className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-base md:text-lg font-semibold text-indigo-900">Tự động xóa file cũ</h3>
+                        <p className="text-xs text-indigo-500/70">Sau bao nhiêu ngày thì xóa file/ảnh khỏi lưu trữ để tránh đầy bộ nhớ.</p>
+                      </div>
                     </div>
-                  ))}
-                <Button
-                  size="sm"
-                  className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
-                  onClick={() => handleSaveGroup("luuTru")}
-                  disabled={savingGroup === "luuTru"}
-                >
-                  {savingGroup === "luuTru" ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  Lưu cài đặt xóa tự động
-                </Button>
+                    <div className="p-4 md:p-6 space-y-4">
+                      {(settingsByGroup["luuTru"] ?? [])
+                        .filter(s => s.khoa === 'storage_cleanup_days_zalo' || s.khoa === 'storage_cleanup_days_invoice')
+                        .map(item => (
+                          <div key={item.khoa} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                            <Label className="text-xs md:text-sm font-semibold text-indigo-900">{item.moTa}</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={settingValues[item.khoa] ?? ''}
+                              onChange={(e) => handleSettingChange(item.khoa, e.target.value)}
+                              className="text-sm"
+                              placeholder="0 = không xóa"
+                            />
+                          </div>
+                        ))}
+                      <Button
+                        size="sm"
+                        className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
+                        onClick={() => handleSaveGroup("luuTru")}
+                        disabled={savingGroup === "luuTru"}
+                      >
+                        {savingGroup === "luuTru" ? (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-2" />
+                        )}
+                        Lưu cài đặt xóa tự động
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -3568,15 +3671,63 @@ export default function CaiDatPage() {
 
         {/* ── Tab AI (chỉ admin) ─────────────────────────────────────────────── */}
         {activeTab === "ai" && isAdmin && !loadingSystem && !errorSystem && (
-          <div className="space-y-4 mt-4">
-            <AdminAiSettingsPanel
-              items={settingsByGroup["ai"] ?? []}
-              values={settingValues}
-              onChange={handleSettingChange}
-              onSave={handleSaveGroup}
-              saving={savingGroup === "ai"}
-            />
-            <AdminAiAccountsPanel />
+          <div className="mt-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Left column: tree-style category list */}
+              <div className="w-full lg:w-72 shrink-0 space-y-2">
+                <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
+                  <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
+                    <Bot className="h-3.5 w-3.5 inline mr-1" />
+                    AI
+                  </p>
+                  {[
+                    { key: 'aiConfig', label: 'Cấu hình AI', icon: <Bot className="h-3.5 w-3.5 text-indigo-500" /> },
+                    { key: 'aiAccounts', label: 'Tài khoản AI', icon: <Users className="h-3.5 w-3.5 text-blue-500" /> },
+                  ].map(cat => {
+                    const isSelected = selectedAiCategory === cat.key;
+                    return (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        onClick={() => setSelectedAiCategory(isSelected ? null : cat.key)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
+                          isSelected
+                            ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                            : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                        }`}
+                      >
+                        <span className="shrink-0">{cat.icon}</span>
+                        <span className="truncate">{cat.label}</span>
+                        {isSelected
+                          ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
+                          : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
+                        }
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right column: content for selected category */}
+              <div className="flex-1 min-w-0">
+                {!selectedAiCategory ? (
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-8 text-center">
+                    <Bot className="mx-auto h-8 w-8 text-indigo-300 mb-2" />
+                    <p className="text-sm text-indigo-400">Chọn một danh mục bên trái để xem cài đặt</p>
+                  </div>
+                ) : selectedAiCategory === 'aiConfig' ? (
+                  <AdminAiSettingsPanel
+                    items={settingsByGroup["ai"] ?? []}
+                    values={settingValues}
+                    onChange={handleSettingChange}
+                    onSave={handleSaveGroup}
+                    saving={savingGroup === "ai"}
+                  />
+                ) : (
+                  <AdminAiAccountsPanel />
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -3617,202 +3768,209 @@ export default function CaiDatPage() {
 
         {/* ── Tab Giao diện (tất cả users) ──────────────────────────────────── */}
         {activeTab === "display" && (
-          <div className="space-y-4 mt-4">
-            {/* Font Settings */}
-            <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-              <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                  <Type className="h-4 w-4 md:h-5 md:w-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-base md:text-lg font-semibold text-indigo-900">Cài đặt Font chữ</h3>
-                  <p className="text-xs text-indigo-500/70">Tùy chỉnh font chữ và kích thước hiển thị</p>
+          <div className="mt-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Left column: tree-style category list */}
+              <div className="w-full lg:w-72 shrink-0 space-y-2">
+                <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
+                  <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
+                    <Monitor className="h-3.5 w-3.5 inline mr-1" />
+                    Giao diện
+                  </p>
+                  {[
+                    { key: 'font', label: 'Font chữ', icon: <Type className="h-3.5 w-3.5 text-indigo-500" /> },
+                    { key: 'ui', label: 'Giao diện', icon: <Monitor className="h-3.5 w-3.5 text-blue-500" /> },
+                  ].map(cat => {
+                    const isSelected = selectedDisplayCategory === cat.key;
+                    return (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        onClick={() => setSelectedDisplayCategory(isSelected ? null : cat.key)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
+                          isSelected
+                            ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                            : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                        }`}
+                      >
+                        <span className="shrink-0">{cat.icon}</span>
+                        <span className="truncate">{cat.label}</span>
+                        {isSelected
+                          ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
+                          : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
+                        }
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="space-y-4 p-4 md:p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Font chữ</Label>
-                    <Select
-                      value={fontSettings.fontFamily}
-                      onValueChange={(v) =>
-                        setFontSettings((p) => ({ ...p, fontFamily: v }))
-                      }
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[
-                          "Inter",
-                          "Roboto",
-                          "Open Sans",
-                          "Lato",
-                          "Montserrat",
-                          "Poppins",
-                          "Nunito",
-                          "Times New Roman",
-                        ].map((f) => (
-                          <SelectItem key={f} value={f} className="text-sm">
-                            {f}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Cỡ chữ</Label>
-                    <Select
-                      value={fontSettings.fontSize}
-                      onValueChange={(v) =>
-                        setFontSettings((p) => ({ ...p, fontSize: v }))
-                      }
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="small" className="text-sm">
-                          Nhỏ
-                        </SelectItem>
-                        <SelectItem value="medium" className="text-sm">
-                          Trung bình
-                        </SelectItem>
-                        <SelectItem value="large" className="text-sm">
-                          Lớn
-                        </SelectItem>
-                        <SelectItem value="extra-large" className="text-sm">
-                          Rất lớn
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Khoảng cách dòng</Label>
-                    <Select
-                      value={fontSettings.lineHeight}
-                      onValueChange={(v) =>
-                        setFontSettings((p) => ({ ...p, lineHeight: v }))
-                      }
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="tight" className="text-sm">
-                          Chặt
-                        </SelectItem>
-                        <SelectItem value="normal" className="text-sm">
-                          Bình thường
-                        </SelectItem>
-                        <SelectItem value="relaxed" className="text-sm">
-                          Thoải mái
-                        </SelectItem>
-                        <SelectItem value="loose" className="text-sm">
-                          Rộng rãi
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Độ đậm chữ</Label>
-                    <Select
-                      value={fontSettings.fontWeight}
-                      onValueChange={(v) =>
-                        setFontSettings((p) => ({ ...p, fontWeight: v }))
-                      }
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="light" className="text-sm">
-                          Nhạt
-                        </SelectItem>
-                        <SelectItem value="normal" className="text-sm">
-                          Bình thường
-                        </SelectItem>
-                        <SelectItem value="medium" className="text-sm">
-                          Vừa
-                        </SelectItem>
-                        <SelectItem value="semibold" className="text-sm">
-                          Đậm vừa
-                        </SelectItem>
-                        <SelectItem value="bold" className="text-sm">
-                          Đậm
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
-                  onClick={handleSaveFontSettings}
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Lưu font chữ
-                </Button>
-              </div>
-            </div>
 
-            {/* UI Settings */}
-            <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-              <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                  <Monitor className="h-4 w-4 md:h-5 md:w-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-base md:text-lg font-semibold text-indigo-900">Giao diện</h3>
-                </div>
-              </div>
-              <div className="space-y-4 p-4 md:p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Chủ đề</Label>
-                    <Select
-                      value={uiSettings.theme}
-                      onValueChange={handleThemeChange}
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="light" className="text-sm">
-                          Sáng
-                        </SelectItem>
-                        <SelectItem value="dark" className="text-sm">
-                          Tối
-                        </SelectItem>
-                        <SelectItem value="auto" className="text-sm">
-                          Tự động
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+              {/* Right column: content for selected category */}
+              <div className="flex-1 min-w-0">
+                {!selectedDisplayCategory ? (
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-8 text-center">
+                    <Monitor className="mx-auto h-8 w-8 text-indigo-300 mb-2" />
+                    <p className="text-sm text-indigo-400">Chọn một danh mục bên trái để xem cài đặt</p>
                   </div>
-                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Mật độ hiển thị</Label>
-                    <Select
-                      value={uiSettings.density}
-                      onValueChange={handleDensityChange}
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="compact" className="text-sm">
-                          Chật
-                        </SelectItem>
-                        <SelectItem value="comfortable" className="text-sm">
-                          Thoải mái
-                        </SelectItem>
-                        <SelectItem value="spacious" className="text-sm">
-                          Rộng rãi
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                ) : selectedDisplayCategory === 'font' ? (
+                  <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+                    <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                        <Type className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-base md:text-lg font-semibold text-indigo-900">Cài đặt Font chữ</h3>
+                        <p className="text-xs text-indigo-500/70">Tùy chỉnh font chữ và kích thước hiển thị</p>
+                      </div>
+                    </div>
+                    <div className="space-y-4 p-4 md:p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Font chữ</Label>
+                          <Select
+                            value={fontSettings.fontFamily}
+                            onValueChange={(v) =>
+                              setFontSettings((p) => ({ ...p, fontFamily: v }))
+                            }
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[
+                                "Inter",
+                                "Roboto",
+                                "Open Sans",
+                                "Lato",
+                                "Montserrat",
+                                "Poppins",
+                                "Nunito",
+                                "Times New Roman",
+                              ].map((f) => (
+                                <SelectItem key={f} value={f} className="text-sm">
+                                  {f}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Cỡ chữ</Label>
+                          <Select
+                            value={fontSettings.fontSize}
+                            onValueChange={(v) =>
+                              setFontSettings((p) => ({ ...p, fontSize: v }))
+                            }
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="small" className="text-sm">Nhỏ</SelectItem>
+                              <SelectItem value="medium" className="text-sm">Trung bình</SelectItem>
+                              <SelectItem value="large" className="text-sm">Lớn</SelectItem>
+                              <SelectItem value="extra-large" className="text-sm">Rất lớn</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Khoảng cách dòng</Label>
+                          <Select
+                            value={fontSettings.lineHeight}
+                            onValueChange={(v) =>
+                              setFontSettings((p) => ({ ...p, lineHeight: v }))
+                            }
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="tight" className="text-sm">Chặt</SelectItem>
+                              <SelectItem value="normal" className="text-sm">Bình thường</SelectItem>
+                              <SelectItem value="relaxed" className="text-sm">Thoải mái</SelectItem>
+                              <SelectItem value="loose" className="text-sm">Rộng rãi</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Độ đậm chữ</Label>
+                          <Select
+                            value={fontSettings.fontWeight}
+                            onValueChange={(v) =>
+                              setFontSettings((p) => ({ ...p, fontWeight: v }))
+                            }
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="light" className="text-sm">Nhạt</SelectItem>
+                              <SelectItem value="normal" className="text-sm">Bình thường</SelectItem>
+                              <SelectItem value="medium" className="text-sm">Vừa</SelectItem>
+                              <SelectItem value="semibold" className="text-sm">Đậm vừa</SelectItem>
+                              <SelectItem value="bold" className="text-sm">Đậm</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
+                        onClick={handleSaveFontSettings}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Lưu font chữ
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+                    <div className="flex items-center gap-3 p-4 md:p-6 border-b border-indigo-100">
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                        <Monitor className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-base md:text-lg font-semibold text-indigo-900">Giao diện</h3>
+                      </div>
+                    </div>
+                    <div className="space-y-4 p-4 md:p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Chủ đề</Label>
+                          <Select
+                            value={uiSettings.theme}
+                            onValueChange={handleThemeChange}
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="light" className="text-sm">Sáng</SelectItem>
+                              <SelectItem value="dark" className="text-sm">Tối</SelectItem>
+                              <SelectItem value="auto" className="text-sm">Tự động</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                          <Label className="text-xs md:text-sm font-semibold text-indigo-900">Mật độ hiển thị</Label>
+                          <Select
+                            value={uiSettings.density}
+                            onValueChange={handleDensityChange}
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="compact" className="text-sm">Chật</SelectItem>
+                              <SelectItem value="comfortable" className="text-sm">Thoải mái</SelectItem>
+                              <SelectItem value="spacious" className="text-sm">Rộng rãi</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
