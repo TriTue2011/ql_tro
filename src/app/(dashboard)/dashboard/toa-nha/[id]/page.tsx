@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft,
   Save,
@@ -16,6 +17,9 @@ import {
   Phone,
   UserCircle,
   Building2,
+  MapPin,
+  Edit,
+  Home,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ToaNha, LienHePhuTrach } from '@/types';
@@ -31,13 +35,15 @@ const tienNghiOptions = [
   { value: 'khuBepChung', label: 'Khu bếp chung' },
 ];
 
-export default function ChinhSuaToaNhaPage() {
+export default function ChiTietToaNhaPage() {
   const router = useRouter();
   const params = useParams();
   const toaNhaId = params.id as string;
 
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toaNhaData, setToaNhaData] = useState<any>(null);
   const [formData, setFormData] = useState({
     tenToaNha: '',
     soNha: '',
@@ -51,7 +57,7 @@ export default function ChinhSuaToaNhaPage() {
   const [newContact, setNewContact] = useState<LienHePhuTrach>({ ten: '', soDienThoai: '', vaiTro: '' });
 
   useEffect(() => {
-    document.title = 'Chỉnh sửa tòa nhà';
+    document.title = 'Chi tiết tòa nhà';
     fetchToaNha();
   }, []);
 
@@ -63,6 +69,7 @@ export default function ChinhSuaToaNhaPage() {
         const result = await response.json();
         if (result.success && result.data) {
           const toaNha = result.data;
+          setToaNhaData(toaNha);
           setFormData({
             tenToaNha: toaNha.tenToaNha || '',
             soNha: toaNha.diaChi?.soNha || '',
@@ -139,7 +146,9 @@ export default function ChinhSuaToaNhaPage() {
         const result = await response.json();
         if (result.success) {
           toast.success('Cập nhật tòa nhà thành công!');
-          router.push('/dashboard/toa-nha');
+          setEditing(false);
+          // Refresh data
+          fetchToaNha();
         } else {
           toast.error(result.message || 'Có lỗi xảy ra');
         }
@@ -155,6 +164,19 @@ export default function ChinhSuaToaNhaPage() {
     }
   };
 
+  const formatAddress = (diaChi: any) => {
+    if (!diaChi) return 'N/A';
+    return `${diaChi.soNha || ''} ${diaChi.duong || ''}, ${diaChi.phuong || ''}, ${diaChi.thanhPho || ''}`;
+  };
+
+  const getChuSoHuuDisplay = () => {
+    if (!toaNhaData?.chuSoHuu) return 'N/A';
+    if (typeof toaNhaData.chuSoHuu === 'object') {
+      return toaNhaData.chuSoHuu.ten || toaNhaData.chuSoHuu.email || toaNhaData.chuSoHuu.id || 'N/A';
+    }
+    return toaNhaData.chuSoHuu;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -165,195 +187,291 @@ export default function ChinhSuaToaNhaPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* Header */}
       <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
         <div className="flex items-center gap-3 md:gap-4 p-4 md:p-6">
           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
             <Building2 className="h-4 w-4 text-white" />
           </div>
           <div className="flex-1">
-            <h1 className="text-lg md:text-xl font-bold">Chỉnh sửa tòa nhà</h1>
-            <p className="text-sm text-gray-500">Cập nhật thông tin tòa nhà</p>
+            <h1 className="text-lg md:text-xl font-bold">{editing ? 'Chỉnh sửa tòa nhà' : toaNhaData?.tenToaNha || 'Chi tiết tòa nhà'}</h1>
+            <p className="text-sm text-gray-500">{editing ? 'Cập nhật thông tin tòa nhà' : 'Thông tin chi tiết tòa nhà'}</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/toa-nha')}>
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Quay lại
-          </Button>
+          <div className="flex items-center gap-2">
+            {!editing && (
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="rounded-xl">
+                <Edit className="h-4 w-4 mr-1" />
+                Chỉnh sửa
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/toa-nha')}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Quay lại
+            </Button>
+          </div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="p-4 md:p-6">
-          <CardTitle className="text-base">Thông tin tòa nhà</CardTitle>
-          <CardDescription className="text-sm">Chỉnh sửa thông tin bên dưới</CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 md:p-6">
-          <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="tenToaNha" className="text-sm">Tên tòa nhà</Label>
-              <Input
-                id="tenToaNha"
-                value={formData.tenToaNha}
-                onChange={(e) => setFormData(prev => ({ ...prev, tenToaNha: e.target.value }))}
-                required
-                className="text-sm"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+      {editing ? (
+        /* ─── EDIT MODE ─── */
+        <Card>
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="text-base">Thông tin tòa nhà</CardTitle>
+            <CardDescription className="text-sm">Chỉnh sửa thông tin bên dưới</CardDescription>
+          </CardHeader>
+          <CardContent className="p-4 md:p-6">
+            <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="soNha" className="text-sm">Số nhà</Label>
+                <Label htmlFor="tenToaNha" className="text-sm">Tên tòa nhà</Label>
                 <Input
-                  id="soNha"
-                  value={formData.soNha}
-                  onChange={(e) => setFormData(prev => ({ ...prev, soNha: e.target.value }))}
+                  id="tenToaNha"
+                  value={formData.tenToaNha}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tenToaNha: e.target.value }))}
                   required
                   className="text-sm"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="duong" className="text-sm">Tên đường</Label>
-                <Input
-                  id="duong"
-                  value={formData.duong}
-                  onChange={(e) => setFormData(prev => ({ ...prev, duong: e.target.value }))}
-                  required
-                  className="text-sm"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phuong" className="text-sm">Phường/Xã</Label>
-                <Input
-                  id="phuong"
-                  value={formData.phuong}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phuong: e.target.value }))}
-                  required
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="thanhPho" className="text-sm">Tỉnh/Thành phố</Label>
-                <Input
-                  id="thanhPho"
-                  value={formData.thanhPho}
-                  onChange={(e) => setFormData(prev => ({ ...prev, thanhPho: e.target.value }))}
-                  required
-                  className="text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="moTa" className="text-sm">Mô tả</Label>
-              <Textarea
-                id="moTa"
-                value={formData.moTa}
-                onChange={(e) => setFormData(prev => ({ ...prev, moTa: e.target.value }))}
-                rows={3}
-                className="text-sm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm">Tiện nghi chung</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {tienNghiOptions.map((option) => (
-                  <div key={option.value} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={option.value}
-                      checked={formData.tienNghiChung.includes(option.value)}
-                      onChange={(e) => handleTienNghiChange(option.value, e.target.checked)}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor={option.value} className="text-sm">{option.label}</Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Liên hệ phụ trách */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Liên hệ phụ trách</Label>
-              <p className="text-xs text-gray-500">Thêm các đầu mối liên hệ để khách thuê liên hệ khi cần hỗ trợ.</p>
-
-              {lienHePhuTrach.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 <div className="space-y-2">
-                  {lienHePhuTrach.map((lh, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-gray-50">
-                      <UserCircle className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium">{lh.ten}</span>
-                        {lh.vaiTro && <span className="text-xs text-gray-500 ml-1">({lh.vaiTro})</span>}
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <Phone className="h-3 w-3" />
-                          {lh.soDienThoai}
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleRemoveContact(index)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
+                  <Label htmlFor="soNha" className="text-sm">Số nhà</Label>
+                  <Input
+                    id="soNha"
+                    value={formData.soNha}
+                    onChange={(e) => setFormData(prev => ({ ...prev, soNha: e.target.value }))}
+                    required
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="duong" className="text-sm">Tên đường</Label>
+                  <Input
+                    id="duong"
+                    value={formData.duong}
+                    onChange={(e) => setFormData(prev => ({ ...prev, duong: e.target.value }))}
+                    required
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phuong" className="text-sm">Phường/Xã</Label>
+                  <Input
+                    id="phuong"
+                    value={formData.phuong}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phuong: e.target.value }))}
+                    required
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="thanhPho" className="text-sm">Tỉnh/Thành phố</Label>
+                  <Input
+                    id="thanhPho"
+                    value={formData.thanhPho}
+                    onChange={(e) => setFormData(prev => ({ ...prev, thanhPho: e.target.value }))}
+                    required
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="moTa" className="text-sm">Mô tả</Label>
+                <Textarea
+                  id="moTa"
+                  value={formData.moTa}
+                  onChange={(e) => setFormData(prev => ({ ...prev, moTa: e.target.value }))}
+                  rows={3}
+                  className="text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm">Tiện nghi chung</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {tienNghiOptions.map((option) => (
+                    <div key={option.value} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={option.value}
+                        checked={formData.tienNghiChung.includes(option.value)}
+                        onChange={(e) => handleTienNghiChange(option.value, e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor={option.value} className="text-sm">{option.label}</Label>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
 
-              <div className="grid grid-cols-1 gap-2 p-2 border rounded-md border-dashed">
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    placeholder="Tên liên hệ *"
-                    value={newContact.ten}
-                    onChange={e => setNewContact(prev => ({ ...prev, ten: e.target.value }))}
-                    className="text-sm"
-                  />
-                  <Input
-                    placeholder="Số điện thoại *"
-                    value={newContact.soDienThoai}
-                    onChange={e => setNewContact(prev => ({ ...prev, soDienThoai: e.target.value }))}
-                    className="text-sm"
-                  />
+              {/* Liên hệ phụ trách */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Liên hệ phụ trách</Label>
+                <p className="text-xs text-gray-500">Thêm các đầu mối liên hệ để khách thuê liên hệ khi cần hỗ trợ.</p>
+
+                {lienHePhuTrach.length > 0 && (
+                  <div className="space-y-2">
+                    {lienHePhuTrach.map((lh, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-gray-50">
+                        <UserCircle className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium">{lh.ten}</span>
+                          {lh.vaiTro && <span className="text-xs text-gray-500 ml-1">({lh.vaiTro})</span>}
+                          <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <Phone className="h-3 w-3" />
+                            {lh.soDienThoai}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleRemoveContact(index)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-2 p-2 border rounded-md border-dashed">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Tên liên hệ *"
+                      value={newContact.ten}
+                      onChange={e => setNewContact(prev => ({ ...prev, ten: e.target.value }))}
+                      className="text-sm"
+                    />
+                    <Input
+                      placeholder="Số điện thoại *"
+                      value={newContact.soDienThoai}
+                      onChange={e => setNewContact(prev => ({ ...prev, soDienThoai: e.target.value }))}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Vai trò (vd: Quản lý, Bảo vệ...)"
+                      value={newContact.vaiTro || ''}
+                      onChange={e => setNewContact(prev => ({ ...prev, vaiTro: e.target.value }))}
+                      className="text-sm flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAddContact}
+                      disabled={!newContact.ten.trim() || !newContact.soDienThoai.trim()}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Thêm
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Vai trò (vd: Quản lý, Bảo vệ...)"
-                    value={newContact.vaiTro || ''}
-                    onChange={e => setNewContact(prev => ({ ...prev, vaiTro: e.target.value }))}
-                    className="text-sm flex-1"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={handleAddContact}
-                    disabled={!newContact.ten.trim() || !newContact.soDienThoai.trim()}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Thêm
-                  </Button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 md:pt-6 border-t">
+                <Button type="button" variant="outline" onClick={() => { setEditing(false); fetchToaNha(); }} className="text-sm w-full sm:w-auto rounded-xl">
+                  Hủy
+                </Button>
+                <Button type="submit" disabled={saving} className="text-sm w-full sm:w-auto rounded-xl">
+                  <Save className="h-4 w-4 mr-1" />
+                  {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : (
+        /* ─── DETAIL / INFO MODE ─── */
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
+          <div className="p-4 md:p-6 space-y-4">
+            {/* Building name & address */}
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200 flex-shrink-0 mt-0.5">
+                <Home className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-bold text-indigo-900">{toaNhaData?.tenToaNha || 'N/A'}</h2>
+                <div className="flex items-start gap-1.5 text-sm text-indigo-500/70 mt-1">
+                  <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>{formatAddress(toaNhaData?.diaChi)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 md:pt-6 border-t">
-              <Button type="button" variant="outline" onClick={() => router.push('/dashboard/toa-nha')} className="text-sm w-full sm:w-auto">
-                Hủy
-              </Button>
-              <Button type="submit" disabled={saving} className="text-sm w-full sm:w-auto">
-                <Save className="h-4 w-4 mr-1" />
-                {saving ? 'Đang lưu...' : 'Cập nhật'}
-              </Button>
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 text-center shadow-sm">
+                <div className="text-xs text-indigo-500/70">Tổng phòng</div>
+                <div className="text-lg font-bold text-indigo-900">{toaNhaData?.tongSoPhong || 0}</div>
+              </div>
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 text-center shadow-sm">
+                <div className="text-xs text-indigo-500/70">Phòng trống</div>
+                <div className="text-lg font-bold text-green-600">{toaNhaData?.phongTrong || 0}</div>
+              </div>
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 text-center shadow-sm">
+                <div className="text-xs text-indigo-500/70">Đang thuê</div>
+                <div className="text-lg font-bold text-blue-600">{toaNhaData?.phongDangThue || 0}</div>
+              </div>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+
+            {/* Description */}
+            {toaNhaData?.moTa && (
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+                <span className="text-xs text-indigo-500/70 font-medium">Mô tả</span>
+                <p className="text-sm text-indigo-800 mt-1">{toaNhaData.moTa}</p>
+              </div>
+            )}
+
+            {/* Owner */}
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+              <span className="text-xs text-indigo-500/70 font-medium">Chủ sở hữu</span>
+              <p className="text-sm font-medium text-indigo-900 mt-1">{getChuSoHuuDisplay()}</p>
+            </div>
+
+            {/* Amenities */}
+            {toaNhaData?.tienNghiChung && toaNhaData.tienNghiChung.length > 0 && (
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+                <span className="text-xs text-indigo-500/70 font-medium">Tiện nghi chung</span>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {toaNhaData.tienNghiChung.map((tienNghi: string) => (
+                    <Badge key={tienNghi} variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
+                      {tienNghi}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Contact persons */}
+            {lienHePhuTrach.length > 0 && (
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm">
+                <span className="text-xs text-indigo-500/70 font-medium">Liên hệ phụ trách</span>
+                <div className="space-y-2 mt-2">
+                  {lienHePhuTrach.map((contact, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm bg-white/80 rounded-lg p-2">
+                      <UserCircle className="h-4 w-4 text-indigo-500 flex-shrink-0" />
+                      <span className="font-medium text-indigo-900">{contact.ten}</span>
+                      {contact.vaiTro && <span className="text-xs text-indigo-400">({contact.vaiTro})</span>}
+                      {contact.soDienThoai && (
+                        <span className="flex items-center gap-1 text-indigo-500/70 ml-auto">
+                          <Phone className="h-3.5 w-3.5" />{contact.soDienThoai}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
