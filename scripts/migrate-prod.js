@@ -2,6 +2,9 @@
 /**
  * Tự động apply Prisma migrations vào PostgreSQL trước khi build.
  * Chạy qua: npm run build (prebuild hook)
+ *
+ * Script này luôn kiểm tra và apply các migration chưa được áp dụng,
+ * không phụ thuộc vào trạng thái git.
  */
 
 const { Pool } = require('pg');
@@ -55,6 +58,8 @@ async function run() {
       .filter(f => fs.statSync(path.join(migrationsDir, f)).isDirectory())
       .sort();
 
+    let appliedCount = 0;
+
     for (const folder of folders) {
       const sqlFile = path.join(migrationsDir, folder, 'migration.sql');
       if (!fs.existsSync(sqlFile)) continue;
@@ -78,9 +83,14 @@ async function run() {
         [folder]
       );
       console.log(`[migrate]   OK: ${folder}`);
+      appliedCount++;
     }
 
-    console.log('[migrate] Tất cả migrations đã được apply.');
+    if (appliedCount > 0) {
+      console.log(`[migrate] Đã apply ${appliedCount} migration(s) mới.`);
+    } else {
+      console.log('[migrate] Tất cả migrations đã được apply, không có migration mới.');
+    }
   } catch (err) {
     console.error('[migrate] LỖI:', err.message);
     process.exit(1);
