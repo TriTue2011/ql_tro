@@ -58,7 +58,7 @@ export default function PageHeader({
             <Button
               size="sm"
               onClick={onAdd}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
             >
               <Plus className="h-4 w-4 mr-1.5" />
               {addLabel}

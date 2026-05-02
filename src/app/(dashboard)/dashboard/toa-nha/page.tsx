@@ -217,11 +217,15 @@ export default function ToaNhaPage() {
                             onCheckedChange={(v) => setSelectedId(v === true ? itemId : null)}
                             className="mt-1"
                           />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Building2 className="h-4 w-4 text-indigo-500" />
-                              <h3 className="font-semibold text-base text-indigo-900">{toaNha.tenToaNha}</h3>
-                            </div>
+                          <div className="flex-1 min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(toaNha)}
+                              className="flex items-center gap-2 mb-1 w-full text-left hover:opacity-80 transition-opacity"
+                            >
+                              <Building2 className="h-4 w-4 text-indigo-500 flex-shrink-0" />
+                              <h3 className="font-semibold text-base text-indigo-900 truncate">{toaNha.tenToaNha}</h3>
+                            </button>
                             <div className="flex items-start gap-1.5 text-xs text-indigo-500/70">
                               <MapPin className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                               <span className="line-clamp-2">{formatAddress(toaNha.diaChi)}</span>
