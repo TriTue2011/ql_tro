@@ -88,7 +88,6 @@ function buildNavGroups(role: Role): NavGroup[] {
         items: [
           { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
           { label: 'Phân quyền', href: '/dashboard/phan-quyen' },
-          { label: 'Lưu trữ MinIO', href: '/dashboard/luu-tru' },
         ],
       },
       {
