@@ -110,14 +110,16 @@ export default function ThemMoiToaNhaPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex items-center gap-3 md:gap-4">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/toa-nha')}>
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Quay lại
-        </Button>
-        <div>
-          <h1 className="text-lg md:text-xl font-bold">Thêm tòa nhà mới</h1>
-          <p className="text-sm text-gray-500">Nhập thông tin tòa nhà mới</p>
+      <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="flex items-center gap-3 md:gap-4 p-4 md:p-6">
+          <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/toa-nha')}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Quay lại
+          </Button>
+          <div>
+            <h1 className="text-lg md:text-xl font-bold">Thêm tòa nhà mới</h1>
+            <p className="text-sm text-gray-500">Nhập thông tin tòa nhà mới</p>
+          </div>
         </div>
       </div>
 

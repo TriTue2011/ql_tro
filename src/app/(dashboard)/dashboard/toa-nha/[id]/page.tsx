@@ -57,31 +57,34 @@ export default function ChinhSuaToaNhaPage() {
   const fetchToaNha = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/toa-nha');
+      const response = await fetch(`/api/toa-nha/${toaNhaId}`);
       if (response.ok) {
         const result = await response.json();
-        if (result.success) {
-          const toaNha = result.data.find((t: ToaNha) => t.id === toaNhaId);
-          if (toaNha) {
-            setFormData({
-              tenToaNha: toaNha.tenToaNha || '',
-              soNha: toaNha.diaChi?.soNha || '',
-              duong: toaNha.diaChi?.duong || '',
-              phuong: toaNha.diaChi?.phuong || '',
-              thanhPho: toaNha.diaChi?.thanhPho || '',
-              moTa: toaNha.moTa || '',
-              tienNghiChung: toaNha.tienNghiChung || [],
-            });
-            setLienHePhuTrach(toaNha.lienHePhuTrach || []);
-          } else {
-            toast.error('Không tìm thấy tòa nhà');
-            router.push('/dashboard/toa-nha');
-          }
+        if (result.success && result.data) {
+          const toaNha = result.data;
+          setFormData({
+            tenToaNha: toaNha.tenToaNha || '',
+            soNha: toaNha.diaChi?.soNha || '',
+            duong: toaNha.diaChi?.duong || '',
+            phuong: toaNha.diaChi?.phuong || '',
+            thanhPho: toaNha.diaChi?.thanhPho || '',
+            moTa: toaNha.moTa || '',
+            tienNghiChung: toaNha.tienNghiChung || [],
+          });
+          setLienHePhuTrach(toaNha.lienHePhuTrach || []);
+        } else {
+          toast.error(result.message || 'Không tìm thấy tòa nhà');
+          router.push('/dashboard/toa-nha');
         }
+      } else {
+        const error = await response.json().catch(() => ({ message: 'Không tìm thấy tòa nhà' }));
+        toast.error(error.message || 'Không tìm thấy tòa nhà');
+        router.push('/dashboard/toa-nha');
       }
     } catch (error) {
       console.error('Error fetching toa nha:', error);
       toast.error('Có lỗi xảy ra khi tải thông tin tòa nhà');
+      router.push('/dashboard/toa-nha');
     } finally {
       setLoading(false);
     }
@@ -161,14 +164,16 @@ export default function ChinhSuaToaNhaPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex items-center gap-3 md:gap-4">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/toa-nha')}>
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Quay lại
-        </Button>
-        <div>
-          <h1 className="text-lg md:text-xl font-bold">Chỉnh sửa tòa nhà</h1>
-          <p className="text-sm text-gray-500">Cập nhật thông tin tòa nhà</p>
+      <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+        <div className="flex items-center gap-3 md:gap-4 p-4 md:p-6">
+          <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/toa-nha')}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Quay lại
+          </Button>
+          <div>
+            <h1 className="text-lg md:text-xl font-bold">Chỉnh sửa tòa nhà</h1>
+            <p className="text-sm text-gray-500">Cập nhật thông tin tòa nhà</p>
+          </div>
         </div>
       </div>
 

@@ -140,8 +140,9 @@ export default function ToaNhaPage() {
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <PageHeader
-        title="Quản lý tòa nhà"
-        description="Danh sách tất cả tòa nhà trong hệ thống"
+        title=""
+        description="Quản lý tòa nhà — Danh sách tất cả tòa nhà trong hệ thống"
+        descriptionClassName="text-lg rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-1.5"
         onRefresh={handleRefresh}
         loading={cache.isRefreshing}
         onAdd={canEdit ? () => router.push('/dashboard/toa-nha/them-moi') : undefined}
