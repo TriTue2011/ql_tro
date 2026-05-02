@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   HardDrive,
@@ -16,14 +17,19 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  Copy,
-  ExternalLink,
   Save,
   FileText,
+  ExternalLink,
+  Building2,
 } from 'lucide-react';
 import PageHeader from '@/components/dashboard/page-header';
 
 // ── Types ───────────────────────────────────────────────────────────────────────
+interface Building {
+  id: string;
+  tenToaNha: string;
+}
+
 interface MinioConfig {
   endpoint: string;
   accessKey: string;
@@ -55,6 +61,9 @@ export default function LuuTruPage() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
+
   const [config, setConfig] = useState<MinioConfig>({
     endpoint: '',
     accessKey: '',
@@ -62,20 +71,36 @@ export default function LuuTruPage() {
     bucket: 'ql-tro',
   });
 
-  // ── Fetch current config ────────────────────────────────────────────────────
-  const fetchConfig = async () => {
-    setLoading(true);
+  // ── Load building list ──────────────────────────────────────────────────────
+  const fetchBuildings = async () => {
     try {
-      const res = await fetch('/api/admin/settings');
+      const res = await fetch('/api/admin/toa-nha-settings');
       const data = await res.json();
       if (data.success) {
-        const settings = data.data as Array<{ khoa: string; giaTri: string }>;
-        const getVal = (key: string) => settings.find((s: any) => s.khoa === key)?.giaTri ?? '';
+        setBuildings(data.data);
+        // Auto-select first building if none selected
+        if (data.data.length > 0 && !selectedBuildingId) {
+          setSelectedBuildingId(data.data[0].id);
+        }
+      }
+    } catch {
+      toast.error('Không thể tải danh sách tòa nhà');
+    }
+  };
+
+  // ── Fetch config for selected building ──────────────────────────────────────
+  const fetchConfig = async (toaNhaId: string) => {
+    if (!toaNhaId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/toa-nha-settings?toaNhaId=${toaNhaId}`);
+      const data = await res.json();
+      if (data.success) {
         setConfig({
-          endpoint: getVal('minio_endpoint'),
-          accessKey: getVal('minio_access_key'),
-          secretKey: getVal('minio_secret_key'),
-          bucket: getVal('minio_bucket') || 'ql-tro',
+          endpoint: data.data.minioEndpoint || '',
+          accessKey: data.data.minioAccessKey || '',
+          secretKey: data.data.minioSecretKey || '',
+          bucket: data.data.minioBucket || 'ql-tro',
         });
       } else {
         toast.error('Không thể tải cấu hình MinIO');
@@ -87,29 +112,43 @@ export default function LuuTruPage() {
     }
   };
 
-  useEffect(() => { fetchConfig(); }, []);
+  // Initial load
+  useEffect(() => {
+    fetchBuildings();
+  }, []);
 
-  // ── Save config ──────────────────────────────────────────────────────────────
+  // Load config when building changes
+  useEffect(() => {
+    if (selectedBuildingId) {
+      fetchConfig(selectedBuildingId);
+    }
+  }, [selectedBuildingId]);
+
+  // ── Save config (per-building) ──────────────────────────────────────────────
   const handleSave = async () => {
+    if (!selectedBuildingId) {
+      toast.error('Vui lòng chọn tòa nhà');
+      return;
+    }
     setSaving(true);
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetch('/api/admin/toa-nha-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          settings: [
-            { khoa: 'minio_endpoint', giaTri: config.endpoint },
-            { khoa: 'minio_access_key', giaTri: config.accessKey },
-            { khoa: 'minio_secret_key', giaTri: config.secretKey },
-            { khoa: 'minio_bucket', giaTri: config.bucket },
-          ],
+          toaNhaId: selectedBuildingId,
+          minioEndpoint: config.endpoint,
+          minioAccessKey: config.accessKey,
+          minioSecretKey: config.secretKey,
+          minioBucket: config.bucket,
+          storageProvider: config.endpoint ? 'minio' : 'local',
         }),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success('Đã lưu cấu hình MinIO');
+        toast.success('Đã lưu cấu hình MinIO cho tòa nhà');
       } else {
-        toast.error(data.message || 'Lỗi lưu cấu hình');
+        toast.error(data.error || data.message || 'Lỗi lưu cấu hình');
       }
     } catch {
       toast.error('Lỗi kết nối server');
@@ -126,12 +165,6 @@ export default function LuuTruPage() {
       const res = await fetch('/api/admin/settings/test-minio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: config.endpoint,
-          accessKey: config.accessKey,
-          secretKey: config.secretKey,
-          bucket: config.bucket,
-        }),
       });
       const data = await res.json();
       setTestResult(data);
@@ -157,11 +190,11 @@ export default function LuuTruPage() {
       <PageHeader
         title="Quản lý lưu trữ MinIO"
         description="Cấu hình kết nối MinIO để lưu trữ ảnh, file và tài liệu"
-        onRefresh={fetchConfig}
+        onRefresh={() => selectedBuildingId && fetchConfig(selectedBuildingId)}
         loading={loading}
       />
 
-      {/* ── Thông tin MinIO ─────────────────────────────────────────────────── */}
+      {/* ── Building Selector ────────────────────────────────────────────────── */}
       <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
         <div className="p-4 md:p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -170,117 +203,147 @@ export default function LuuTruPage() {
             </div>
             <div>
               <h2 className="text-base font-semibold text-indigo-900">Cấu hình MinIO</h2>
-              <p className="text-xs text-indigo-500">Nhập thông tin kết nối MinIO Server</p>
+              <p className="text-xs text-indigo-500">Cấu hình lưu trữ theo từng tòa nhà</p>
             </div>
           </div>
 
-          <div className="space-y-4 max-w-2xl">
-            {/* Endpoint */}
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-medium text-indigo-700">
-                <Server className="h-3.5 w-3.5" />
-                Endpoint URL
-              </label>
-              <Input
-                value={config.endpoint}
-                onChange={e => setConfig(p => ({ ...p, endpoint: e.target.value }))}
-                placeholder="http://192.168.1.100:9000"
-                className="bg-white/80 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400"
-              />
-              <p className="text-xs text-indigo-400">Địa chỉ MinIO server (ví dụ: http://172.16.10.27:9000)</p>
-            </div>
-
-            {/* Access Key */}
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-medium text-indigo-700">
-                <Key className="h-3.5 w-3.5" />
-                Access Key
-              </label>
-              <Input
-                value={config.accessKey}
-                onChange={e => setConfig(p => ({ ...p, accessKey: e.target.value }))}
-                placeholder="minioadmin"
-                className="bg-white/80 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400"
-              />
-            </div>
-
-            {/* Secret Key */}
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-medium text-indigo-700">
-                <Key className="h-3.5 w-3.5" />
-                Secret Key
-              </label>
-              <Input
-                type="password"
-                value={config.secretKey}
-                onChange={e => setConfig(p => ({ ...p, secretKey: e.target.value }))}
-                placeholder="••••••••"
-                className="bg-white/80 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400"
-              />
-            </div>
-
-            {/* Bucket */}
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-medium text-indigo-700">
-                <Database className="h-3.5 w-3.5" />
-                Bucket Name
-              </label>
-              <Input
-                value={config.bucket}
-                onChange={e => setConfig(p => ({ ...p, bucket: e.target.value }))}
-                placeholder="ql-tro"
-                className="bg-white/80 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400"
-              />
-              <p className="text-xs text-indigo-400">Tên bucket mặc định để lưu trữ file</p>
-            </div>
+          {/* Building selector */}
+          <div className="max-w-xs mb-6">
+            <label className="flex items-center gap-1.5 text-sm font-medium text-indigo-700 mb-1.5">
+              <Building2 className="h-3.5 w-3.5" />
+              Chọn tòa nhà
+            </label>
+            <Select value={selectedBuildingId} onValueChange={setSelectedBuildingId}>
+              <SelectTrigger className="bg-white/80 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400">
+                <SelectValue placeholder="Chọn tòa nhà..." />
+              </SelectTrigger>
+              <SelectContent>
+                {buildings.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>{b.tenToaNha}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <Separator className="my-5 bg-indigo-100" />
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+            </div>
+          ) : !selectedBuildingId ? (
+            <div className="py-8 text-center text-sm text-indigo-400">
+              Vui lòng chọn tòa nhà để cấu hình MinIO
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4 max-w-2xl">
+                {/* Endpoint */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-sm font-medium text-indigo-700">
+                    <Server className="h-3.5 w-3.5" />
+                    Endpoint URL
+                  </label>
+                  <Input
+                    value={config.endpoint}
+                    onChange={e => setConfig(p => ({ ...p, endpoint: e.target.value }))}
+                    placeholder="http://192.168.1.100:9000"
+                    className="bg-white/80 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400"
+                  />
+                  <p className="text-xs text-indigo-400">Địa chỉ MinIO server (ví dụ: http://172.16.10.27:9000)</p>
+                </div>
 
-          {/* Actions */}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              onClick={handleSave}
-              disabled={saving || !config.endpoint || !config.accessKey || !config.secretKey}
-              className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Lưu cấu hình
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleTest}
-              disabled={testing || !config.endpoint}
-              className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-            >
-              {testing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-              Kiểm tra kết nối
-            </Button>
-          </div>
+                {/* Access Key */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-sm font-medium text-indigo-700">
+                    <Key className="h-3.5 w-3.5" />
+                    Access Key
+                  </label>
+                  <Input
+                    value={config.accessKey}
+                    onChange={e => setConfig(p => ({ ...p, accessKey: e.target.value }))}
+                    placeholder="minioadmin"
+                    className="bg-white/80 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400"
+                  />
+                </div>
 
-          {/* Test result */}
-          {testResult && (
-            <div className={`mt-4 p-3 rounded-lg text-sm ${
-              testResult.success
-                ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-                : 'bg-red-50 border border-red-200 text-red-700'
-            }`}>
-              <div className="flex items-start gap-2">
-                {testResult.success
-                  ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-500" />
-                  : <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-500" />
-                }
-                <div>
-                  <p className="font-medium">{testResult.success ? 'Kết nối thành công' : 'Kết nối thất bại'}</p>
-                  <p className="mt-0.5 opacity-80">{testResult.message}</p>
-                  {testResult.buckets && testResult.buckets.length > 0 && (
-                    <p className="mt-1 text-xs opacity-70">
-                      Buckets: {testResult.buckets.join(', ')}
-                    </p>
-                  )}
+                {/* Secret Key */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-sm font-medium text-indigo-700">
+                    <Key className="h-3.5 w-3.5" />
+                    Secret Key
+                  </label>
+                  <Input
+                    type="password"
+                    value={config.secretKey}
+                    onChange={e => setConfig(p => ({ ...p, secretKey: e.target.value }))}
+                    placeholder="••••••••"
+                    className="bg-white/80 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400"
+                  />
+                </div>
+
+                {/* Bucket */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-sm font-medium text-indigo-700">
+                    <Database className="h-3.5 w-3.5" />
+                    Bucket Name
+                  </label>
+                  <Input
+                    value={config.bucket}
+                    onChange={e => setConfig(p => ({ ...p, bucket: e.target.value }))}
+                    placeholder="ql-tro"
+                    className="bg-white/80 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400"
+                  />
+                  <p className="text-xs text-indigo-400">Tên bucket mặc định để lưu trữ file</p>
                 </div>
               </div>
-            </div>
+
+              <Separator className="my-5 bg-indigo-100" />
+
+              {/* Actions */}
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={handleSave}
+                  disabled={saving || !config.endpoint || !config.accessKey || !config.secretKey}
+                  className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  Lưu cấu hình
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleTest}
+                  disabled={testing || !config.endpoint}
+                  className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                >
+                  {testing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  Kiểm tra kết nối
+                </Button>
+              </div>
+
+              {/* Test result */}
+              {testResult && (
+                <div className={`mt-4 p-3 rounded-lg text-sm ${
+                  testResult.success
+                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                    : 'bg-red-50 border border-red-200 text-red-700'
+                }`}>
+                  <div className="flex items-start gap-2">
+                    {testResult.success
+                      ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-500" />
+                      : <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-500" />
+                    }
+                    <div>
+                      <p className="font-medium">{testResult.success ? 'Kết nối thành công' : 'Kết nối thất bại'}</p>
+                      <p className="mt-0.5 opacity-80">{testResult.message}</p>
+                      {testResult.buckets && testResult.buckets.length > 0 && (
+                        <p className="mt-1 text-xs opacity-70">
+                          Buckets: {testResult.buckets.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -305,7 +368,7 @@ export default function LuuTruPage() {
             </div>
             <div className="flex items-start gap-2">
               <span className="text-amber-500 mt-0.5 shrink-0">•</span>
-              <span>Cấu hình MinIO được quản lý trong mục <strong>Cài đặt hệ thống → Lưu trữ</strong>. Bạn có thể thay đổi thông tin kết nối tại đây.</span>
+              <span>Cấu hình MinIO được quản lý <strong>theo từng tòa nhà</strong>. Chọn tòa nhà ở trên để cấu hình kết nối MinIO cho tòa nhà đó.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-amber-500 mt-0.5 shrink-0">•</span>
