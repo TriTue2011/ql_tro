@@ -13,9 +13,16 @@ import '@/styles/bs-admin.css';
 
 interface MonthRevenue { month: number; revenue: number; }
 
+interface ChuTroInfo {
+  id: string;
+  ten: string;
+  soDienThoai: string | null;
+  email: string | null;
+}
+
 interface AdminStats {
   tongToaNha: number;
-  danhSachToaNha: { id: string; tenToaNha: string; diaChi: string; ngayTao: string }[];
+  danhSachToaNha: { id: string; tenToaNha: string; diaChi: string; ngayTao: string; chuTro: ChuTroInfo | null }[];
 }
 
 interface BuildingUser {
@@ -426,6 +433,14 @@ export default function DashboardPage() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{tn.tenToaNha}</div>
                             <div style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tn.diaChi}</div>
+                            {tn.chuTro && (
+                              <div style={{ fontSize: 11, color: '#10b981', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <i className="bi bi-person-fill-gear" style={{ fontSize: 10 }} />
+                                <span>{tn.chuTro.ten}</span>
+                                <span style={{ color: '#9ca3af' }}>·</span>
+                                <span style={{ color: '#6b7280' }}>{tn.chuTro.soDienThoai || tn.chuTro.email || ''}</span>
+                              </div>
+                            )}
                           </div>
                           <div style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap', flexShrink: 0 }}>
                             {new Date(tn.ngayTao).toLocaleDateString('vi-VN')}

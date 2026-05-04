@@ -19,7 +19,20 @@ export async function GET() {
     prisma.toaNha.count(),
     prisma.toaNha.findMany({
       orderBy: { ngayTao: 'desc' },
-      select: { id: true, tenToaNha: true, diaChi: true, ngayTao: true },
+      select: {
+        id: true,
+        tenToaNha: true,
+        diaChi: true,
+        ngayTao: true,
+        chuSoHuu: {
+          select: {
+            id: true,
+            ten: true,
+            soDienThoai: true,
+            email: true,
+          },
+        },
+      },
     }),
   ]);
 
@@ -29,7 +42,15 @@ export async function GET() {
     const diaChiStr = d
       ? [d.soNha, d.duong, d.phuong, d.quan, d.thanhPho].filter(Boolean).join(', ')
       : '';
-    return { id: tn.id, tenToaNha: tn.tenToaNha, diaChi: diaChiStr, ngayTao: tn.ngayTao };
+    const chuTro = tn.chuSoHuu
+      ? {
+          id: tn.chuSoHuu.id,
+          ten: tn.chuSoHuu.ten,
+          soDienThoai: tn.chuSoHuu.soDienThoai,
+          email: tn.chuSoHuu.email,
+        }
+      : null;
+    return { id: tn.id, tenToaNha: tn.tenToaNha, diaChi: diaChiStr, ngayTao: tn.ngayTao, chuTro };
   });
 
   return NextResponse.json({

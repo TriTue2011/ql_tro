@@ -17,6 +17,7 @@ import {
   Phone,
   UserCircle,
   Building2,
+  UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ToaNha, LienHePhuTrach } from '@/types';
@@ -52,6 +53,13 @@ export default function ChiTietToaNhaPage() {
   });
   const [lienHePhuTrach, setLienHePhuTrach] = useState<LienHePhuTrach[]>([]);
   const [newContact, setNewContact] = useState<LienHePhuTrach>({ ten: '', soDienThoai: '', vaiTro: '' });
+  // Chủ trọ fields (admin only)
+  const [chuTroData, setChuTroData] = useState({
+    id: '',
+    ten: '',
+    soDienThoai: '',
+    email: '',
+  });
 
   useEffect(() => {
     document.title = 'Chỉnh sửa tòa nhà';
@@ -76,6 +84,15 @@ export default function ChiTietToaNhaPage() {
             tienNghiChung: toaNha.tienNghiChung || [],
           });
           setLienHePhuTrach(toaNha.lienHePhuTrach || []);
+          // Load chủ trọ info nếu có
+          if (toaNha.chuSoHuu) {
+            setChuTroData({
+              id: toaNha.chuSoHuu.id || '',
+              ten: toaNha.chuSoHuu.ten || '',
+              soDienThoai: toaNha.chuSoHuu.soDienThoai || '',
+              email: toaNha.chuSoHuu.email || '',
+            });
+          }
         } else {
           toast.error(result.message || 'Không tìm thấy tòa nhà');
           router.push('/dashboard/toa-nha');
@@ -119,6 +136,27 @@ export default function ChiTietToaNhaPage() {
     e.preventDefault();
     setSaving(true);
     try {
+      // Nếu là admin và có chủ trọ, cập nhật thông tin chủ trọ trước
+      if (isAdmin && chuTroData.id && chuTroData.ten) {
+        const userRes = await fetch(`/api/admin/users/${chuTroData.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: chuTroData.ten,
+            phone: chuTroData.soDienThoai || undefined,
+            role: 'chuNha',
+            isActive: true,
+          }),
+        });
+
+        if (!userRes.ok) {
+          const userErr = await userRes.json().catch(() => ({ error: 'Không thể cập nhật thông tin chủ trọ' }));
+          toast.error(userErr.error || 'Không thể cập nhật thông tin chủ trọ');
+          setSaving(false);
+          return;
+        }
+      }
+
       const submitData = {
         tenToaNha: formData.tenToaNha,
         diaChi: {
@@ -249,6 +287,44 @@ export default function ChiTietToaNhaPage() {
                 />
               </div>
             </div>
+
+            {/* Chủ trọ fields - chỉ hiển thị cho admin */}
+            {isAdmin && chuTroData.id && (
+              <div className="space-y-3 p-4 border-2 border-dashed border-indigo-200 rounded-xl bg-indigo-50/30">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="h-4 w-4 text-indigo-600" />
+                  <Label className="text-sm font-semibold text-indigo-700">Thông tin chủ trọ</Label>
+                </div>
+                <p className="text-xs text-gray-500">Cập nhật thông tin chủ trọ của tòa nhà này</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Tên chủ trọ</Label>
+                    <Input
+                      value={chuTroData.ten}
+                      onChange={(e) => setChuTroData(prev => ({ ...prev, ten: e.target.value }))}
+                      className="text-sm bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Số điện thoại</Label>
+                    <Input
+                      value={chuTroData.soDienThoai}
+                      onChange={(e) => setChuTroData(prev => ({ ...prev, soDienThoai: e.target.value }))}
+                      className="text-sm bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Email</Label>
+                    <Input
+                      type="email"
+                      value={chuTroData.email}
+                      onChange={(e) => setChuTroData(prev => ({ ...prev, email: e.target.value }))}
+                      className="text-sm bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {!isAdmin && (
               <div className="space-y-2">

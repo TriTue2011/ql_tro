@@ -16,6 +16,7 @@ import {
   Phone,
   UserCircle,
   Building2,
+  UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { LienHePhuTrach } from '@/types';
@@ -47,6 +48,13 @@ export default function ThemMoiToaNhaPage() {
   });
   const [lienHePhuTrach, setLienHePhuTrach] = useState<LienHePhuTrach[]>([]);
   const [newContact, setNewContact] = useState<LienHePhuTrach>({ ten: '', soDienThoai: '', vaiTro: '' });
+  // Chủ trọ fields (admin only)
+  const [chuTroData, setChuTroData] = useState({
+    ten: '',
+    soDienThoai: '',
+    email: '',
+    matKhau: '',
+  });
 
   const handleTienNghiChange = (tienNghi: string, checked: boolean) => {
     setFormData(prev => ({
@@ -73,7 +81,7 @@ export default function ThemMoiToaNhaPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const submitData = {
+      const submitData: Record<string, unknown> = {
         tenToaNha: formData.tenToaNha,
         diaChi: {
           soNha: formData.soNha,
@@ -85,6 +93,31 @@ export default function ThemMoiToaNhaPage() {
         tienNghiChung: formData.tienNghiChung,
         lienHePhuTrach,
       };
+
+      // Nếu là admin và có nhập thông tin chủ trọ → tạo tài khoản chủ trọ trước
+      if (isAdmin && chuTroData.ten && chuTroData.soDienThoai) {
+        const userRes = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: chuTroData.ten,
+            phone: chuTroData.soDienThoai,
+            email: chuTroData.email || undefined,
+            password: chuTroData.matKhau || undefined,
+            role: 'chuNha',
+          }),
+        });
+
+        if (!userRes.ok) {
+          const userErr = await userRes.json().catch(() => ({ error: 'Không thể tạo tài khoản chủ trọ' }));
+          toast.error(userErr.error || 'Không thể tạo tài khoản chủ trọ');
+          setSaving(false);
+          return;
+        }
+
+        const newUser = await userRes.json();
+        submitData.chuSoHuuId = newUser.id;
+      }
 
       const response = await fetch('/api/toa-nha', {
         method: 'POST',
@@ -193,6 +226,57 @@ export default function ThemMoiToaNhaPage() {
                 />
               </div>
             </div>
+
+            {/* Chủ trọ fields - chỉ hiển thị cho admin */}
+            {isAdmin && (
+              <div className="space-y-3 p-4 border-2 border-dashed border-indigo-200 rounded-xl bg-indigo-50/30">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="h-4 w-4 text-indigo-600" />
+                  <Label className="text-sm font-semibold text-indigo-700">Thông tin chủ trọ</Label>
+                </div>
+                <p className="text-xs text-gray-500">Tạo tài khoản chủ trọ cho tòa nhà này</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Tên chủ trọ</Label>
+                    <Input
+                      value={chuTroData.ten}
+                      onChange={(e) => setChuTroData(prev => ({ ...prev, ten: e.target.value }))}
+                      placeholder="Nguyễn Văn A"
+                      className="text-sm bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Số điện thoại</Label>
+                    <Input
+                      value={chuTroData.soDienThoai}
+                      onChange={(e) => setChuTroData(prev => ({ ...prev, soDienThoai: e.target.value }))}
+                      placeholder="0912345678"
+                      className="text-sm bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Email</Label>
+                    <Input
+                      type="email"
+                      value={chuTroData.email}
+                      onChange={(e) => setChuTroData(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="chutro@email.com"
+                      className="text-sm bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Mật khẩu</Label>
+                    <Input
+                      type="password"
+                      value={chuTroData.matKhau}
+                      onChange={(e) => setChuTroData(prev => ({ ...prev, matKhau: e.target.value }))}
+                      placeholder="Tối thiểu 6 ký tự"
+                      className="text-sm bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {!isAdmin && (
               <div className="space-y-2">

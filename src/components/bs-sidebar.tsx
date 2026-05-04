@@ -76,17 +76,9 @@ function buildNavGroups(role: Role): NavGroup[] {
   if (isAdmin) {
     return [
       {
-        label: 'Hệ thống',
-        icon: 'bi-building',
-        items: [
-          { label: 'Tòa nhà', href: '/dashboard/toa-nha' },
-        ],
-      },
-      {
         label: 'Quản trị',
         icon: 'bi-shield-lock',
         items: [
-          { label: 'Quản lý tài khoản', href: '/dashboard/quan-ly-tai-khoan' },
           { label: 'Phân quyền', href: '/dashboard/phan-quyen' },
         ],
       },
