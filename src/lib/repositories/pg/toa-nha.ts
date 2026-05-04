@@ -18,7 +18,7 @@ function normalize(raw: any): ToaNhaData {
     anhToaNha: raw.anhToaNha,
     chuSoHuuId: raw.chuSoHuuId,
     chuSoHuu: raw.chuSoHuu
-      ? { id: raw.chuSoHuu.id, ten: raw.chuSoHuu.ten, email: raw.chuSoHuu.email }
+      ? { id: raw.chuSoHuu.id, ten: raw.chuSoHuu.ten, email: raw.chuSoHuu.email, soDienThoai: raw.chuSoHuu.soDienThoai }
       : undefined,
     tongSoPhong: raw.tongSoPhong,
     tienNghiChung: raw.tienNghiChung,
@@ -33,7 +33,7 @@ export default class ToaNhaRepository {
   async findById(id: string): Promise<ToaNhaData | null> {
     const raw = await prisma.toaNha.findUnique({
       where: { id },
-      include: { chuSoHuu: { select: { id: true, ten: true, email: true } } },
+      include: { chuSoHuu: { select: { id: true, ten: true, email: true, soDienThoai: true } } },
     });
     if (!raw) return null;
     return normalize(raw);
@@ -66,7 +66,7 @@ export default class ToaNhaRepository {
         skip,
         take: limit,
         orderBy: { ngayTao: 'desc' },
-        include: { chuSoHuu: { select: { id: true, ten: true, email: true } } },
+        include: { chuSoHuu: { select: { id: true, ten: true, email: true, soDienThoai: true } } },
       }),
     ]);
 
