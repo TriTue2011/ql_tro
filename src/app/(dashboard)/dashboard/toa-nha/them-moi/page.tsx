@@ -129,7 +129,7 @@ export default function ThemMoiToaNhaPage() {
         const result = await response.json();
         if (result.success) {
           toast.success('Thêm tòa nhà thành công!');
-          router.push('/dashboard/toa-nha');
+          router.push(isAdmin ? '/dashboard' : '/dashboard/toa-nha');
         } else {
           toast.error(result.message || 'Có lỗi xảy ra');
         }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { hash } from 'bcryptjs';
 import { notifyTenantsOfNewManager } from '@/lib/zalo-auto-link';
 import { validateChucVuForRole } from '@/lib/chuc-vu';
 
@@ -45,7 +46,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, role, chucVu, isActive, zaloChatId, zaloChatIds, toaNhaId, toaNhaIds, zaloViTri } = body;
+    const { name, phone, role, chucVu, isActive, password, zaloChatId, zaloChatIds, toaNhaId, toaNhaIds, zaloViTri } = body;
 
     // chuNha/dongChuTro: chỉ được sửa dongChuTro/quanLy/nhanVien thuộc tòa nhà của mình
     if (callerRole !== 'admin') {
@@ -81,6 +82,9 @@ export async function PUT(
       if (role) updateData.vaiTro = role;
       if (role !== undefined || chucVu !== undefined) updateData.chucVu = chucVuResult.chucVu;
       if (isActive !== undefined) updateData.trangThai = isActive ? 'hoatDong' : 'khoa';
+      if (password) {
+        updateData.matKhau = await hash(password, 12);
+      }
       if (Array.isArray(zaloChatIds)) {
         updateData.zaloChatIds = zaloChatIds;
         if (zaloChatIds.length > 0) updateData.zaloChatId = zaloChatIds[0].threadId || zaloChatIds[0].userId || null;
@@ -140,6 +144,9 @@ export async function PUT(
       vaiTro: role,
       trangThai: isActive ? 'hoatDong' : 'khoa',
     };
+    if (password) {
+      updateData.matKhau = await hash(password, 12);
+    }
     if (role !== undefined || chucVu !== undefined) updateData.chucVu = chucVuResult.chucVu;
     if (Array.isArray(zaloChatIds)) {
       updateData.zaloChatIds = zaloChatIds;

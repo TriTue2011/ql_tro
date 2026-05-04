@@ -92,10 +92,18 @@ export default function DashboardPage() {
           chucVu: u.chucVu,
           quyenTheoToaNha: u.quyenTheoToaNha ?? {},
         }));
-        // Only show users assigned to this building
-        const filtered = users.filter((u: BuildingUser) =>
-          u.quyenTheoToaNha && u.quyenTheoToaNha[buildingId]
-        );
+        // Show users assigned to this building (via quyenTheoToaNha) OR the chủ trọ (owner)
+        const filtered = users.filter((u: BuildingUser) => {
+          // Check if user has permission entries for this building
+          if (u.quyenTheoToaNha && u.quyenTheoToaNha[buildingId]) return true;
+          // Also include chủ trọ (chuNha) — they are owners, may not have explicit permission entries
+          if (u.vaiTro === 'chuNha') {
+            // Check if this user is the owner of this building via the stats data
+            const building = adminStats?.danhSachToaNha.find(tn => tn.id === buildingId);
+            if (building?.chuTro?.id === u.id) return true;
+          }
+          return false;
+        });
         setBuildingUsers(filtered);
       }
     } catch {
@@ -103,7 +111,7 @@ export default function DashboardPage() {
     } finally {
       setBuildingUsersLoading(false);
     }
-  }, []);
+  }, [adminStats]);
 
   const handleBuildingClick = useCallback((buildingId: string) => {
     if (expandedBuildingId === buildingId) {
@@ -539,7 +547,11 @@ export default function DashboardPage() {
                             ) : (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                                 {buildingUsers.map((user) => {
-                                  const perms = user.quyenTheoToaNha?.[tn.id] ?? {};
+                                  // Chủ trọ gets fullAccess on all permissions by default
+                                  const isChuTro = user.vaiTro === 'chuNha';
+                                  const perms = isChuTro && !user.quyenTheoToaNha?.[tn.id]
+                                    ? Object.fromEntries(BUSINESS_PERMISSIONS.map(p => [p.key, 'fullAccess' as PermissionLevel]))
+                                    : (user.quyenTheoToaNha?.[tn.id] ?? {});
                                   const roleLabel =
                                     user.vaiTro === 'chuNha' ? 'Chủ trọ' :
                                     user.vaiTro === 'dongChuTro' ? 'Đồng chủ trọ' :
@@ -582,7 +594,7 @@ export default function DashboardPage() {
                                         items={BUSINESS_PERMISSIONS}
                                         values={perms as Record<string, PermissionLevel>}
                                         onChange={(key, value) => handlePermissionChange(user.id, tn.id, key, value)}
-                                        disabled={savingPerm?.startsWith(user.id) ?? false}
+                                        disabled={(savingPerm?.startsWith(user.id) ?? false) || isChuTro}
                                         columns={1}
                                         showGroup={true}
                                       />

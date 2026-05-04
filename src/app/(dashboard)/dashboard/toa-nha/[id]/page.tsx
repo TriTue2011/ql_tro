@@ -59,6 +59,7 @@ export default function ChiTietToaNhaPage() {
     ten: '',
     soDienThoai: '',
     email: '',
+    matKhau: '',
   });
 
   useEffect(() => {
@@ -138,15 +139,19 @@ export default function ChiTietToaNhaPage() {
     try {
       // Nếu là admin và có chủ trọ, cập nhật thông tin chủ trọ trước
       if (isAdmin && chuTroData.id && chuTroData.ten) {
+        const body: Record<string, unknown> = {
+          name: chuTroData.ten,
+          phone: chuTroData.soDienThoai || undefined,
+          role: 'chuNha',
+          isActive: true,
+        };
+        if (chuTroData.matKhau) {
+          body.password = chuTroData.matKhau;
+        }
         const userRes = await fetch(`/api/admin/users/${chuTroData.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: chuTroData.ten,
-            phone: chuTroData.soDienThoai || undefined,
-            role: 'chuNha',
-            isActive: true,
-          }),
+          body: JSON.stringify(body),
         });
 
         if (!userRes.ok) {
@@ -180,7 +185,7 @@ export default function ChiTietToaNhaPage() {
         const result = await response.json();
         if (result.success) {
           toast.success('Cập nhật tòa nhà thành công!');
-          router.push('/dashboard/toa-nha');
+          router.push(isAdmin ? '/dashboard' : '/dashboard/toa-nha');
         } else {
           toast.error(result.message || 'Có lỗi xảy ra');
         }
@@ -319,6 +324,16 @@ export default function ChiTietToaNhaPage() {
                       type="email"
                       value={chuTroData.email}
                       onChange={(e) => setChuTroData(prev => ({ ...prev, email: e.target.value }))}
+                      className="text-sm bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Mật khẩu</Label>
+                    <Input
+                      type="password"
+                      value={chuTroData.matKhau}
+                      onChange={(e) => setChuTroData(prev => ({ ...prev, matKhau: e.target.value }))}
+                      placeholder="Để trống nếu không đổi mật khẩu"
                       className="text-sm bg-white"
                     />
                   </div>
