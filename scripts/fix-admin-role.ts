@@ -1,13 +1,15 @@
 /**
  * Script CLI sửa lỗi "admin biến thành chủ trọ" - chạy trực tiếp trên server
- * 
+ *
  * Chạy: npx tsx scripts/fix-admin-role.ts
- * 
+ *
  * Công dụng:
- * 1. Tìm tất cả user có vaiTro = 'chuNha' nhưng thực chất là admin
- *    (nguoiTaoId = null hoặc email chứa 'admin')
- * 2. Khôi phục vaiTro của họ về 'admin'
+ * 1. Tìm tài khoản admin thật (email: tritue0610@gmail.com) đang bị vaiTro='chuNha'
+ * 2. Khôi phục vaiTro của admin về 'admin'
  * 3. Tìm các tòa nhà có chuSoHuuId trỏ vào admin và gán lại cho chủ trọ thật (nếu có)
+ *
+ * Có thể chỉ định email admin khác bằng biến môi trường ADMIN_EMAIL
+ *   ADMIN_EMAIL="admin@example.com" npx tsx scripts/fix-admin-role.ts
  */
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -80,40 +82,38 @@ async function fixAdminAccount(adminUser: { id: string; ten: string; email: stri
 async function main() {
   console.log('=== SỬA LỖI "ADMIN BIẾN THÀNH CHỦ TRỌ" ===\n');
 
-  // Tìm tất cả user có vaiTro = 'chuNha' nhưng thực chất là admin
-  // Dùng $queryRaw vì nguoiTaoId không có trong Prisma schema
-  const potentialAdmins = await prisma.$queryRaw<Array<{ id: string; ten: string; email: string | null; soDienThoai: string | null; vaiTro: string }>>`
-    SELECT id, ten, email, "soDienThoai", "vaiTro"
-    FROM "NguoiDung"
-    WHERE "vaiTro" = 'chuNha'
-      AND ("nguoiTaoId" IS NULL OR LOWER(email) LIKE '%admin%')
-    ORDER BY ten
-  `;
+  // Xác định email admin cần sửa (mặc định: tritue0610@gmail.com)
+  const adminEmail = process.env.ADMIN_EMAIL || 'tritue0610@gmail.com';
 
-  if (potentialAdmins.length === 0) {
-    console.log('Không tìm thấy tài khoản admin nào bị lỗi (vaiTro = "chuNha")');
+  // Tìm admin bằng email
+  const adminUser = await prisma.nguoiDung.findFirst({
+    where: { email: adminEmail.toLowerCase() },
+    select: { id: true, ten: true, email: true, soDienThoai: true, vaiTro: true },
+  });
+
+  if (!adminUser) {
+    console.log(`Không tìm thấy tài khoản với email "${adminEmail}"`);
     await prisma.$disconnect();
     return;
   }
 
-  console.log(`Tìm thấy ${potentialAdmins.length} tài khoản nghi là admin bị lỗi:\n`);
-  for (const acc of potentialAdmins) {
-    console.log(`  - "${acc.ten}" (${acc.email || acc.soDienThoai})`);
+  console.log(`Tìm thấy tài khoản: "${adminUser.ten}" (${adminUser.email || adminUser.soDienThoai})`);
+  console.log(`VaiTro hiện tại: "${adminUser.vaiTro}"\n`);
+
+  if (adminUser.vaiTro === 'admin') {
+    console.log('Tài khoản này đã có vaiTro = "admin", không cần sửa.');
+    await prisma.$disconnect();
+    return;
   }
 
-  console.log('\n--- Bắt đầu sửa ---\n');
-  let totalFixed = 0;
-  let totalBuildingsFixed = 0;
-
-  for (const acc of potentialAdmins) {
-    console.log(`\nĐang xử lý: "${acc.ten}" (${acc.email || acc.soDienThoai})...`);
-    const accResults = await fixAdminAccount(acc);
-    for (const r of accResults) {
-      console.log(r);
-    }
-    if (accResults.some(r => r.includes('✅'))) totalFixed++;
-    if (accResults.some(r => r.includes('Đã gán chuSoHuuId'))) totalBuildingsFixed++;
+  console.log('--- Bắt đầu sửa ---\n');
+  const results = await fixAdminAccount(adminUser);
+  for (const r of results) {
+    console.log(r);
   }
+
+  const totalFixed = results.some(r => r.includes('✅')) ? 1 : 0;
+  const totalBuildingsFixed = results.filter(r => r.includes('Đã gán chuSoHuuId')).length;
 
   console.log(`\n=== HOÀN TẤT ===`);
   console.log(`Đã sửa ${totalFixed} tài khoản admin, ${totalBuildingsFixed} tòa nhà`);
