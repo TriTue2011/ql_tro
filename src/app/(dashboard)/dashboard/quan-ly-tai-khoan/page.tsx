@@ -57,14 +57,22 @@ const ROLE_LABELS: Record<string, string> = {
   dongChuTro: 'Đồng chủ trọ',
   quanLy: 'Quản lý',
   nhanVien: 'Nhân viên',
+  admin: 'Quản trị viên',
 };
 
-const ROLE_OPTIONS = [
-  { value: 'chuNha', label: 'Chủ trọ' },
-  { value: 'dongChuTro', label: 'Đồng chủ trọ' },
-  { value: 'quanLy', label: 'Quản lý' },
-  { value: 'nhanVien', label: 'Nhân viên' },
-];
+function getRoleOptions(isAdmin: boolean) {
+  if (isAdmin) {
+    return [
+      { value: 'chuNha', label: 'Chủ trọ' },
+      { value: 'admin', label: 'Quản trị viên' },
+    ];
+  }
+  return [
+    { value: 'dongChuTro', label: 'Đồng chủ trọ' },
+    { value: 'quanLy', label: 'Quản lý' },
+    { value: 'nhanVien', label: 'Nhân viên' },
+  ];
+}
 
 const DEFAULT_ROLE_LIMITS: Record<string, number> = { chuNha: 1, dongChuTro: 2, quanLy: 3, nhanVien: 5 };
 
@@ -286,6 +294,11 @@ export default function AccountManagementPage() {
   };
 
   const filteredUsers = users.filter(user => {
+    // Admin only sees chuNha and admin users
+    if (isAdmin) {
+      const role = getUserRole(user);
+      if (role !== 'chuNha' && role !== 'admin') return false;
+    }
     const keyword = searchTerm.toLowerCase();
     const chucVuLabel = getChucVuLabel(getSafeChucVuForRole(getUserRole(user), user.chucVu));
     return (
@@ -311,8 +324,8 @@ export default function AccountManagementPage() {
       email: '',
       password: '',
       phone: '',
-      role: 'nhanVien',
-      chucVu: 'nhanVienKiemToanBo',
+      role: isAdmin ? 'chuNha' : 'nhanVien',
+      chucVu: isAdmin ? '' : 'nhanVienKiemToanBo',
       toaNhaIds: [],
     });
   };
@@ -589,7 +602,7 @@ export default function AccountManagementPage() {
                 <SelectValue placeholder="Chọn vai trò" />
               </SelectTrigger>
               <SelectContent>
-                {ROLE_OPTIONS.map(opt => (
+                {getRoleOptions(isAdmin).map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -692,11 +705,13 @@ export default function AccountManagementPage() {
         description={
           quanLyReadOnly
             ? 'Bạn chỉ có quyền xem, không thể chỉnh sửa'
-            : isChuNha || isDongChuTro
-              ? 'Quản lý tài khoản đồng chủ trọ, quản lý và nhân viên'
-              : isQuanLy
-                ? 'Quản lý tài khoản nhân viên'
-                : 'Quản lý người dùng, chức vụ và gán tòa nhà'
+            : isAdmin
+              ? 'Quản lý chủ trọ và quản trị viên. Các tài khoản khác do chủ trọ quản lý'
+              : isChuNha || isDongChuTro
+                ? 'Quản lý tài khoản đồng chủ trọ, quản lý và nhân viên'
+                : isQuanLy
+                  ? 'Quản lý tài khoản nhân viên'
+                  : 'Quản lý người dùng, chức vụ và gán tòa nhà'
         }
         onRefresh={handleRefresh}
         loading={cache.isRefreshing}
@@ -774,7 +789,7 @@ export default function AccountManagementPage() {
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLE_OPTIONS.map(opt => (
+                  {getRoleOptions(isAdmin).map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
                 </SelectContent>

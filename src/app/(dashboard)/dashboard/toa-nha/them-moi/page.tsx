@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,8 @@ const tienNghiOptions = [
 
 export default function ThemMoiToaNhaPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     tenToaNha: '',
@@ -191,102 +194,108 @@ export default function ThemMoiToaNhaPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="moTa" className="text-sm">Mô tả</Label>
-              <Textarea
-                id="moTa"
-                value={formData.moTa}
-                onChange={(e) => setFormData(prev => ({ ...prev, moTa: e.target.value }))}
-                rows={3}
-                className="text-sm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm">Tiện nghi chung</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {tienNghiOptions.map((option) => (
-                  <div key={option.value} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={option.value}
-                      checked={formData.tienNghiChung.includes(option.value)}
-                      onChange={(e) => handleTienNghiChange(option.value, e.target.checked)}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor={option.value} className="text-sm">{option.label}</Label>
-                  </div>
-                ))}
+            {!isAdmin && (
+              <div className="space-y-2">
+                <Label htmlFor="moTa" className="text-sm">Mô tả</Label>
+                <Textarea
+                  id="moTa"
+                  value={formData.moTa}
+                  onChange={(e) => setFormData(prev => ({ ...prev, moTa: e.target.value }))}
+                  rows={3}
+                  className="text-sm"
+                />
               </div>
-            </div>
+            )}
 
-            {/* Liên hệ phụ trách */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Liên hệ phụ trách</Label>
-              <p className="text-xs text-gray-500">Thêm các đầu mối liên hệ để khách thuê liên hệ khi cần hỗ trợ.</p>
-
-              {lienHePhuTrach.length > 0 && (
-                <div className="space-y-2">
-                  {lienHePhuTrach.map((lh, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-gray-50">
-                      <UserCircle className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium">{lh.ten}</span>
-                        {lh.vaiTro && <span className="text-xs text-gray-500 ml-1">({lh.vaiTro})</span>}
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <Phone className="h-3 w-3" />
-                          {lh.soDienThoai}
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleRemoveContact(index)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
+            {!isAdmin && (
+              <div className="space-y-2">
+                <Label className="text-sm">Tiện nghi chung</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {tienNghiOptions.map((option) => (
+                    <div key={option.value} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={option.value}
+                        checked={formData.tienNghiChung.includes(option.value)}
+                        onChange={(e) => handleTienNghiChange(option.value, e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor={option.value} className="text-sm">{option.label}</Label>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
+            )}
 
-              <div className="grid grid-cols-1 gap-2 p-2 border rounded-md border-dashed">
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    placeholder="Tên liên hệ *"
-                    value={newContact.ten}
-                    onChange={e => setNewContact(prev => ({ ...prev, ten: e.target.value }))}
-                    className="text-sm"
-                  />
-                  <Input
-                    placeholder="Số điện thoại *"
-                    value={newContact.soDienThoai}
-                    onChange={e => setNewContact(prev => ({ ...prev, soDienThoai: e.target.value }))}
-                    className="text-sm"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Vai trò (vd: Quản lý, Bảo vệ...)"
-                    value={newContact.vaiTro || ''}
-                    onChange={e => setNewContact(prev => ({ ...prev, vaiTro: e.target.value }))}
-                    className="text-sm flex-1"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={handleAddContact}
-                    disabled={!newContact.ten.trim() || !newContact.soDienThoai.trim()}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Thêm
-                  </Button>
+            {!isAdmin && (
+              /* Liên hệ phụ trách */
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Liên hệ phụ trách</Label>
+                <p className="text-xs text-gray-500">Thêm các đầu mối liên hệ để khách thuê liên hệ khi cần hỗ trợ.</p>
+
+                {lienHePhuTrach.length > 0 && (
+                  <div className="space-y-2">
+                    {lienHePhuTrach.map((lh, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-gray-50">
+                        <UserCircle className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium">{lh.ten}</span>
+                          {lh.vaiTro && <span className="text-xs text-gray-500 ml-1">({lh.vaiTro})</span>}
+                          <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <Phone className="h-3 w-3" />
+                            {lh.soDienThoai}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleRemoveContact(index)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-2 p-2 border rounded-md border-dashed">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Tên liên hệ *"
+                      value={newContact.ten}
+                      onChange={e => setNewContact(prev => ({ ...prev, ten: e.target.value }))}
+                      className="text-sm"
+                    />
+                    <Input
+                      placeholder="Số điện thoại *"
+                      value={newContact.soDienThoai}
+                      onChange={e => setNewContact(prev => ({ ...prev, soDienThoai: e.target.value }))}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Vai trò (vd: Quản lý, Bảo vệ...)"
+                      value={newContact.vaiTro || ''}
+                      onChange={e => setNewContact(prev => ({ ...prev, vaiTro: e.target.value }))}
+                      className="text-sm flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAddContact}
+                      disabled={!newContact.ten.trim() || !newContact.soDienThoai.trim()}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Thêm
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 md:pt-6 border-t">
               <Button type="button" variant="outline" onClick={() => router.push('/dashboard/toa-nha')} className="text-sm w-full sm:w-auto">
