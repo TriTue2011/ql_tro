@@ -178,6 +178,9 @@ export default function ProfilePage() {
     toast.success('Đã lưu cài đặt giao diện');
   };
 
+  // ── Appearance category state ─────────────────────────────────
+  const [appearanceCategory, setAppearanceCategory] = useState<string | null>('sidebar');
+
   // ── Tab state (MUST be before any early return) ───────────────
   const [activeTab, setActiveTab] = useState('profile');
 
@@ -762,145 +765,251 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* ── Giao diện ── */}
+      {/* ── Giao diện (tree style) ── */}
       {activeTab === 'appearance' && (
-        <div className="space-y-4 md:space-y-6">
-          {/* Sidebar style */}
-          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-            <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </div>
-              <h3 className="text-base font-bold text-indigo-900">Kiểu sidebar</h3>
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Left column: tree-style category list */}
+          <div className="w-full lg:w-72 shrink-0 space-y-2">
+            {/* Hiển thị group */}
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
+              <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
+                <Monitor className="h-3.5 w-3.5 inline mr-1" />
+                Hiển thị
+              </p>
+              {[
+                { key: 'sidebar', label: 'Kiểu sidebar', icon: <svg className="h-3.5 w-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg> },
+              ].map(cat => {
+                const isSelected = appearanceCategory === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setAppearanceCategory(isSelected ? null : cat.key)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
+                      isSelected
+                        ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                        : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                    }`}
+                  >
+                    <span className="shrink-0">{cat.icon}</span>
+                    <span className="truncate">{cat.label}</span>
+                    {isSelected
+                      ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
+                      : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
+                    }
+                  </button>
+                );
+              })}
             </div>
-            <div className="p-4 space-y-4">
-              {([
-                { value: 'default' as const, label: 'Mặc định', desc: 'Sidebar đầy đủ với tên menu' },
-                { value: 'compact' as const, label: 'Thu gọn', desc: 'Sidebar nhỏ chỉ hiện icon' },
-              ]).map((opt) => (
-                <div key={opt.value} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                  <Label className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</Label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="sidebarStyle"
-                      value={opt.value}
-                      checked={appearance.sidebarStyle === opt.value}
-                      onChange={() => updateAppearance({ sidebarStyle: opt.value })}
-                      className="accent-indigo-600"
-                    />
-                    <span className="text-xs text-indigo-500/70">{opt.desc}</span>
-                  </div>
-                </div>
-              ))}
+
+            {/* Phông chữ group */}
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
+              <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
+                <TextSelect className="h-3.5 w-3.5 inline mr-1" />
+                Phông chữ
+              </p>
+              {[
+                { key: 'fontFamily', label: 'Phông chữ', icon: <TextSelect className="h-3.5 w-3.5 text-blue-500" /> },
+              ].map(cat => {
+                const isSelected = appearanceCategory === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setAppearanceCategory(isSelected ? null : cat.key)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
+                      isSelected
+                        ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                        : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                    }`}
+                  >
+                    <span className="shrink-0">{cat.icon}</span>
+                    <span className="truncate">{cat.label}</span>
+                    {isSelected
+                      ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
+                      : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
+                    }
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Kích thước group */}
+            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
+              <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
+                <Type className="h-3.5 w-3.5 inline mr-1" />
+                Kích thước
+              </p>
+              {[
+                { key: 'fontSize', label: 'Cỡ chữ', icon: <Type className="h-3.5 w-3.5 text-yellow-500" /> },
+                { key: 'lineHeight', label: 'Khoảng cách dòng', icon: <ArrowUpDown className="h-3.5 w-3.5 text-green-500" /> },
+              ].map(cat => {
+                const isSelected = appearanceCategory === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setAppearanceCategory(isSelected ? null : cat.key)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
+                      isSelected
+                        ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                        : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                    }`}
+                  >
+                    <span className="shrink-0">{cat.icon}</span>
+                    <span className="truncate">{cat.label}</span>
+                    {isSelected
+                      ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
+                      : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
+                    }
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Font family */}
-          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-            <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                <TextSelect className="h-4 w-4 text-white" />
+          {/* Right column: content for selected category */}
+          <div className="flex-1 min-w-0">
+            {!appearanceCategory ? (
+              <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-8 text-center">
+                <Monitor className="mx-auto h-8 w-8 text-indigo-300 mb-2" />
+                <p className="text-sm text-indigo-400">Chọn một danh mục bên trái để xem cài đặt</p>
               </div>
-              <h3 className="text-base font-bold text-indigo-900">Phông chữ</h3>
-            </div>
-            <div className="p-4">
-              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                <Label className="text-xs md:text-sm font-semibold text-indigo-900">Chọn phông chữ</Label>
-                <Select
-                  value={appearance.fontFamily}
-                  onValueChange={(val) => updateAppearance({ fontFamily: val })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Chọn phông chữ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[
-                      { value: 'Inter', label: 'Inter (Mặc định)' },
-                      { value: 'Arial', label: 'Arial' },
-                      { value: 'Times New Roman', label: 'Times New Roman' },
-                      { value: 'Roboto', label: 'Roboto' },
-                      { value: 'Segoe UI', label: 'Segoe UI' },
-                      { value: 'Tahoma', label: 'Tahoma' },
-                      { value: 'Verdana', label: 'Verdana' },
-                      { value: 'Georgia', label: 'Georgia' },
-                      { value: 'Courier New', label: 'Courier New' },
-                    ].map((font) => (
-                      <SelectItem key={font.value} value={font.value}>
-                        <span style={{ fontFamily: font.value }}>{font.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            ) : appearanceCategory === 'sidebar' ? (
+              <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+                <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                    <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </div>
+                  <h3 className="text-base font-bold text-indigo-900">Kiểu sidebar</h3>
+                </div>
+                <div className="p-4 space-y-4">
+                  {([
+                    { value: 'default' as const, label: 'Mặc định', desc: 'Sidebar đầy đủ với tên menu' },
+                    { value: 'compact' as const, label: 'Thu gọn', desc: 'Sidebar nhỏ chỉ hiện icon' },
+                  ]).map((opt) => (
+                    <div key={opt.value} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                      <Label className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</Label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="sidebarStyle"
+                          value={opt.value}
+                          checked={appearance.sidebarStyle === opt.value}
+                          onChange={() => updateAppearance({ sidebarStyle: opt.value })}
+                          className="accent-indigo-600"
+                        />
+                        <span className="text-xs text-indigo-500/70">{opt.desc}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* Font size */}
-          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-            <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                <Type className="h-4 w-4 text-white" />
-              </div>
-              <h3 className="text-base font-bold text-indigo-900">Cỡ chữ</h3>
-            </div>
-            <div className="p-4 space-y-4">
-              {([
-                { value: 'small' as const, label: 'Nhỏ', desc: 'Phù hợp màn hình lớn, hiển thị nhiều dữ liệu' },
-                { value: 'medium' as const, label: 'Vừa', desc: 'Kích thước mặc định' },
-                { value: 'large' as const, label: 'Lớn', desc: 'Dễ đọc hơn trên thiết bị nhỏ' },
-              ]).map((opt) => (
-                <div key={opt.value} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                  <Label className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</Label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="fontSize"
-                      value={opt.value}
-                      checked={appearance.fontSize === opt.value}
-                      onChange={() => updateAppearance({ fontSize: opt.value })}
-                      className="accent-indigo-600"
-                    />
-                    <span className="text-xs text-indigo-500/70">{opt.desc}</span>
+            ) : appearanceCategory === 'fontFamily' ? (
+              <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+                <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                    <TextSelect className="h-4 w-4 text-white" />
+                  </div>
+                  <h3 className="text-base font-bold text-indigo-900">Phông chữ</h3>
+                </div>
+                <div className="p-4">
+                  <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                    <Label className="text-xs md:text-sm font-semibold text-indigo-900">Chọn phông chữ</Label>
+                    <Select
+                      value={appearance.fontFamily}
+                      onValueChange={(val) => updateAppearance({ fontFamily: val })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Chọn phông chữ" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[
+                          { value: 'Inter', label: 'Inter (Mặc định)' },
+                          { value: 'Arial', label: 'Arial' },
+                          { value: 'Times New Roman', label: 'Times New Roman' },
+                          { value: 'Roboto', label: 'Roboto' },
+                          { value: 'Segoe UI', label: 'Segoe UI' },
+                          { value: 'Tahoma', label: 'Tahoma' },
+                          { value: 'Verdana', label: 'Verdana' },
+                          { value: 'Georgia', label: 'Georgia' },
+                          { value: 'Courier New', label: 'Courier New' },
+                        ].map((font) => (
+                          <SelectItem key={font.value} value={font.value}>
+                            <span style={{ fontFamily: font.value }}>{font.label}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Line height */}
-          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
-            <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-                <ArrowUpDown className="h-4 w-4 text-white" />
               </div>
-              <h3 className="text-base font-bold text-indigo-900">Khoảng cách dòng</h3>
-            </div>
-            <div className="p-4 space-y-4">
-              {([
-                { value: 'tight' as const, label: 'Sít', desc: '1.2 — Phù hợp hiển thị nhiều nội dung' },
-                { value: 'normal' as const, label: 'Bình thường', desc: '1.5 — Khoảng cách mặc định' },
-                { value: 'relaxed' as const, label: 'Rộng', desc: '1.75 — Dễ đọc hơn' },
-                { value: 'loose' as const, label: 'Rất rộng', desc: '2.0 — Thoải mái nhất' },
-              ]).map((opt) => (
-                <div key={opt.value} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                  <Label className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</Label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="lineHeight"
-                      value={opt.value}
-                      checked={appearance.lineHeight === opt.value}
-                      onChange={() => updateAppearance({ lineHeight: opt.value })}
-                      className="accent-indigo-600"
-                    />
-                    <span className="text-xs text-indigo-500/70">{opt.desc}</span>
+            ) : appearanceCategory === 'fontSize' ? (
+              <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+                <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                    <Type className="h-4 w-4 text-white" />
                   </div>
+                  <h3 className="text-base font-bold text-indigo-900">Cỡ chữ</h3>
                 </div>
-              ))}
-            </div>
+                <div className="p-4 space-y-4">
+                  {([
+                    { value: 'small' as const, label: 'Nhỏ', desc: 'Phù hợp màn hình lớn, hiển thị nhiều dữ liệu' },
+                    { value: 'medium' as const, label: 'Vừa', desc: 'Kích thước mặc định' },
+                    { value: 'large' as const, label: 'Lớn', desc: 'Dễ đọc hơn trên thiết bị nhỏ' },
+                  ]).map((opt) => (
+                    <div key={opt.value} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                      <Label className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</Label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="fontSize"
+                          value={opt.value}
+                          checked={appearance.fontSize === opt.value}
+                          onChange={() => updateAppearance({ fontSize: opt.value })}
+                          className="accent-indigo-600"
+                        />
+                        <span className="text-xs text-indigo-500/70">{opt.desc}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : appearanceCategory === 'lineHeight' ? (
+              <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+                <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                    <ArrowUpDown className="h-4 w-4 text-white" />
+                  </div>
+                  <h3 className="text-base font-bold text-indigo-900">Khoảng cách dòng</h3>
+                </div>
+                <div className="p-4 space-y-4">
+                  {([
+                    { value: 'tight' as const, label: 'Sít', desc: '1.2 — Phù hợp hiển thị nhiều nội dung' },
+                    { value: 'normal' as const, label: 'Bình thường', desc: '1.5 — Khoảng cách mặc định' },
+                    { value: 'relaxed' as const, label: 'Rộng', desc: '1.75 — Dễ đọc hơn' },
+                    { value: 'loose' as const, label: 'Rất rộng', desc: '2.0 — Thoải mái nhất' },
+                  ]).map((opt) => (
+                    <div key={opt.value} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                      <Label className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</Label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="lineHeight"
+                          value={opt.value}
+                          checked={appearance.lineHeight === opt.value}
+                          onChange={() => updateAppearance({ lineHeight: opt.value })}
+                          className="accent-indigo-600"
+                        />
+                        <span className="text-xs text-indigo-500/70">{opt.desc}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
