@@ -686,62 +686,81 @@ export default function DashboardPage() {
                                 <Link href={`/dashboard/quan-ly-tai-khoan/them-moi`} style={{ color: '#6366f1' }}>Thêm người dùng</Link>
                               </div>
                             ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                {buildingUsers.map((user) => {
-                                  // Chủ trọ gets fullAccess on all permissions by default
-                                  const isChuTro = user.vaiTro === 'chuNha';
-                                  const perms = isChuTro && !user.quyenTheoToaNha?.[tn.id]
-                                    ? Object.fromEntries(BUSINESS_PERMISSIONS.map(p => [p.key, 'fullAccess' as PermissionLevel]))
-                                    : (user.quyenTheoToaNha?.[tn.id] ?? {});
-                                  const roleLabel =
-                                    user.vaiTro === 'chuNha' ? 'Chủ trọ' :
-                                    user.vaiTro === 'dongChuTro' ? 'Đồng chủ trọ' :
-                                    user.vaiTro === 'quanLy' ? 'Quản lý' :
-                                    user.vaiTro === 'admin' ? 'Admin' : 'Nhân viên';
-                                  const roleColor =
-                                    user.vaiTro === 'chuNha' ? '#10b981' :
-                                    user.vaiTro === 'dongChuTro' ? '#f59e0b' :
-                                    user.vaiTro === 'quanLy' ? '#6366f1' :
-                                    user.vaiTro === 'admin' ? '#ef4444' : '#6b7280';
-                                  return (
-                                    <div key={user.id} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                                        <div
-                                          style={{
-                                            width: 28,
-                                            height: 28,
-                                            borderRadius: 8,
-                                            background: `${roleColor}15`,
-                                            color: roleColor,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: 11,
-                                            fontWeight: 700,
-                                            flexShrink: 0,
-                                          }}
-                                        >
-                                          {(user.ten || '?').charAt(0).toUpperCase()}
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                          <div style={{ fontSize: 12, fontWeight: 600, color: '#1f2937' }}>{user.ten || 'Không tên'}</div>
-                                          <div style={{ fontSize: 11, color: roleColor }}>{roleLabel}{user.email ? ` · ${user.email}` : ''}</div>
-                                        </div>
-                                        <span style={{ fontSize: 10, color: '#9ca3af' }}>
-                                          {Object.values(perms).filter(v => v === 'fullAccess').length}/{Object.keys(perms).length} quyền
-                                        </span>
+                              <div>
+                                {/* ── Permission Tree: grouped by category, showing users under each ── */}
+                                {(() => {
+                                  // Build a map of permission key → list of users with their level
+                                  const permUserMap = new Map<string, { user: BuildingUser; level: PermissionLevel }[]>();
+                                  for (const user of buildingUsers) {
+                                    const isChuTro = user.vaiTro === 'chuNha';
+                                    const perms = isChuTro && !user.quyenTheoToaNha?.[tn.id]
+                                      ? Object.fromEntries(BUSINESS_PERMISSIONS.map(p => [p.key, 'fullAccess' as PermissionLevel]))
+                                      : (user.quyenTheoToaNha?.[tn.id] ?? {});
+                                    for (const p of BUSINESS_PERMISSIONS) {
+                                      const level = (perms[p.key] as PermissionLevel) || 'hidden';
+                                      if (!permUserMap.has(p.key)) permUserMap.set(p.key, []);
+                                      permUserMap.get(p.key)!.push({ user, level });
+                                    }
+                                  }
+                                  // Group permissions by their group
+                                  const grouped = BUSINESS_PERMISSIONS.reduce<Record<string, typeof BUSINESS_PERMISSIONS>>((acc, p) => {
+                                    if (!acc[p.group]) acc[p.group] = [];
+                                    acc[p.group].push(p);
+                                    return acc;
+                                  }, {});
+                                  return Object.entries(grouped).map(([groupName, perms]) => (
+                                    <div key={groupName} style={{ marginBottom: 16 }}>
+                                      <div style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8, padding: '0 4px' }}>
+                                        {groupName}
                                       </div>
-                                      <PermissionLevelSelector
-                                        items={BUSINESS_PERMISSIONS}
-                                        values={perms as Record<string, PermissionLevel>}
-                                        onChange={(key, value) => handlePermissionChange(user.id, tn.id, key, value)}
-                                        disabled={(savingPerm?.startsWith(user.id) ?? false) || isChuTro}
-                                        columns={1}
-                                        showGroup={true}
-                                      />
+                                      {perms.map(p => {
+                                        const entries = permUserMap.get(p.key) ?? [];
+                                        const fullAccessUsers = entries.filter(e => e.level === 'fullAccess');
+                                        const viewUsers = entries.filter(e => e.level === 'view');
+                                        const hiddenUsers = entries.filter(e => e.level === 'hidden');
+                                        return (
+                                          <div key={p.key} style={{ background: '#fff', borderRadius: 8, padding: '8px 12px', marginBottom: 6, border: '1px solid #ede9fe' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                              <span style={{ fontSize: 12, fontWeight: 600, color: '#1f2937' }}>{p.label}</span>
+                                              <span style={{ fontSize: 10, color: '#9ca3af' }}>
+                                                {fullAccessUsers.length} đầy đủ · {viewUsers.length} xem · {hiddenUsers.length} ẩn
+                                              </span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                              {entries.map(e => {
+                                                const roleColor = e.user.vaiTro === 'chuNha' ? '#10b981' : e.user.vaiTro === 'dongChuTro' ? '#f59e0b' : e.user.vaiTro === 'quanLy' ? '#6366f1' : '#6b7280';
+                                                const levelLabel = e.level === 'fullAccess' ? 'Đầy đủ' : e.level === 'view' ? 'Xem' : 'Ẩn';
+                                                const levelColor = e.level === 'fullAccess' ? '#10b981' : e.level === 'view' ? '#f59e0b' : '#d1d5db';
+                                                return (
+                                                  <div
+                                                    key={e.user.id}
+                                                    style={{
+                                                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                      padding: '2px 8px', borderRadius: 12,
+                                                      background: e.level === 'fullAccess' ? '#ecfdf5' : e.level === 'view' ? '#fffbeb' : '#f9fafb',
+                                                      border: `1px solid ${e.level === 'fullAccess' ? '#a7f3d0' : e.level === 'view' ? '#fde68a' : '#e5e7eb'}`,
+                                                      fontSize: 11, cursor: 'pointer',
+                                                    }}
+                                                    onClick={(ev) => {
+                                                      ev.stopPropagation();
+                                                      // Toggle: hidden → view → fullAccess → hidden
+                                                      const nextLevel = e.level === 'hidden' ? 'view' as PermissionLevel : e.level === 'view' ? 'fullAccess' as PermissionLevel : 'hidden' as PermissionLevel;
+                                                      handlePermissionChange(e.user.id, tn.id, p.key, nextLevel);
+                                                    }}
+                                                    title={`${e.user.ten}: ${levelLabel} — nhấn để đổi`}
+                                                  >
+                                                    <span style={{ color: roleColor, fontWeight: 700 }}>{(e.user.ten || '?').charAt(0).toUpperCase()}</span>
+                                                    <span style={{ color: levelColor, fontSize: 10 }}>{levelLabel}</span>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
                                     </div>
-                                  );
-                                })}
+                                  ));
+                                })()}
                               </div>
                             )}
                           </div>
