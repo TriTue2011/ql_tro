@@ -147,6 +147,7 @@ export default function ChiTietToaNhaPage() {
         const body: Record<string, unknown> = {
           name: chuTroData.ten,
           phone: chuTroData.soDienThoai || undefined,
+          email: chuTroData.email || undefined,
           // KHÔNG gửi role='chuNha' nếu target là admin, tránh làm hỏng vaiTro của admin
           ...(isCurrentOwnerAdmin ? {} : { role: 'chuNha' }),
           isActive: true,
@@ -318,23 +319,51 @@ export default function ChiTietToaNhaPage() {
                       className="text-sm bg-white"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm">Số điện thoại</Label>
-                    <Input
-                      value={chuTroData.soDienThoai}
-                      onChange={(e) => setChuTroData(prev => ({ ...prev, soDienThoai: e.target.value }))}
-                      className="text-sm bg-white"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm">Email</Label>
-                    <Input
-                      type="email"
-                      value={chuTroData.email}
-                      onChange={(e) => setChuTroData(prev => ({ ...prev, email: e.target.value }))}
-                      className="text-sm bg-white"
-                    />
-                  </div>
+                  {chuTroData.soDienThoai || chuTroData.email ? (
+                    <>
+                      {chuTroData.soDienThoai && (
+                        <div className="space-y-2">
+                          <Label className="text-sm">Số điện thoại</Label>
+                          <Input
+                            value={chuTroData.soDienThoai}
+                            onChange={(e) => setChuTroData(prev => ({ ...prev, soDienThoai: e.target.value }))}
+                            className="text-sm bg-white"
+                          />
+                        </div>
+                      )}
+                      {chuTroData.email && (
+                        <div className="space-y-2">
+                          <Label className="text-sm">Email</Label>
+                          <Input
+                            type="email"
+                            value={chuTroData.email}
+                            onChange={(e) => setChuTroData(prev => ({ ...prev, email: e.target.value }))}
+                            className="text-sm bg-white"
+                          />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Số điện thoại</Label>
+                        <Input
+                          value={chuTroData.soDienThoai}
+                          onChange={(e) => setChuTroData(prev => ({ ...prev, soDienThoai: e.target.value }))}
+                          className="text-sm bg-white"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Email</Label>
+                        <Input
+                          type="email"
+                          value={chuTroData.email}
+                          onChange={(e) => setChuTroData(prev => ({ ...prev, email: e.target.value }))}
+                          className="text-sm bg-white"
+                        />
+                      </div>
+                    </>
+                  )}
                   <div className="space-y-2">
                     <Label className="text-sm">Mật khẩu</Label>
                     <Input

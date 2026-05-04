@@ -46,7 +46,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, role, chucVu, isActive, password, zaloChatId, zaloChatIds, toaNhaId, toaNhaIds, zaloViTri } = body;
+    const { name, phone, email, role, chucVu, isActive, password, zaloChatId, zaloChatIds, toaNhaId, toaNhaIds, zaloViTri } = body;
 
     // chuNha/dongChuTro: chỉ được sửa dongChuTro/quanLy/nhanVien thuộc tòa nhà của mình
     if (callerRole !== 'admin') {
@@ -146,7 +146,9 @@ export async function PUT(
 
     const updateData: Record<string, unknown> = {};
     if (name) updateData.ten = name;
-    if (phone !== undefined) updateData.soDienThoai = phone || null;
+    // Chỉ cập nhật phone/email nếu được gửi lên (kể cả chuỗi rỗng để xóa)
+    if (phone !== undefined) updateData.soDienThoai = phone;
+    if (email !== undefined) updateData.email = email;
     if (role !== undefined) updateData.vaiTro = role;
     if (isActive !== undefined) updateData.trangThai = isActive ? 'hoatDong' : 'khoa';
     if (password) {
