@@ -2512,14 +2512,12 @@ export default function CaiDatPage() {
   const canManage = isAdmin || isChuNha;
 
   const [activeTab, setActiveTab] = useState(
-    isAdmin ? "homeAssistant" : isChuNha ? "thanhToan" : isQuanLy ? "bankQL" : "display"
+    isAdmin ? "luuTru" : isChuNha ? "thanhToan" : isQuanLy ? "bankQL" : "display"
   );
   const [selectedAlertCategory, setSelectedAlertCategory] = useState<string | null>(null);
 
   // Tree-style category states for multi-section tabs
-  const [selectedHaCategory, setSelectedHaCategory] = useState<string | null>(null);
   const [selectedLuuTruCategory, setSelectedLuuTruCategory] = useState<string | null>(null);
-  const [selectedAiCategory, setSelectedAiCategory] = useState<string | null>(null);
   const [selectedDisplayCategory, setSelectedDisplayCategory] = useState<string | null>(null);
 
   // --- Cài đặt giao diện (cho tất cả users) ---
@@ -3244,17 +3242,15 @@ export default function CaiDatPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <PageHeader
-        title=""
-        description={`Tùy chỉnh giao diện${canManage ? " và cài đặt hệ thống" : ""}`}
-        descriptionClassName="text-lg rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-1.5"
-      />
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <div>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-indigo-900">Cài đặt</h1>
+          <p className="text-xs md:text-sm text-indigo-500/70">Tùy chỉnh hệ thống và giao diện</p>
+        </div>
+      </div>
 
       <PillTabs
         tabs={[
-          ...(isAdmin ? [
-            { value: "luuTru", label: "Lưu trữ", icon: HardDrive },
-          ] as const : []),
           ...(isChuNha ? [
             { value: "thanhToan", label: "Thanh toán", icon: CreditCard },
             { value: "canhBao", label: "Cảnh báo", icon: Clock },
@@ -3263,6 +3259,9 @@ export default function CaiDatPage() {
           ] as const : []),
           ...(isQuanLy ? [
             { value: "bankQL", label: "Tài khoản ngân hàng", icon: CreditCard },
+          ] as const : []),
+          ...(isAdmin ? [
+            { value: "luuTru", label: "Lưu trữ", icon: HardDrive },
           ] as const : []),
           { value: "display", label: "Giao diện", icon: Monitor },
         ]}
