@@ -56,8 +56,7 @@ type MucDoKey =
   | 'mucDoHomeAssistant'
   | 'mucDoAI'
   | 'mucDoDangNhapKT'
-  | 'mucDoZaloHotline'
-  | 'mucDoLuuTru';
+  | 'mucDoZaloHotline';
 type ZaloFeatureKey =
   | 'botServer'
   | 'trucTiep'
@@ -92,7 +91,6 @@ interface UserPermissionSet {
   mucDoAI?: PermissionLevel;
   mucDoDangNhapKT?: PermissionLevel;
   mucDoZaloHotline?: PermissionLevel;
-  mucDoLuuTru?: PermissionLevel;
 }
 
 interface User {

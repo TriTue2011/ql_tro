@@ -85,7 +85,6 @@ const BUSINESS_PERMISSIONS: Array<{
   { key: 'mucDoAI', label: 'AI', description: 'Cho phép cấu hình AI riêng cho tòa nhà.', group: 'Cài đặt' },
   { key: 'mucDoDangNhapKT', label: 'Đăng nhập khách thuê', description: 'Cho phép cấu hình đăng nhập khách thuê cho tòa nhà.', group: 'Cài đặt' },
   { key: 'mucDoZaloHotline', label: 'Zalo Hotline', description: 'Cho phép cấu hình Zalo Hotline riêng cho tòa nhà.', group: 'Cài đặt' },
-  { key: 'mucDoLuuTru', label: 'Lưu trữ', description: 'Cho phép cấu hình lưu trữ (MinIO/Cloudinary) riêng cho tòa nhà.', group: 'Cài đặt' },
 ];
 
 // Permission group config for the tree sidebar
@@ -123,6 +122,13 @@ export default function DashboardPage() {
   const [buildingPermsLoading, setBuildingPermsLoading] = useState(false);
   // Selected permission group in the expanded tree sidebar
   const [selectedPermGroup, setSelectedPermGroup] = useState<string | null>(null);
+  // Tab for expanded building section: 'permissions' | 'storage'
+  const [expandedBuildingTab, setExpandedBuildingTab] = useState<'permissions' | 'storage'>('permissions');
+
+  // ── Storage settings per-building state ──
+  const [buildingStorageSettings, setBuildingStorageSettings] = useState<Record<string, Record<string, string>>>({});
+  const [buildingStorageLoading, setBuildingStorageLoading] = useState(false);
+  const [buildingStorageSaving, setBuildingStorageSaving] = useState(false);
 
   // ── Add Admin dialog state ──
   const [showAddAdmin, setShowAddAdmin] = useState(false);
@@ -260,17 +266,84 @@ export default function DashboardPage() {
     }
   }, [buildingBusinessPerms, fetchBuildingPermissions]);
 
+  /** Fetch building-level storage settings */
+  const fetchBuildingStorageSettings = useCallback(async (buildingId: string) => {
+    setBuildingStorageLoading(true);
+    try {
+      const res = await fetch(`/api/admin/toa-nha-settings?toaNhaId=${buildingId}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        const d = data.data;
+        setBuildingStorageSettings(prev => ({
+          ...prev,
+          [buildingId]: {
+            storageProvider: d.storageProvider ?? 'local',
+            minioEndpoint: d.minioEndpoint ?? '',
+            minioAccessKey: d.minioAccessKey ?? '',
+            minioSecretKey: d.minioSecretKey ?? '',
+            minioBucket: d.minioBucket ?? '',
+            cloudinaryCloudName: d.cloudinaryCloudName ?? '',
+            cloudinaryApiKey: d.cloudinaryApiKey ?? '',
+            cloudinaryApiSecret: d.cloudinaryApiSecret ?? '',
+            cloudinaryPreset: d.cloudinaryPreset ?? '',
+            uploadMaxSizeMb: String(d.uploadMaxSizeMb ?? 10),
+          },
+        }));
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setBuildingStorageLoading(false);
+    }
+  }, []);
+
+  /** Save building-level storage settings */
+  const saveBuildingStorageSettings = useCallback(async (buildingId: string) => {
+    setBuildingStorageSaving(true);
+    try {
+      const settings = buildingStorageSettings[buildingId] ?? {};
+      const res = await fetch('/api/admin/toa-nha-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toaNhaId: buildingId,
+          storageProvider: settings.storageProvider ?? 'local',
+          minioEndpoint: settings.minioEndpoint ?? '',
+          minioAccessKey: settings.minioAccessKey ?? '',
+          minioSecretKey: settings.minioSecretKey ?? '',
+          minioBucket: settings.minioBucket ?? '',
+          cloudinaryCloudName: settings.cloudinaryCloudName ?? '',
+          cloudinaryApiKey: settings.cloudinaryApiKey ?? '',
+          cloudinaryApiSecret: settings.cloudinaryApiSecret ?? '',
+          cloudinaryPreset: settings.cloudinaryPreset ?? '',
+          uploadMaxSizeMb: Number(settings.uploadMaxSizeMb) || 10,
+        }),
+      });
+      if (res.ok) {
+        toast.success('Đã lưu cài đặt lưu trữ');
+      } else {
+        toast.error('Không thể lưu cài đặt lưu trữ');
+      }
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setBuildingStorageSaving(false);
+    }
+  }, [buildingStorageSettings]);
+
   const handleBuildingClick = useCallback((buildingId: string) => {
     if (expandedBuildingId === buildingId) {
       setExpandedBuildingId(null);
       setBuildingUsers([]);
     } else {
       setExpandedBuildingId(buildingId);
+      setExpandedBuildingTab('permissions');
       setSelectedPermGroup(PERMISSION_GROUPS[0]?.key ?? null);
       void fetchBuildingUsers(buildingId);
       void fetchBuildingPermissions(buildingId);
+      void fetchBuildingStorageSettings(buildingId);
     }
-  }, [expandedBuildingId, fetchBuildingUsers, fetchBuildingPermissions]);
+  }, [expandedBuildingId, fetchBuildingUsers, fetchBuildingPermissions, fetchBuildingStorageSettings]);
 
   const handleDeleteBuilding = useCallback(async (buildingId: string, tenToaNha: string) => {
     if (!confirm(`Bạn có chắc chắn muốn xóa tòa nhà "${tenToaNha}"? Hành động này không thể hoàn tác.`)) return;
@@ -916,7 +989,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* ── Expanded Permission Section — Tree style: left = permission groups, right = filtered permissions ── */}
+                        {/* ── Expanded Section — Tabs: Phân quyền / Lưu trữ ── */}
                         {expandedBuildingId === tn.id && (
                           <div
                             style={{
@@ -926,195 +999,442 @@ export default function DashboardPage() {
                               borderBottom: idx < s.danhSachToaNha.length - 1 ? '1px solid #e8e6f7' : 'none',
                             }}
                           >
-                            <div style={{ display: 'flex', gap: 16, flexDirection: 'row' }}>
-                              {/* Left column: permission group tree */}
-                              <div style={{ width: 200, flexShrink: 0 }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <i className="bi bi-shield-check" />
-                                  Danh sách quyền
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                  {PERMISSION_GROUPS.map((g) => {
-                                    const isSelected = selectedPermGroup === g.key;
-                                    const perms = buildingBusinessPerms[tn.id];
-                                    const groupPerms = BUSINESS_PERMISSIONS.filter(p => p.group === g.key);
-                                    const activeCount = perms
-                                      ? groupPerms.filter(p => (perms[p.key] ?? 'fullAccess') !== 'hidden').length
-                                      : 0;
-                                    return (
-                                      <button
-                                        key={g.key}
-                                        type="button"
-                                        onClick={() => setSelectedPermGroup(g.key)}
-                                        style={{
-                                          width: '100%',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          gap: 8,
-                                          padding: '8px 10px',
-                                          borderRadius: 8,
-                                          textAlign: 'left',
-                                          fontSize: 12,
-                                          border: 'none',
-                                          cursor: 'pointer',
-                                          transition: 'all 0.15s',
-                                          background: isSelected
-                                            ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
-                                            : '#fff',
-                                          color: isSelected ? '#fff' : '#4338ca',
-                                          fontWeight: isSelected ? 600 : 400,
-                                          boxShadow: isSelected ? '0 2px 8px rgba(99,102,241,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
-                                        }}
-                                      >
-                                        <i className={`bi ${g.icon}`} style={{ fontSize: 14 }} />
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{g.label}</span>
-                                        <span style={{ fontSize: 10, opacity: 0.7 }}>
-                                          {activeCount}/{groupPerms.length}
-                                        </span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-
-                              {/* Right column: permission grid filtered by selected group */}
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{
-                                  borderRadius: 12,
-                                  background: 'rgba(255,255,255,0.7)',
-                                  padding: 16,
-                                  boxShadow: '0 2px 8px rgba(99,102,241,0.1)',
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                      <div style={{
-                                        width: 36, height: 36, borderRadius: '50%',
-                                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        boxShadow: '0 2px 6px rgba(245,158,11,0.3)',
-                                      }}>
-                                        <i className="bi bi-building" style={{ color: '#fff', fontSize: 16 }} />
-                                      </div>
-                                      <div>
-                                        <p style={{ fontSize: 13, fontWeight: 700, color: '#312e81', margin: 0 }}>{tn.tenToaNha}</p>
-                                        <p style={{ fontSize: 11, color: '#6366f1', margin: 0 }}>
-                                          {selectedPermGroup || 'Gói tính năng'} — tất cả người dùng trong tòa nhà kế thừa
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <Link
-                                      href="/dashboard/phan-quyen"
-                                      style={{ fontSize: 11, color: '#818cf8', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                                    >
-                                      <i className="bi bi-box-arrow-up-right me-1" />
-                                      Chi tiết
-                                    </Link>
-                                  </div>
-                                  {buildingPermsLoading ? (
-                                    <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
-                                      <div className="spinner-border spinner-border-sm me-2" role="status" />
-                                      Đang tải gói quyền...
-                                    </div>
-                                  ) : (() => {
-                                    const perms = buildingBusinessPerms[tn.id];
-                                    if (!perms) {
-                                      return (
-                                        <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
-                                          <i className="bi bi-info-circle me-1" />
-                                          Chưa có gói quyền.{' '}
-                                          <Link href="/dashboard/phan-quyen" style={{ color: '#6366f1' }}>Cấu hình ngay</Link>
-                                        </div>
-                                      );
-                                    }
-                                    // Filter permissions by selected group
-                                    const filteredItems = selectedPermGroup
-                                      ? BUSINESS_PERMISSIONS.filter(p => p.group === selectedPermGroup)
-                                      : BUSINESS_PERMISSIONS;
-                                    if (filteredItems.length === 0) {
-                                      return (
-                                        <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
-                                          <i className="bi bi-info-circle me-1" />
-                                          Không có quyền nào trong nhóm này.
-                                        </div>
-                                      );
-                                    }
-                                    return (
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                        {filteredItems.map((item) => {
-                                          const currentValue = perms[item.key] ?? 'fullAccess';
-                                          return (
-                                            <div
-                                              key={item.key}
-                                              style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                padding: '8px 12px',
-                                                borderRadius: 8,
-                                                border: '1px solid',
-                                                borderColor: currentValue === 'hidden'
-                                                  ? '#fecaca'
-                                                  : currentValue === 'viewOnly'
-                                                    ? '#fde68a'
-                                                    : '#bbf7d0',
-                                                background: currentValue === 'hidden'
-                                                  ? '#fef2f2'
-                                                  : currentValue === 'viewOnly'
-                                                    ? '#fffbeb'
-                                                    : '#f0fdf4',
-                                                transition: 'all 0.15s',
-                                              }}
-                                            >
-                                              <div style={{ minWidth: 0, flex: 1 }}>
-                                                <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>{item.label}</span>
-                                                {item.description && (
-                                                  <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0 0' }}>{item.description}</p>
-                                                )}
-                                              </div>
-                                              <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 12 }}>
-                                                {([
-                                                  { value: 'hidden' as PermissionLevel, icon: EyeOff, color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
-                                                  { value: 'viewOnly' as PermissionLevel, icon: Eye, color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
-                                                  { value: 'fullAccess' as PermissionLevel, icon: Pencil, color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-                                                ]).map((opt) => {
-                                                  const Icon = opt.icon;
-                                                  const isSelected = currentValue === opt.value;
-                                                  return (
-                                                    <button
-                                                      key={opt.value}
-                                                      type="button"
-                                                      onClick={() => saveBuildingPermission(tn.id, item.key, opt.value)}
-                                                      style={{
-                                                        width: 28,
-                                                        height: 28,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        borderRadius: 6,
-                                                        border: '1px solid',
-                                                        borderColor: isSelected ? opt.border : '#e5e7eb',
-                                                        background: isSelected ? opt.bg : '#fff',
-                                                        color: isSelected ? opt.color : '#d1d5db',
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.15s',
-                                                        fontSize: 14,
-                                                      }}
-                                                      title={opt.value === 'hidden' ? 'Ẩn' : opt.value === 'viewOnly' ? 'Xem' : 'Sửa'}
-                                                    >
-                                                      <Icon className="h-3.5 w-3.5" />
-                                                    </button>
-                                                  );
-                                                })}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                              </div>
+                            {/* Tab buttons */}
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                              <button
+                                type="button"
+                                onClick={() => setExpandedBuildingTab('permissions')}
+                                style={{
+                                  padding: '6px 16px',
+                                  borderRadius: 8,
+                                  border: 'none',
+                                  fontSize: 12,
+                                  fontWeight: expandedBuildingTab === 'permissions' ? 600 : 400,
+                                  cursor: 'pointer',
+                                  background: expandedBuildingTab === 'permissions'
+                                    ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
+                                    : '#fff',
+                                  color: expandedBuildingTab === 'permissions' ? '#fff' : '#6366f1',
+                                  boxShadow: expandedBuildingTab === 'permissions'
+                                    ? '0 2px 8px rgba(99,102,241,0.3)'
+                                    : '0 1px 2px rgba(0,0,0,0.05)',
+                                  transition: 'all 0.15s',
+                                }}
+                              >
+                                <i className="bi bi-shield-check me-1" />
+                                Phân quyền
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setExpandedBuildingTab('storage')}
+                                style={{
+                                  padding: '6px 16px',
+                                  borderRadius: 8,
+                                  border: 'none',
+                                  fontSize: 12,
+                                  fontWeight: expandedBuildingTab === 'storage' ? 600 : 400,
+                                  cursor: 'pointer',
+                                  background: expandedBuildingTab === 'storage'
+                                    ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
+                                    : '#fff',
+                                  color: expandedBuildingTab === 'storage' ? '#fff' : '#6366f1',
+                                  boxShadow: expandedBuildingTab === 'storage'
+                                    ? '0 2px 8px rgba(99,102,241,0.3)'
+                                    : '0 1px 2px rgba(0,0,0,0.05)',
+                                  transition: 'all 0.15s',
+                                }}
+                              >
+                                <i className="bi bi-hdd-stack me-1" />
+                                Lưu trữ
+                              </button>
                             </div>
+
+                            {expandedBuildingTab === 'permissions' ? (
+                              /* ── Phân quyền Tab ── */
+                              <div style={{ display: 'flex', gap: 16, flexDirection: 'row' }}>
+                                {/* Left column: permission group tree */}
+                                <div style={{ width: 200, flexShrink: 0 }}>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <i className="bi bi-shield-check" />
+                                    Danh sách quyền
+                                  </div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {PERMISSION_GROUPS.map((g) => {
+                                      const isSelected = selectedPermGroup === g.key;
+                                      const perms = buildingBusinessPerms[tn.id];
+                                      const groupPerms = BUSINESS_PERMISSIONS.filter(p => p.group === g.key);
+                                      const activeCount = perms
+                                        ? groupPerms.filter(p => (perms[p.key] ?? 'fullAccess') !== 'hidden').length
+                                        : 0;
+                                      return (
+                                        <button
+                                          key={g.key}
+                                          type="button"
+                                          onClick={() => setSelectedPermGroup(g.key)}
+                                          style={{
+                                            width: '100%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            padding: '8px 10px',
+                                            borderRadius: 8,
+                                            textAlign: 'left',
+                                            fontSize: 12,
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s',
+                                            background: isSelected
+                                              ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
+                                              : '#fff',
+                                            color: isSelected ? '#fff' : '#4338ca',
+                                            fontWeight: isSelected ? 600 : 400,
+                                            boxShadow: isSelected ? '0 2px 8px rgba(99,102,241,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
+                                          }}
+                                        >
+                                          <i className={`bi ${g.icon}`} style={{ fontSize: 14 }} />
+                                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{g.label}</span>
+                                          <span style={{ fontSize: 10, opacity: 0.7 }}>
+                                            {activeCount}/{groupPerms.length}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                {/* Right column: permission grid filtered by selected group */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{
+                                    borderRadius: 12,
+                                    background: 'rgba(255,255,255,0.7)',
+                                    padding: 16,
+                                    boxShadow: '0 2px 8px rgba(99,102,241,0.1)',
+                                  }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{
+                                          width: 36, height: 36, borderRadius: '50%',
+                                          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          boxShadow: '0 2px 6px rgba(245,158,11,0.3)',
+                                        }}>
+                                          <i className="bi bi-building" style={{ color: '#fff', fontSize: 16 }} />
+                                        </div>
+                                        <div>
+                                          <p style={{ fontSize: 13, fontWeight: 700, color: '#312e81', margin: 0 }}>{tn.tenToaNha}</p>
+                                          <p style={{ fontSize: 11, color: '#6366f1', margin: 0 }}>
+                                            {selectedPermGroup || 'Gói tính năng'} — tất cả người dùng trong tòa nhà kế thừa
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <Link
+                                        href="/dashboard/phan-quyen"
+                                        style={{ fontSize: 11, color: '#818cf8', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                                      >
+                                        <i className="bi bi-box-arrow-up-right me-1" />
+                                        Chi tiết
+                                      </Link>
+                                    </div>
+                                    {buildingPermsLoading ? (
+                                      <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
+                                        <div className="spinner-border spinner-border-sm me-2" role="status" />
+                                        Đang tải gói quyền...
+                                      </div>
+                                    ) : (() => {
+                                      const perms = buildingBusinessPerms[tn.id];
+                                      if (!perms) {
+                                        return (
+                                          <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
+                                            <i className="bi bi-info-circle me-1" />
+                                            Chưa có gói quyền.{' '}
+                                            <Link href="/dashboard/phan-quyen" style={{ color: '#6366f1' }}>Cấu hình ngay</Link>
+                                          </div>
+                                        );
+                                      }
+                                      // Filter permissions by selected group
+                                      const filteredItems = selectedPermGroup
+                                        ? BUSINESS_PERMISSIONS.filter(p => p.group === selectedPermGroup)
+                                        : BUSINESS_PERMISSIONS;
+                                      if (filteredItems.length === 0) {
+                                        return (
+                                          <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
+                                            <i className="bi bi-info-circle me-1" />
+                                            Không có quyền nào trong nhóm này.
+                                          </div>
+                                        );
+                                      }
+                                      return (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                          {filteredItems.map((item) => {
+                                            const currentValue = perms[item.key] ?? 'fullAccess';
+                                            return (
+                                              <div
+                                                key={item.key}
+                                                style={{
+                                                  display: 'flex',
+                                                  alignItems: 'center',
+                                                  justifyContent: 'space-between',
+                                                  padding: '8px 12px',
+                                                  borderRadius: 8,
+                                                  border: '1px solid',
+                                                  borderColor: currentValue === 'hidden'
+                                                    ? '#fecaca'
+                                                    : currentValue === 'viewOnly'
+                                                      ? '#fde68a'
+                                                      : '#bbf7d0',
+                                                  background: currentValue === 'hidden'
+                                                    ? '#fef2f2'
+                                                    : currentValue === 'viewOnly'
+                                                      ? '#fffbeb'
+                                                      : '#f0fdf4',
+                                                  transition: 'all 0.15s',
+                                                }}
+                                              >
+                                                <div style={{ minWidth: 0, flex: 1 }}>
+                                                  <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>{item.label}</span>
+                                                  {item.description && (
+                                                    <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0 0' }}>{item.description}</p>
+                                                  )}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 12 }}>
+                                                  {([
+                                                    { value: 'hidden' as PermissionLevel, icon: EyeOff, color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
+                                                    { value: 'viewOnly' as PermissionLevel, icon: Eye, color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+                                                    { value: 'fullAccess' as PermissionLevel, icon: Pencil, color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+                                                  ]).map((opt) => {
+                                                    const Icon = opt.icon;
+                                                    const isSelected = currentValue === opt.value;
+                                                    return (
+                                                      <button
+                                                        key={opt.value}
+                                                        type="button"
+                                                        onClick={() => saveBuildingPermission(tn.id, item.key, opt.value)}
+                                                        style={{
+                                                          width: 28,
+                                                          height: 28,
+                                                          display: 'flex',
+                                                          alignItems: 'center',
+                                                          justifyContent: 'center',
+                                                          borderRadius: 6,
+                                                          border: '1px solid',
+                                                          borderColor: isSelected ? opt.border : '#e5e7eb',
+                                                          background: isSelected ? opt.bg : '#fff',
+                                                          color: isSelected ? opt.color : '#d1d5db',
+                                                          cursor: 'pointer',
+                                                          transition: 'all 0.15s',
+                                                          fontSize: 14,
+                                                        }}
+                                                        title={opt.value === 'hidden' ? 'Ẩn' : opt.value === 'viewOnly' ? 'Xem' : 'Sửa'}
+                                                      >
+                                                        <Icon className="h-3.5 w-3.5" />
+                                                      </button>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              /* ── Lưu trữ Tab ── */
+                              <div>
+                                {buildingStorageLoading ? (
+                                  <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
+                                    <div className="spinner-border spinner-border-sm me-2" role="status" />
+                                    Đang tải cài đặt lưu trữ...
+                                  </div>
+                                ) : (() => {
+                                  const storageSettings = buildingStorageSettings[tn.id];
+                                  if (!storageSettings) {
+                                    return (
+                                      <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
+                                        <i className="bi bi-info-circle me-1" />
+                                        Không có cài đặt lưu trữ.
+                                      </div>
+                                    );
+                                  }
+                                  const provider = storageSettings.storageProvider || 'local';
+                                  const showMinio = provider === 'minio' || provider === 'both';
+                                  const showCloudinary = provider === 'cloudinary' || provider === 'both';
+
+                                  const updateStorageField = (field: string, value: string) => {
+                                    setBuildingStorageSettings(prev => ({
+                                      ...prev,
+                                      [tn.id]: { ...prev[tn.id], [field]: value },
+                                    }));
+                                  };
+
+                                  return (
+                                    <div style={{
+                                      borderRadius: 12,
+                                      background: 'rgba(255,255,255,0.7)',
+                                      padding: 16,
+                                      boxShadow: '0 2px 8px rgba(99,102,241,0.1)',
+                                    }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                                        <div style={{
+                                          width: 36, height: 36, borderRadius: '50%',
+                                          background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          boxShadow: '0 2px 6px rgba(99,102,241,0.3)',
+                                        }}>
+                                          <i className="bi bi-hdd-stack" style={{ color: '#fff', fontSize: 16 }} />
+                                        </div>
+                                        <div>
+                                          <p style={{ fontSize: 13, fontWeight: 700, color: '#312e81', margin: 0 }}>Cài đặt lưu trữ — {tn.tenToaNha}</p>
+                                          <p style={{ fontSize: 11, color: '#6366f1', margin: 0 }}>Cấu hình MinIO / Cloudinary cho tòa nhà này</p>
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-4">
+                                        {/* Provider selector */}
+                                        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                                          <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                                            Nhà cung cấp lưu trữ
+                                          </label>
+                                          <select
+                                            value={provider}
+                                            onChange={(e) => updateStorageField('storageProvider', e.target.value)}
+                                            style={{
+                                              width: '100%',
+                                              padding: '8px 12px',
+                                              borderRadius: 8,
+                                              border: '1px solid #e5e7eb',
+                                              fontSize: 13,
+                                              background: '#fff',
+                                              color: '#374151',
+                                            }}
+                                          >
+                                            <option value="local">Local (máy chủ)</option>
+                                            <option value="minio">MinIO (self-hosted)</option>
+                                            <option value="cloudinary">Cloudinary (online)</option>
+                                            <option value="both">MinIO + Cloudinary</option>
+                                          </select>
+                                        </div>
+
+                                        {/* Max upload size */}
+                                        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                                          <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                                            Kích thước tối đa (MB)
+                                          </label>
+                                          <Input
+                                            type="number"
+                                            value={storageSettings.uploadMaxSizeMb || '10'}
+                                            onChange={(e) => updateStorageField('uploadMaxSizeMb', e.target.value)}
+                                            className="h-9 text-sm"
+                                            placeholder="10"
+                                          />
+                                        </div>
+
+                                        {/* MinIO fields */}
+                                        {showMinio && (
+                                          <div className="space-y-3 pt-3 border-t border-indigo-100">
+                                            <p style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                              <i className="bi bi-hdd-rack" /> MinIO (self-hosted)
+                                            </p>
+                                            {[
+                                              { key: 'minioEndpoint', label: 'Endpoint', placeholder: 'http://localhost:9000' },
+                                              { key: 'minioAccessKey', label: 'Access Key', placeholder: 'minioadmin' },
+                                              { key: 'minioSecretKey', label: 'Secret Key', placeholder: '••••••••', type: 'password' },
+                                              { key: 'minioBucket', label: 'Bucket', placeholder: 'ql-tro' },
+                                            ].map(f => (
+                                              <div key={f.key} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                                                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                                                  {f.label}
+                                                  {f.type === 'password' && (
+                                                    <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6, fontWeight: 400 }}>
+                                                      <i className="bi bi-lock me-1" />bí mật
+                                                    </span>
+                                                  )}
+                                                </label>
+                                                <Input
+                                                  type={f.type || 'text'}
+                                                  value={(storageSettings as any)[f.key] || ''}
+                                                  onChange={(e) => updateStorageField(f.key, e.target.value)}
+                                                  className="h-9 text-sm"
+                                                  placeholder={f.placeholder}
+                                                />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {/* Cloudinary fields */}
+                                        {showCloudinary && (
+                                          <div className="space-y-3 pt-3 border-t border-indigo-100">
+                                            <p style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                              <i className="bi bi-cloud" /> Cloudinary (online)
+                                            </p>
+                                            {[
+                                              { key: 'cloudinaryCloudName', label: 'Cloud Name', placeholder: 'mycloud' },
+                                              { key: 'cloudinaryApiKey', label: 'API Key', placeholder: '123456789' },
+                                              { key: 'cloudinaryApiSecret', label: 'API Secret', placeholder: '••••••••', type: 'password' },
+                                              { key: 'cloudinaryPreset', label: 'Upload Preset', placeholder: 'ml_default' },
+                                            ].map(f => (
+                                              <div key={f.key} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                                                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                                                  {f.label}
+                                                  {f.type === 'password' && (
+                                                    <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6, fontWeight: 400 }}>
+                                                      <i className="bi bi-lock me-1" />bí mật
+                                                    </span>
+                                                  )}
+                                                </label>
+                                                <Input
+                                                  type={f.type || 'text'}
+                                                  value={(storageSettings as any)[f.key] || ''}
+                                                  onChange={(e) => updateStorageField(f.key, e.target.value)}
+                                                  className="h-9 text-sm"
+                                                  placeholder={f.placeholder}
+                                                />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {provider === 'local' && (
+                                          <p style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic', borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
+                                            Lưu trữ local — ảnh lưu trực tiếp trên server, không cần cấu hình thêm.
+                                          </p>
+                                        )}
+
+                                        {/* Save button */}
+                                        <button
+                                          type="button"
+                                          onClick={() => saveBuildingStorageSettings(tn.id)}
+                                          disabled={buildingStorageSaving}
+                                          style={{
+                                            width: '100%',
+                                            padding: '10px 16px',
+                                            borderRadius: 8,
+                                            border: 'none',
+                                            fontSize: 13,
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                                            color: '#fff',
+                                            boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
+                                            transition: 'all 0.15s',
+                                            opacity: buildingStorageSaving ? 0.7 : 1,
+                                          }}
+                                        >
+                                          {buildingStorageSaving ? (
+                                            <><div className="spinner-border spinner-border-sm me-2" role="status" />Đang lưu...</>
+                                          ) : (
+                                            <><i className="bi bi-save me-2" />Lưu cài đặt lưu trữ</>
+                                          )}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
