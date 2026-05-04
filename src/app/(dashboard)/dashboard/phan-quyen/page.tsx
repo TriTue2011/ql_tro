@@ -51,7 +51,12 @@ type MucDoKey =
   | 'mucDoSuCo'
   | 'mucDoKichHoatTaiKhoan'
   | 'mucDoZalo'
-  | 'mucDoZaloMonitor';
+  | 'mucDoZaloMonitor'
+  | 'mucDoCongViec'
+  | 'mucDoKho'
+  | 'mucDoBaoDuong'
+  | 'mucDoCaiDatHotline'
+  | 'mucDoCaiDatEmail';
 type ZaloFeatureKey =
   | 'botServer'
   | 'trucTiep'
@@ -77,6 +82,11 @@ interface UserPermissionSet {
   mucDoSuCo?: PermissionLevel;
   mucDoZalo?: PermissionLevel;
   mucDoZaloMonitor?: PermissionLevel;
+  mucDoCongViec?: PermissionLevel;
+  mucDoKho?: PermissionLevel;
+  mucDoBaoDuong?: PermissionLevel;
+  mucDoCaiDatHotline?: PermissionLevel;
+  mucDoCaiDatEmail?: PermissionLevel;
 }
 
 interface User {
@@ -96,6 +106,11 @@ interface User {
   mucDoSuCo?: PermissionLevel;
   mucDoZalo?: PermissionLevel;
   mucDoZaloMonitor?: PermissionLevel;
+  mucDoCongViec?: PermissionLevel;
+  mucDoKho?: PermissionLevel;
+  mucDoBaoDuong?: PermissionLevel;
+  mucDoCaiDatHotline?: PermissionLevel;
+  mucDoCaiDatEmail?: PermissionLevel;
 }
 
 type ZaloPermissionMap = Record<string, Record<ZaloFeatureKey, boolean>>;
@@ -130,41 +145,85 @@ const BUSINESS_PERMISSIONS: Array<{
   key: MucDoKey;
   label: string;
   description: string;
+  group: string;
 }> = [
+  // ── Quản lý cơ bản ──
   {
     key: 'mucDoHopDong',
     label: 'Hợp đồng',
     description: 'Cho phép quản lý thêm, sửa hoặc hủy hợp đồng trong các tòa nhà được gán.',
-  },
-  {
-    key: 'mucDoHoaDon',
-    label: 'Hóa đơn',
-    description: 'Cho phép tạo, sửa, xóa hóa đơn và gửi lại hóa đơn trong phạm vi tòa nhà.',
-  },
-  {
-    key: 'mucDoThanhToan',
-    label: 'Thanh toán',
-    description: 'Cho phép ghi nhận, chỉnh sửa hoặc xóa giao dịch thanh toán của hóa đơn.',
-  },
-  {
-    key: 'mucDoSuCo',
-    label: 'Sự cố',
-    description: 'Cho phép tiếp nhận, cập nhật trạng thái và xử lý sự cố của khách thuê.',
+    group: 'Quản lý cơ bản',
   },
   {
     key: 'mucDoKichHoatTaiKhoan',
     label: 'Đăng nhập khách thuê',
     description: 'Cho phép bật, thu hồi hoặc đặt mật khẩu đăng nhập web cho khách thuê.',
+    group: 'Quản lý cơ bản',
   },
+  // ── Tài chính ──
+  {
+    key: 'mucDoHoaDon',
+    label: 'Hóa đơn',
+    description: 'Cho phép tạo, sửa, xóa hóa đơn và gửi lại hóa đơn trong phạm vi tòa nhà.',
+    group: 'Tài chính',
+  },
+  {
+    key: 'mucDoThanhToan',
+    label: 'Thanh toán',
+    description: 'Cho phép ghi nhận, chỉnh sửa hoặc xóa giao dịch thanh toán của hóa đơn.',
+    group: 'Tài chính',
+  },
+  // ── Vận hành ──
+  {
+    key: 'mucDoSuCo',
+    label: 'Sự cố',
+    description: 'Cho phép tiếp nhận, cập nhật trạng thái và xử lý sự cố của khách thuê.',
+    group: 'Vận hành',
+  },
+  {
+    key: 'mucDoCongViec',
+    label: 'Công việc',
+    description: 'Cho phép quản lý công việc, phân công và theo dõi tiến độ.',
+    group: 'Vận hành',
+  },
+  {
+    key: 'mucDoBaoDuong',
+    label: 'Bảo dưỡng',
+    description: 'Cho phép quản lý lịch bảo dưỡng, thiết bị và yêu cầu bảo trì.',
+    group: 'Vận hành',
+  },
+  // ── Kho ──
+  {
+    key: 'mucDoKho',
+    label: 'Kho (Vật tư, Tồn kho, Nhập-Xuất)',
+    description: 'Cho phép quản lý vật tư, tồn kho và phiếu nhập-xuất.',
+    group: 'Kho',
+  },
+  // ── Liên lạc ──
   {
     key: 'mucDoZalo',
     label: 'Zalo',
     description: 'Hiện tab Zalo để quản lý tin nhắn, bot, webhook và các tính năng Zalo.',
+    group: 'Liên lạc',
   },
   {
     key: 'mucDoZaloMonitor',
     label: 'Zalo Monitor',
     description: 'Hiện tab Zalo Monitor để theo dõi và giám sát hoạt động Zalo.',
+    group: 'Liên lạc',
+  },
+  // ── Cài đặt ──
+  {
+    key: 'mucDoCaiDatHotline',
+    label: 'Cài đặt Hotline',
+    description: 'Cho phép cấu hình số hotline Zalo cho tòa nhà.',
+    group: 'Cài đặt',
+  },
+  {
+    key: 'mucDoCaiDatEmail',
+    label: 'Cài đặt Email',
+    description: 'Cho phép cấu hình email SMTP để gửi hóa đơn, thông báo.',
+    group: 'Cài đặt',
   },
 ];
 
@@ -227,6 +286,11 @@ function getPermissionForBuilding(user: User, buildingId: string): UserPermissio
     mucDoSuCo: user.mucDoSuCo ?? 'fullAccess',
     mucDoZalo: user.mucDoZalo ?? 'fullAccess',
     mucDoZaloMonitor: user.mucDoZaloMonitor ?? 'fullAccess',
+    mucDoCongViec: user.mucDoCongViec ?? 'fullAccess',
+    mucDoKho: user.mucDoKho ?? 'fullAccess',
+    mucDoBaoDuong: user.mucDoBaoDuong ?? 'fullAccess',
+    mucDoCaiDatHotline: user.mucDoCaiDatHotline ?? 'fullAccess',
+    mucDoCaiDatEmail: user.mucDoCaiDatEmail ?? 'fullAccess',
   };
 }
 
@@ -1117,6 +1181,7 @@ export default function PhanQuyenPage() {
                       }}
                       disabled={!canEditBusiness}
                       columns={1}
+                      showGroup={true}
                     />
                   </div>
                 ) : (
