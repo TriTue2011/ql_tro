@@ -140,10 +140,15 @@ export default function ChiTietToaNhaPage() {
     try {
       // Nếu là admin và có chủ trọ, cập nhật thông tin chủ trọ trước
       if (isAdmin && chuTroData.id && chuTroData.ten) {
+        // Kiểm tra xem chủ trọ hiện tại có phải là admin không
+        // (trường hợp dữ liệu cũ bị lỗi: chuSoHuuId trỏ vào admin)
+        const isCurrentOwnerAdmin = chuTroData.id === session?.user?.id;
+
         const body: Record<string, unknown> = {
           name: chuTroData.ten,
           phone: chuTroData.soDienThoai || undefined,
-          role: 'chuNha',
+          // KHÔNG gửi role='chuNha' nếu target là admin, tránh làm hỏng vaiTro của admin
+          ...(isCurrentOwnerAdmin ? {} : { role: 'chuNha' }),
           isActive: true,
           // Gửi kèm toaNhaIds để tránh API xóa hết quyền quản lý tòa nhà của chủ trọ
           toaNhaIds: [toaNhaId],

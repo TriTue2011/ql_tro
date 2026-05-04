@@ -132,6 +132,12 @@ export async function PUT(
     if (!currentUser) {
       return NextResponse.json({ error: 'Tài khoản không tồn tại' }, { status: 404 });
     }
+
+    // BẢO VỆ: Không cho phép đổi vaiTro của admin thành role khác
+    if (currentUser.vaiTro === 'admin' && role && role !== 'admin') {
+      return NextResponse.json({ error: 'Không thể thay đổi vai trò của tài khoản quản trị viên' }, { status: 403 });
+    }
+
     const nextRole = role ?? currentUser.vaiTro;
     const chucVuResult = validateChucVuForRole(nextRole, chucVu);
     if (!chucVuResult.ok) {
