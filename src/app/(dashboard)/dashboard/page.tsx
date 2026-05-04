@@ -573,7 +573,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <ZaloHotlineWarning />
+        {!isAdmin && <ZaloHotlineWarning />}
 
         {/* ── Permission Quick-Access (like chuNha style) ──────────────── */}
         <div className="bs-section-header">
@@ -1761,7 +1761,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <ZaloHotlineWarning />
+      {!isAdmin && <ZaloHotlineWarning />}
 
       <div className="mb-4">
         <div className="row g-2">
