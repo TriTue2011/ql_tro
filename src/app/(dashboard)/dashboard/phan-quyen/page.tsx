@@ -16,6 +16,12 @@ import {
   SlidersHorizontal,
   Users,
   X,
+  Settings,
+  UserCog,
+  Key,
+  Globe,
+  Home,
+  ChevronLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -202,6 +208,7 @@ const ROLE_TARGETS_BY_LEVEL: Record<LevelKey, RoleKey[]> = {
 };
 
 const TAB_ITEMS = [
+  { value: 'tree', label: 'Cây phân quyền', icon: Shield },
   { value: 'business', label: 'Quyền nghiệp vụ', icon: Shield },
   { value: 'zalo', label: 'Quyền Zalo', icon: Building2 },
   { value: 'limits', label: 'Giới hạn vai trò', icon: SlidersHorizontal },
@@ -225,6 +232,72 @@ function getPermissionForBuilding(user: User, buildingId: string): UserPermissio
 
 function defaultFeatureSet(): Record<ZaloFeatureKey, boolean> {
   return Object.fromEntries(ZALO_FEATURES.map(feature => [feature.key, true])) as Record<ZaloFeatureKey, boolean>;
+}
+
+/** Small badge showing a user in the tree view */
+function TreeUserBadge({
+  user,
+  buildingId,
+  roleLabel,
+  roleColor,
+  onSelect,
+}: {
+  user: User;
+  buildingId: string;
+  roleLabel: string;
+  roleColor: string;
+  onSelect: () => void;
+}) {
+  const perms = getPermissionForBuilding(user, buildingId);
+  const activePerms = Object.entries(perms).filter(([, v]) => v !== 'hidden');
+  const fullAccessCount = Object.entries(perms).filter(([, v]) => v === 'fullAccess').length;
+  const totalPerms = Object.keys(perms).length;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="tree-role-row"
+      style={{ cursor: 'pointer', width: '100%' }}
+      title={`${user.ten || 'Không tên'} — ${roleLabel}: ${fullAccessCount}/${totalPerms} quyền full access`}
+    >
+      <div
+        className="tree-role-icon"
+        style={{ background: `${roleColor}15`, color: roleColor }}
+      >
+        {(user.ten || '?').charAt(0).toUpperCase()}
+      </div>
+      <div className="tree-role-info">
+        <div className="tree-role-name" style={{ fontSize: '12px' }}>
+          {user.ten || 'Không tên'}
+        </div>
+        <div className="tree-role-desc" style={{ fontSize: '10px' }}>
+          {roleLabel}
+          {user.email && ` · ${user.email}`}
+          {user.soDienThoai && !user.email && ` · ${user.soDienThoai}`}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {activePerms.length === totalPerms ? (
+          <span className="admin-tree-perm-badge active" style={{ fontSize: '10px', padding: '2px 8px' }}>
+            <CheckCircle2 className="h-2.5 w-2.5" />
+            Full
+          </span>
+        ) : activePerms.length === 0 ? (
+          <span className="admin-tree-perm-badge inactive" style={{ fontSize: '10px', padding: '2px 8px' }}>
+            <EyeOff className="h-2.5 w-2.5" />
+            Ẩn
+          </span>
+        ) : (
+          <span className="admin-tree-perm-badge active" style={{ fontSize: '10px', padding: '2px 8px', background: `${roleColor}10`, borderColor: `${roleColor}30`, color: roleColor }}>
+            <Key className="h-2.5 w-2.5" />
+            {fullAccessCount}/{totalPerms}
+          </span>
+        )}
+        <UserCog className="h-3.5 w-3.5 text-indigo-400 ml-1" />
+      </div>
+    </button>
+  );
 }
 
 export default function PhanQuyenPage() {
@@ -312,11 +385,16 @@ export default function PhanQuyenPage() {
 
   // Filter tab items: show hide button when user can't edit, allow manual hide
   const visibleTabs = useMemo(() => {
-    if (!canEditBusiness && hideBusinessTab) {
-      return TAB_ITEMS.filter(t => t.value !== 'business');
+    let items = [...TAB_ITEMS];
+    // Only admin sees the tree tab
+    if (!isAdmin) {
+      items = items.filter(t => t.value !== 'tree');
     }
-    return [...TAB_ITEMS];
-  }, [canEditBusiness, hideBusinessTab]);
+    if (!canEditBusiness && hideBusinessTab) {
+      items = items.filter(t => t.value !== 'business');
+    }
+    return items;
+  }, [canEditBusiness, hideBusinessTab, isAdmin]);
 
   async function loadInitialData() {
     setLoading(true);
@@ -647,6 +725,181 @@ export default function PhanQuyenPage() {
         value={activeTab}
         onChange={setActiveTab}
       />
+
+      {/* ───── Tree View Tab (Admin only) ───── */}
+      {activeTab === 'tree' && isAdmin && (
+        <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50 overflow-hidden">
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b border-indigo-100">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <Shield className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-indigo-900">Cây phân quyền — Tổng quan tất cả tòa nhà</p>
+                <p className="text-xs text-indigo-500">Xem và quản lý quyền của tất cả tòa nhà trong một giao diện duy nhất</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4">
+            <div className="admin-tree-container">
+              {/* Root: Admin */}
+              <div className="admin-tree-level">
+                <div className="admin-tree-card" style={{ maxWidth: '720px' }}>
+                  <div className="admin-tree-card-header">
+                    <div className="admin-tree-card-avatar" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                      <Shield className="h-5 w-5" />
+                    </div>
+                    <div className="admin-tree-card-info">
+                      <div className="admin-tree-card-name">Tổng quản (Admin)</div>
+                      <div className="admin-tree-card-role">Quản lý toàn bộ hệ thống · {buildings.length} tòa nhà</div>
+                    </div>
+                    <div className="admin-tree-card-actions">
+                      <span className="admin-tree-perm-badge active">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Full Access
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Buildings level */}
+              {buildings.length === 0 ? (
+                <div className="admin-tree-level">
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-8 text-center text-sm text-indigo-400 w-full max-w-[720px]">
+                    <Building2 className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
+                    Chưa có tòa nhà nào trong hệ thống.
+                  </div>
+                </div>
+              ) : (
+                buildings.map((building) => {
+                  const buildingUsers = users.filter(u => (u.toaNhaIds ?? []).includes(building.id));
+                  const chuTroUsers = buildingUsers.filter(u => getUserRole(u) === 'chuNha');
+                  const dongChuTroUsers = buildingUsers.filter(u => getUserRole(u) === 'dongChuTro');
+                  const quanLyUsers = buildingUsers.filter(u => getUserRole(u) === 'quanLy');
+                  const nhanVienUsers = buildingUsers.filter(u => getUserRole(u) === 'nhanVien');
+                  const hasUsers = buildingUsers.length > 0;
+
+                  return (
+                    <div key={building.id} className="admin-tree-level">
+                      {/* Connector line with chevron */}
+                      <div className="tree-connector">
+                        <i className="bi bi-chevron-down" />
+                      </div>
+
+                      {/* Building card */}
+                      <div className="admin-tree-card" style={{ maxWidth: '720px' }}>
+                        <div className="admin-tree-card-header">
+                          <div className="admin-tree-card-avatar" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+                            <Building2 className="h-5 w-5" />
+                          </div>
+                          <div className="admin-tree-card-info">
+                            <div className="admin-tree-card-name">{building.tenToaNha}</div>
+                            <div className="admin-tree-card-role">
+                              {buildingUsers.length} người dùng ·
+                              {chuTroUsers.length > 0 && ` ${chuTroUsers.length} chủ trọ`}
+                              {dongChuTroUsers.length > 0 && ` · ${dongChuTroUsers.length} đồng chủ trọ`}
+                              {quanLyUsers.length > 0 && ` · ${quanLyUsers.length} quản lý`}
+                              {nhanVienUsers.length > 0 && ` · ${nhanVienUsers.length} nhân viên`}
+                            </div>
+                          </div>
+                          <div className="admin-tree-card-actions">
+                            <a
+                              href={`/dashboard/phan-quyen?building=${building.id}`}
+                              className="tree-role-action"
+                              title="Cấu hình quyền cho tòa nhà này"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setSelectedBuildingId(building.id);
+                                setActiveTab('business');
+                              }}
+                            >
+                              <Settings className="h-4 w-4" />
+                            </a>
+                          </div>
+                        </div>
+
+                        {/* Users grouped by role */}
+                        {hasUsers && (
+                          <div className="admin-tree-perms" style={{ marginTop: '8px' }}>
+                            {/* Chủ trọ */}
+                            {chuTroUsers.map(user => (
+                              <TreeUserBadge
+                                key={user.id}
+                                user={user}
+                                buildingId={building.id}
+                                roleLabel="Chủ trọ"
+                                roleColor="#059669"
+                                onSelect={() => {
+                                  setSelectedBuildingId(building.id);
+                                  setExpandedUser(user.id);
+                                  setActiveTab('business');
+                                }}
+                              />
+                            ))}
+                            {/* Đồng chủ trọ */}
+                            {dongChuTroUsers.map(user => (
+                              <TreeUserBadge
+                                key={user.id}
+                                user={user}
+                                buildingId={building.id}
+                                roleLabel="Đồng chủ trọ"
+                                roleColor="#d97706"
+                                onSelect={() => {
+                                  setSelectedBuildingId(building.id);
+                                  setExpandedUser(user.id);
+                                  setActiveTab('business');
+                                }}
+                              />
+                            ))}
+                            {/* Quản lý */}
+                            {quanLyUsers.map(user => (
+                              <TreeUserBadge
+                                key={user.id}
+                                user={user}
+                                buildingId={building.id}
+                                roleLabel="Quản lý"
+                                roleColor="#6366f1"
+                                onSelect={() => {
+                                  setSelectedBuildingId(building.id);
+                                  setExpandedUser(user.id);
+                                  setActiveTab('business');
+                                }}
+                              />
+                            ))}
+                            {/* Nhân viên */}
+                            {nhanVienUsers.map(user => (
+                              <TreeUserBadge
+                                key={user.id}
+                                user={user}
+                                buildingId={building.id}
+                                roleLabel="Nhân viên"
+                                roleColor="#8b5cf6"
+                                onSelect={() => {
+                                  setSelectedBuildingId(building.id);
+                                  setExpandedUser(user.id);
+                                  setActiveTab('business');
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {!hasUsers && (
+                          <div className="text-xs text-indigo-400 italic px-1" style={{ marginTop: '4px' }}>
+                            Chưa có người dùng nào được gán cho tòa nhà này
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ───── Business Permissions Tab ───── */}
       {activeTab === 'business' && (

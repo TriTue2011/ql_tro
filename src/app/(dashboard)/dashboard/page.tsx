@@ -11,9 +11,6 @@ interface MonthRevenue { month: number; revenue: number; }
 
 interface AdminStats {
   tongToaNha: number;
-  tongNguoiDung: number;
-  tongChuNha: number;
-  tongAdmin: number;
   toaNhaMoiNhat: { id: string; tenToaNha: string; diaChi: string; ngayTao: string }[];
 }
 
@@ -102,7 +99,6 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div>
-        {/* Hero skeleton */}
         <div
           className="rounded-xl mb-4"
           style={{ height: 130, background: 'linear-gradient(135deg,#818cf8,#a78bfa)', opacity: 0.4 }}
@@ -137,7 +133,7 @@ export default function DashboardPage() {
     const s = adminStats;
     return (
       <>
-        {/* Hero */}
+        {/* ── Hero Banner ─────────────────────────────────────────────── */}
         <div className="bs-hero-banner">
           <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
             <div>
@@ -148,74 +144,127 @@ export default function DashboardPage() {
                   <div className="bs-hero-stat-val">{s.tongToaNha}</div>
                   <div className="bs-hero-stat-lbl">Tòa nhà</div>
                 </div>
-                <div style={{ width: 1, background: 'rgba(255,255,255,0.25)', margin: '0 4px' }} />
-                <div className="bs-hero-stat">
-                  <div className="bs-hero-stat-val">{s.tongNguoiDung}</div>
-                  <div className="bs-hero-stat-lbl">Người dùng</div>
-                </div>
-                <div style={{ width: 1, background: 'rgba(255,255,255,0.25)', margin: '0 4px' }} />
-                <div className="bs-hero-stat">
-                  <div className="bs-hero-stat-val">{s.tongChuNha}</div>
-                  <div className="bs-hero-stat-lbl">Chủ trọ</div>
-                </div>
               </div>
             </div>
             <div className="d-none d-md-flex align-items-center gap-3">
-              <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 18px', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', textAlign: 'center', minWidth: 100 }}>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{s.tongAdmin}</div>
-                <div style={{ fontSize: 11, opacity: 0.8, color: '#fff' }}>Admin</div>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 18px', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', textAlign: 'center', minWidth: 100 }}>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{s.tongNguoiDung}</div>
-                <div style={{ fontSize: 11, opacity: 0.8, color: '#fff' }}>Người dùng</div>
-              </div>
+              <Link
+                href="/dashboard/toa-nha/them-moi"
+                className="admin-hero-btn"
+              >
+                <i className="bi bi-plus-lg" />
+                Thêm tòa nhà
+              </Link>
+              <Link
+                href="/dashboard/quan-ly-tai-khoan/them-moi"
+                className="admin-hero-btn"
+              >
+                <i className="bi bi-person-plus" />
+                Thêm chủ trọ
+              </Link>
             </div>
           </div>
         </div>
 
-        {/* Zalo Hotline Warning — đỏ, in đậm, dưới lời chào */}
         <ZaloHotlineWarning />
 
-        {/* KPI Row */}
+        {/* ── KPI Cards ──────────────────────────────────────────────── */}
         <div className="bs-section-header">
-          <h2 className="bs-section-title">Thống kê hệ thống</h2>
+          <h2 className="bs-section-title">Tổng quan hệ thống</h2>
           <span style={{ fontSize: 12, color: '#9ca3af' }}>
             <i className="bi bi-clock me-1" />Cập nhật lúc {new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
 
         <div className="row g-3 mb-4">
-          {[
-            { label: 'Tòa nhà', value: s.tongToaNha, icon: 'bi-buildings', color: '#6366f1', bg: 'card-indigo', href: '/dashboard/toa-nha' },
-            { label: 'Chủ trọ', value: s.tongChuNha, icon: 'bi-person-fill-gear', color: '#10b981', bg: 'card-emerald', href: '/dashboard/quan-ly-tai-khoan' },
-            { label: 'Admin', value: s.tongAdmin, icon: 'bi-shield-lock-fill', color: '#3b82f6', bg: 'card-blue', href: '/dashboard/quan-ly-tai-khoan' },
-            { label: 'Người dùng', value: s.tongNguoiDung, icon: 'bi-people-fill', color: '#f59e0b', bg: 'card-amber', href: '/dashboard/quan-ly-tai-khoan' },
-          ].map((item) => (
-            <div key={item.label} className="col-6 col-sm-6 col-lg-3">
-              <Link href={item.href} className="text-decoration-none">
-                <div className={`bs-stat-card ${item.bg}`}>
-                  <div className="d-flex align-items-start justify-content-between">
-                    <div>
-                      <div className="bs-stat-label">{item.label}</div>
-                      <div className="bs-stat-value">{item.value}</div>
-                      {item.href && (
-                        <div style={{ fontSize: 11, color: item.color, marginTop: 4 }}>Xem danh sách →</div>
-                      )}
-                    </div>
-                    <div className="bs-stat-icon" style={{ background: `${item.color}18`, color: item.color }}>
-                      <i className={`bi ${item.icon}`} />
+          <div className="col-6 col-sm-6 col-lg-3">
+            <Link href="/dashboard/toa-nha" className="text-decoration-none">
+              <div className="bs-stat-card card-indigo">
+                <div className="d-flex align-items-start justify-content-between">
+                  <div>
+                    <div className="bs-stat-label">Tổng tòa nhà</div>
+                    <div className="bs-stat-value">{s.tongToaNha}</div>
+                    <div className="bs-stat-sub">
+                      <span className="bs-pulse-dot dot-blue" style={{ marginRight: 5 }} />
+                      {s.tongToaNha} tòa nhà đang quản lý
                     </div>
                   </div>
+                  <div className="bs-stat-icon icon-indigo">
+                    <i className="bi bi-buildings-fill" />
+                  </div>
                 </div>
-              </Link>
-            </div>
-          ))}
+              </div>
+            </Link>
+          </div>
+
+          <div className="col-6 col-sm-6 col-lg-3">
+            <Link href="/dashboard/quan-ly-tai-khoan" className="text-decoration-none">
+              <div className="bs-stat-card card-emerald">
+                <div className="d-flex align-items-start justify-content-between">
+                  <div>
+                    <div className="bs-stat-label">Chủ trọ</div>
+                    <div className="bs-stat-value">{s.tongToaNha}</div>
+                    <div className="bs-stat-sub">
+                      <span className="bs-pulse-dot dot-green" style={{ marginRight: 5 }} />
+                      1 chủ trọ / tòa nhà
+                    </div>
+                  </div>
+                  <div className="bs-stat-icon icon-emerald">
+                    <i className="bi bi-person-fill-gear" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+
+          <div className="col-6 col-sm-6 col-lg-3">
+            <Link href="/dashboard/phan-quyen" className="text-decoration-none">
+              <div className="bs-stat-card card-amber">
+                <div className="d-flex align-items-start justify-content-between">
+                  <div>
+                    <div className="bs-stat-label">Phân quyền</div>
+                    <div className="bs-stat-value" style={{ fontSize: 22 }}>
+                      <i className="bi bi-shield-check" style={{ marginRight: 6 }} />
+                      Cây quyền
+                    </div>
+                    <div className="bs-stat-sub">
+                      Quản lý quyền theo tòa nhà
+                    </div>
+                  </div>
+                  <div className="bs-stat-icon icon-amber">
+                    <i className="bi bi-diagram-3-fill" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+
+          <div className="col-6 col-sm-6 col-lg-3">
+            <Link href="/dashboard/quan-ly-tai-khoan" className="text-decoration-none">
+              <div className="bs-stat-card card-blue">
+                <div className="d-flex align-items-start justify-content-between">
+                  <div>
+                    <div className="bs-stat-label">Quản lý tài khoản</div>
+                    <div className="bs-stat-value" style={{ fontSize: 22 }}>
+                      <i className="bi bi-people-fill" style={{ marginRight: 6 }} />
+                      Người dùng
+                    </div>
+                    <div className="bs-stat-sub">
+                      Quản lý tài khoản hệ thống
+                    </div>
+                  </div>
+                  <div className="bs-stat-icon icon-blue">
+                    <i className="bi bi-person-badge" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
         </div>
 
-        {/* Row 2: Danh sách tòa nhà mới + Quick actions */}
-        <div className="row g-3">
+        {/* ── Row 2: Building list + Quick actions ─────────────────────── */}
+        <div className="row g-3 mb-4">
           <div className="col-12 col-lg-8">
-            <div className="bs-card">
+            <div className="bs-card h-100">
               <div className="bs-card-header">
                 <div>
                   <h5 className="bs-card-title"><i className="bi bi-buildings-fill" /> Tòa nhà mới nhất</h5>
@@ -255,16 +304,18 @@ export default function DashboardPage() {
               <div className="bs-card-header">
                 <div>
                   <h5 className="bs-card-title"><i className="bi bi-lightning-charge-fill" /> Thao tác nhanh</h5>
-                  <div className="bs-card-subtitle">Truy cập tính năng quản trị</div>
+                  <div className="bs-card-subtitle">Quản trị hệ thống</div>
                 </div>
               </div>
               <div className="bs-card-body">
                 <div className="row g-2">
                   {[
                     { href: '/dashboard/toa-nha', icon: 'bi-buildings', label: 'Quản lý tòa nhà', color: '#6366f1' },
-                    { href: '/dashboard/quan-ly-tai-khoan', icon: 'bi-people-fill', label: 'Tài khoản', color: '#10b981' },
-                    { href: '/dashboard/cai-dat', icon: 'bi-gear-fill', label: 'Cài đặt', color: '#f59e0b' },
-                    { href: '/dashboard/ho-so', icon: 'bi-person-circle', label: 'Hồ sơ', color: '#3b82f6' },
+                    { href: '/dashboard/toa-nha/them-moi', icon: 'bi-plus-circle', label: 'Thêm tòa nhà', color: '#10b981' },
+                    { href: '/dashboard/quan-ly-tai-khoan', icon: 'bi-people-fill', label: 'Tài khoản', color: '#f59e0b' },
+                    { href: '/dashboard/phan-quyen', icon: 'bi-diagram-3', label: 'Phân quyền', color: '#8b5cf6' },
+                    { href: '/dashboard/quan-ly-tai-khoan/them-moi', icon: 'bi-person-plus', label: 'Thêm người dùng', color: '#3b82f6' },
+                    { href: '/dashboard/ho-so', icon: 'bi-person-circle', label: 'Hồ sơ', color: '#06b6d4' },
                   ].map((item) => (
                     <div key={item.href} className="col-6">
                       <Link href={item.href} className="bs-quick-btn">
@@ -273,6 +324,83 @@ export default function DashboardPage() {
                       </Link>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Row 3: Permission Tree Overview ──────────────────────────── */}
+        <div className="row g-3">
+          <div className="col-12">
+            <div className="bs-card">
+              <div className="bs-card-header">
+                <div>
+                  <h5 className="bs-card-title"><i className="bi bi-diagram-3-fill" /> Sơ đồ phân quyền — Cây quyền hạn</h5>
+                  <div className="bs-card-subtitle">Quản lý quyền tập trung cho tất cả tòa nhà</div>
+                </div>
+                <Link href="/dashboard/phan-quyen" className="bs-section-link">
+                  Đi đến phân quyền <i className="bi bi-arrow-right" />
+                </Link>
+              </div>
+              <div className="bs-card-body">
+                <div className="admin-permission-tree">
+                  <div className="tree-node tree-root">
+                    <div className="tree-node-icon">
+                      <i className="bi bi-shield-fill-check" />
+                    </div>
+                    <div className="tree-node-content">
+                      <div className="tree-node-title">Admin (Tổng quản)</div>
+                      <div className="tree-node-desc">Toàn quyền hệ thống — cài đặt quyền cho tất cả tòa nhà</div>
+                    </div>
+                  </div>
+
+                  <div className="tree-connector">
+                    <i className="bi bi-chevron-down" />
+                  </div>
+
+                  <div className="tree-buildings-grid">
+                    {s.toaNhaMoiNhat.length > 0 ? (
+                      s.toaNhaMoiNhat.map((tn) => (
+                        <div key={tn.id} className="tree-building-card">
+                          <div className="tree-building-header">
+                            <i className="bi bi-building" />
+                            <span>{tn.tenToaNha}</span>
+                          </div>
+                          <div className="tree-building-body">
+                            <div className="tree-role-row">
+                              <div className="tree-role-icon" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
+                                <i className="bi bi-person-fill-gear" />
+                              </div>
+                              <div className="tree-role-info">
+                                <div className="tree-role-name">Chủ trọ</div>
+                                <div className="tree-role-desc">1 chủ trọ — toàn quyền tòa nhà</div>
+                              </div>
+                              <Link href={`/dashboard/phan-quyen?toaNhaId=${tn.id}`} className="tree-role-action">
+                                <i className="bi bi-gear-fill" />
+                              </Link>
+                            </div>
+                            <div className="tree-role-row">
+                              <div className="tree-role-icon" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
+                                <i className="bi bi-people" />
+                              </div>
+                              <div className="tree-role-info">
+                                <div className="tree-role-name">Nhân sự</div>
+                                <div className="tree-role-desc">Đồng chủ trọ, Quản lý, Nhân viên</div>
+                              </div>
+                              <Link href={`/dashboard/phan-quyen?toaNhaId=${tn.id}`} className="tree-role-action">
+                                <i className="bi bi-gear-fill" />
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4" style={{ color: '#9ca3af', fontSize: 13 }}>
+                        Chưa có tòa nhà nào. <Link href="/dashboard/toa-nha/them-moi" style={{ color: '#6366f1' }}>Thêm tòa nhà đầu tiên</Link>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -292,16 +420,12 @@ export default function DashboardPage() {
   const circumference = 2 * Math.PI * 40;
   const offset = circumference - (occupancyRate / 100) * circumference;
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* ── Hero Banner ─────────────────────────────────────────────────── */}
       <div className="bs-hero-banner">
         <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
           <div>
-            <div className="bs-hero-title">
-              Xin chào, {firstName}! 👋
-            </div>
+            <div className="bs-hero-title">Xin chào, {firstName}! 👋</div>
             <div className="bs-hero-sub">{now}</div>
             <div className="bs-hero-stats">
               <div className="bs-hero-stat">
@@ -315,54 +439,26 @@ export default function DashboardPage() {
               </div>
               <div style={{ width: 1, background: 'rgba(255,255,255,0.25)', margin: '0 4px' }} />
               <div className="bs-hero-stat">
-                <div className="bs-hero-stat-val">
-                  {(stats.doanhThuThang / 1_000_000).toFixed(1)}M
-                </div>
+                <div className="bs-hero-stat-val">{(stats.doanhThuThang / 1_000_000).toFixed(1)}M</div>
                 <div className="bs-hero-stat-lbl">Doanh thu tháng</div>
               </div>
             </div>
           </div>
           <div className="d-none d-md-flex align-items-center gap-3">
-            <div
-              style={{
-                background: 'rgba(255,255,255,0.15)',
-                borderRadius: 12,
-                padding: '10px 18px',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255,255,255,0.25)',
-                textAlign: 'center',
-                minWidth: 100,
-              }}
-            >
-              <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>
-                {stats.suCoCanXuLy}
-              </div>
+            <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 18px', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', textAlign: 'center', minWidth: 100 }}>
+              <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{stats.suCoCanXuLy}</div>
               <div style={{ fontSize: 11, opacity: 0.8, color: '#fff' }}>Sự cố cần xử lý</div>
             </div>
-            <div
-              style={{
-                background: 'rgba(255,255,255,0.15)',
-                borderRadius: 12,
-                padding: '10px 18px',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255,255,255,0.25)',
-                textAlign: 'center',
-                minWidth: 100,
-              }}
-            >
-              <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>
-                {stats.hoaDonSapDenHan}
-              </div>
+            <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '10px 18px', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', textAlign: 'center', minWidth: 100 }}>
+              <div style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{stats.hoaDonSapDenHan}</div>
               <div style={{ fontSize: 11, opacity: 0.8, color: '#fff' }}>Hóa đơn sắp hạn</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Zalo Hotline Warning — đỏ, in đậm, dưới lời chào */}
       <ZaloHotlineWarning />
 
-      {/* ── Quick Actions (Top Horizontal) ────────────────────────────── */}
       <div className="mb-4" style={{ position: 'relative', zIndex: 100 }}>
         <div className="row g-2">
           {[
@@ -374,10 +470,10 @@ export default function DashboardPage() {
             { href: '/dashboard/su-co', icon: 'bi-tools', label: 'Báo sự cố', color: '#ef4444', count: stats?.suCoCanXuLy },
           ].map((item) => (
             <div key={item.href} className="col-4 col-sm-2">
-              <Link 
-                href={item.href} 
+              <Link
+                href={item.href}
                 className="bs-quick-btn d-flex flex-column align-items-center justify-content-center h-100 position-relative text-decoration-none"
-                style={{ 
+                style={{
                   padding: '16px 8px',
                   background: '#fff',
                   borderRadius: 12,
@@ -389,18 +485,14 @@ export default function DashboardPage() {
                   overflow: 'visible'
                 }}
               >
-                <i
-                  className={`bi ${item.icon}`}
-                  style={{ color: item.color, fontSize: 24, marginBottom: 6 }}
-                />
+                <i className={`bi ${item.icon}`} style={{ color: item.color, fontSize: 24, marginBottom: 6 }} />
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{item.label}</span>
-                
                 {item.count ? (
-                  <span 
-                    className="position-absolute badge rounded-pill bg-danger" 
-                    style={{ 
-                      top: -5, 
-                      right: -5, 
+                  <span
+                    className="position-absolute badge rounded-pill bg-danger"
+                    style={{
+                      top: -5,
+                      right: -5,
                       fontSize: 10,
                       minWidth: 20,
                       height: 20,
@@ -420,7 +512,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── KPI Cards ───────────────────────────────────────────────────── */}
       <div className="bs-section-header">
         <h2 className="bs-section-title">Tổng quan hệ thống</h2>
         <span style={{ fontSize: 12, color: '#9ca3af' }}>
@@ -429,7 +520,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="row g-3 mb-4">
-        {/* Tổng phòng */}
         <div className="col-6 col-sm-6 col-lg-3">
           <Link href="/dashboard/phong" className="text-decoration-none">
             <div className="bs-stat-card card-indigo">
@@ -450,7 +540,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Phòng trống */}
         <div className="col-6 col-sm-6 col-lg-3">
           <Link href="/dashboard/phong?status=available" className="text-decoration-none">
             <div className="bs-stat-card card-emerald">
@@ -460,9 +549,7 @@ export default function DashboardPage() {
                   <div className="bs-stat-value" style={{ color: '#059669' }}>{stats.phongTrong}</div>
                   <div className="bs-stat-sub">
                     <span className="bs-pulse-dot dot-green" style={{ marginRight: 5 }} />
-                    {stats.tongSoPhong > 0
-                      ? ((stats.phongTrong / stats.tongSoPhong) * 100).toFixed(0)
-                      : 0}% tổng số
+                    {stats.tongSoPhong > 0 ? ((stats.phongTrong / stats.tongSoPhong) * 100).toFixed(0) : 0}% tổng số
                   </div>
                 </div>
                 <div className="bs-stat-icon icon-emerald">
@@ -473,7 +560,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Doanh thu tháng */}
         <div className="col-6 col-sm-6 col-lg-3">
           <Link href="/dashboard/thanh-toan" className="text-decoration-none">
             <div className="bs-stat-card card-blue">
@@ -485,9 +571,7 @@ export default function DashboardPage() {
                     <span style={{ fontSize: 14, fontWeight: 600, color: '#6b7280' }}>M₫</span>
                   </div>
                   <div className="bs-stat-sub">
-                    <span className="bs-stat-trend-up">
-                      <i className="bi bi-arrow-up-right" />+12%
-                    </span>
+                    <span className="bs-stat-trend-up"><i className="bi bi-arrow-up-right" />+12%</span>
                     <span style={{ marginLeft: 4 }}>tháng trước</span>
                   </div>
                 </div>
@@ -499,7 +583,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Sự cố */}
         <div className="col-6 col-sm-6 col-lg-3">
           <Link href="/dashboard/su-co" className="text-decoration-none d-block">
             <div className="bs-stat-card card-rose" style={{ cursor: 'pointer' }}>
@@ -521,7 +604,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Row 2: Secondary stats ───────────────────────────────────────── */}
       <div className="row g-3 mb-4">
         <div className="col-6 col-md-3">
           <div className="bs-stat-card card-amber">
@@ -582,7 +664,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Nhân sự + Khách thuê (chỉ chuNha/dongChuTro) ───────────────── */}
       {(stats.tongQuanLy !== undefined || stats.tongKhachThue !== undefined) && (
         <div className="row g-3 mb-4">
           <div className="col-6 col-md-3">
@@ -638,9 +719,7 @@ export default function DashboardPage() {
                     <i className="bi bi-person-check-fill" />
                   </div>
                   <div>
-                    <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
-                      Có TK / Chưa có TK
-                    </div>
+                    <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Có TK / Chưa có TK</div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: '#059669' }}>
                       {stats.khachThueCoTaiKhoan ?? 0}
                       <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: 14 }}>
@@ -657,7 +736,6 @@ export default function DashboardPage() {
 
       {/* ── Row 3: Room Status + Activities ────────────────────────────── */}
       <div className="row g-3 mb-4">
-        {/* Tình trạng phòng */}
         <div className="col-12 col-lg-8">
           <div className="bs-card h-100">
             <div className="bs-card-header">
@@ -726,7 +804,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent activity */}
         <div className="col-12 col-lg-4">
           <div className="bs-card h-100">
             <div className="bs-card-header">
@@ -773,7 +850,6 @@ export default function DashboardPage() {
 
       {/* ── Row 4: Revenue Full Width ─────────────────────────────────── */}
       <div className="row g-3">
-        {/* Revenue overview */}
         <div className="col-12">
           <div className="bs-card h-100">
             <div className="bs-card-header">
@@ -784,7 +860,6 @@ export default function DashboardPage() {
                 </h5>
                 <div className="bs-card-subtitle">12 tháng trong năm (triệu đồng)</div>
               </div>
-              {/* Year selector */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <button
                   onClick={() => setSelectedYear(y => y - 1)}
@@ -806,7 +881,6 @@ export default function DashboardPage() {
               ) : (() => {
                 const MONTH_LABELS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
                 const currentMonth = selectedYear === currentYear ? new Date().getMonth() : 11;
-                // Show last 6 active months
                 const visibleMonths = revenueData;
                 const maxVal = Math.max(...visibleMonths.map(m => m.revenue), 1);
                 const bestMonth = visibleMonths.reduce((a, b) => b.revenue > a.revenue ? b : a, visibleMonths[0]);

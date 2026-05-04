@@ -1403,3 +1403,417 @@
 .notif-note-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
 .notif-note-input::placeholder { color: #94a3b8; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* =========================================================
+   ADMIN DASHBOARD — PERMISSION TREE
+   ========================================================= */
+.admin-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.admin-hero-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.admin-permission-tree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 8px 0;
+}
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 24px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(99,102,241,0.06), rgba(139,92,246,0.04));
+  border: 1px solid rgba(99,102,241,0.12);
+  min-width: 320px;
+  max-width: 480px;
+  width: 100%;
+  transition: all var(--transition);
+}
+
+.tree-node:hover {
+  border-color: rgba(99,102,241,0.25);
+  box-shadow: 0 4px 20px rgba(99,102,241,0.08);
+}
+
+.tree-root {
+  background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
+  border-color: rgba(99,102,241,0.2);
+}
+
+.tree-node-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+}
+
+.tree-node-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tree-node-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 2px;
+}
+
+.tree-node-desc {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.tree-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0;
+  color: #c7d2fe;
+  font-size: 18px;
+  position: relative;
+}
+
+.tree-connector::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, #c7d2fe, #e0e7ff);
+  z-index: 0;
+}
+
+.tree-connector i {
+  position: relative;
+  z-index: 1;
+  background: #f4f6fb;
+  padding: 0 4px;
+}
+
+.tree-buildings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.tree-building-card {
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all var(--transition);
+  background: #fff;
+}
+
+.tree-building-card:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.08);
+  transform: translateY(-1px);
+}
+
+.tree-building-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f8f9ff, #f0f0ff);
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.tree-building-header i {
+  color: #6366f1;
+  font-size: 16px;
+}
+
+.tree-building-body {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tree-role-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  transition: background var(--transition);
+  cursor: default;
+}
+
+.tree-role-row:hover {
+  background: #f9fafb;
+}
+
+.tree-role-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.tree-role-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tree-role-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.tree-role-desc {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 1px;
+}
+
+.tree-role-action {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  text-decoration: none;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.tree-role-action:hover {
+  background: rgba(99,102,241,0.1);
+  color: #6366f1;
+}
+
+/* Tree user badge as clickable button */
+.tree-role-row[type="button"]:hover {
+  background: rgba(99,102,241,0.06);
+  border-radius: var(--radius-md);
+}
+
+.tree-role-row[type="button"]:active {
+  background: rgba(99,102,241,0.12);
+}
+
+/* ── Admin Phân quyền Tree Style ─────────────────────────── */
+.admin-tree-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.admin-tree-level {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  padding: 8px 0;
+}
+
+.admin-tree-level::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, #e0e7ff, #c7d2fe);
+  transform: translateX(-50%);
+  z-index: 0;
+}
+
+.admin-tree-level:first-child::before {
+  display: none;
+}
+
+.admin-tree-level-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #6366f1;
+  background: #f4f6fb;
+  padding: 2px 12px;
+  border-radius: 999px;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 4px;
+}
+
+.admin-tree-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  width: 100%;
+  max-width: 600px;
+  position: relative;
+  z-index: 1;
+  transition: all var(--transition);
+}
+
+.admin-tree-card:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.08);
+}
+
+.admin-tree-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-tree-card-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--brand-gradient);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.admin-tree-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-tree-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.admin-tree-card-role {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 1px;
+}
+
+.admin-tree-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.admin-tree-perms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-tree-perm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: all var(--transition);
+}
+
+.admin-tree-perm-badge.active {
+  background: rgba(16,185,129,0.1);
+  border-color: rgba(16,185,129,0.2);
+  color: #059669;
+}
+
+.admin-tree-perm-badge.inactive {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+}
+
+.admin-tree-perm-badge i {
+  font-size: 10px;
+}
+
+.admin-tree-children {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-left: 40px;
+  position: relative;
+}
+
+.admin-tree-children::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e0e7ff;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .tree-buildings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tree-node {
+    min-width: unset;
+    padding: 14px 16px;
+  }
+
+  .admin-hero-btn {
+    font-size: 12px;
+    padding: 8px 14px;
+  }
+
+  .admin-tree-card {
+    max-width: 100%;
+  }
+}

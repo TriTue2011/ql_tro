@@ -1,7 +1,7 @@
 /**
  * GET /api/dashboard/admin-stats
  * Thống kê hệ thống dành riêng cho admin:
- * - Tổng tòa nhà, số chủ trọ, số admin
+ * - Tổng tòa nhà (mỗi tòa nhà có 1 chủ trọ)
  * - Danh sách tòa nhà mới nhất
  */
 import { NextResponse } from 'next/server';
@@ -15,23 +15,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const [
-    tongToaNha,
-    userByRole,
-    toaNhaMoiNhat,
-  ] = await Promise.all([
+  const [tongToaNha, toaNhaMoiNhat] = await Promise.all([
     prisma.toaNha.count(),
-    prisma.nguoiDung.groupBy({ by: ['vaiTro'], _count: { id: true } }),
     prisma.toaNha.findMany({
       take: 5,
       orderBy: { ngayTao: 'desc' },
       select: { id: true, tenToaNha: true, diaChi: true, ngayTao: true },
     }),
   ]);
-
-  const roleCount: Record<string, number> = {};
-  for (const r of userByRole) roleCount[r.vaiTro] = r._count.id;
-  const tongNguoiDung = Object.values(roleCount).reduce((a, b) => a + b, 0);
 
   // diaChi là Json object { soNha, duong, phuong, quan, thanhPho } — chuyển thành string
   const toaNhaMoiNhatFormatted = toaNhaMoiNhat.map((tn) => {
@@ -46,9 +37,6 @@ export async function GET() {
     success: true,
     data: {
       tongToaNha,
-      tongNguoiDung,
-      tongChuNha: roleCount['chuNha'] ?? 0,
-      tongAdmin: roleCount['admin'] ?? 0,
       toaNhaMoiNhat: toaNhaMoiNhatFormatted,
     },
   });

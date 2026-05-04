@@ -72,7 +72,7 @@ function buildNavGroups(role: Role): NavGroup[] {
     ];
   }
 
-  // ── Admin: chỉ quản trị hệ thống, Zalo, Cài đặt ──────────────────────────
+  // ── Admin: chỉ quản trị hệ thống + phân quyền cho tòa nhà ──────────────
   if (isAdmin) {
     return [
       {
@@ -91,38 +91,10 @@ function buildNavGroups(role: Role): NavGroup[] {
         ],
       },
       {
-        label: 'Vận hành',
-        icon: 'bi-tools',
-        items: [
-          { label: 'Công việc', href: '/dashboard/cong-viec' },
-          { label: 'Bảo dưỡng', href: '/dashboard/bao-duong' },
-        ],
-      },
-      {
-        label: 'Kho',
-        icon: 'bi-box-seam',
-        items: [
-          { label: 'Vật tư', href: '/dashboard/kho/vat-tu' },
-          { label: 'Tồn kho', href: '/dashboard/kho/ton-kho' },
-          { label: 'Nhập-Xuất', href: '/dashboard/kho/nhap-xuat' },
-        ],
-      },
-      {
-        label: 'Liên lạc',
-        icon: 'bi-chat-dots',
-        items: [
-          { label: 'Zalo', href: '/dashboard/zalo' },
-          { label: 'Zalo Monitor', href: '/dashboard/zalo-monitor' },
-        ],
-      },
-      {
-        label: 'Cài đặt',
-        icon: 'bi-gear',
+        label: 'Tài khoản',
+        icon: 'bi-person',
         items: [
           { label: 'Hồ sơ', href: '/dashboard/ho-so' },
-          { label: 'Cài đặt', href: '/dashboard/cai-dat' },
-          { label: 'Cài đặt Hotline', href: '/dashboard/cai-dat-hotline' },
-          { label: 'Cài đặt Email', href: '/dashboard/cai-dat-email' },
         ],
       },
     ];
