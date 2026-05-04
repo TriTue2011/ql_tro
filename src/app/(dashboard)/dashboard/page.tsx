@@ -716,7 +716,7 @@ export default function DashboardPage() {
                                       {perms.map(p => {
                                         const entries = permUserMap.get(p.key) ?? [];
                                         const fullAccessUsers = entries.filter(e => e.level === 'fullAccess');
-                                        const viewUsers = entries.filter(e => e.level === 'view');
+                                        const viewUsers = entries.filter(e => e.level === 'viewOnly');
                                         const hiddenUsers = entries.filter(e => e.level === 'hidden');
                                         return (
                                           <div key={p.key} style={{ background: '#fff', borderRadius: 8, padding: '8px 12px', marginBottom: 6, border: '1px solid #ede9fe' }}>
@@ -729,22 +729,22 @@ export default function DashboardPage() {
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                                               {entries.map(e => {
                                                 const roleColor = e.user.vaiTro === 'chuNha' ? '#10b981' : e.user.vaiTro === 'dongChuTro' ? '#f59e0b' : e.user.vaiTro === 'quanLy' ? '#6366f1' : '#6b7280';
-                                                const levelLabel = e.level === 'fullAccess' ? 'Đầy đủ' : e.level === 'view' ? 'Xem' : 'Ẩn';
-                                                const levelColor = e.level === 'fullAccess' ? '#10b981' : e.level === 'view' ? '#f59e0b' : '#d1d5db';
+                                                const levelLabel = e.level === 'fullAccess' ? 'Đầy đủ' : e.level === 'viewOnly' ? 'Xem' : 'Ẩn';
+                                                const levelColor = e.level === 'fullAccess' ? '#10b981' : e.level === 'viewOnly' ? '#f59e0b' : '#d1d5db';
                                                 return (
                                                   <div
                                                     key={e.user.id}
                                                     style={{
                                                       display: 'inline-flex', alignItems: 'center', gap: 4,
                                                       padding: '2px 8px', borderRadius: 12,
-                                                      background: e.level === 'fullAccess' ? '#ecfdf5' : e.level === 'view' ? '#fffbeb' : '#f9fafb',
-                                                      border: `1px solid ${e.level === 'fullAccess' ? '#a7f3d0' : e.level === 'view' ? '#fde68a' : '#e5e7eb'}`,
+                                                      background: e.level === 'fullAccess' ? '#ecfdf5' : e.level === 'viewOnly' ? '#fffbeb' : '#f9fafb',
+                                                      border: `1px solid ${e.level === 'fullAccess' ? '#a7f3d0' : e.level === 'viewOnly' ? '#fde68a' : '#e5e7eb'}`,
                                                       fontSize: 11, cursor: 'pointer',
                                                     }}
                                                     onClick={(ev) => {
                                                       ev.stopPropagation();
                                                       // Toggle: hidden → view → fullAccess → hidden
-                                                      const nextLevel = e.level === 'hidden' ? 'view' as PermissionLevel : e.level === 'view' ? 'fullAccess' as PermissionLevel : 'hidden' as PermissionLevel;
+                                                      const nextLevel = e.level === 'hidden' ? 'viewOnly' as PermissionLevel : e.level === 'viewOnly' ? 'fullAccess' as PermissionLevel : 'hidden' as PermissionLevel;
                                                       handlePermissionChange(e.user.id, tn.id, p.key, nextLevel);
                                                     }}
                                                     title={`${e.user.ten}: ${levelLabel} — nhấn để đổi`}
