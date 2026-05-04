@@ -1,18 +1,52 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { DashboardStats } from '@/types';
 import ZaloHotlineWarning from '@/components/zalo-hotline-warning';
+import { PermissionLevelSelector } from '@/components/dashboard';
+import type { PermissionLevel } from '@/components/dashboard';
+import { toast } from 'sonner';
 import '@/styles/bs-admin.css';
 
 interface MonthRevenue { month: number; revenue: number; }
 
 interface AdminStats {
   tongToaNha: number;
-  toaNhaMoiNhat: { id: string; tenToaNha: string; diaChi: string; ngayTao: string }[];
+  danhSachToaNha: { id: string; tenToaNha: string; diaChi: string; ngayTao: string }[];
 }
+
+interface BuildingUser {
+  id: string;
+  ten?: string;
+  email?: string | null;
+  soDienThoai?: string | null;
+  vaiTro?: string;
+  chucVu?: string | null;
+  quyenTheoToaNha?: Record<string, Record<string, PermissionLevel>>;
+}
+
+const BUSINESS_PERMISSIONS: Array<{
+  key: string;
+  label: string;
+  description: string;
+  group: string;
+}> = [
+  { key: 'mucDoHopDong', label: 'Hợp đồng', description: 'Cho phép quản lý thêm, sửa hoặc hủy hợp đồng.', group: 'Quản lý cơ bản' },
+  { key: 'mucDoKichHoatTaiKhoan', label: 'Đăng nhập khách thuê', description: 'Cho phép bật/thu hồi đăng nhập web cho khách thuê.', group: 'Quản lý cơ bản' },
+  { key: 'mucDoHoaDon', label: 'Hóa đơn', description: 'Cho phép tạo, sửa, xóa hóa đơn.', group: 'Tài chính' },
+  { key: 'mucDoThanhToan', label: 'Thanh toán', description: 'Cho phép ghi nhận, chỉnh sửa giao dịch thanh toán.', group: 'Tài chính' },
+  { key: 'mucDoSuCo', label: 'Sự cố', description: 'Cho phép tiếp nhận và xử lý sự cố.', group: 'Vận hành' },
+  { key: 'mucDoCongViec', label: 'Công việc', description: 'Cho phép quản lý công việc, phân công.', group: 'Vận hành' },
+  { key: 'mucDoBaoDuong', label: 'Bảo dưỡng', description: 'Cho phép quản lý lịch bảo dưỡng.', group: 'Vận hành' },
+  { key: 'mucDoKho', label: 'Kho', description: 'Cho phép quản lý vật tư, tồn kho.', group: 'Kho' },
+  { key: 'mucDoZalo', label: 'Zalo', description: 'Hiện tab Zalo để quản lý tin nhắn.', group: 'Liên lạc' },
+  { key: 'mucDoZaloMonitor', label: 'Zalo Monitor', description: 'Hiện tab Zalo Monitor.', group: 'Liên lạc' },
+  { key: 'mucDoCaiDatHotline', label: 'Cài đặt Hotline', description: 'Cấu hình số hotline Zalo.', group: 'Cài đặt' },
+  { key: 'mucDoCaiDatEmail', label: 'Cài đặt Email', description: 'Cấu hình email SMTP.', group: 'Cài đặt' },
+];
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -20,6 +54,7 @@ export default function DashboardPage() {
   const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState('');
+  const router = useRouter();
 
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -27,6 +62,111 @@ export default function DashboardPage() {
   const [revenueLoading, setRevenueLoading] = useState(false);
 
   const isAdmin = session?.user?.role === 'admin';
+
+  // ── Building list expandable permission state ──
+  const [expandedBuildingId, setExpandedBuildingId] = useState<string | null>(null);
+  const [buildingUsers, setBuildingUsers] = useState<BuildingUser[]>([]);
+  const [buildingUsersLoading, setBuildingUsersLoading] = useState(false);
+  const [savingPerm, setSavingPerm] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const fetchBuildingUsers = useCallback(async (buildingId: string) => {
+    setBuildingUsersLoading(true);
+    try {
+      const res = await fetch('/api/admin/users');
+      const data = await res.json();
+      if (data?.success) {
+        const users: BuildingUser[] = data.data.map((u: any) => ({
+          id: u.id,
+          ten: u.ten,
+          email: u.email,
+          soDienThoai: u.soDienThoai,
+          vaiTro: u.vaiTro,
+          chucVu: u.chucVu,
+          quyenTheoToaNha: u.quyenTheoToaNha ?? {},
+        }));
+        // Only show users assigned to this building
+        const filtered = users.filter((u: BuildingUser) =>
+          u.quyenTheoToaNha && u.quyenTheoToaNha[buildingId]
+        );
+        setBuildingUsers(filtered);
+      }
+    } catch {
+      toast.error('Không thể tải danh sách người dùng');
+    } finally {
+      setBuildingUsersLoading(false);
+    }
+  }, []);
+
+  const handleBuildingClick = useCallback((buildingId: string) => {
+    if (expandedBuildingId === buildingId) {
+      setExpandedBuildingId(null);
+      setBuildingUsers([]);
+    } else {
+      setExpandedBuildingId(buildingId);
+      void fetchBuildingUsers(buildingId);
+    }
+  }, [expandedBuildingId, fetchBuildingUsers]);
+
+  const handleDeleteBuilding = useCallback(async (buildingId: string, tenToaNha: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa tòa nhà "${tenToaNha}"? Hành động này không thể hoàn tác.`)) return;
+    setDeletingId(buildingId);
+    try {
+      const res = await fetch(`/api/toa-nha/${buildingId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('Đã xóa tòa nhà');
+        // Refresh stats
+        const statsRes = await fetch('/api/dashboard/admin-stats');
+        const statsData = await statsRes.json();
+        if (statsData?.success) setAdminStats(statsData.data);
+      } else {
+        toast.error(data?.message || 'Không thể xóa tòa nhà');
+      }
+    } catch {
+      toast.error('Không thể kết nối máy chủ');
+    } finally {
+      setDeletingId(null);
+    }
+  }, []);
+
+  const handlePermissionChange = useCallback(async (userId: string, buildingId: string, key: string, value: PermissionLevel) => {
+    setSavingPerm(`${userId}-${key}`);
+    // Optimistic update
+    setBuildingUsers(prev => prev.map(u => {
+      if (u.id !== userId) return u;
+      return {
+        ...u,
+        quyenTheoToaNha: {
+          ...(u.quyenTheoToaNha ?? {}),
+          [buildingId]: {
+            ...(u.quyenTheoToaNha?.[buildingId] ?? {}),
+            [key]: value,
+          },
+        },
+      };
+    }));
+    try {
+      const currentPerms = buildingUsers.find(u => u.id === userId)?.quyenTheoToaNha?.[buildingId] ?? {};
+      const nextPerms = { ...currentPerms, [key]: value };
+      const res = await fetch(`/api/admin/users/${userId}/quyen`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toaNhaId: buildingId, ...nextPerms }),
+      });
+      if (!res.ok) {
+        toast.error('Không thể lưu mức quyền');
+        await fetchBuildingUsers(buildingId);
+      } else {
+        toast.success('Đã lưu mức quyền');
+      }
+    } catch {
+      toast.error('Không thể kết nối máy chủ');
+      await fetchBuildingUsers(buildingId);
+    } finally {
+      setSavingPerm(null);
+    }
+  }, [buildingUsers, fetchBuildingUsers]);
 
   useEffect(() => {
     document.title = 'Tổng quan — Phòng Trọ Pro';
@@ -230,39 +370,217 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Row 2: Building list (full width now) ────────────────────── */}
+        {/* ── Row 2: Building list with inline edit/delete & expandable permission ── */}
         <div className="row g-3 mb-4">
           <div className="col-12">
             <div className="bs-card h-100">
               <div className="bs-card-header">
                 <div>
-                  <h5 className="bs-card-title"><i className="bi bi-buildings-fill" /> Tòa nhà mới nhất</h5>
-                  <div className="bs-card-subtitle">5 tòa nhà được thêm gần đây</div>
+                  <h5 className="bs-card-title"><i className="bi bi-buildings-fill" /> Danh sách tòa nhà</h5>
+                  <div className="bs-card-subtitle">{s.danhSachToaNha.length} tòa nhà — nhấn để xem/quản lý phân quyền</div>
                 </div>
                 <Link href="/dashboard/toa-nha" className="bs-section-link">
                   Xem tất cả <i className="bi bi-arrow-right" />
                 </Link>
               </div>
-              <div className="bs-card-body" style={{ padding: '12px 24px' }}>
-                {s.toaNhaMoiNhat.length === 0 ? (
+              <div className="bs-card-body" style={{ padding: '8px 16px' }}>
+                {s.danhSachToaNha.length === 0 ? (
                   <p style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: '20px 0' }}>Chưa có tòa nhà nào</p>
                 ) : (
-                  <ul className="bs-activity-list">
-                    {s.toaNhaMoiNhat.map((tn) => (
-                      <li key={tn.id} className="bs-activity-item">
-                        <div className="bs-activity-icon" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
-                          <i className="bi bi-building" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {s.danhSachToaNha.map((tn, idx) => (
+                      <div key={tn.id}>
+                        {/* ── Building Row ── */}
+                        <div
+                          onClick={() => handleBuildingClick(tn.id)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            padding: '10px 8px',
+                            cursor: 'pointer',
+                            borderBottom: idx < s.danhSachToaNha.length - 1 ? '1px solid #f0f0f0' : 'none',
+                            background: expandedBuildingId === tn.id ? '#f8f7ff' : 'transparent',
+                            borderRadius: expandedBuildingId === tn.id ? '8px 8px 0 0' : 0,
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => { if (expandedBuildingId !== tn.id) (e.currentTarget as HTMLElement).style.background = '#f9fafb'; }}
+                          onMouseLeave={(e) => { if (expandedBuildingId !== tn.id) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                        >
+                          <div
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 10,
+                              background: 'rgba(99,102,241,0.1)',
+                              color: '#6366f1',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 16,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <i className="bi bi-building" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{tn.tenToaNha}</div>
+                            <div style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tn.diaChi}</div>
+                          </div>
+                          <div style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                            {new Date(tn.ngayTao).toLocaleDateString('vi-VN')}
+                          </div>
+                          {/* Action buttons */}
+                          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/dashboard/toa-nha/${tn.id}`)}
+                              title="Chỉnh sửa"
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 6,
+                                border: '1px solid #e5e7eb',
+                                background: '#fff',
+                                color: '#6366f1',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                fontSize: 12,
+                                transition: 'all 0.15s',
+                              }}
+                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#eef2ff'; }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#fff'; }}
+                            >
+                              <i className="bi bi-pencil" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBuilding(tn.id, tn.tenToaNha)}
+                              disabled={deletingId === tn.id}
+                              title="Xóa"
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 6,
+                                border: '1px solid #e5e7eb',
+                                background: '#fff',
+                                color: '#ef4444',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                fontSize: 12,
+                                opacity: deletingId === tn.id ? 0.5 : 1,
+                                transition: 'all 0.15s',
+                              }}
+                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#fef2f2'; }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#fff'; }}
+                            >
+                              <i className="bi bi-trash" />
+                            </button>
+                            <div
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 6,
+                                border: '1px solid #e5e7eb',
+                                background: expandedBuildingId === tn.id ? '#eef2ff' : '#fff',
+                                color: expandedBuildingId === tn.id ? '#6366f1' : '#9ca3af',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 12,
+                                transition: 'all 0.15s',
+                              }}
+                            >
+                              <i className={`bi ${expandedBuildingId === tn.id ? 'bi-chevron-up' : 'bi-chevron-down'}`} />
+                            </div>
+                          </div>
                         </div>
-                        <div className="bs-activity-content">
-                          <div className="bs-activity-text">{tn.tenToaNha}</div>
-                          <div className="bs-activity-meta">{tn.diaChi}</div>
-                        </div>
-                        <div className="bs-activity-time">
-                          {new Date(tn.ngayTao).toLocaleDateString('vi-VN')}
-                        </div>
-                      </li>
+
+                        {/* ── Expanded Permission Section ── */}
+                        {expandedBuildingId === tn.id && (
+                          <div
+                            style={{
+                              padding: '16px 16px 20px',
+                              background: '#f8f7ff',
+                              borderRadius: '0 0 8px 8px',
+                              borderBottom: idx < s.danhSachToaNha.length - 1 ? '1px solid #e8e6f7' : 'none',
+                            }}
+                          >
+                            {buildingUsersLoading ? (
+                              <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 13 }}>
+                                <div className="spinner-border spinner-border-sm me-2" role="status" />
+                                Đang tải người dùng...
+                              </div>
+                            ) : buildingUsers.length === 0 ? (
+                              <div style={{ textAlign: 'center', padding: '16px 0', color: '#9ca3af', fontSize: 13 }}>
+                                <i className="bi bi-info-circle me-1" />
+                                Chưa có người dùng nào được gán quyền cho tòa nhà này.{' '}
+                                <Link href={`/dashboard/quan-ly-tai-khoan/them-moi`} style={{ color: '#6366f1' }}>Thêm người dùng</Link>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                {buildingUsers.map((user) => {
+                                  const perms = user.quyenTheoToaNha?.[tn.id] ?? {};
+                                  const roleLabel =
+                                    user.vaiTro === 'chuNha' ? 'Chủ trọ' :
+                                    user.vaiTro === 'dongChuTro' ? 'Đồng chủ trọ' :
+                                    user.vaiTro === 'quanLy' ? 'Quản lý' :
+                                    user.vaiTro === 'admin' ? 'Admin' : 'Nhân viên';
+                                  const roleColor =
+                                    user.vaiTro === 'chuNha' ? '#10b981' :
+                                    user.vaiTro === 'dongChuTro' ? '#f59e0b' :
+                                    user.vaiTro === 'quanLy' ? '#6366f1' :
+                                    user.vaiTro === 'admin' ? '#ef4444' : '#6b7280';
+                                  return (
+                                    <div key={user.id} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                        <div
+                                          style={{
+                                            width: 28,
+                                            height: 28,
+                                            borderRadius: 8,
+                                            background: `${roleColor}15`,
+                                            color: roleColor,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                            flexShrink: 0,
+                                          }}
+                                        >
+                                          {(user.ten || '?').charAt(0).toUpperCase()}
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div style={{ fontSize: 12, fontWeight: 600, color: '#1f2937' }}>{user.ten || 'Không tên'}</div>
+                                          <div style={{ fontSize: 11, color: roleColor }}>{roleLabel}{user.email ? ` · ${user.email}` : ''}</div>
+                                        </div>
+                                        <span style={{ fontSize: 10, color: '#9ca3af' }}>
+                                          {Object.values(perms).filter(v => v === 'fullAccess').length}/{Object.keys(perms).length} quyền
+                                        </span>
+                                      </div>
+                                      <PermissionLevelSelector
+                                        items={BUSINESS_PERMISSIONS}
+                                        values={perms as Record<string, PermissionLevel>}
+                                        onChange={(key, value) => handlePermissionChange(user.id, tn.id, key, value)}
+                                        disabled={savingPerm?.startsWith(user.id) ?? false}
+                                        columns={1}
+                                        showGroup={true}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </div>
             </div>
@@ -299,8 +617,8 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="tree-buildings-grid">
-                    {s.toaNhaMoiNhat.length > 0 ? (
-                      s.toaNhaMoiNhat.map((tn) => (
+                    {s.danhSachToaNha.length > 0 ? (
+                      s.danhSachToaNha.map((tn) => (
                         <div key={tn.id} className="tree-building-card">
                           <div className="tree-building-header">
                             <i className="bi bi-building" />

@@ -15,17 +15,16 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const [tongToaNha, toaNhaMoiNhat] = await Promise.all([
+  const [tongToaNha, danhSachToaNha] = await Promise.all([
     prisma.toaNha.count(),
     prisma.toaNha.findMany({
-      take: 5,
       orderBy: { ngayTao: 'desc' },
       select: { id: true, tenToaNha: true, diaChi: true, ngayTao: true },
     }),
   ]);
 
   // diaChi là Json object { soNha, duong, phuong, quan, thanhPho } — chuyển thành string
-  const toaNhaMoiNhatFormatted = toaNhaMoiNhat.map((tn) => {
+  const danhSachToaNhaFormatted = danhSachToaNha.map((tn) => {
     const d = tn.diaChi as Record<string, string> | null;
     const diaChiStr = d
       ? [d.soNha, d.duong, d.phuong, d.quan, d.thanhPho].filter(Boolean).join(', ')
@@ -37,7 +36,7 @@ export async function GET() {
     success: true,
     data: {
       tongToaNha,
-      toaNhaMoiNhat: toaNhaMoiNhatFormatted,
+      danhSachToaNha: danhSachToaNhaFormatted,
     },
   });
 }
