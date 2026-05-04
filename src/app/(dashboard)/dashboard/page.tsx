@@ -595,145 +595,183 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="p-3">
-                <div className="table-responsive">
-                  <table className="table table-hover align-middle mb-0" style={{ fontSize: 13 }}>
-                    <thead className="table-light">
-                      <tr>
-                        <th>Họ tên</th>
-                        <th>Số điện thoại</th>
-                        <th>Email</th>
-                        <th>Trạng thái</th>
-                        <th style={{ width: 200 }}>Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {s.danhSachAdmin.map((admin) => (
-                        <tr key={admin.id}>
-                          {editingAdminId === admin.id ? (
-                            <>
-                              <td>
-                                <Input
-                                  value={editAdminForm.ten}
-                                  onChange={(e) => setEditAdminForm(prev => ({ ...prev, ten: e.target.value }))}
-                                  className="h-8 text-sm"
-                                  placeholder="Họ tên"
-                                />
-                              </td>
-                              <td>
-                                <Input
-                                  value={editAdminForm.soDienThoai}
-                                  onChange={(e) => setEditAdminForm(prev => ({ ...prev, soDienThoai: e.target.value }))}
-                                  className="h-8 text-sm"
-                                  placeholder="Số điện thoại"
-                                />
-                              </td>
-                              <td>
-                                <Input
-                                  value={editAdminForm.email}
-                                  onChange={(e) => setEditAdminForm(prev => ({ ...prev, email: e.target.value }))}
-                                  className="h-8 text-sm"
-                                  placeholder="Email"
-                                />
-                              </td>
-                              <td>
-                                <Input
-                                  type="password"
-                                  value={editAdminForm.matKhau}
-                                  onChange={(e) => setEditAdminForm(prev => ({ ...prev, matKhau: e.target.value }))}
-                                  className="h-8 text-sm"
-                                  placeholder="Mật khẩu mới (để trống nếu không đổi)"
-                                />
-                              </td>
-                              <td>
-                                <div className="d-flex gap-1 flex-wrap">
-                                  <Button
-                                    size="sm"
-                                    className="h-7 text-xs bg-gradient-to-r from-indigo-500 to-blue-600 text-white border-0"
-                                    onClick={async () => {
-                                      setSavingAdmin(true);
-                                      try {
-                                        const res = await fetch(`/api/admin/users/${admin.id}`, {
-                                          method: 'PUT',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({
-                                            name: editAdminForm.ten,
-                                            phone: editAdminForm.soDienThoai || null,
-                                            email: editAdminForm.email || null,
-                                            password: editAdminForm.matKhau || undefined,
-                                          }),
-                                        });
-                                        const data = await res.json();
-                                        if (res.ok) {
-                                          toast.success('Đã cập nhật thông tin admin');
-                                          setEditingAdminId(null);
-                                          setEditAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
-                                          // Refresh stats
-                                          fetch('/api/dashboard/admin-stats')
-                                            .then((r) => r.ok ? r.json() : null)
-                                            .then((res) => { if (res?.success) setAdminStats(res.data); });
-                                        } else {
-                                          toast.error(data.error || 'Lỗi khi cập nhật');
-                                        }
-                                      } catch {
-                                        toast.error('Lỗi kết nối');
-                                      } finally {
-                                        setSavingAdmin(false);
-                                      }
-                                    }}
-                                    disabled={savingAdmin}
-                                  >
-                                    {savingAdmin ? 'Đang lưu...' : 'Lưu'}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs border-gray-300"
-                                    onClick={() => {
-                                      setEditingAdminId(null);
-                                      setEditAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
-                                    }}
-                                  >
-                                    Hủy
-                                  </Button>
-                                </div>
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="fw-semibold">{admin.ten}</td>
-                              <td>{admin.soDienThoai || <span className="text-muted">—</span>}</td>
-                              <td>{admin.email || <span className="text-muted">—</span>}</td>
-                              <td>
-                                <span className={`badge ${admin.trangThai === 'hoatDong' ? 'bg-success' : 'bg-secondary'}`}>
-                                  {admin.trangThai === 'hoatDong' ? 'Hoạt động' : 'Khóa'}
-                                </span>
-                              </td>
-                              <td>
-                                <div className="d-flex gap-1 flex-wrap">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                                    onClick={() => {
-                                      setEditingAdminId(admin.id);
-                                      setEditAdminForm({
-                                        ten: admin.ten,
-                                        soDienThoai: admin.soDienThoai || '',
-                                        email: admin.email || '',
-                                        matKhau: '',
-                                      });
-                                    }}
-                                  >
-                                    <i className="bi bi-pencil-square me-1" />Sửa
-                                  </Button>
-                                </div>
-                              </td>
-                            </>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="d-flex flex-column gap-2">
+                  {s.danhSachAdmin.map((admin) => (
+                    <div key={admin.id}>
+                      {/* ── Admin Row ── */}
+                      <div
+                        onClick={() => {
+                          if (editingAdminId === admin.id) {
+                            setEditingAdminId(null);
+                            setEditAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
+                          } else {
+                            setEditingAdminId(admin.id);
+                            setEditAdminForm({
+                              ten: admin.ten,
+                              soDienThoai: admin.soDienThoai || '',
+                              email: admin.email || '',
+                              matKhau: '',
+                            });
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: '10px 12px',
+                          cursor: 'pointer',
+                          borderRadius: editingAdminId === admin.id ? '8px 8px 0 0' : 8,
+                          background: editingAdminId === admin.id ? '#f8f7ff' : '#fff',
+                          border: editingAdminId === admin.id ? '1px solid #c7d2fe' : '1px solid #e5e7eb',
+                          borderBottom: editingAdminId === admin.id ? 'none' : '1px solid #e5e7eb',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => { if (editingAdminId !== admin.id) (e.currentTarget as HTMLElement).style.borderColor = '#c7d2fe'; }}
+                        onMouseLeave={(e) => { if (editingAdminId !== admin.id) (e.currentTarget as HTMLElement).style.borderColor = '#e5e7eb'; }}
+                      >
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 10,
+                            background: 'rgba(99,102,241,0.1)',
+                            color: '#6366f1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 16,
+                            fontWeight: 600,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {admin.ten.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{admin.ten}</div>
+                          <div style={{ fontSize: 11, color: '#9ca3af', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {admin.soDienThoai && <span><i className="bi bi-telephone me-1" />{admin.soDienThoai}</span>}
+                            {admin.email && <span><i className="bi bi-envelope me-1" />{admin.email}</span>}
+                          </div>
+                        </div>
+                        <span
+                          className={`badge ${admin.trangThai === 'hoatDong' ? 'bg-success' : 'bg-secondary'}`}
+                          style={{ fontSize: 10 }}
+                        >
+                          {admin.trangThai === 'hoatDong' ? 'Hoạt động' : 'Khóa'}
+                        </span>
+                        <i
+                          className={`bi ${editingAdminId === admin.id ? 'bi-chevron-up' : 'bi-chevron-down'}`}
+                          style={{ color: '#9ca3af', fontSize: 12, marginLeft: 8 }}
+                        />
+                      </div>
+
+                      {/* ── Expanded Edit Form ── */}
+                      {editingAdminId === admin.id && (
+                        <div
+                          style={{
+                            padding: '16px',
+                            border: '1px solid #c7d2fe',
+                            borderTop: 'none',
+                            borderRadius: '0 0 8px 8px',
+                            background: '#fafaff',
+                          }}
+                        >
+                          <div className="row g-3">
+                            <div className="col-12 col-md-6">
+                              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Họ tên</label>
+                              <Input
+                                value={editAdminForm.ten}
+                                onChange={(e) => setEditAdminForm(prev => ({ ...prev, ten: e.target.value }))}
+                                className="h-9 text-sm"
+                                placeholder="Họ tên"
+                              />
+                            </div>
+                            <div className="col-12 col-md-6">
+                              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Số điện thoại</label>
+                              <Input
+                                value={editAdminForm.soDienThoai}
+                                onChange={(e) => setEditAdminForm(prev => ({ ...prev, soDienThoai: e.target.value }))}
+                                className="h-9 text-sm"
+                                placeholder="Số điện thoại"
+                              />
+                            </div>
+                            <div className="col-12 col-md-6">
+                              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Email</label>
+                              <Input
+                                value={editAdminForm.email}
+                                onChange={(e) => setEditAdminForm(prev => ({ ...prev, email: e.target.value }))}
+                                className="h-9 text-sm"
+                                placeholder="Email"
+                              />
+                            </div>
+                            <div className="col-12 col-md-6">
+                              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                                Mật khẩu mới <span style={{ fontWeight: 400, color: '#9ca3af' }}>(để trống nếu không đổi)</span>
+                              </label>
+                              <Input
+                                type="password"
+                                value={editAdminForm.matKhau}
+                                onChange={(e) => setEditAdminForm(prev => ({ ...prev, matKhau: e.target.value }))}
+                                className="h-9 text-sm"
+                                placeholder="Nhập mật khẩu mới"
+                              />
+                            </div>
+                          </div>
+                          <div className="d-flex justify-end gap-2 mt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs border-gray-300"
+                              onClick={() => {
+                                setEditingAdminId(null);
+                                setEditAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
+                              }}
+                            >
+                              Hủy
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs bg-gradient-to-r from-indigo-500 to-blue-600 text-white border-0"
+                              onClick={async () => {
+                                setSavingAdmin(true);
+                                try {
+                                  const res = await fetch(`/api/admin/users/${admin.id}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      name: editAdminForm.ten,
+                                      phone: editAdminForm.soDienThoai || null,
+                                      email: editAdminForm.email || null,
+                                      password: editAdminForm.matKhau || undefined,
+                                    }),
+                                  });
+                                  const data = await res.json();
+                                  if (res.ok) {
+                                    toast.success('Đã cập nhật thông tin admin');
+                                    setEditingAdminId(null);
+                                    setEditAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
+                                    // Refresh stats
+                                    fetch('/api/dashboard/admin-stats')
+                                      .then((r) => r.ok ? r.json() : null)
+                                      .then((res) => { if (res?.success) setAdminStats(res.data); });
+                                  } else {
+                                    toast.error(data.error || 'Lỗi khi cập nhật');
+                                  }
+                                } catch {
+                                  toast.error('Lỗi kết nối');
+                                } finally {
+                                  setSavingAdmin(false);
+                                }
+                              }}
+                              disabled={savingAdmin}
+                            >
+                              {savingAdmin ? 'Đang lưu...' : 'Lưu thay đổi'}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
