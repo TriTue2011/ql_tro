@@ -587,7 +587,7 @@ export default function DashboardPage() {
           <div className="row g-2">
             {[
               { href: '/dashboard/toa-nha', icon: 'bi-buildings-fill', label: 'Tòa nhà', color: '#6366f1', count: s.tongToaNha },
-              { href: '/dashboard/ho-so', icon: 'bi-person-circle', label: 'Hồ sơ', color: '#06b6d4', count: null },
+              { href: '/dashboard/ho-so', icon: 'bi-person-circle', label: 'Cài đặt', color: '#06b6d4', count: null },
             ].map((item) => (
               <div key={item.href} className="col-4 col-sm-2">
                 <Link

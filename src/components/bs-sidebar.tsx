@@ -67,7 +67,7 @@ function buildNavGroups(role: Role): NavGroup[] {
       {
         label: 'Tài khoản',
         icon: 'bi-person',
-        items: [{ label: 'Hồ sơ', href: '/dashboard/ho-so' }],
+        items: [{ label: 'Cài đặt', href: '/dashboard/ho-so' }],
       },
     ];
   }
@@ -79,7 +79,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         label: 'Tài khoản',
         icon: 'bi-person',
         items: [
-          { label: 'Hồ sơ', href: '/dashboard/ho-so' },
+          { label: 'Cài đặt', href: '/dashboard/ho-so' },
         ],
       },
     ];
@@ -140,7 +140,7 @@ function buildNavGroups(role: Role): NavGroup[] {
         label: 'Tài khoản',
         icon: 'bi-person',
         items: [
-          { label: 'Hồ sơ', href: '/dashboard/ho-so' },
+          { label: 'Cài đặt', href: '/dashboard/ho-so' },
           { label: 'Giao diện', href: '/dashboard/giao-dien' },
         ],
       },
@@ -198,7 +198,7 @@ function buildNavGroups(role: Role): NavGroup[] {
     groups.push({
       label: 'Tài khoản',
       icon: 'bi-person',
-      items: [{ label: 'Hồ sơ', href: '/dashboard/ho-so' }],
+      items: [{ label: 'Cài đặt', href: '/dashboard/ho-so' }],
     });
   } else {
     // Chủ trọ: có cài đặt
@@ -206,8 +206,8 @@ function buildNavGroups(role: Role): NavGroup[] {
       label: 'Cài đặt',
       icon: 'bi-gear',
       items: [
-        { label: 'Hồ sơ', href: '/dashboard/ho-so' },
-        { label: 'Cài đặt', href: '/dashboard/cai-dat' },
+        { label: 'Cài đặt', href: '/dashboard/ho-so' },
+        { label: 'Cài đặt hệ thống', href: '/dashboard/cai-dat' },
       ],
     });
   }
@@ -412,8 +412,8 @@ function getItemIcon(label: string): string {
     'Quản lý tài khoản': 'bi-person-badge',
     'Phân quyền':        'bi-shield-check',
     'Yêu cầu duyệt':    'bi-check2-circle',
-    'Hồ sơ':             'bi-person-circle',
-    'Cài đặt':           'bi-sliders',
+    'Cài đặt':           'bi-person-circle',
+    'Cài đặt hệ thống':  'bi-sliders',
     'Giao diện':         'bi-palette',
     'Công việc':         'bi-kanban',
     'Bảo dưỡng':         'bi-wrench',
