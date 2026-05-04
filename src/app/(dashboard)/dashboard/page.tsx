@@ -720,8 +720,8 @@ export default function DashboardPage() {
                           {admin.ten.charAt(0).toUpperCase()}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{admin.ten}</div>
-                          <div style={{ fontSize: 11, color: '#9ca3af', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#1f2937' }}>{admin.ten}</div>
+                          <div style={{ fontSize: 10, color: '#9ca3af', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                             {admin.soDienThoai && <span><i className="bi bi-telephone me-1" />{admin.soDienThoai}</span>}
                             {admin.email && <span><i className="bi bi-envelope me-1" />{admin.email}</span>}
                           </div>
@@ -791,20 +791,30 @@ export default function DashboardPage() {
                             </div>
                           </div>
                           <div className="d-flex justify-end gap-2 mt-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs border-gray-300"
+                            <button
+                              type="button"
                               onClick={() => {
                                 setEditingAdminId(null);
                                 setEditAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
                               }}
+                              style={{
+                                padding: '6px 16px',
+                                borderRadius: 8,
+                                border: '1px solid #d1d5db',
+                                background: '#fff',
+                                color: '#374151',
+                                fontSize: 12,
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                              }}
+                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#f9fafb'; }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#fff'; }}
                             >
                               Hủy
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs bg-gradient-to-r from-indigo-500 to-blue-600 text-white border-0"
+                            </button>
+                            <button
+                              type="button"
                               onClick={async () => {
                                 setSavingAdmin(true);
                                 try {
@@ -837,9 +847,21 @@ export default function DashboardPage() {
                                 }
                               }}
                               disabled={savingAdmin}
+                              style={{
+                                padding: '6px 16px',
+                                borderRadius: 8,
+                                border: 'none',
+                                background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                                color: '#fff',
+                                fontSize: 12,
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                opacity: savingAdmin ? 0.7 : 1,
+                                transition: 'all 0.15s',
+                              }}
                             >
                               {savingAdmin ? 'Đang lưu...' : 'Lưu thay đổi'}
-                            </Button>
+                            </button>
                           </div>
                         </div>
                       )}
