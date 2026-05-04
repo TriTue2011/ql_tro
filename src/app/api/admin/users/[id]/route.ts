@@ -138,12 +138,11 @@ export async function PUT(
       return NextResponse.json({ error: chucVuResult.error }, { status: 400 });
     }
 
-    const updateData: Record<string, unknown> = {
-      ten: name,
-      soDienThoai: phone || null,
-      vaiTro: role,
-      trangThai: isActive ? 'hoatDong' : 'khoa',
-    };
+    const updateData: Record<string, unknown> = {};
+    if (name) updateData.ten = name;
+    if (phone !== undefined) updateData.soDienThoai = phone || null;
+    if (role !== undefined) updateData.vaiTro = role;
+    if (isActive !== undefined) updateData.trangThai = isActive ? 'hoatDong' : 'khoa';
     if (password) {
       updateData.matKhau = await hash(password, 12);
     }

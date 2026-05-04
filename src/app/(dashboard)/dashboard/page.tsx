@@ -686,7 +686,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* ── Expanded Permission Section — Gói tính năng nghiệp vụ (per-building) ── */}
+                        {/* ── Expanded Permission Section — Gói tính năng nghiệp vụ (giống tab phân quyền) ── */}
                         {expandedBuildingId === tn.id && (
                           <div
                             style={{
@@ -696,99 +696,118 @@ export default function DashboardPage() {
                               borderBottom: idx < s.danhSachToaNha.length - 1 ? '1px solid #e8e6f7' : 'none',
                             }}
                           >
-                            {/* Building-level permissions — editable inline */}
-                            <div style={{ marginBottom: 12 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <i className="bi bi-shield-check" />
-                                Gói tính năng nghiệp vụ — tất cả người dùng kế thừa
-                                <Link
-                                  href="/dashboard/phan-quyen"
-                                  style={{ fontSize: 10, color: '#818cf8', marginLeft: 'auto', textDecoration: 'none' }}
-                                >
-                                  <i className="bi bi-box-arrow-up-right me-1" />
-                                  Chi tiết
-                                </Link>
-                              </div>
-                              {buildingPermsLoading ? (
-                                <div style={{ textAlign: 'center', padding: '12px 0', color: '#9ca3af', fontSize: 12 }}>
-                                  <div className="spinner-border spinner-border-sm me-2" role="status" />
-                                  Đang tải gói quyền...
+                            <div style={{ display: 'flex', gap: 16, flexDirection: 'row' }}>
+                              {/* Left column: building selector */}
+                              <div style={{ width: 220, flexShrink: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <i className="bi bi-building" />
+                                  Danh sách tòa nhà
                                 </div>
-                              ) : (() => {
-                                const perms = buildingBusinessPerms[tn.id];
-                                if (!perms) {
-                                  return (
-                                    <div style={{ textAlign: 'center', padding: '12px 0', color: '#9ca3af', fontSize: 12 }}>
-                                      <i className="bi bi-info-circle me-1" />
-                                      Chưa có gói quyền.{' '}
-                                      <Link href="/dashboard/phan-quyen" style={{ color: '#6366f1' }}>Cấu hình ngay</Link>
-                                    </div>
-                                  );
-                                }
-                                return (
-                                  <PermissionLevelSelector
-                                    items={BUSINESS_PERMISSIONS}
-                                    values={perms}
-                                    onChange={(key, value) => {
-                                      void saveBuildingPermission(tn.id, key, value);
-                                    }}
-                                    disabled={false}
-                                    columns={1}
-                                    showGroup={true}
-                                  />
-                                );
-                              })()}
-                            </div>
-
-                            {/* Users assigned to this building (read-only list) */}
-                            <div>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <i className="bi bi-people" />
-                                Người dùng trong tòa nhà
-                              </div>
-                              {buildingUsersLoading ? (
-                                <div style={{ textAlign: 'center', padding: '12px 0', color: '#9ca3af', fontSize: 12 }}>
-                                  <div className="spinner-border spinner-border-sm me-2" role="status" />
-                                  Đang tải người dùng...
-                                </div>
-                              ) : buildingUsers.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '12px 0', color: '#9ca3af', fontSize: 12 }}>
-                                  <i className="bi bi-info-circle me-1" />
-                                  Chưa có người dùng nào được gán cho tòa nhà này.{' '}
-                                  <Link href="/dashboard/quan-ly-tai-khoan" style={{ color: '#6366f1' }}>Quản lý tài khoản</Link>
-                                </div>
-                              ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                  {buildingUsers.map(user => {
-                                    const roleColor = user.vaiTro === 'chuNha' ? '#10b981' : user.vaiTro === 'dongChuTro' ? '#f59e0b' : user.vaiTro === 'quanLy' ? '#6366f1' : '#6b7280';
-                                    const roleLabel = user.vaiTro === 'chuNha' ? 'Chủ trọ' : user.vaiTro === 'dongChuTro' ? 'Đồng chủ trọ' : user.vaiTro === 'quanLy' ? 'Quản lý' : 'Nhân viên';
+                                  {s.danhSachToaNha.map((b) => {
+                                    const isSelected = expandedBuildingId === b.id;
                                     return (
-                                      <div key={user.id} style={{
-                                        display: 'flex', alignItems: 'center', gap: 8,
-                                        padding: '6px 10px', borderRadius: 8,
-                                        background: '#fff', border: '1px solid #ede9fe',
-                                        fontSize: 12,
-                                      }}>
-                                        <div style={{
-                                          width: 24, height: 24, borderRadius: '50%',
-                                          background: roleColor, color: '#fff',
-                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                          fontSize: 10, fontWeight: 700, flexShrink: 0,
-                                        }}>
-                                          {(user.ten || '?').charAt(0).toUpperCase()}
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                          <span style={{ fontWeight: 500, color: '#1f2937' }}>{user.ten || 'Không tên'}</span>
-                                          <span style={{ color: roleColor, marginLeft: 6, fontSize: 10 }}>{roleLabel}</span>
-                                        </div>
-                                        {user.soDienThoai && (
-                                          <span style={{ color: '#9ca3af', fontSize: 10, flexShrink: 0 }}>{user.soDienThoai}</span>
+                                      <button
+                                        key={b.id}
+                                        type="button"
+                                        onClick={() => handleBuildingClick(b.id)}
+                                        style={{
+                                          width: '100%',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 8,
+                                          padding: '8px 10px',
+                                          borderRadius: 8,
+                                          textAlign: 'left',
+                                          fontSize: 12,
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.15s',
+                                          background: isSelected
+                                            ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
+                                            : '#fff',
+                                          color: isSelected ? '#fff' : '#4338ca',
+                                          fontWeight: isSelected ? 600 : 400,
+                                          boxShadow: isSelected ? '0 2px 8px rgba(99,102,241,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
+                                        }}
+                                      >
+                                        <i className="bi bi-building" style={{ fontSize: 14 }} />
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{b.tenToaNha}</span>
+                                        {buildingBusinessPerms[b.id] && (
+                                          <span style={{ fontSize: 10, opacity: 0.7 }}>
+                                            {Object.values(buildingBusinessPerms[b.id]).filter(v => v !== 'hidden').length}/{BUSINESS_PERMISSIONS.length}
+                                          </span>
                                         )}
-                                      </div>
+                                      </button>
                                     );
                                   })}
                                 </div>
-                              )}
+                              </div>
+
+                              {/* Right column: permission grid */}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{
+                                  borderRadius: 12,
+                                  background: 'rgba(255,255,255,0.7)',
+                                  padding: 16,
+                                  boxShadow: '0 2px 8px rgba(99,102,241,0.1)',
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                      <div style={{
+                                        width: 36, height: 36, borderRadius: '50%',
+                                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: '0 2px 6px rgba(245,158,11,0.3)',
+                                      }}>
+                                        <i className="bi bi-building" style={{ color: '#fff', fontSize: 16 }} />
+                                      </div>
+                                      <div>
+                                        <p style={{ fontSize: 13, fontWeight: 700, color: '#312e81', margin: 0 }}>{tn.tenToaNha}</p>
+                                        <p style={{ fontSize: 11, color: '#6366f1', margin: 0 }}>
+                                          Gói tính năng — tất cả người dùng trong tòa nhà kế thừa
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <Link
+                                      href="/dashboard/phan-quyen"
+                                      style={{ fontSize: 11, color: '#818cf8', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                                    >
+                                      <i className="bi bi-box-arrow-up-right me-1" />
+                                      Chi tiết
+                                    </Link>
+                                  </div>
+                                  {buildingPermsLoading ? (
+                                    <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
+                                      <div className="spinner-border spinner-border-sm me-2" role="status" />
+                                      Đang tải gói quyền...
+                                    </div>
+                                  ) : (() => {
+                                    const perms = buildingBusinessPerms[tn.id];
+                                    if (!perms) {
+                                      return (
+                                        <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
+                                          <i className="bi bi-info-circle me-1" />
+                                          Chưa có gói quyền.{' '}
+                                          <Link href="/dashboard/phan-quyen" style={{ color: '#6366f1' }}>Cấu hình ngay</Link>
+                                        </div>
+                                      );
+                                    }
+                                    return (
+                                      <PermissionLevelSelector
+                                        items={BUSINESS_PERMISSIONS}
+                                        values={perms}
+                                        onChange={(key, value) => {
+                                          void saveBuildingPermission(tn.id, key, value);
+                                        }}
+                                        disabled={false}
+                                        columns={1}
+                                        showGroup={true}
+                                      />
+                                    );
+                                  })()}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )}
