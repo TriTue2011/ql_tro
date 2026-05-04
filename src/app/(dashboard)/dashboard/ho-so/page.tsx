@@ -361,12 +361,6 @@ export default function ProfilePage() {
           <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-indigo-900">Cài đặt</h1>
           <p className="text-xs md:text-sm text-indigo-500/70">Quản lý tài khoản và cài đặt hệ thống</p>
         </div>
-        {!isEditing && (
-          <Button size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={() => setIsEditing(true)}>
-            <Edit3 className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Chỉnh sửa</span>
-          </Button>
-        )}
       </div>
 
       <PillTabs tabs={profileTabs} value={activeTab} onChange={setActiveTab} />
@@ -378,10 +372,16 @@ export default function ProfilePage() {
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
                 <User className="h-4 w-4 md:h-5 md:w-5 text-white" />
               </div>
-              <div>
+              <div className="flex-1">
                 <div className="text-base md:text-lg font-semibold text-indigo-900">Thông tin cơ bản</div>
                 <div className="text-xs text-indigo-500/70">Cập nhật thông tin cá nhân và ảnh đại diện</div>
               </div>
+              {!isEditing && (
+                <Button size="sm" className="rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={() => setIsEditing(true)}>
+                  <Edit3 className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Chỉnh sửa</span>
+                </Button>
+              )}
             </div>
             <div className="space-y-4 md:space-y-6 p-4 md:p-6">
               {/* Avatar Section */}

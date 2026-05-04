@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -31,6 +32,8 @@ import {
   Download,
   ArrowLeft,
   Home,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -111,6 +114,10 @@ export default function MinioManager() {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Selection state ──
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [deletingSelected, setDeletingSelected] = useState(false);
+
   // ── Sidebar category state (tree style) ──
   const [sidebarCategory, setSidebarCategory] = useState<string | null>('buckets');
 
@@ -123,9 +130,31 @@ export default function MinioManager() {
         setEndpoint(parsed.endpoint || '');
         setAccessKey(parsed.accessKey || '');
         setSecretKey(parsed.secretKey || '');
+        // Auto-reconnect if previously connected
+        if (parsed.connected) {
+          setConnected(true);
+          setBuckets((parsed.buckets || []).map((name: string) => ({ name })));
+          if (parsed.selectedBucket) {
+            setSelectedBucket(parsed.selectedBucket);
+          }
+        }
       }
     } catch { /* ignore */ }
   }, []);
+
+  // ── Save connection state to localStorage ──
+  function saveConnectionState(connConnected: boolean, connBuckets: MinioBucket[], connSelectedBucket: string | null) {
+    try {
+      localStorage.setItem('ql-tro-minio-connection', JSON.stringify({
+        endpoint: endpoint.trim(),
+        accessKey: accessKey.trim(),
+        secretKey: secretKey.trim(),
+        connected: connConnected,
+        buckets: connBuckets.map(b => b.name),
+        selectedBucket: connSelectedBucket,
+      }));
+    } catch { /* ignore */ }
+  }
 
   // ── Connect to MinIO ──
   async function handleConnect() {
@@ -148,12 +177,9 @@ export default function MinioManager() {
       const data = await res.json();
       if (data.success) {
         setConnected(true);
-        setBuckets((data.buckets || []).map((name: string) => ({ name })));
-        localStorage.setItem('ql-tro-minio-connection', JSON.stringify({
-          endpoint: endpoint.trim(),
-          accessKey: accessKey.trim(),
-          secretKey: secretKey.trim(),
-        }));
+        const bucketList = (data.buckets || []).map((name: string) => ({ name }));
+        setBuckets(bucketList);
+        saveConnectionState(true, bucketList, data.buckets?.length > 0 ? data.buckets[0] : null);
         toast.success('Kết nối MinIO thành công');
         if (data.buckets?.length > 0) {
           setSelectedBucket(data.buckets[0]);
@@ -185,10 +211,12 @@ export default function MinioManager() {
       });
       const data = await res.json();
       if (data.success) {
-        setBuckets(prev => [...prev, { name }]);
+        const newBuckets = [...buckets, { name }];
+        setBuckets(newBuckets);
         setSelectedBucket(name);
         setNewBucketName('');
         setCurrentPrefix('');
+        saveConnectionState(true, newBuckets, name);
         toast.success(`Đã tạo bucket "${name}"`);
       } else {
         toast.error(data.message || 'Tạo bucket thất bại');
@@ -210,12 +238,17 @@ export default function MinioManager() {
       });
       const data = await res.json();
       if (data.success) {
-        setBuckets(prev => prev.filter(b => b.name !== name));
+        const newBuckets = buckets.filter(b => b.name !== name);
+        setBuckets(newBuckets);
         if (selectedBucket === name) {
-          setSelectedBucket(buckets.length > 1 ? buckets.find(b => b.name !== name)?.name || null : null);
+          const nextBucket = newBuckets.length > 0 ? newBuckets[0].name : null;
+          setSelectedBucket(nextBucket);
           setCurrentPrefix('');
           setFolders([]);
           setFiles([]);
+          saveConnectionState(true, newBuckets, nextBucket);
+        } else {
+          saveConnectionState(true, newBuckets, selectedBucket);
         }
         toast.success(`Đã xóa bucket "${name}"`);
       } else {
@@ -240,6 +273,7 @@ export default function MinioManager() {
       if (data.success) {
         setFolders(data.folders || []);
         setFiles(data.files || []);
+        setSelectedFiles(new Set());
       } else {
         toast.error(data.message || 'Lỗi tải danh sách file');
       }
@@ -389,6 +423,60 @@ export default function MinioManager() {
     a.click();
   }
 
+  // ── Selection helpers ──
+  function toggleFileSelection(fileName: string) {
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
+      if (next.has(fileName)) {
+        next.delete(fileName);
+      } else {
+        next.add(fileName);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedFiles.size === files.length) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(files.map(f => f.name)));
+    }
+  }
+
+  async function handleDeleteSelected() {
+    if (selectedFiles.size === 0) return;
+    if (!confirm(`Xóa ${selectedFiles.size} file đã chọn?`)) return;
+    setDeletingSelected(true);
+    let successCount = 0;
+    let failCount = 0;
+    for (const fileName of selectedFiles) {
+      try {
+        const res = await fetch('/api/admin/storage/objects', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bucket: selectedBucket, key: fileName }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch {
+        failCount++;
+      }
+    }
+    setDeletingSelected(false);
+    if (successCount > 0) {
+      toast.success(`Đã xóa ${successCount} file`);
+    }
+    if (failCount > 0) {
+      toast.error(`${failCount} file xóa thất bại`);
+    }
+    loadFiles(selectedBucket!, currentPrefix);
+  }
+
   // ── Render: Connection form ──
   function renderConnectionForm() {
     return (
@@ -429,7 +517,7 @@ export default function MinioManager() {
           </div>
           <Button
             size="sm"
-            className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
+            className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
             onClick={handleConnect}
             disabled={connecting}
           >
@@ -440,7 +528,7 @@ export default function MinioManager() {
             )}
           </Button>
           {connectError && (
-            <div className="rounded-md p-3 text-sm flex items-center gap-2 bg-red-50 border border-red-200 text-red-800">
+            <div className="rounded-xl p-3 text-sm flex items-center gap-2 bg-red-50 border border-red-200 text-red-800">
               <XCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
               {connectError}
             </div>
@@ -515,7 +603,7 @@ export default function MinioManager() {
             />
             <Button
               size="sm"
-              className="h-8 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200 shrink-0"
+              className="h-8 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200 shrink-0"
               onClick={handleCreateBucket}
               disabled={creatingBucket || !newBucketName.trim()}
             >
@@ -539,6 +627,7 @@ export default function MinioManager() {
     }
 
     const bucketName = selectedBucket;
+    const allSelected = files.length > 0 && selectedFiles.size === files.length;
 
     return (
       <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
@@ -562,7 +651,7 @@ export default function MinioManager() {
             <Button
               size="sm"
               variant="outline"
-              className="h-8 w-8 p-0 border-indigo-200 text-indigo-600"
+              className="h-8 w-8 p-0 rounded-xl border-indigo-200 text-indigo-600"
               onClick={() => { setCurrentPrefix(''); }}
               disabled={!currentPrefix}
               title="Về thư mục gốc"
@@ -572,7 +661,7 @@ export default function MinioManager() {
             <Button
               size="sm"
               variant="outline"
-              className="h-8 w-8 p-0 border-indigo-200 text-indigo-600"
+              className="h-8 w-8 p-0 rounded-xl border-indigo-200 text-indigo-600"
               onClick={navigateUp}
               disabled={!currentPrefix}
               title="Lên trên"
@@ -594,7 +683,7 @@ export default function MinioManager() {
             <Button
               size="sm"
               variant="outline"
-              className="h-8 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+              className="h-8 rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-50"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
             >
@@ -617,7 +706,7 @@ export default function MinioManager() {
             />
             <Button
               size="sm"
-              className="h-8 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
+              className="h-8 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
               onClick={handleCreateFolder}
               disabled={creatingFolder || !newFolderName.trim()}
             >
@@ -633,7 +722,7 @@ export default function MinioManager() {
           <Button
             size="sm"
             variant="outline"
-            className="h-8 w-8 p-0 border-indigo-200 text-indigo-600"
+            className="h-8 w-8 p-0 rounded-xl border-indigo-200 text-indigo-600"
             onClick={() => loadFiles(selectedBucket, currentPrefix)}
             disabled={loadingFiles}
             title="Làm mới"
@@ -657,6 +746,43 @@ export default function MinioManager() {
             </div>
           ) : (
             <div className="space-y-1">
+              {/* Select All / Batch Delete bar */}
+              {files.length > 0 && (
+                <div className="flex items-center gap-2 px-2 py-1.5 mb-1 border-b border-indigo-100">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAll}
+                    className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    {allSelected ? (
+                      <CheckSquare className="h-4 w-4" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                    {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                  </button>
+                  {selectedFiles.size > 0 && (
+                    <>
+                      <span className="text-xs text-indigo-400">·</span>
+                      <span className="text-xs text-indigo-500">Đã chọn {selectedFiles.size}</span>
+                      <button
+                        type="button"
+                        onClick={handleDeleteSelected}
+                        disabled={deletingSelected}
+                        className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 ml-auto transition-colors"
+                      >
+                        {deletingSelected ? (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        Xóa đã chọn
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Folders */}
               {folders.map(folder => {
                 const folderName = folder.replace(/\/$/, '').split('/').pop() || folder;
@@ -696,11 +822,30 @@ export default function MinioManager() {
                 const fileName = getFileName(file.name);
                 const iconType = getFileIcon(fileName);
                 const isImage = iconType === 'image';
+                const isSelected = selectedFiles.has(file.name);
                 return (
                   <div
                     key={file.name}
-                    className="flex items-center gap-2 p-2.5 rounded-xl hover:bg-indigo-50 border border-transparent hover:border-indigo-200 transition-colors group"
+                    className={`flex items-center gap-2 p-2.5 rounded-xl hover:bg-indigo-50 border transition-colors group ${
+                      isSelected
+                        ? 'border-indigo-300 bg-indigo-50/80'
+                        : 'border-transparent hover:border-indigo-200'
+                    }`}
                   >
+                    {/* Checkbox */}
+                    <button
+                      type="button"
+                      onClick={() => toggleFileSelection(file.name)}
+                      className="shrink-0 text-indigo-400 hover:text-indigo-600 transition-colors"
+                      title={isSelected ? 'Bỏ chọn' : 'Chọn'}
+                    >
+                      {isSelected ? (
+                        <CheckSquare className="h-4 w-4 text-indigo-600" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                    </button>
+
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {/* Thumbnail/Icon */}
                       {isImage && file.url ? (
@@ -777,7 +922,7 @@ export default function MinioManager() {
           <Button
             size="sm"
             variant="outline"
-            className="w-full border-red-200 text-red-600 hover:bg-red-50 text-xs"
+            className="w-full rounded-xl border-red-200 text-red-600 hover:bg-red-50 text-xs"
             onClick={() => {
               setConnected(false);
               setBuckets([]);
@@ -786,6 +931,8 @@ export default function MinioManager() {
               setFolders([]);
               setFiles([]);
               setSidebarCategory('buckets');
+              setSelectedFiles(new Set());
+              saveConnectionState(false, [], null);
             }}
           >
             <XCircle className="h-3.5 w-3.5 mr-1.5" />
