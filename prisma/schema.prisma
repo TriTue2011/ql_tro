@@ -119,6 +119,10 @@ model ToaNhaNguoiQuanLy {
   mucDoBaoDuong        PermissionLevel @default(fullAccess) // Bảo dưỡng
   mucDoCaiDatHotline   PermissionLevel @default(fullAccess) // Cài đặt Hotline
   mucDoCaiDatEmail     PermissionLevel @default(fullAccess) // Cài đặt Email
+  mucDoHomeAssistant   PermissionLevel @default(fullAccess) // Home Assistant
+  mucDoAI              PermissionLevel @default(fullAccess) // AI
+  mucDoDangNhapKT      PermissionLevel @default(fullAccess) // Đăng nhập khách thuê
+  mucDoZaloHotline     PermissionLevel @default(fullAccess) // Zalo Hotline
 
   @@id([toaNhaId, nguoiDungId])
 }

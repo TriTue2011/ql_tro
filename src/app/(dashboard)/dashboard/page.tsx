@@ -71,6 +71,10 @@ const BUSINESS_PERMISSIONS: Array<{
   { key: 'mucDoZaloMonitor', label: 'Zalo Monitor', description: 'Hiện tab Zalo Monitor.', group: 'Liên lạc' },
   { key: 'mucDoCaiDatHotline', label: 'Cài đặt Hotline', description: 'Cấu hình số hotline Zalo.', group: 'Cài đặt' },
   { key: 'mucDoCaiDatEmail', label: 'Cài đặt Email', description: 'Cấu hình email SMTP.', group: 'Cài đặt' },
+  { key: 'mucDoHomeAssistant', label: 'Home Assistant', description: 'Cho phép cấu hình Home Assistant riêng cho tòa nhà.', group: 'Cài đặt' },
+  { key: 'mucDoAI', label: 'AI', description: 'Cho phép cấu hình AI riêng cho tòa nhà.', group: 'Cài đặt' },
+  { key: 'mucDoDangNhapKT', label: 'Đăng nhập khách thuê', description: 'Cho phép cấu hình đăng nhập khách thuê cho tòa nhà.', group: 'Cài đặt' },
+  { key: 'mucDoZaloHotline', label: 'Zalo Hotline', description: 'Cho phép cấu hình Zalo Hotline riêng cho tòa nhà.', group: 'Cài đặt' },
 ];
 
 // Permission group config for the tree sidebar

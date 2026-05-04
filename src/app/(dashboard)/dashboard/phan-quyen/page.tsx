@@ -52,7 +52,11 @@ type MucDoKey =
   | 'mucDoKho'
   | 'mucDoBaoDuong'
   | 'mucDoCaiDatHotline'
-  | 'mucDoCaiDatEmail';
+  | 'mucDoCaiDatEmail'
+  | 'mucDoHomeAssistant'
+  | 'mucDoAI'
+  | 'mucDoDangNhapKT'
+  | 'mucDoZaloHotline';
 type ZaloFeatureKey =
   | 'botServer'
   | 'trucTiep'
@@ -83,6 +87,10 @@ interface UserPermissionSet {
   mucDoBaoDuong?: PermissionLevel;
   mucDoCaiDatHotline?: PermissionLevel;
   mucDoCaiDatEmail?: PermissionLevel;
+  mucDoHomeAssistant?: PermissionLevel;
+  mucDoAI?: PermissionLevel;
+  mucDoDangNhapKT?: PermissionLevel;
+  mucDoZaloHotline?: PermissionLevel;
 }
 
 interface User {
@@ -107,6 +115,10 @@ interface User {
   mucDoBaoDuong?: PermissionLevel;
   mucDoCaiDatHotline?: PermissionLevel;
   mucDoCaiDatEmail?: PermissionLevel;
+  mucDoHomeAssistant?: PermissionLevel;
+  mucDoAI?: PermissionLevel;
+  mucDoDangNhapKT?: PermissionLevel;
+  mucDoZaloHotline?: PermissionLevel;
 }
 
 type ZaloPermissionMap = Record<string, Record<ZaloFeatureKey, boolean>>;
@@ -221,6 +233,30 @@ const BUSINESS_PERMISSIONS: Array<{
     description: 'Cho phép cấu hình email SMTP để gửi hóa đơn, thông báo.',
     group: 'Cài đặt',
   },
+  {
+    key: 'mucDoHomeAssistant',
+    label: 'Home Assistant',
+    description: 'Cho phép cấu hình Home Assistant riêng cho tòa nhà.',
+    group: 'Cài đặt',
+  },
+  {
+    key: 'mucDoAI',
+    label: 'AI',
+    description: 'Cho phép cấu hình AI riêng cho tòa nhà.',
+    group: 'Cài đặt',
+  },
+  {
+    key: 'mucDoDangNhapKT',
+    label: 'Đăng nhập khách thuê',
+    description: 'Cho phép cấu hình đăng nhập khách thuê cho tòa nhà.',
+    group: 'Cài đặt',
+  },
+  {
+    key: 'mucDoZaloHotline',
+    label: 'Zalo Hotline',
+    description: 'Cho phép cấu hình Zalo Hotline riêng cho tòa nhà.',
+    group: 'Cài đặt',
+  },
 ];
 
 const ZALO_FEATURES: Array<{
@@ -287,6 +323,10 @@ function getPermissionForBuilding(user: User, buildingId: string): UserPermissio
     mucDoBaoDuong: user.mucDoBaoDuong ?? 'fullAccess',
     mucDoCaiDatHotline: user.mucDoCaiDatHotline ?? 'fullAccess',
     mucDoCaiDatEmail: user.mucDoCaiDatEmail ?? 'fullAccess',
+    mucDoHomeAssistant: user.mucDoHomeAssistant ?? 'fullAccess',
+    mucDoAI: user.mucDoAI ?? 'fullAccess',
+    mucDoDangNhapKT: user.mucDoDangNhapKT ?? 'fullAccess',
+    mucDoZaloHotline: user.mucDoZaloHotline ?? 'fullAccess',
   };
 }
 

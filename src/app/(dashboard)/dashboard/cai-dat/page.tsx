@@ -3253,11 +3253,7 @@ export default function CaiDatPage() {
       <PillTabs
         tabs={[
           ...(isAdmin ? [
-            { value: "homeAssistant", label: "Home Assistant", icon: Webhook },
             { value: "luuTru", label: "Lưu trữ", icon: HardDrive },
-            { value: "ai", label: "AI", icon: Bot },
-            { value: "dangNhapKT", label: "Đăng nhập KT", icon: Users },
-            { value: "zaloHotline", label: "Zalo Hotline", icon: Phone },
           ] as const : []),
           ...(isChuNha ? [
             { value: "thanhToan", label: "Thanh toán", icon: CreditCard },
@@ -3497,82 +3493,6 @@ export default function CaiDatPage() {
         )}
 
 
-        {/* ── Tab Home Assistant ──────────────────────────────────────────────── */}
-        {activeTab === "homeAssistant" && isAdmin && !loadingSystem && !errorSystem && (
-          <div className="mt-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Left column: tree-style category list */}
-              <div className="w-full lg:w-72 shrink-0 space-y-2">
-                <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
-                  <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
-                    <Webhook className="h-3.5 w-3.5 inline mr-1" />
-                    Home Assistant
-                  </p>
-                  {[
-                    { key: 'haConfig', label: 'Cấu hình Home Assistant', icon: <Webhook className="h-3.5 w-3.5 text-indigo-500" /> },
-                    { key: 'webhook', label: 'Webhook', icon: <Webhook className="h-3.5 w-3.5 text-blue-500" /> },
-                  ].map(cat => {
-                    const isSelected = selectedHaCategory === cat.key;
-                    return (
-                      <button
-                        key={cat.key}
-                        type="button"
-                        onClick={() => setSelectedHaCategory(isSelected ? null : cat.key)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
-                          isSelected
-                            ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
-                            : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
-                        }`}
-                      >
-                        <span className="shrink-0">{cat.icon}</span>
-                        <span className="truncate">{cat.label}</span>
-                        {isSelected
-                          ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
-                          : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
-                        }
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Right column: content for selected category */}
-              <div className="flex-1 min-w-0">
-                {!selectedHaCategory ? (
-                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-8 text-center">
-                    <Webhook className="mx-auto h-8 w-8 text-indigo-300 mb-2" />
-                    <p className="text-sm text-indigo-400">Chọn một danh mục bên trái để xem cài đặt</p>
-                  </div>
-                ) : selectedHaCategory === 'haConfig' ? (
-                  <AdminToaNhaSettingsPanel tab="ha" />
-                ) : (
-                  <ZaloWebhookCard
-                    currentWebhookId={currentWebhookId}
-                    webhookBaseUrl={webhookBaseUrl}
-                    webhookDomainUrl={webhookDomainUrl}
-                    webhookFullUrl={webhookFullUrl}
-                    webhookDomainFullUrl={webhookDomainFullUrl}
-                    webhookIdGenerating={webhookIdGenerating}
-                    webhookTestLoading={webhookTestLoading}
-                    webhookTestResult={webhookTestResult}
-                    botWebhookUrl={botWebhookUrl}
-                    botWebhookLoading={botWebhookLoading}
-                    botWebhookResult={botWebhookResult}
-                    onChangeBaseUrl={setWebhookBaseUrl}
-                    onChangeDomainUrl={setWebhookDomainUrl}
-                    onSaveBaseUrl={handleSaveBaseUrl}
-                    onSaveDomainUrl={handleSaveDomainUrl}
-                    onGenerate={handleGenerateWebhookId}
-                    onTest={handleTestWebhook}
-                    onChangeBotUrl={setBotWebhookUrl}
-                    onSetBotWebhook={() => handleBotSetWebhook()}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* ── Tab Lưu trữ ───────────────────────────────────────────────────── */}
         {activeTab === "luuTru" && isAdmin && !loadingSystem && !errorSystem && (
           <div className="mt-4">
@@ -3666,82 +3586,6 @@ export default function CaiDatPage() {
                 )}
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ── Tab AI (chỉ admin) ─────────────────────────────────────────────── */}
-        {activeTab === "ai" && isAdmin && !loadingSystem && !errorSystem && (
-          <div className="mt-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Left column: tree-style category list */}
-              <div className="w-full lg:w-72 shrink-0 space-y-2">
-                <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1 shadow-sm">
-                  <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider px-1 mb-2">
-                    <Bot className="h-3.5 w-3.5 inline mr-1" />
-                    AI
-                  </p>
-                  {[
-                    { key: 'aiConfig', label: 'Cấu hình AI', icon: <Bot className="h-3.5 w-3.5 text-indigo-500" /> },
-                    { key: 'aiAccounts', label: 'Tài khoản AI', icon: <Users className="h-3.5 w-3.5 text-blue-500" /> },
-                  ].map(cat => {
-                    const isSelected = selectedAiCategory === cat.key;
-                    return (
-                      <button
-                        key={cat.key}
-                        type="button"
-                        onClick={() => setSelectedAiCategory(isSelected ? null : cat.key)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 text-xs ${
-                          isSelected
-                            ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
-                            : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
-                        }`}
-                      >
-                        <span className="shrink-0">{cat.icon}</span>
-                        <span className="truncate">{cat.label}</span>
-                        {isSelected
-                          ? <ChevronDown className="h-3 w-3 shrink-0 ml-auto" />
-                          : <ChevronRight className="h-3 w-3 shrink-0 ml-auto" />
-                        }
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Right column: content for selected category */}
-              <div className="flex-1 min-w-0">
-                {!selectedAiCategory ? (
-                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-8 text-center">
-                    <Bot className="mx-auto h-8 w-8 text-indigo-300 mb-2" />
-                    <p className="text-sm text-indigo-400">Chọn một danh mục bên trái để xem cài đặt</p>
-                  </div>
-                ) : selectedAiCategory === 'aiConfig' ? (
-                  <AdminAiSettingsPanel
-                    items={settingsByGroup["ai"] ?? []}
-                    values={settingValues}
-                    onChange={handleSettingChange}
-                    onSave={handleSaveGroup}
-                    saving={savingGroup === "ai"}
-                  />
-                ) : (
-                  <AdminAiAccountsPanel />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Tab Đăng nhập khách thuê (admin) ───────────────────────────────── */}
-        {activeTab === "dangNhapKT" && isAdmin && (
-          <div className="space-y-4 mt-4">
-            <AdminDangNhapKTPanel />
-          </div>
-        )}
-
-        {/* ── Tab Zalo Hotline (admin) ──────────────────────────────────────── */}
-        {activeTab === "zaloHotline" && isAdmin && (
-          <div className="space-y-4 mt-4">
-            <ZaloHotlineCard />
           </div>
         )}
 

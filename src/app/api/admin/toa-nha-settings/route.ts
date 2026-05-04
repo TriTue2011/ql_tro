@@ -1,19 +1,39 @@
 /**
- * GET  /api/admin/toa-nha-settings?toaNhaId=xxx  → Lấy cài đặt HA + lưu trữ của tòa nhà
+ * GET  /api/admin/toa-nha-settings?toaNhaId=xxx  → Lấy cài đặt của tòa nhà
  * PUT  /api/admin/toa-nha-settings                → Lưu cài đặt của tòa nhà
- * Chỉ admin truy cập được.
+ *
+ * Admin: có thể xem/sửa tất cả tòa nhà
+ * Chủ trọ: chỉ xem/sửa được tòa nhà mình quản lý
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
+/** Lấy danh sách tòa nhà mà user hiện tại có quyền truy cập */
+async function getAccessibleBuildingIds(userId: string, role: string): Promise<string[]> {
+  if (role === 'admin') {
+    const all = await prisma.toaNha.findMany({ select: { id: true } });
+    return all.map(b => b.id);
+  }
+  // Chủ trọ: lấy tòa nhà có chuSoHuuId = userId
+  const buildings = await prisma.toaNha.findMany({
+    where: { chuSoHuuId: userId },
+    select: { id: true },
+  });
+  return buildings.map(b => b.id);
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (session?.user?.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const role = session.user.role ?? '';
+    const userId = session.user.id;
+    const accessibleIds = await getAccessibleBuildingIds(userId, role);
 
     const { searchParams } = new URL(req.url);
     const toaNhaId = searchParams.get('toaNhaId');
@@ -21,10 +41,16 @@ export async function GET(req: NextRequest) {
     if (!toaNhaId) {
       // Trả về danh sách tòa nhà cho dropdown (chỉ cần id + tên)
       const buildings = await prisma.toaNha.findMany({
+        where: { id: { in: accessibleIds } },
         select: { id: true, tenToaNha: true },
         orderBy: { tenToaNha: 'asc' },
       });
       return NextResponse.json({ success: true, data: buildings });
+    }
+
+    // Kiểm tra quyền truy cập tòa nhà này
+    if (!accessibleIds.includes(toaNhaId)) {
+      return NextResponse.json({ error: 'Bạn không có quyền truy cập tòa nhà này' }, { status: 403 });
     }
 
     const settings = await prisma.caiDatToaNha.findUnique({
@@ -62,15 +88,24 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (session?.user?.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const role = session.user.role ?? '';
+    const userId = session.user.id;
+    const accessibleIds = await getAccessibleBuildingIds(userId, role);
 
     const body = await req.json();
     const { toaNhaId, ...rest } = body;
 
     if (!toaNhaId) {
       return NextResponse.json({ error: 'toaNhaId required' }, { status: 400 });
+    }
+
+    // Kiểm tra quyền truy cập tòa nhà này
+    if (!accessibleIds.includes(toaNhaId)) {
+      return NextResponse.json({ error: 'Bạn không có quyền truy cập tòa nhà này' }, { status: 403 });
     }
 
     // Kiểm tra tòa nhà tồn tại
@@ -94,21 +129,31 @@ export async function PUT(req: NextRequest) {
       updateData.uploadMaxSizeMb = isNaN(n) ? 10 : Math.floor(n);
     }
 
-    // Đăng nhập web khách thuê — chỉ admin quản lý
-    if ('adminBatDangNhapKT' in rest) {
-      updateData.adminBatDangNhapKT = Boolean(rest.adminBatDangNhapKT);
-      if (rest.adminBatDangNhapKT) {
-        // Khi admin bật → reset chủ trọ về cho phép (mặc định)
-        updateData.chuTroBatDangNhapKT = true;
-      } else {
-        // Khi admin tắt → tự động tắt luôn phía chủ trọ
-        updateData.chuTroBatDangNhapKT = false;
+    // Đăng nhập web khách thuê — admin có thể bật/tắt, chủ trọ chỉ bật/tắt được chuTroBatDangNhapKT
+    if (role === 'admin') {
+      if ('adminBatDangNhapKT' in rest) {
+        updateData.adminBatDangNhapKT = Boolean(rest.adminBatDangNhapKT);
+        if (rest.adminBatDangNhapKT) {
+          updateData.chuTroBatDangNhapKT = true;
+        } else {
+          updateData.chuTroBatDangNhapKT = false;
+        }
+      }
+      if ('gioiHanDangNhapKT' in rest) {
+        const n = rest.gioiHanDangNhapKT;
+        updateData.gioiHanDangNhapKT = n === null || n === '' ? null : Math.max(0, Math.floor(Number(n)));
+      }
+    } else {
+      // Chủ trọ: chỉ được thay đổi chuTroBatDangNhapKT
+      if ('chuTroBatDangNhapKT' in rest) {
+        updateData.chuTroBatDangNhapKT = Boolean(rest.chuTroBatDangNhapKT);
       }
     }
-    if ('gioiHanDangNhapKT' in rest) {
-      const n = rest.gioiHanDangNhapKT;
-      updateData.gioiHanDangNhapKT = n === null || n === '' ? null : Math.max(0, Math.floor(Number(n)));
-    }
+
+    // Zalo Hotline switches — chủ trọ có thể thay đổi
+    if ('batHotline' in rest) updateData.batHotline = Boolean(rest.batHotline);
+    if ('uyQuyenQL' in rest) updateData.uyQuyenQL = Boolean(rest.uyQuyenQL);
+    if ('uyQuyenHotline' in rest) updateData.uyQuyenHotline = Boolean(rest.uyQuyenHotline);
 
     const settings = await prisma.caiDatToaNha.upsert({
       where: { toaNhaId },
