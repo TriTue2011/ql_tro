@@ -3,6 +3,7 @@
  * Thống kê hệ thống dành riêng cho admin:
  * - Tổng tòa nhà (mỗi tòa nhà có 1 chủ trọ)
  * - Danh sách tòa nhà mới nhất
+ * - Danh sách admin (không phải admin tổng) để quản lý
  */
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -15,7 +16,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const [tongToaNha, danhSachToaNha] = await Promise.all([
+  const [tongToaNha, danhSachToaNha, danhSachAdmin] = await Promise.all([
     prisma.toaNha.count(),
     prisma.toaNha.findMany({
       orderBy: { ngayTao: 'desc' },
@@ -32,6 +33,22 @@ export async function GET() {
             email: true,
           },
         },
+      },
+    }),
+    // Lấy danh sách admin (không phải admin tổng - người đang đăng nhập)
+    prisma.nguoiDung.findMany({
+      where: {
+        vaiTro: 'admin',
+        id: { not: session.user.id },
+      },
+      orderBy: { ngayTao: 'desc' },
+      select: {
+        id: true,
+        ten: true,
+        soDienThoai: true,
+        email: true,
+        trangThai: true,
+        ngayTao: true,
       },
     }),
   ]);
@@ -53,11 +70,21 @@ export async function GET() {
     return { id: tn.id, tenToaNha: tn.tenToaNha, diaChi: diaChiStr, ngayTao: tn.ngayTao, chuTro };
   });
 
+  const danhSachAdminFormatted = danhSachAdmin.map((a) => ({
+    id: a.id,
+    ten: a.ten,
+    soDienThoai: a.soDienThoai,
+    email: a.email,
+    trangThai: a.trangThai,
+    ngayTao: a.ngayTao,
+  }));
+
   return NextResponse.json({
     success: true,
     data: {
       tongToaNha,
       danhSachToaNha: danhSachToaNhaFormatted,
+      danhSachAdmin: danhSachAdminFormatted,
     },
   });
 }

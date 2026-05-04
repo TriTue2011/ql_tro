@@ -38,9 +38,19 @@ interface ChuTroInfo {
   email: string | null;
 }
 
+interface AdminInfo {
+  id: string;
+  ten: string;
+  soDienThoai: string | null;
+  email: string | null;
+  trangThai: string;
+  ngayTao: Date;
+}
+
 interface AdminStats {
   tongToaNha: number;
   danhSachToaNha: { id: string; tenToaNha: string; diaChi: string; ngayTao: string; chuTro: ChuTroInfo | null }[];
+  danhSachAdmin: AdminInfo[];
 }
 
 interface BuildingUser {
@@ -126,6 +136,16 @@ export default function DashboardPage() {
   const [buildingPerms, setBuildingPerms] = useState<Record<string, Record<string, string>>>({});
   const [buildings, setBuildings] = useState<{ id: string; tenToaNha: string }[]>([]);
   const [addingAdmin, setAddingAdmin] = useState(false);
+
+  // ── Admin list inline edit state ──
+  const [editingAdminId, setEditingAdminId] = useState<string | null>(null);
+  const [editAdminForm, setEditAdminForm] = useState<{ ten: string; soDienThoai: string; email: string; matKhau: string }>({
+    ten: '',
+    soDienThoai: '',
+    email: '',
+    matKhau: '',
+  });
+  const [savingAdmin, setSavingAdmin] = useState(false);
 
   const fetchBuildings = useCallback(async () => {
     try {
@@ -491,8 +511,6 @@ export default function DashboardPage() {
           <div className="row g-2">
             {[
               { href: '/dashboard/toa-nha', icon: 'bi-buildings-fill', label: 'Tòa nhà', color: '#6366f1', count: s.tongToaNha },
-              { href: '/dashboard/quan-ly-tai-khoan', icon: 'bi-people-fill', label: 'Tài khoản', color: '#10b981', count: null },
-              { href: '/dashboard/phan-quyen', icon: 'bi-diagram-3-fill', label: 'Phân quyền', color: '#8b5cf6', count: null },
               { href: '/dashboard/ho-so', icon: 'bi-person-circle', label: 'Hồ sơ', color: '#06b6d4', count: null },
             ].map((item) => (
               <div key={item.href} className="col-4 col-sm-2">
@@ -565,6 +583,162 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Admin list section ── */}
+        {s.danhSachAdmin.length > 0 && (
+          <div className="mb-4">
+            <div className="bs-card">
+              <div className="bs-card-header">
+                <div>
+                  <h5 className="bs-card-title"><i className="bi bi-shield-check" /> Danh sách quản trị viên</h5>
+                  <p className="bs-card-desc">Quản lý tài khoản admin, đặt lại mật khẩu khi cần</p>
+                </div>
+              </div>
+              <div className="p-3">
+                <div className="table-responsive">
+                  <table className="table table-hover align-middle mb-0" style={{ fontSize: 13 }}>
+                    <thead className="table-light">
+                      <tr>
+                        <th>Họ tên</th>
+                        <th>Số điện thoại</th>
+                        <th>Email</th>
+                        <th>Trạng thái</th>
+                        <th style={{ width: 200 }}>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {s.danhSachAdmin.map((admin) => (
+                        <tr key={admin.id}>
+                          {editingAdminId === admin.id ? (
+                            <>
+                              <td>
+                                <Input
+                                  value={editAdminForm.ten}
+                                  onChange={(e) => setEditAdminForm(prev => ({ ...prev, ten: e.target.value }))}
+                                  className="h-8 text-sm"
+                                  placeholder="Họ tên"
+                                />
+                              </td>
+                              <td>
+                                <Input
+                                  value={editAdminForm.soDienThoai}
+                                  onChange={(e) => setEditAdminForm(prev => ({ ...prev, soDienThoai: e.target.value }))}
+                                  className="h-8 text-sm"
+                                  placeholder="Số điện thoại"
+                                />
+                              </td>
+                              <td>
+                                <Input
+                                  value={editAdminForm.email}
+                                  onChange={(e) => setEditAdminForm(prev => ({ ...prev, email: e.target.value }))}
+                                  className="h-8 text-sm"
+                                  placeholder="Email"
+                                />
+                              </td>
+                              <td>
+                                <Input
+                                  type="password"
+                                  value={editAdminForm.matKhau}
+                                  onChange={(e) => setEditAdminForm(prev => ({ ...prev, matKhau: e.target.value }))}
+                                  className="h-8 text-sm"
+                                  placeholder="Mật khẩu mới (để trống nếu không đổi)"
+                                />
+                              </td>
+                              <td>
+                                <div className="d-flex gap-1 flex-wrap">
+                                  <Button
+                                    size="sm"
+                                    className="h-7 text-xs bg-gradient-to-r from-indigo-500 to-blue-600 text-white border-0"
+                                    onClick={async () => {
+                                      setSavingAdmin(true);
+                                      try {
+                                        const res = await fetch(`/api/admin/users/${admin.id}`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            name: editAdminForm.ten,
+                                            phone: editAdminForm.soDienThoai || null,
+                                            email: editAdminForm.email || null,
+                                            password: editAdminForm.matKhau || undefined,
+                                          }),
+                                        });
+                                        const data = await res.json();
+                                        if (res.ok) {
+                                          toast.success('Đã cập nhật thông tin admin');
+                                          setEditingAdminId(null);
+                                          setEditAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
+                                          // Refresh stats
+                                          fetch('/api/dashboard/admin-stats')
+                                            .then((r) => r.ok ? r.json() : null)
+                                            .then((res) => { if (res?.success) setAdminStats(res.data); });
+                                        } else {
+                                          toast.error(data.error || 'Lỗi khi cập nhật');
+                                        }
+                                      } catch {
+                                        toast.error('Lỗi kết nối');
+                                      } finally {
+                                        setSavingAdmin(false);
+                                      }
+                                    }}
+                                    disabled={savingAdmin}
+                                  >
+                                    {savingAdmin ? 'Đang lưu...' : 'Lưu'}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs border-gray-300"
+                                    onClick={() => {
+                                      setEditingAdminId(null);
+                                      setEditAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
+                                    }}
+                                  >
+                                    Hủy
+                                  </Button>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="fw-semibold">{admin.ten}</td>
+                              <td>{admin.soDienThoai || <span className="text-muted">—</span>}</td>
+                              <td>{admin.email || <span className="text-muted">—</span>}</td>
+                              <td>
+                                <span className={`badge ${admin.trangThai === 'hoatDong' ? 'bg-success' : 'bg-secondary'}`}>
+                                  {admin.trangThai === 'hoatDong' ? 'Hoạt động' : 'Khóa'}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="d-flex gap-1 flex-wrap">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                                    onClick={() => {
+                                      setEditingAdminId(admin.id);
+                                      setEditAdminForm({
+                                        ten: admin.ten,
+                                        soDienThoai: admin.soDienThoai || '',
+                                        email: admin.email || '',
+                                        matKhau: '',
+                                      });
+                                    }}
+                                  >
+                                    <i className="bi bi-pencil-square me-1" />Sửa
+                                  </Button>
+                                </div>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Row 2: Building list with inline edit/delete & expandable permission ── */}
         <div className="row g-3 mb-4">
