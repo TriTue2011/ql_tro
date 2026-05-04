@@ -154,6 +154,7 @@ export default function DashboardPage() {
     matKhau: '',
   });
   const [savingAdmin, setSavingAdmin] = useState(false);
+  const [deletingAdmin, setDeletingAdmin] = useState(false);
 
   const fetchBuildings = useCallback(async () => {
     try {
@@ -730,6 +731,12 @@ export default function DashboardPage() {
                             {admin.soDienThoai && <span><i className="bi bi-telephone me-1" />{admin.soDienThoai}</span>}
                             {admin.email && <span><i className="bi bi-envelope me-1" />{admin.email}</span>}
                           </div>
+                          {(admin as any).toaNha?.length > 0 && (
+                            <div style={{ fontSize: 10, color: '#818cf8', display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                              <i className="bi bi-building me-1" />
+                              {(admin as any).toaNha.map((t: any) => t.tenToaNha).join(', ')}
+                            </div>
+                          )}
                         </div>
                         <span
                           className={`badge ${admin.trangThai === 'hoatDong' ? 'bg-success' : 'bg-secondary'}`}
@@ -796,6 +803,51 @@ export default function DashboardPage() {
                             </div>
                           </div>
                           <div className="d-flex justify-end gap-2 mt-3">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!window.confirm(`Xác nhận xóa tài khoản "${admin.ten}"?`)) return;
+                                setDeletingAdmin(true);
+                                try {
+                                  const res = await fetch(`/api/admin/users/${admin.id}`, {
+                                    method: 'DELETE',
+                                  });
+                                  if (res.ok) {
+                                    toast.success('Đã xóa tài khoản admin');
+                                    setEditingAdminId(null);
+                                    setEditAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
+                                    // Refresh stats
+                                    fetch('/api/dashboard/admin-stats')
+                                      .then((r) => r.ok ? r.json() : null)
+                                      .then((res) => { if (res?.success) setAdminStats(res.data); });
+                                  } else {
+                                    const data = await res.json();
+                                    toast.error(data.error || 'Lỗi khi xóa');
+                                  }
+                                } catch {
+                                  toast.error('Lỗi kết nối');
+                                } finally {
+                                  setDeletingAdmin(false);
+                                }
+                              }}
+                              disabled={deletingAdmin}
+                              style={{
+                                padding: '6px 16px',
+                                borderRadius: 8,
+                                border: '1px solid #fca5a5',
+                                background: '#fef2f2',
+                                color: '#dc2626',
+                                fontSize: 12,
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                opacity: deletingAdmin ? 0.7 : 1,
+                                transition: 'all 0.15s',
+                              }}
+                              onMouseEnter={(e) => { if (!deletingAdmin) (e.currentTarget as HTMLElement).style.background = '#fee2e2'; }}
+                              onMouseLeave={(e) => { if (!deletingAdmin) (e.currentTarget as HTMLElement).style.background = '#fef2f2'; }}
+                            >
+                              {deletingAdmin ? 'Đang xóa...' : 'Xóa tài khoản'}
+                            </button>
                             <button
                               type="button"
                               onClick={() => {

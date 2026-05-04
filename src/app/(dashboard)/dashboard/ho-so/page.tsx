@@ -745,29 +745,37 @@ export default function ProfilePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </div>
-              <h3 className="text-base font-bold text-indigo-900">Kiểu sidebar</h3>
+              <div>
+                <h3 className="text-base font-bold text-indigo-900">Kiểu sidebar</h3>
+                <p className="text-xs text-indigo-500/70">Chọn cách hiển thị thanh điều hướng bên trái</p>
+              </div>
             </div>
             <div className="p-4 space-y-3">
               {([
                 { value: 'default' as const, label: 'Mặc định', desc: 'Sidebar đầy đủ với tên menu' },
                 { value: 'compact' as const, label: 'Thu gọn', desc: 'Sidebar nhỏ chỉ hiện icon' },
               ]).map((opt) => (
-                <div key={opt.value} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="sidebarStyle"
-                      value={opt.value}
-                      checked={appearance.sidebarStyle === opt.value}
-                      onChange={() => updateAppearance({ sidebarStyle: opt.value })}
-                      className="mt-0.5 accent-indigo-600"
-                    />
-                    <div>
-                      <div className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</div>
-                      <div className="text-xs text-indigo-500/70">{opt.desc}</div>
-                    </div>
-                  </label>
-                </div>
+                <label
+                  key={opt.value}
+                  className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                    appearance.sidebarStyle === opt.value
+                      ? 'border-indigo-300 bg-white/80 shadow-sm'
+                      : 'border-indigo-100 bg-white/60 backdrop-blur-sm hover:border-indigo-200 hover:shadow-sm'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="sidebarStyle"
+                    value={opt.value}
+                    checked={appearance.sidebarStyle === opt.value}
+                    onChange={() => updateAppearance({ sidebarStyle: opt.value })}
+                    className="mt-0.5 accent-indigo-600"
+                  />
+                  <div>
+                    <div className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</div>
+                    <div className="text-xs text-indigo-500/70">{opt.desc}</div>
+                  </div>
+                </label>
               ))}
             </div>
           </div>
@@ -778,7 +786,10 @@ export default function ProfilePage() {
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
                 <Type className="h-4 w-4 text-white" />
               </div>
-              <h3 className="text-base font-bold text-indigo-900">Cỡ chữ</h3>
+              <div>
+                <h3 className="text-base font-bold text-indigo-900">Cỡ chữ</h3>
+                <p className="text-xs text-indigo-500/70">Thay đổi kích thước chữ trong ứng dụng</p>
+              </div>
             </div>
             <div className="p-4 space-y-3">
               {([
@@ -786,22 +797,27 @@ export default function ProfilePage() {
                 { value: 'medium' as const, label: 'Vừa', desc: 'Kích thước mặc định' },
                 { value: 'large' as const, label: 'Lớn', desc: 'Dễ đọc hơn trên thiết bị nhỏ' },
               ]).map((opt) => (
-                <div key={opt.value} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="fontSize"
-                      value={opt.value}
-                      checked={appearance.fontSize === opt.value}
-                      onChange={() => updateAppearance({ fontSize: opt.value })}
-                      className="mt-0.5 accent-indigo-600"
-                    />
-                    <div>
-                      <div className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</div>
-                      <div className="text-xs text-indigo-500/70">{opt.desc}</div>
-                    </div>
-                  </label>
-                </div>
+                <label
+                  key={opt.value}
+                  className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                    appearance.fontSize === opt.value
+                      ? 'border-indigo-300 bg-white/80 shadow-sm'
+                      : 'border-indigo-100 bg-white/60 backdrop-blur-sm hover:border-indigo-200 hover:shadow-sm'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="fontSize"
+                    value={opt.value}
+                    checked={appearance.fontSize === opt.value}
+                    onChange={() => updateAppearance({ fontSize: opt.value })}
+                    className="mt-0.5 accent-indigo-600"
+                  />
+                  <div>
+                    <div className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</div>
+                    <div className="text-xs text-indigo-500/70">{opt.desc}</div>
+                  </div>
+                </label>
               ))}
             </div>
           </div>

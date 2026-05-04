@@ -49,6 +49,16 @@ export async function GET() {
         email: true,
         trangThai: true,
         ngayTao: true,
+        toaNhaQuanLy: {
+          select: {
+            toaNha: {
+              select: {
+                id: true,
+                tenToaNha: true,
+              },
+            },
+          },
+        },
       },
     }),
   ]);
@@ -77,6 +87,10 @@ export async function GET() {
     email: a.email,
     trangThai: a.trangThai,
     ngayTao: a.ngayTao,
+    toaNha: a.toaNhaQuanLy.map((q) => ({
+      id: q.toaNha.id,
+      tenToaNha: q.toaNha.tenToaNha,
+    })),
   }));
 
   return NextResponse.json({
