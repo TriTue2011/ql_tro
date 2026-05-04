@@ -83,20 +83,11 @@ function buildNavGroups(role: Role): NavGroup[] {
         ],
       },
       {
-        label: 'Cài đặt',
-        icon: 'bi-gear',
-        items: [
-          { label: 'Cài đặt', href: '/dashboard/cai-dat' },
-          { label: 'Cài đặt Hotline', href: '/dashboard/cai-dat-hotline' },
-          { label: 'Cài đặt Email', href: '/dashboard/cai-dat-email' },
-          { label: 'Giao diện', href: '/dashboard/giao-dien' },
-        ],
-      },
-      {
         label: 'Tài khoản',
         icon: 'bi-person',
         items: [
           { label: 'Hồ sơ', href: '/dashboard/ho-so' },
+          { label: 'Cài đặt', href: '/dashboard/cai-dat' },
         ],
       },
     ];
@@ -225,8 +216,6 @@ function buildNavGroups(role: Role): NavGroup[] {
       items: [
         { label: 'Hồ sơ', href: '/dashboard/ho-so' },
         { label: 'Cài đặt', href: '/dashboard/cai-dat' },
-        { label: 'Cài đặt Hotline', href: '/dashboard/cai-dat-hotline' },
-        { label: 'Cài đặt Email', href: '/dashboard/cai-dat-email' },
       ],
     });
   }
