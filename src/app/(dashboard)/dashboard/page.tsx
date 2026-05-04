@@ -129,6 +129,8 @@ export default function DashboardPage() {
   const [buildingStorageSettings, setBuildingStorageSettings] = useState<Record<string, Record<string, string>>>({});
   const [buildingStorageLoading, setBuildingStorageLoading] = useState(false);
   const [buildingStorageSaving, setBuildingStorageSaving] = useState(false);
+  const [showMinioSecret, setShowMinioSecret] = useState(false);
+  const [showCloudinarySecret, setShowCloudinarySecret] = useState(false);
 
   // ── Add Admin dialog state ──
   const [showAddAdmin, setShowAddAdmin] = useState(false);
@@ -1308,15 +1310,15 @@ export default function DashboardPage() {
                                           <i className="bi bi-hdd-stack" style={{ color: '#fff', fontSize: 16 }} />
                                         </div>
                                         <div>
-                                          <p style={{ fontSize: 13, fontWeight: 700, color: '#312e81', margin: 0 }}>Cài đặt lưu trữ — {tn.tenToaNha}</p>
-                                          <p style={{ fontSize: 11, color: '#6366f1', margin: 0 }}>Cấu hình MinIO / Cloudinary cho tòa nhà này</p>
+                                          <p style={{ fontSize: 12, fontWeight: 700, color: '#312e81', margin: 0 }}>Cài đặt lưu trữ — {tn.tenToaNha}</p>
+                                          <p style={{ fontSize: 10, color: '#6366f1', margin: 0 }}>Cấu hình MinIO / Cloudinary cho tòa nhà này</p>
                                         </div>
                                       </div>
 
                                       <div className="space-y-4">
                                         {/* Provider selector */}
                                         <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                                          <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                                          <label style={{ fontSize: 11, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' }}>
                                             Nhà cung cấp lưu trữ
                                           </label>
                                           <select
@@ -1324,10 +1326,10 @@ export default function DashboardPage() {
                                             onChange={(e) => updateStorageField('storageProvider', e.target.value)}
                                             style={{
                                               width: '100%',
-                                              padding: '8px 12px',
+                                              padding: '6px 10px',
                                               borderRadius: 8,
                                               border: '1px solid #e5e7eb',
-                                              fontSize: 13,
+                                              fontSize: 12,
                                               background: '#fff',
                                               color: '#374151',
                                             }}
@@ -1341,14 +1343,14 @@ export default function DashboardPage() {
 
                                         {/* Max upload size */}
                                         <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                                          <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                                          <label style={{ fontSize: 11, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' }}>
                                             Kích thước tối đa (MB)
                                           </label>
                                           <Input
                                             type="number"
                                             value={storageSettings.uploadMaxSizeMb || '10'}
                                             onChange={(e) => updateStorageField('uploadMaxSizeMb', e.target.value)}
-                                            className="h-9 text-sm"
+                                            className="h-8 text-xs"
                                             placeholder="10"
                                           />
                                         </div>
@@ -1356,7 +1358,7 @@ export default function DashboardPage() {
                                         {/* MinIO fields */}
                                         {showMinio && (
                                           <div className="space-y-3 pt-3 border-t border-indigo-100">
-                                            <p style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <p style={{ fontSize: 11, fontWeight: 600, color: '#6366f1', display: 'flex', alignItems: 'center', gap: 6 }}>
                                               <i className="bi bi-hdd-rack" /> MinIO (self-hosted)
                                             </p>
                                             {[
@@ -1366,7 +1368,7 @@ export default function DashboardPage() {
                                               { key: 'minioBucket', label: 'Bucket', placeholder: 'ql-tro' },
                                             ].map(f => (
                                               <div key={f.key} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                                                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                                                <label style={{ fontSize: 11, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' }}>
                                                   {f.label}
                                                   {f.type === 'password' && (
                                                     <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6, fontWeight: 400 }}>
@@ -1374,13 +1376,29 @@ export default function DashboardPage() {
                                                     </span>
                                                   )}
                                                 </label>
-                                                <Input
-                                                  type={f.type || 'text'}
-                                                  value={(storageSettings as any)[f.key] || ''}
-                                                  onChange={(e) => updateStorageField(f.key, e.target.value)}
-                                                  className="h-9 text-sm"
-                                                  placeholder={f.placeholder}
-                                                />
+                                                <div style={{ position: 'relative' }}>
+                                                  <Input
+                                                    type={f.type === 'password' ? (showMinioSecret ? 'text' : 'password') : (f.type || 'text')}
+                                                    value={(storageSettings as any)[f.key] || ''}
+                                                    onChange={(e) => updateStorageField(f.key, e.target.value)}
+                                                    className="h-8 text-xs"
+                                                    placeholder={f.placeholder}
+                                                    style={f.type === 'password' ? { paddingRight: 36 } : undefined}
+                                                  />
+                                                  {f.type === 'password' && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => setShowMinioSecret(!showMinioSecret)}
+                                                      style={{
+                                                        position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                                                        background: 'none', border: 'none', cursor: 'pointer',
+                                                        color: '#9ca3af', fontSize: 14, padding: 4, lineHeight: 1,
+                                                      }}
+                                                    >
+                                                      <i className={`bi ${showMinioSecret ? 'bi-eye-slash' : 'bi-eye'}`} />
+                                                    </button>
+                                                  )}
+                                                </div>
                                               </div>
                                             ))}
                                           </div>
@@ -1389,7 +1407,7 @@ export default function DashboardPage() {
                                         {/* Cloudinary fields */}
                                         {showCloudinary && (
                                           <div className="space-y-3 pt-3 border-t border-indigo-100">
-                                            <p style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <p style={{ fontSize: 11, fontWeight: 600, color: '#6366f1', display: 'flex', alignItems: 'center', gap: 6 }}>
                                               <i className="bi bi-cloud" /> Cloudinary (online)
                                             </p>
                                             {[
@@ -1399,7 +1417,7 @@ export default function DashboardPage() {
                                               { key: 'cloudinaryPreset', label: 'Upload Preset', placeholder: 'ml_default' },
                                             ].map(f => (
                                               <div key={f.key} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
-                                                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                                                <label style={{ fontSize: 11, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' }}>
                                                   {f.label}
                                                   {f.type === 'password' && (
                                                     <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6, fontWeight: 400 }}>
@@ -1407,20 +1425,36 @@ export default function DashboardPage() {
                                                     </span>
                                                   )}
                                                 </label>
-                                                <Input
-                                                  type={f.type || 'text'}
-                                                  value={(storageSettings as any)[f.key] || ''}
-                                                  onChange={(e) => updateStorageField(f.key, e.target.value)}
-                                                  className="h-9 text-sm"
-                                                  placeholder={f.placeholder}
-                                                />
+                                                <div style={{ position: 'relative' }}>
+                                                  <Input
+                                                    type={f.type === 'password' ? (showCloudinarySecret ? 'text' : 'password') : (f.type || 'text')}
+                                                    value={(storageSettings as any)[f.key] || ''}
+                                                    onChange={(e) => updateStorageField(f.key, e.target.value)}
+                                                    className="h-8 text-xs"
+                                                    placeholder={f.placeholder}
+                                                    style={f.type === 'password' ? { paddingRight: 36 } : undefined}
+                                                  />
+                                                  {f.type === 'password' && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => setShowCloudinarySecret(!showCloudinarySecret)}
+                                                      style={{
+                                                        position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                                                        background: 'none', border: 'none', cursor: 'pointer',
+                                                        color: '#9ca3af', fontSize: 14, padding: 4, lineHeight: 1,
+                                                      }}
+                                                    >
+                                                      <i className={`bi ${showCloudinarySecret ? 'bi-eye-slash' : 'bi-eye'}`} />
+                                                    </button>
+                                                  )}
+                                                </div>
                                               </div>
                                             ))}
                                           </div>
                                         )}
 
                                         {provider === 'local' && (
-                                          <p style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic', borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
+                                          <p style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic', borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
                                             Lưu trữ local — ảnh lưu trực tiếp trên server, không cần cấu hình thêm.
                                           </p>
                                         )}
@@ -1432,10 +1466,10 @@ export default function DashboardPage() {
                                           disabled={buildingStorageSaving}
                                           style={{
                                             width: '100%',
-                                            padding: '10px 16px',
+                                            padding: '8px 16px',
                                             borderRadius: 8,
                                             border: 'none',
-                                            fontSize: 13,
+                                            fontSize: 12,
                                             fontWeight: 600,
                                             cursor: 'pointer',
                                             background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
