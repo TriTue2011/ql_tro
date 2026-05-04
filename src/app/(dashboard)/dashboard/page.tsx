@@ -73,6 +73,16 @@ const BUSINESS_PERMISSIONS: Array<{
   { key: 'mucDoCaiDatEmail', label: 'Cài đặt Email', description: 'Cấu hình email SMTP.', group: 'Cài đặt' },
 ];
 
+// Permission group config for the tree sidebar
+const PERMISSION_GROUPS: { key: string; icon: string; label: string }[] = [
+  { key: 'Quản lý cơ bản', icon: 'bi-file-text', label: 'Quản lý cơ bản' },
+  { key: 'Tài chính', icon: 'bi-currency-dollar', label: 'Tài chính' },
+  { key: 'Vận hành', icon: 'bi-gear', label: 'Vận hành' },
+  { key: 'Kho', icon: 'bi-box-seam', label: 'Kho' },
+  { key: 'Liên lạc', icon: 'bi-chat-dots', label: 'Liên lạc' },
+  { key: 'Cài đặt', icon: 'bi-sliders', label: 'Cài đặt' },
+];
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -96,6 +106,8 @@ export default function DashboardPage() {
   // Building-level business permissions (new design)
   const [buildingBusinessPerms, setBuildingBusinessPerms] = useState<Record<string, Record<string, PermissionLevel>>>({});
   const [buildingPermsLoading, setBuildingPermsLoading] = useState(false);
+  // Selected permission group in the expanded tree sidebar
+  const [selectedPermGroup, setSelectedPermGroup] = useState<string | null>(null);
 
   // ── Add Admin dialog state ──
   const [showAddAdmin, setShowAddAdmin] = useState(false);
@@ -229,6 +241,7 @@ export default function DashboardPage() {
       setBuildingUsers([]);
     } else {
       setExpandedBuildingId(buildingId);
+      setSelectedPermGroup(PERMISSION_GROUPS[0]?.key ?? null);
       void fetchBuildingUsers(buildingId);
       void fetchBuildingPermissions(buildingId);
     }
@@ -686,7 +699,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* ── Expanded Permission Section — Gói tính năng nghiệp vụ (giống tab phân quyền) ── */}
+                        {/* ── Expanded Permission Section — Tree style: left = permission groups, right = filtered permissions ── */}
                         {expandedBuildingId === tn.id && (
                           <div
                             style={{
@@ -696,66 +709,133 @@ export default function DashboardPage() {
                               borderBottom: idx < s.danhSachToaNha.length - 1 ? '1px solid #e8e6f7' : 'none',
                             }}
                           >
-                            <div style={{
-                              borderRadius: 12,
-                              background: 'rgba(255,255,255,0.7)',
-                              padding: 16,
-                              boxShadow: '0 2px 8px rgba(99,102,241,0.1)',
-                            }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                  <div style={{
-                                    width: 36, height: 36, borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    boxShadow: '0 2px 6px rgba(245,158,11,0.3)',
-                                  }}>
-                                    <i className="bi bi-building" style={{ color: '#fff', fontSize: 16 }} />
-                                  </div>
-                                  <div>
-                                    <p style={{ fontSize: 13, fontWeight: 700, color: '#312e81', margin: 0 }}>{tn.tenToaNha}</p>
-                                    <p style={{ fontSize: 11, color: '#6366f1', margin: 0 }}>
-                                      Gói tính năng — tất cả người dùng trong tòa nhà kế thừa
-                                    </p>
-                                  </div>
+                            <div style={{ display: 'flex', gap: 16, flexDirection: 'row' }}>
+                              {/* Left column: permission group tree */}
+                              <div style={{ width: 200, flexShrink: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <i className="bi bi-shield-check" />
+                                  Danh sách quyền
                                 </div>
-                                <Link
-                                  href="/dashboard/phan-quyen"
-                                  style={{ fontSize: 11, color: '#818cf8', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                                >
-                                  <i className="bi bi-box-arrow-up-right me-1" />
-                                  Chi tiết
-                                </Link>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                  {PERMISSION_GROUPS.map((g) => {
+                                    const isSelected = selectedPermGroup === g.key;
+                                    const perms = buildingBusinessPerms[tn.id];
+                                    const groupPerms = BUSINESS_PERMISSIONS.filter(p => p.group === g.key);
+                                    const activeCount = perms
+                                      ? groupPerms.filter(p => (perms[p.key] ?? 'fullAccess') !== 'hidden').length
+                                      : 0;
+                                    return (
+                                      <button
+                                        key={g.key}
+                                        type="button"
+                                        onClick={() => setSelectedPermGroup(g.key)}
+                                        style={{
+                                          width: '100%',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 8,
+                                          padding: '8px 10px',
+                                          borderRadius: 8,
+                                          textAlign: 'left',
+                                          fontSize: 12,
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.15s',
+                                          background: isSelected
+                                            ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
+                                            : '#fff',
+                                          color: isSelected ? '#fff' : '#4338ca',
+                                          fontWeight: isSelected ? 600 : 400,
+                                          boxShadow: isSelected ? '0 2px 8px rgba(99,102,241,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
+                                        }}
+                                      >
+                                        <i className={`bi ${g.icon}`} style={{ fontSize: 14 }} />
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{g.label}</span>
+                                        <span style={{ fontSize: 10, opacity: 0.7 }}>
+                                          {activeCount}/{groupPerms.length}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                              {buildingPermsLoading ? (
-                                <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
-                                  <div className="spinner-border spinner-border-sm me-2" role="status" />
-                                  Đang tải gói quyền...
-                                </div>
-                              ) : (() => {
-                                const perms = buildingBusinessPerms[tn.id];
-                                if (!perms) {
-                                  return (
-                                    <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
-                                      <i className="bi bi-info-circle me-1" />
-                                      Chưa có gói quyền.{' '}
-                                      <Link href="/dashboard/phan-quyen" style={{ color: '#6366f1' }}>Cấu hình ngay</Link>
+
+                              {/* Right column: permission grid filtered by selected group */}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{
+                                  borderRadius: 12,
+                                  background: 'rgba(255,255,255,0.7)',
+                                  padding: 16,
+                                  boxShadow: '0 2px 8px rgba(99,102,241,0.1)',
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                      <div style={{
+                                        width: 36, height: 36, borderRadius: '50%',
+                                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: '0 2px 6px rgba(245,158,11,0.3)',
+                                      }}>
+                                        <i className="bi bi-building" style={{ color: '#fff', fontSize: 16 }} />
+                                      </div>
+                                      <div>
+                                        <p style={{ fontSize: 13, fontWeight: 700, color: '#312e81', margin: 0 }}>{tn.tenToaNha}</p>
+                                        <p style={{ fontSize: 11, color: '#6366f1', margin: 0 }}>
+                                          {selectedPermGroup || 'Gói tính năng'} — tất cả người dùng trong tòa nhà kế thừa
+                                        </p>
+                                      </div>
                                     </div>
-                                  );
-                                }
-                                return (
-                                  <PermissionLevelSelector
-                                    items={BUSINESS_PERMISSIONS}
-                                    values={perms}
-                                    onChange={(key, value) => {
-                                      void saveBuildingPermission(tn.id, key, value);
-                                    }}
-                                    disabled={false}
-                                    columns={1}
-                                    showGroup={true}
-                                  />
-                                );
-                              })()}
+                                    <Link
+                                      href="/dashboard/phan-quyen"
+                                      style={{ fontSize: 11, color: '#818cf8', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                                    >
+                                      <i className="bi bi-box-arrow-up-right me-1" />
+                                      Chi tiết
+                                    </Link>
+                                  </div>
+                                  {buildingPermsLoading ? (
+                                    <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
+                                      <div className="spinner-border spinner-border-sm me-2" role="status" />
+                                      Đang tải gói quyền...
+                                    </div>
+                                  ) : (() => {
+                                    const perms = buildingBusinessPerms[tn.id];
+                                    if (!perms) {
+                                      return (
+                                        <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
+                                          <i className="bi bi-info-circle me-1" />
+                                          Chưa có gói quyền.{' '}
+                                          <Link href="/dashboard/phan-quyen" style={{ color: '#6366f1' }}>Cấu hình ngay</Link>
+                                        </div>
+                                      );
+                                    }
+                                    // Filter permissions by selected group
+                                    const filteredItems = selectedPermGroup
+                                      ? BUSINESS_PERMISSIONS.filter(p => p.group === selectedPermGroup)
+                                      : BUSINESS_PERMISSIONS;
+                                    if (filteredItems.length === 0) {
+                                      return (
+                                        <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 12 }}>
+                                          <i className="bi bi-info-circle me-1" />
+                                          Không có quyền nào trong nhóm này.
+                                        </div>
+                                      );
+                                    }
+                                    return (
+                                      <PermissionLevelSelector
+                                        items={filteredItems}
+                                        values={perms}
+                                        onChange={(key, value) => {
+                                          void saveBuildingPermission(tn.id, key, value);
+                                        }}
+                                        disabled={false}
+                                        columns={2}
+                                        showGroup={false}
+                                      />
+                                    );
+                                  })()}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )}
