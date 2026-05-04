@@ -72,24 +72,9 @@ function buildNavGroups(role: Role): NavGroup[] {
     ];
   }
 
-  // ── Admin: chỉ quản trị hệ thống + phân quyền cho tòa nhà ──────────────
+  // ── Admin: chỉ quản trị hệ thống ──────────────────────────────────────
   if (isAdmin) {
     return [
-      {
-        label: 'Quản trị',
-        icon: 'bi-shield-lock',
-        items: [
-          { label: 'Phân quyền', href: '/dashboard/phan-quyen' },
-        ],
-      },
-      {
-        label: 'Hệ thống',
-        icon: 'bi-gear',
-        items: [
-          { label: 'Lưu trữ', href: '/dashboard/cai-dat' },
-          { label: 'Giao diện', href: '/dashboard/cai-dat?tab=display' },
-        ],
-      },
       {
         label: 'Tài khoản',
         icon: 'bi-person',

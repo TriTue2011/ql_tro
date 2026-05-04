@@ -75,6 +75,7 @@ const BUSINESS_PERMISSIONS: Array<{
   { key: 'mucDoAI', label: 'AI', description: 'Cho phép cấu hình AI riêng cho tòa nhà.', group: 'Cài đặt' },
   { key: 'mucDoDangNhapKT', label: 'Đăng nhập khách thuê', description: 'Cho phép cấu hình đăng nhập khách thuê cho tòa nhà.', group: 'Cài đặt' },
   { key: 'mucDoZaloHotline', label: 'Zalo Hotline', description: 'Cho phép cấu hình Zalo Hotline riêng cho tòa nhà.', group: 'Cài đặt' },
+  { key: 'mucDoLuuTru', label: 'Lưu trữ', description: 'Cho phép cấu hình lưu trữ (MinIO/Cloudinary) riêng cho tòa nhà.', group: 'Cài đặt' },
 ];
 
 // Permission group config for the tree sidebar

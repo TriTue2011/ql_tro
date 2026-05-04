@@ -123,6 +123,7 @@ model ToaNhaNguoiQuanLy {
   mucDoAI              PermissionLevel @default(fullAccess) // AI
   mucDoDangNhapKT      PermissionLevel @default(fullAccess) // Đăng nhập khách thuê
   mucDoZaloHotline     PermissionLevel @default(fullAccess) // Zalo Hotline
+  mucDoLuuTru          PermissionLevel @default(fullAccess) // Lưu trữ (MinIO/Cloudinary)
 
   @@id([toaNhaId, nguoiDungId])
 }
