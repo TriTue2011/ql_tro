@@ -83,11 +83,18 @@ function buildNavGroups(role: Role): NavGroup[] {
         ],
       },
       {
+        label: 'Hệ thống',
+        icon: 'bi-gear',
+        items: [
+          { label: 'Lưu trữ', href: '/dashboard/cai-dat' },
+          { label: 'Giao diện', href: '/dashboard/cai-dat?tab=display' },
+        ],
+      },
+      {
         label: 'Tài khoản',
         icon: 'bi-person',
         items: [
           { label: 'Hồ sơ', href: '/dashboard/ho-so' },
-          { label: 'Cài đặt', href: '/dashboard/cai-dat' },
         ],
       },
     ];

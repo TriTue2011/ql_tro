@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -2511,8 +2512,15 @@ export default function CaiDatPage() {
   // Admin quản lý HA + lưu trữ theo tòa nhà; chuNha quản lý thanh toán + cảnh báo + hệ thống
   const canManage = isAdmin || isChuNha;
 
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+
   const [activeTab, setActiveTab] = useState(
-    isAdmin ? "luuTru" : isChuNha ? "thanhToan" : isQuanLy ? "bankQL" : "display"
+    tabParam === 'display' ? 'display'
+    : isAdmin ? "luuTru"
+    : isChuNha ? "thanhToan"
+    : isQuanLy ? "bankQL"
+    : "display"
   );
   const [selectedAlertCategory, setSelectedAlertCategory] = useState<string | null>(null);
 
