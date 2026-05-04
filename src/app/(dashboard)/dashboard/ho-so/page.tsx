@@ -49,8 +49,10 @@ import {
   Type,
   TextSelect,
   ArrowUpDown,
+  HardDrive,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import MinioManager from '@/components/dashboard/minio-manager';
 
 interface UserProfile {
   id: string;
@@ -344,6 +346,10 @@ export default function ProfilePage() {
     { value: 'security', label: 'Bảo mật', icon: Key },
     { value: 'appearance', label: 'Giao diện', icon: Monitor },
   ];
+  // Chỉ admin mới thấy tab Quản lý MinIO
+  if (profile?.vaiTro === 'admin') {
+    profileTabs.push({ value: 'minio', label: 'Quản lý MinIO', icon: HardDrive });
+  }
   if (profile?.vaiTro !== 'admin') {
     profileTabs.push({ value: 'notifications', label: 'Thông báo', icon: Bell });
   }
@@ -352,8 +358,8 @@ export default function ProfilePage() {
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-indigo-900">Hồ sơ cá nhân</h1>
-          <p className="text-xs md:text-sm text-indigo-500/70">Quản lý thông tin tài khoản của bạn</p>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-indigo-900">Cài đặt</h1>
+          <p className="text-xs md:text-sm text-indigo-500/70">Quản lý tài khoản và cài đặt hệ thống</p>
         </div>
         {!isEditing && (
           <Button size="sm" className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200" onClick={() => setIsEditing(true)}>
@@ -1011,6 +1017,13 @@ export default function ProfilePage() {
               </div>
             ) : null}
           </div>
+        </div>
+      )}
+
+      {/* ── Quản lý MinIO ── */}
+      {activeTab === 'minio' && (
+        <div className="mt-4">
+          <MinioManager />
         </div>
       )}
     </div>
