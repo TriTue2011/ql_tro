@@ -19,9 +19,6 @@ import {
   Settings,
   UserCog,
   Key,
-  Globe,
-  Home,
-  ChevronLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +34,6 @@ import {
   PageHeader,
   PermissionLevelSelector,
   PillTabs,
-  SearchInput,
 } from '@/components/dashboard';
 import type { PermissionLevel } from '@/components/dashboard';
 
@@ -384,16 +380,18 @@ export default function PhanQuyenPage() {
   const [selectedBuildingId, setSelectedBuildingId] = useState('');
   const [selectedZaloPosition, setSelectedZaloPosition] = useState<string>('');
   const [expandedPosition, setExpandedPosition] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [globalLimits, setGlobalLimits] = useState<Record<RoleKey, number>>(DEFAULT_ROLE_LIMITS);
   const [perBuildingLimits, setPerBuildingLimits] = useState<Record<string, Partial<Record<RoleKey, number>>>>({});
   const [zaloPerms, setZaloPerms] = useState<ZaloPermsByLevel>({ admin: {}, chuNha: {}, quanLy: {} });
   const [canManageZaloPerms, setCanManageZaloPerms] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState('business');
-  const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
-  const [businessExpandedPosition, setBusinessExpandedPosition] = useState<string | null>(null);
   const [hideBusinessTab, setHideBusinessTab] = useState(false);
+  // Building-level permissions (business tab redesign)
+  // Key = buildingId, value = Record<MucDoKey, PermissionLevel>
+  const [buildingPermissions, setBuildingPermissions] = useState<Record<string, Record<string, PermissionLevel>>>({});
+  const [selectedBuildingForPerms, setSelectedBuildingForPerms] = useState<string | null>(null);
+  const [buildingPermsLoading, setBuildingPermsLoading] = useState(false);
   const canEditZalo = (isAdmin || isChuNha || isQuanLy) && (isAdmin || canManageZaloPerms[selectedBuildingId] !== false);
 
   useEffect(() => {
@@ -417,24 +415,6 @@ export default function PhanQuyenPage() {
 
   const selectedBuilding = buildings.find(building => building.id === selectedBuildingId) ?? null;
   const selectedLimits = perBuildingLimits[selectedBuildingId] ?? {};
-
-  const businessUsers = useMemo(() => {
-    const keyword = searchTerm.trim().toLowerCase();
-    const allowedRoles = ROLE_TARGETS_BY_LEVEL[level];
-    return users
-      .filter(user => allowedRoles.includes(getUserRole(user) as RoleKey))
-      .filter(user => (user.toaNhaIds ?? []).includes(selectedBuildingId))
-      .filter(user => {
-        if (!keyword) return true;
-        const chucVu = getChucVuLabel(user.chucVu).toLowerCase();
-        return (
-          (user.ten ?? '').toLowerCase().includes(keyword) ||
-          (user.email ?? '').toLowerCase().includes(keyword) ||
-          (user.soDienThoai ?? '').toLowerCase().includes(keyword) ||
-          chucVu.includes(keyword)
-        );
-      });
-  }, [searchTerm, selectedBuildingId, users, level]);
 
   const roleCounts = useMemo(() => {
     const counts: Record<RoleKey, number> = { chuNha: 0, dongChuTro: 0, quanLy: 0, nhanVien: 0 };
@@ -520,39 +500,65 @@ export default function PhanQuyenPage() {
     return matchingKeys.some(key => effective[key]?.quanLyQuyen !== false);
   }
 
-  async function savePermissionLevel(user: User, key: MucDoKey, value: PermissionLevel) {
-    if (!selectedBuildingId || !canEditBusiness) return;
-    const current = getPermissionForBuilding(user, selectedBuildingId);
-    const next = { ...current, [key]: value };
-    setSavingBusiness(`${user.id}-${key}`);
+  /** Load building-level permissions from the new API */
+  async function loadBuildingPermissions(buildingId: string) {
+    setBuildingPermsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/toa-nha-permissions?toaNhaId=${buildingId}`);
+      const data = await res.json();
+      if (data.success && data.data?.permissions) {
+        setBuildingPermissions(prev => ({
+          ...prev,
+          [buildingId]: data.data.permissions,
+        }));
+      } else {
+        // No permissions set yet — default all fullAccess
+        const defaults: Record<string, PermissionLevel> = {};
+        for (const p of BUSINESS_PERMISSIONS) {
+          defaults[p.key] = 'fullAccess';
+        }
+        setBuildingPermissions(prev => ({
+          ...prev,
+          [buildingId]: defaults,
+        }));
+      }
+    } catch {
+      toast.error('Không thể tải quyền nghiệp vụ của tòa nhà');
+    } finally {
+      setBuildingPermsLoading(false);
+    }
+  }
 
-    setUsers(prev => prev.map(item => {
-      if (item.id !== user.id) return item;
-      return {
-        ...item,
-        quyenTheoToaNha: {
-          ...(item.quyenTheoToaNha ?? {}),
-          [selectedBuildingId]: next,
-        },
-      };
+  /** Save building-level permissions via the new API */
+  async function saveBuildingPermissions(buildingId: string, key: string, value: PermissionLevel) {
+    if (!canEditBusiness) return;
+    const current = buildingPermissions[buildingId] ?? {};
+    const next = { ...current, [key]: value };
+
+    // Optimistic update
+    setBuildingPermissions(prev => ({
+      ...prev,
+      [buildingId]: next,
     }));
 
+    setSavingBusiness(`${buildingId}-${key}`);
     try {
-      const res = await fetch(`/api/admin/users/${user.id}/quyen`, {
+      const res = await fetch('/api/admin/toa-nha-permissions', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toaNhaId: selectedBuildingId, ...next }),
+        body: JSON.stringify({ toaNhaId: buildingId, permissions: next }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        toast.error(data?.error || 'Không thể lưu mức quyền');
-        await loadInitialData();
+        toast.error(data?.error || 'Không thể lưu gói quyền');
+        // Reload to get actual state
+        await loadBuildingPermissions(buildingId);
       } else {
-        toast.success('Đã lưu mức quyền');
+        toast.success('Đã lưu gói quyền cho tòa nhà');
       }
     } catch {
       toast.error('Không thể kết nối máy chủ');
-      await loadInitialData();
+      await loadBuildingPermissions(buildingId);
     } finally {
       setSavingBusiness(null);
     }
@@ -965,13 +971,17 @@ export default function PhanQuyenPage() {
         </div>
       )}
 
-      {/* ───── Business Permissions Tab ───── */}
+      {/* ───── Business Permissions Tab — Gói tính năng nghiệp vụ (per-building) ───── */}
       {activeTab === 'business' && (
         <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
           <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b border-indigo-100">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
                 <Shield className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-indigo-900">Gói tính năng nghiệp vụ</p>
+                <p className="text-xs text-indigo-500">Admin cấu hình gói quyền cho từng tòa nhà — tất cả người dùng trong tòa nhà kế thừa</p>
               </div>
               {/* Hide business tab toggle — only shown when user can't edit */}
               {!canEditBusiness && (
@@ -994,200 +1004,106 @@ export default function PhanQuyenPage() {
                 </button>
               )}
             </div>
-            <SearchInput
-              placeholder="Tìm tên, email, SĐT, chức vụ..."
-              value={searchTerm}
-              onChange={setSearchTerm}
-            />
           </div>
 
           {!canEditBusiness && (
             <div className="mx-4 mt-3 rounded-full border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-xs text-amber-800 backdrop-blur-sm">
-              Tài khoản hiện tại chỉ xem quyền nghiệp vụ. Chỉ admin hoặc chủ trọ có thể bật/tắt nhóm quyền này.
+              Tài khoản hiện tại chỉ xem gói quyền. Chỉ admin hoặc chủ trọ có thể cấu hình.
             </div>
           )}
 
           <div className="p-4">
             <div className="flex flex-col lg:flex-row gap-4">
-              {/* Left column: positions grouped by role (Quản lý / Nhân viên) — tree-style like Zalo tab */}
-              <div className="w-full lg:w-80 shrink-0 space-y-3">
-                {(() => {
-                  if (businessUsers.length === 0) {
-                    return (
-                      <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
-                        <Users className="mx-auto mb-2 h-6 w-6 text-indigo-300" />
-                        Không có người dùng nào trong tòa nhà này.
-                      </div>
-                    );
-                  }
-
-                  // Group users by chucVu, preserving CHUC_VU_QUAN_LY then CHUC_VU_NHAN_VIEN order
-                  const grouped = new Map<string, User[]>();
-                  for (const cv of [...CHUC_VU_QUAN_LY, ...CHUC_VU_NHAN_VIEN]) {
-                    const usersWithCV = businessUsers.filter(u => u.chucVu === cv.value);
-                    if (usersWithCV.length > 0) grouped.set(cv.value, usersWithCV);
-                  }
-                  const unknown = businessUsers.filter(u => !Array.from(grouped.values()).flat().includes(u));
-                  if (unknown.length > 0) grouped.set('_unknown', unknown);
-
-                  // Separate into Quản lý and Nhân viên position groups
-                  const quanLyPositions = [...CHUC_VU_QUAN_LY].filter(cv => grouped.has(cv.value));
-                  const nhanVienPositions = [...CHUC_VU_NHAN_VIEN].filter(cv => grouped.has(cv.value));
-                  const hasUnknown = grouped.has('_unknown');
-
-                  const renderPositionGroup = (roleLabel: string, posList: readonly { value: string; label: string }[]) => {
-                    if (posList.length < 1) return null;
-                    return (
-                      <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
-                        <p className="text-sm font-bold text-indigo-600 uppercase tracking-wider px-1">
-                          {roleLabel}
-                        </p>
-                        {posList.map(cv => {
-                          const usersInPos = grouped.get(cv.value) ?? [];
-                          const isExpanded = businessExpandedPosition === cv.value;
-                          return (
-                            <div key={cv.value}>
-                              <button
-                                type="button"
-                                onClick={() => setBusinessExpandedPosition(isExpanded ? null : cv.value)}
-                                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all duration-200 text-sm ${
-                                  isExpanded
-                                    ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
-                                    : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
-                                }`}
-                              >
-                                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${isExpanded ? 'bg-white shadow-sm' : 'bg-indigo-300'}`} />
-                                <span className="truncate">{cv.label}</span>
-                                <span className={`text-[10px] ml-auto shrink-0 ${isExpanded ? 'text-white/70' : 'text-indigo-400'}`}>
-                                  {usersInPos.length} người
-                                </span>
-                                {isExpanded
-                                  ? <ChevronDown className="h-3.5 w-3.5 shrink-0 ml-1" />
-                                  : <ChevronRight className="h-3.5 w-3.5 shrink-0 ml-1" />
-                                }
-                              </button>
-
-                              {/* Expanded people list */}
-                              {isExpanded && (
-                                <div className="ml-4 mt-1.5 space-y-1 border-l-2 border-indigo-200 pl-3">
-                                  {usersInPos.map(user => {
-                                    const isSelected = expandedUser === user.id;
-                                    return (
-                                      <button
-                                        key={user.id}
-                                        type="button"
-                                        onClick={() => setExpandedUser(isSelected ? null : user.id)}
-                                        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-left transition-all duration-200 text-xs ${
-                                          isSelected
-                                            ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-md shadow-indigo-200'
-                                            : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300'
-                                        }`}
-                                      >
-                                        <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
-                                          isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
-                                        }`}>
-                                          {(user.ten || '?').charAt(0).toUpperCase()}
-                                        </div>
-                                        <span className="truncate">{user.ten || 'Không tên'}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  };
-
-                  return (
-                    <>
-                      {renderPositionGroup('Quản lý', quanLyPositions)}
-                      {renderPositionGroup('Nhân viên', nhanVienPositions)}
-                      {hasUnknown && (
-                        <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 space-y-1.5 shadow-sm">
-                          <p className="text-sm font-bold text-indigo-600 uppercase tracking-wider px-1">Khác</p>
-                          {(grouped.get('_unknown') ?? []).map(user => {
-                            const isSelected = expandedUser === user.id;
-                            return (
-                              <button
-                                key={user.id}
-                                type="button"
-                                onClick={() => setExpandedUser(isSelected ? null : user.id)}
-                                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-left transition-all duration-200 text-xs ${
-                                  isSelected
-                                    ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-md shadow-indigo-200'
-                                    : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300'
-                                }`}
-                              >
-                                <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
-                                  isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
-                                }`}>
-                                  {(user.ten || '?').charAt(0).toUpperCase()}
-                                </div>
-                                <span className="truncate">{user.ten || 'Không tên'}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-
-              {/* Right column: permission grid for selected user */}
-              <div className="flex-1 min-w-0">
-                {expandedUser ? (
-                  <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-200">
-                          {(businessUsers.find(u => u.id === expandedUser)?.ten || '?').charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-indigo-900">
-                            {businessUsers.find(u => u.id === expandedUser)?.ten || 'Người dùng'}
-                          </p>
-                          <p className="text-xs text-indigo-500">
-                            {businessUsers.find(u => u.id === expandedUser)?.email || businessUsers.find(u => u.id === expandedUser)?.soDienThoai || ''}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
-                          {canEditBusiness ? 'Có thể chỉnh sửa' : 'Chỉ xem'}
-                        </Badge>
-                        <button
-                          type="button"
-                          onClick={() => setExpandedUser(null)}
-                          className="h-7 w-7 rounded-full flex items-center justify-center text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 transition-colors"
-                          title="Ẩn"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <PermissionLevelSelector
-                      items={BUSINESS_PERMISSIONS}
-                      values={(() => {
-                        const user = businessUsers.find(u => u.id === expandedUser);
-                        return (user ? getPermissionForBuilding(user, selectedBuildingId) : {}) as Record<string, PermissionLevel>;
-                      })()}
-                      onChange={(key, value) => {
-                        const u = businessUsers.find(x => x.id === expandedUser);
-                        if (u) void savePermissionLevel(u, key as MucDoKey, value);
-                      }}
-                      disabled={!canEditBusiness}
-                      columns={1}
-                      showGroup={true}
-                    />
+              {/* Left column: buildings list */}
+              <div className="w-full lg:w-72 shrink-0 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-indigo-500 px-1">
+                  Danh sách tòa nhà
+                </p>
+                {buildings.length === 0 ? (
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/50 p-6 text-center text-sm text-indigo-400">
+                    <Building2 className="mx-auto mb-2 h-6 w-6 text-indigo-300" />
+                    Chưa có tòa nhà nào.
                   </div>
                 ) : (
-                  <div className="rounded-full border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
-                    <Users className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
-                    Chọn một người dùng bên trái
+                  <div className="space-y-1">
+                    {buildings.map((building) => {
+                      const isSelected = selectedBuildingForPerms === building.id;
+                      return (
+                        <button
+                          key={building.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedBuildingForPerms(building.id);
+                            if (!buildingPermissions[building.id]) {
+                              void loadBuildingPermissions(building.id);
+                            }
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all duration-200 text-sm ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-indigo-500 to-blue-600 border-0 text-white font-semibold shadow-lg shadow-indigo-200'
+                              : 'bg-white border-2 border-indigo-100 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md'
+                          }`}
+                        >
+                          <Building2 className={`h-4 w-4 shrink-0 ${isSelected ? 'text-white' : 'text-indigo-400'}`} />
+                          <span className="truncate">{building.tenToaNha}</span>
+                          {buildingPermissions[building.id] && (
+                            <span className={`text-[10px] ml-auto shrink-0 ${isSelected ? 'text-white/70' : 'text-indigo-400'}`}>
+                              {Object.values(buildingPermissions[building.id]).filter(v => v !== 'hidden').length}/{BUSINESS_PERMISSIONS.length}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Right column: permission grid for selected building */}
+              <div className="flex-1 min-w-0">
+                {selectedBuildingForPerms ? (
+                  buildingPermsLoading ? (
+                    <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-8 shadow-md shadow-indigo-100/30 flex items-center justify-center">
+                      <RefreshCw className="h-6 w-6 animate-spin text-indigo-400" />
+                      <span className="ml-2 text-sm text-indigo-500">Đang tải gói quyền...</span>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border-0 bg-white/70 backdrop-blur-sm p-4 shadow-md shadow-indigo-100/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md shadow-amber-200">
+                            <Building2 className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-indigo-900">
+                              {buildings.find(b => b.id === selectedBuildingForPerms)?.tenToaNha || 'Tòa nhà'}
+                            </p>
+                            <p className="text-xs text-indigo-500">
+                              Gói tính năng — tất cả người dùng trong tòa nhà kế thừa
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
+                            {canEditBusiness ? 'Có thể chỉnh sửa' : 'Chỉ xem'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <PermissionLevelSelector
+                        items={BUSINESS_PERMISSIONS}
+                        values={buildingPermissions[selectedBuildingForPerms] ?? {}}
+                        onChange={(key, value) => {
+                          void saveBuildingPermissions(selectedBuildingForPerms, key, value);
+                        }}
+                        disabled={!canEditBusiness}
+                        columns={1}
+                        showGroup={true}
+                      />
+                    </div>
+                  )
+                ) : (
+                  <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white/40 p-8 text-center text-sm text-indigo-400">
+                    <Building2 className="mx-auto mb-2 h-8 w-8 text-indigo-300" />
+                    Chọn một tòa nhà bên trái để cấu hình gói tính năng
                   </div>
                 )}
               </div>

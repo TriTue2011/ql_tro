@@ -92,8 +92,10 @@ export default function DashboardPage() {
   const [expandedBuildingId, setExpandedBuildingId] = useState<string | null>(null);
   const [buildingUsers, setBuildingUsers] = useState<BuildingUser[]>([]);
   const [buildingUsersLoading, setBuildingUsersLoading] = useState(false);
-  const [savingPerm, setSavingPerm] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Building-level business permissions (new design)
+  const [buildingBusinessPerms, setBuildingBusinessPerms] = useState<Record<string, Record<string, PermissionLevel>>>({});
+  const [buildingPermsLoading, setBuildingPermsLoading] = useState(false);
 
   // ── Add Admin dialog state ──
   const [showAddAdmin, setShowAddAdmin] = useState(false);
@@ -166,6 +168,61 @@ export default function DashboardPage() {
     }
   }, [adminStats]);
 
+  /** Fetch building-level business permissions from the new API */
+  const fetchBuildingPermissions = useCallback(async (buildingId: string) => {
+    setBuildingPermsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/toa-nha-permissions?toaNhaId=${buildingId}`);
+      const data = await res.json();
+      if (data.success && data.data?.permissions) {
+        setBuildingBusinessPerms(prev => ({
+          ...prev,
+          [buildingId]: data.data.permissions,
+        }));
+      } else {
+        // Default all fullAccess
+        const defaults: Record<string, PermissionLevel> = {};
+        for (const p of BUSINESS_PERMISSIONS) {
+          defaults[p.key] = 'fullAccess';
+        }
+        setBuildingBusinessPerms(prev => ({
+          ...prev,
+          [buildingId]: defaults,
+        }));
+      }
+    } catch {
+      // Silently fail — permissions will show as loading
+    } finally {
+      setBuildingPermsLoading(false);
+    }
+  }, []);
+
+  /** Save building-level permission change via the new API */
+  const saveBuildingPermission = useCallback(async (buildingId: string, key: string, value: PermissionLevel) => {
+    const current = buildingBusinessPerms[buildingId] ?? {};
+    const next = { ...current, [key]: value };
+    // Optimistic update
+    setBuildingBusinessPerms(prev => ({
+      ...prev,
+      [buildingId]: next,
+    }));
+    try {
+      const res = await fetch('/api/admin/toa-nha-permissions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toaNhaId: buildingId, permissions: next }),
+      });
+      if (!res.ok) {
+        toast.error('Không thể lưu gói quyền');
+        // Reload to get actual state
+        await fetchBuildingPermissions(buildingId);
+      }
+    } catch {
+      toast.error('Không thể kết nối máy chủ');
+      await fetchBuildingPermissions(buildingId);
+    }
+  }, [buildingBusinessPerms, fetchBuildingPermissions]);
+
   const handleBuildingClick = useCallback((buildingId: string) => {
     if (expandedBuildingId === buildingId) {
       setExpandedBuildingId(null);
@@ -173,8 +230,9 @@ export default function DashboardPage() {
     } else {
       setExpandedBuildingId(buildingId);
       void fetchBuildingUsers(buildingId);
+      void fetchBuildingPermissions(buildingId);
     }
-  }, [expandedBuildingId, fetchBuildingUsers]);
+  }, [expandedBuildingId, fetchBuildingUsers, fetchBuildingPermissions]);
 
   const handleDeleteBuilding = useCallback(async (buildingId: string, tenToaNha: string) => {
     if (!confirm(`Bạn có chắc chắn muốn xóa tòa nhà "${tenToaNha}"? Hành động này không thể hoàn tác.`)) return;
@@ -265,44 +323,6 @@ export default function DashboardPage() {
       setAddingAdmin(false);
     }
   }, [addAdminForm, selectedBuildings, buildingPerms]);
-
-  const handlePermissionChange = useCallback(async (userId: string, buildingId: string, key: string, value: PermissionLevel) => {
-    setSavingPerm(`${userId}-${key}`);
-    // Optimistic update
-    setBuildingUsers(prev => prev.map(u => {
-      if (u.id !== userId) return u;
-      return {
-        ...u,
-        quyenTheoToaNha: {
-          ...(u.quyenTheoToaNha ?? {}),
-          [buildingId]: {
-            ...(u.quyenTheoToaNha?.[buildingId] ?? {}),
-            [key]: value,
-          },
-        },
-      };
-    }));
-    try {
-      const currentPerms = buildingUsers.find(u => u.id === userId)?.quyenTheoToaNha?.[buildingId] ?? {};
-      const nextPerms = { ...currentPerms, [key]: value };
-      const res = await fetch(`/api/admin/users/${userId}/quyen`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toaNhaId: buildingId, ...nextPerms }),
-      });
-      if (!res.ok) {
-        toast.error('Không thể lưu mức quyền');
-        await fetchBuildingUsers(buildingId);
-      } else {
-        toast.success('Đã lưu mức quyền');
-      }
-    } catch {
-      toast.error('Không thể kết nối máy chủ');
-      await fetchBuildingUsers(buildingId);
-    } finally {
-      setSavingPerm(null);
-    }
-  }, [buildingUsers, fetchBuildingUsers]);
 
   useEffect(() => {
     document.title = 'Tổng quan — Phòng Trọ Pro';
@@ -666,7 +686,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* ── Expanded Permission Section ── */}
+                        {/* ── Expanded Permission Section — Gói tính năng nghiệp vụ (per-building) ── */}
                         {expandedBuildingId === tn.id && (
                           <div
                             style={{
@@ -676,108 +696,100 @@ export default function DashboardPage() {
                               borderBottom: idx < s.danhSachToaNha.length - 1 ? '1px solid #e8e6f7' : 'none',
                             }}
                           >
-                            {buildingUsersLoading ? (
-                              <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 13 }}>
-                                <div className="spinner-border spinner-border-sm me-2" role="status" />
-                                Đang tải người dùng...
+                            {/* Building-level permissions — editable inline */}
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <i className="bi bi-shield-check" />
+                                Gói tính năng nghiệp vụ — tất cả người dùng kế thừa
+                                <Link
+                                  href="/dashboard/phan-quyen"
+                                  style={{ fontSize: 10, color: '#818cf8', marginLeft: 'auto', textDecoration: 'none' }}
+                                >
+                                  <i className="bi bi-box-arrow-up-right me-1" />
+                                  Chi tiết
+                                </Link>
                               </div>
-                            ) : buildingUsers.length === 0 ? (
-                              <div style={{ textAlign: 'center', padding: '16px 0', color: '#9ca3af', fontSize: 13 }}>
-                                <i className="bi bi-info-circle me-1" />
-                                Chưa có người dùng nào được gán quyền cho tòa nhà này.{' '}
-                                <Link href={`/dashboard/quan-ly-tai-khoan/them-moi`} style={{ color: '#6366f1' }}>Thêm người dùng</Link>
+                              {buildingPermsLoading ? (
+                                <div style={{ textAlign: 'center', padding: '12px 0', color: '#9ca3af', fontSize: 12 }}>
+                                  <div className="spinner-border spinner-border-sm me-2" role="status" />
+                                  Đang tải gói quyền...
+                                </div>
+                              ) : (() => {
+                                const perms = buildingBusinessPerms[tn.id];
+                                if (!perms) {
+                                  return (
+                                    <div style={{ textAlign: 'center', padding: '12px 0', color: '#9ca3af', fontSize: 12 }}>
+                                      <i className="bi bi-info-circle me-1" />
+                                      Chưa có gói quyền.{' '}
+                                      <Link href="/dashboard/phan-quyen" style={{ color: '#6366f1' }}>Cấu hình ngay</Link>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <PermissionLevelSelector
+                                    items={BUSINESS_PERMISSIONS}
+                                    values={perms}
+                                    onChange={(key, value) => {
+                                      void saveBuildingPermission(tn.id, key, value);
+                                    }}
+                                    disabled={false}
+                                    columns={1}
+                                    showGroup={true}
+                                  />
+                                );
+                              })()}
+                            </div>
+
+                            {/* Users assigned to this building (read-only list) */}
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: '#6366f1', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <i className="bi bi-people" />
+                                Người dùng trong tòa nhà
                               </div>
-                            ) : (
-                              <div>
-                                {/* ── Permission Tree: user-centric, showing each user with their permissions ── */}
-                                {(() => {
-                                  // Group permissions by category for display
-                                  const grouped = BUSINESS_PERMISSIONS.reduce<Record<string, typeof BUSINESS_PERMISSIONS>>((acc, p) => {
-                                    if (!acc[p.group]) acc[p.group] = [];
-                                    acc[p.group].push(p);
-                                    return acc;
-                                  }, {});
-                                  const groupEntries = Object.entries(grouped);
-                                  // Render each user as a card with their permission badges
-                                  return buildingUsers.map(user => {
-                                    const isChuTro = user.vaiTro === 'chuNha';
-                                    const perms = isChuTro && !user.quyenTheoToaNha?.[tn.id]
-                                      ? Object.fromEntries(BUSINESS_PERMISSIONS.map(p => [p.key, 'fullAccess' as PermissionLevel]))
-                                      : (user.quyenTheoToaNha?.[tn.id] ?? {});
+                              {buildingUsersLoading ? (
+                                <div style={{ textAlign: 'center', padding: '12px 0', color: '#9ca3af', fontSize: 12 }}>
+                                  <div className="spinner-border spinner-border-sm me-2" role="status" />
+                                  Đang tải người dùng...
+                                </div>
+                              ) : buildingUsers.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '12px 0', color: '#9ca3af', fontSize: 12 }}>
+                                  <i className="bi bi-info-circle me-1" />
+                                  Chưa có người dùng nào được gán cho tòa nhà này.{' '}
+                                  <Link href="/dashboard/quan-ly-tai-khoan" style={{ color: '#6366f1' }}>Quản lý tài khoản</Link>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                  {buildingUsers.map(user => {
                                     const roleColor = user.vaiTro === 'chuNha' ? '#10b981' : user.vaiTro === 'dongChuTro' ? '#f59e0b' : user.vaiTro === 'quanLy' ? '#6366f1' : '#6b7280';
                                     const roleLabel = user.vaiTro === 'chuNha' ? 'Chủ trọ' : user.vaiTro === 'dongChuTro' ? 'Đồng chủ trọ' : user.vaiTro === 'quanLy' ? 'Quản lý' : 'Nhân viên';
                                     return (
-                                      <div key={user.id} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', marginBottom: 10, border: '1px solid #ede9fe' }}>
-                                        {/* User header */}
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <div style={{
-                                              width: 28, height: 28, borderRadius: '50%',
-                                              background: roleColor, color: '#fff',
-                                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                              fontSize: 12, fontWeight: 700,
-                                            }}>
-                                              {(user.ten || '?').charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                              <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{user.ten || 'Không có tên'}</div>
-                                              <div style={{ fontSize: 10, color: roleColor, fontWeight: 500 }}>{roleLabel}</div>
-                                            </div>
-                                          </div>
-                                          {user.soDienThoai && (
-                                            <span style={{ fontSize: 11, color: '#9ca3af' }}>{user.soDienThoai}</span>
-                                          )}
+                                      <div key={user.id} style={{
+                                        display: 'flex', alignItems: 'center', gap: 8,
+                                        padding: '6px 10px', borderRadius: 8,
+                                        background: '#fff', border: '1px solid #ede9fe',
+                                        fontSize: 12,
+                                      }}>
+                                        <div style={{
+                                          width: 24, height: 24, borderRadius: '50%',
+                                          background: roleColor, color: '#fff',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          fontSize: 10, fontWeight: 700, flexShrink: 0,
+                                        }}>
+                                          {(user.ten || '?').charAt(0).toUpperCase()}
                                         </div>
-                                        {/* Permission badges grouped by category */}
-                                        {groupEntries.map(([groupName, groupPerms]) => (
-                                          <div key={groupName} style={{ marginBottom: 6 }}>
-                                            <div style={{ fontSize: 10, fontWeight: 600, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 4 }}>
-                                              {groupName}
-                                            </div>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                              {groupPerms.map(p => {
-                                                const level = (perms[p.key] as PermissionLevel) || 'hidden';
-                                                const levelLabel = level === 'fullAccess' ? 'Đầy đủ' : level === 'viewOnly' ? 'Xem' : 'Ẩn';
-                                                const levelBg = level === 'fullAccess' ? '#ecfdf5' : level === 'viewOnly' ? '#fffbeb' : '#f9fafb';
-                                                const levelBorder = level === 'fullAccess' ? '#a7f3d0' : level === 'viewOnly' ? '#fde68a' : '#e5e7eb';
-                                                const levelColor = level === 'fullAccess' ? '#10b981' : level === 'viewOnly' ? '#d97706' : '#9ca3af';
-                                                const isSaving = savingPerm === `${user.id}-${p.key}`;
-                                                return (
-                                                  <div
-                                                    key={p.key}
-                                                    style={{
-                                                      display: 'inline-flex', alignItems: 'center', gap: 3,
-                                                      padding: '2px 8px', borderRadius: 10,
-                                                      background: levelBg,
-                                                      border: `1px solid ${levelBorder}`,
-                                                      fontSize: 10, cursor: isChuTro ? 'default' : 'pointer',
-                                                      opacity: isSaving ? 0.6 : 1,
-                                                      transition: 'all 0.15s',
-                                                    }}
-                                                    onClick={(ev) => {
-                                                      ev.stopPropagation();
-                                                      if (isChuTro) return; // Chủ trọ không thể thay đổi quyền của chính mình
-                                                      // Toggle: hidden → viewOnly → fullAccess → hidden
-                                                      const nextLevel = level === 'hidden' ? 'viewOnly' as PermissionLevel : level === 'viewOnly' ? 'fullAccess' as PermissionLevel : 'hidden' as PermissionLevel;
-                                                      handlePermissionChange(user.id, tn.id, p.key, nextLevel);
-                                                    }}
-                                                    title={isChuTro ? 'Chủ trọ có toàn quyền' : `${p.label}: ${levelLabel} — nhấn để đổi`}
-                                                  >
-                                                    <span style={{ color: levelColor, fontWeight: 500 }}>{p.label}</span>
-                                                    <span style={{ color: levelColor, fontSize: 9, opacity: 0.7 }}>·</span>
-                                                    <span style={{ color: levelColor, fontSize: 9 }}>{levelLabel}</span>
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          </div>
-                                        ))}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <span style={{ fontWeight: 500, color: '#1f2937' }}>{user.ten || 'Không tên'}</span>
+                                          <span style={{ color: roleColor, marginLeft: 6, fontSize: 10 }}>{roleLabel}</span>
+                                        </div>
+                                        {user.soDienThoai && (
+                                          <span style={{ color: '#9ca3af', fontSize: 10, flexShrink: 0 }}>{user.soDienThoai}</span>
+                                        )}
                                       </div>
                                     );
-                                  });
-                                })()}
-                              </div>
-                            )}
+                                  })}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

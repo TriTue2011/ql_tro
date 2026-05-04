@@ -471,6 +471,11 @@ model CaiDatToaNha {
   // null = dùng giới hạn chung (global)
   roleLimits String?
 
+  // Gói tính năng nghiệp vụ của tòa nhà — JSON: { mucDoHopDong: 'fullAccess'|'viewOnly'|'hidden', ... }
+  // null = tất cả quyền được bật (mặc định cho tòa nhà mới)
+  // Admin cấu hình gói này, tất cả người dùng trong tòa nhà đều kế thừa
+  businessPermissions String?
+
   // Văn mẫu Zalo tùy chỉnh — JSON: { friendMsgKT?, friendMsgQL?, followUpMsgKT?, followUpMsgQL? }
   // Hỗ trợ biến: {ten}, {tenToaNha}, {diaChiNgan}, {diaChiDay}, {phong}, {soNha}, {duong}
   // null = dùng văn mẫu mặc định
