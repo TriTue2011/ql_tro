@@ -316,8 +316,9 @@ export async function POST(request: NextRequest) {
       autoLinkZaloChatIds('nguoiDung', newUser.id, phone).catch(() => {});
     }
 
-    // Gán tòa nhà nếu có và không phải admin (hỗ trợ nhiều tòa)
-    if (role !== 'admin' && toaNhaIds.length > 0) {
+    // Gán tòa nhà nếu có (hỗ trợ nhiều tòa)
+    // Admin cũng có thể được gán tòa nhà để quản lý (admin không phải super admin)
+    if (toaNhaIds.length > 0) {
       for (const tid of toaNhaIds) {
         await prisma.toaNhaNguoiQuanLy.create({
           data: { toaNhaId: tid, nguoiDungId: newUser.id },

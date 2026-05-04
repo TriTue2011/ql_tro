@@ -89,7 +89,7 @@ export default class ToaNhaRepository {
         lienHePhuTrach: (data.lienHePhuTrach ?? []) as object[],
         zaloNhomChat: (data.zaloNhomChat ?? []) as object[],
       },
-      include: { chuSoHuu: { select: { id: true, ten: true, email: true } } },
+      include: { chuSoHuu: { select: { id: true, ten: true, email: true, soDienThoai: true } } },
     });
     return normalize(raw);
   }
@@ -115,7 +115,7 @@ export default class ToaNhaRepository {
           ...(data.lienHePhuTrach !== undefined && { lienHePhuTrach: data.lienHePhuTrach as object[] }),
           ...(data.zaloNhomChat !== undefined && { zaloNhomChat: data.zaloNhomChat as object[] }),
         },
-        include: { chuSoHuu: { select: { id: true, ten: true, email: true } } },
+        include: { chuSoHuu: { select: { id: true, ten: true, email: true, soDienThoai: true } } },
       });
       return normalize(raw);
     } catch {

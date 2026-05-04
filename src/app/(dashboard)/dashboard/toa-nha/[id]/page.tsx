@@ -92,6 +92,7 @@ export default function ChiTietToaNhaPage() {
               ten: toaNha.chuSoHuu.ten || '',
               soDienThoai: toaNha.chuSoHuu.soDienThoai || '',
               email: toaNha.chuSoHuu.email || '',
+              matKhau: '',
             });
           }
         } else {

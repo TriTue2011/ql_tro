@@ -9,6 +9,24 @@ import ZaloHotlineWarning from '@/components/zalo-hotline-warning';
 import { PermissionLevelSelector } from '@/components/dashboard';
 import type { PermissionLevel } from '@/components/dashboard';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import '@/styles/bs-admin.css';
 
 interface MonthRevenue { month: number; revenue: number; }
@@ -77,6 +95,39 @@ export default function DashboardPage() {
   const [savingPerm, setSavingPerm] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // ── Add Admin dialog state ──
+  const [showAddAdmin, setShowAddAdmin] = useState(false);
+  const [addAdminForm, setAddAdminForm] = useState({
+    ten: '',
+    soDienThoai: '',
+    email: '',
+    matKhau: '',
+  });
+  const [selectedBuildings, setSelectedBuildings] = useState<Record<string, boolean>>({});
+  const [buildingPerms, setBuildingPerms] = useState<Record<string, Record<string, string>>>({});
+  const [buildings, setBuildings] = useState<{ id: string; tenToaNha: string }[]>([]);
+  const [addingAdmin, setAddingAdmin] = useState(false);
+
+  const fetchBuildings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/toa-nha-settings');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setBuildings(data.data);
+      }
+    } catch {
+      // fallback: try /api/toa-nha
+      try {
+        const res = await fetch('/api/toa-nha');
+        const data = await res.json();
+        const list = data.data || data;
+        if (Array.isArray(list)) {
+          setBuildings(list.map((b: any) => ({ id: b.id, tenToaNha: b.tenToaNha })));
+        }
+      } catch {}
+    }
+  }, []);
+
   const fetchBuildingUsers = useCallback(async (buildingId: string) => {
     setBuildingUsersLoading(true);
     try {
@@ -144,6 +195,74 @@ export default function DashboardPage() {
       setDeletingId(null);
     }
   }, []);
+
+  const handleAddAdmin = useCallback(async () => {
+    const { ten, soDienThoai, email, matKhau } = addAdminForm;
+    if (!ten || ten.trim().length < 2) {
+      toast.error('Vui lòng nhập họ tên (ít nhất 2 ký tự)');
+      return;
+    }
+    if (!soDienThoai && !email) {
+      toast.error('Cần ít nhất số điện thoại hoặc email');
+      return;
+    }
+    const buildingIds = Object.entries(selectedBuildings).filter(([, v]) => v).map(([k]) => k);
+    if (buildingIds.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một tòa nhà để gán quyền quản lý');
+      return;
+    }
+
+    setAddingAdmin(true);
+    try {
+      // 1. Tạo user với role='admin'
+      const body: Record<string, any> = {
+        name: ten.trim(),
+        role: 'admin',
+        toaNhaIds: buildingIds,
+      };
+      if (soDienThoai.trim()) body.phone = soDienThoai.trim();
+      if (email.trim()) body.email = email.trim().toLowerCase();
+      if (matKhau.trim()) body.password = matKhau.trim();
+
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data?.error || 'Không thể tạo admin');
+        return;
+      }
+
+      const newUserId = data.id;
+
+      // 2. Gán quyền cho từng tòa nhà
+      for (const tid of buildingIds) {
+        const perms = buildingPerms[tid] ?? {};
+        const permBody: Record<string, string> = { toaNhaId: tid };
+        // Mặc định fullAccess nếu không được chọn
+        for (const p of BUSINESS_PERMISSIONS) {
+          permBody[p.key] = perms[p.key] || 'fullAccess';
+        }
+        await fetch(`/api/admin/users/${newUserId}/quyen`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(permBody),
+        });
+      }
+
+      toast.success(`Đã thêm admin "${ten.trim()}" thành công`);
+      setShowAddAdmin(false);
+      setAddAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
+      setSelectedBuildings({});
+      setBuildingPerms({});
+    } catch {
+      toast.error('Không thể kết nối máy chủ');
+    } finally {
+      setAddingAdmin(false);
+    }
+  }, [addAdminForm, selectedBuildings, buildingPerms]);
 
   const handlePermissionChange = useCallback(async (userId: string, buildingId: string, key: string, value: PermissionLevel) => {
     setSavingPerm(`${userId}-${key}`);
@@ -302,20 +421,18 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="d-none d-md-flex align-items-center gap-3">
-              <Link
-                href="/dashboard/toa-nha/them-moi"
+              <button
+                type="button"
                 className="admin-hero-btn"
+                onClick={() => {
+                  fetchBuildings();
+                  setShowAddAdmin(true);
+                }}
+                style={{ border: 'none', cursor: 'pointer' }}
               >
-                <i className="bi bi-plus-lg" />
-                Thêm tòa nhà
-              </Link>
-              <Link
-                href="/dashboard/quan-ly-tai-khoan/them-moi"
-                className="admin-hero-btn"
-              >
-                <i className="bi bi-person-plus" />
-                Thêm chủ trọ
-              </Link>
+                <i className="bi bi-shield-plus" />
+                Thêm admin
+              </button>
             </div>
           </div>
         </div>
@@ -336,8 +453,6 @@ export default function DashboardPage() {
               { href: '/dashboard/toa-nha', icon: 'bi-buildings-fill', label: 'Tòa nhà', color: '#6366f1', count: s.tongToaNha },
               { href: '/dashboard/quan-ly-tai-khoan', icon: 'bi-people-fill', label: 'Tài khoản', color: '#10b981', count: null },
               { href: '/dashboard/phan-quyen', icon: 'bi-diagram-3-fill', label: 'Phân quyền', color: '#8b5cf6', count: null },
-              { href: '/dashboard/toa-nha/them-moi', icon: 'bi-plus-circle', label: 'Thêm tòa nhà', color: '#f59e0b', count: null },
-              { href: '/dashboard/quan-ly-tai-khoan/them-moi', icon: 'bi-person-plus', label: 'Thêm chủ trọ', color: '#3b82f6', count: null },
               { href: '/dashboard/ho-so', icon: 'bi-person-circle', label: 'Hồ sơ', color: '#06b6d4', count: null },
             ].map((item) => (
               <div key={item.href} className="col-4 col-sm-2">
@@ -382,6 +497,32 @@ export default function DashboardPage() {
                 </Link>
               </div>
             ))}
+            {/* Thêm admin quick action */}
+            <div className="col-4 col-sm-2">
+              <button
+                type="button"
+                onClick={() => {
+                  fetchBuildings();
+                  setShowAddAdmin(true);
+                }}
+                className="d-flex flex-column align-items-center justify-content-center h-100 w-100 position-relative text-decoration-none"
+                style={{
+                  padding: '16px 8px',
+                  background: '#fff',
+                  borderRadius: 12,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                  transition: 'all 0.2s ease',
+                  border: '1px solid #e5e7eb',
+                  display: 'flex',
+                  cursor: 'pointer',
+                  overflow: 'visible',
+                  borderColor: '#f59e0b',
+                }}
+              >
+                <i className="bi bi-shield-plus" style={{ color: '#f59e0b', fontSize: 24, marginBottom: 6 }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>Thêm admin</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -614,82 +755,159 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Row 3: Permission Tree Overview ──────────────────────────── */}
-        <div className="row g-3">
-          <div className="col-12">
-            <div className="bs-card">
-              <div className="bs-card-header">
-                <div>
-                  <h5 className="bs-card-title"><i className="bi bi-diagram-3-fill" /> Sơ đồ phân quyền — Cây quyền hạn</h5>
-                  <div className="bs-card-subtitle">Quản lý quyền tập trung cho tất cả tòa nhà</div>
-                </div>
-                <Link href="/dashboard/phan-quyen" className="bs-section-link">
-                  Đi đến phân quyền <i className="bi bi-arrow-right" />
-                </Link>
+        {/* ── Add Admin Dialog ── */}
+        <Dialog open={showAddAdmin} onOpenChange={setShowAddAdmin}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-indigo-700">
+                <i className="bi bi-shield-plus" />
+                Thêm admin mới
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {/* Họ tên */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold text-indigo-900">
+                  Họ tên <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  placeholder="Nguyễn Văn A"
+                  value={addAdminForm.ten}
+                  onChange={(e) => setAddAdminForm(p => ({ ...p, ten: e.target.value }))}
+                />
               </div>
-              <div className="bs-card-body">
-                <div className="admin-permission-tree">
-                  <div className="tree-node tree-root">
-                    <div className="tree-node-icon">
-                      <i className="bi bi-shield-fill-check" />
-                    </div>
-                    <div className="tree-node-content">
-                      <div className="tree-node-title">Admin (Tổng quản)</div>
-                      <div className="tree-node-desc">Toàn quyền hệ thống — cài đặt quyền cho tất cả tòa nhà</div>
-                    </div>
-                  </div>
 
-                  <div className="tree-connector">
-                    <i className="bi bi-chevron-down" />
-                  </div>
+              {/* Số điện thoại */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold text-indigo-900">
+                  Số điện thoại
+                </Label>
+                <Input
+                  placeholder="0912345678"
+                  value={addAdminForm.soDienThoai}
+                  onChange={(e) => setAddAdminForm(p => ({ ...p, soDienThoai: e.target.value }))}
+                />
+              </div>
 
-                  <div className="tree-buildings-grid">
-                    {s.danhSachToaNha.length > 0 ? (
-                      s.danhSachToaNha.map((tn) => (
-                        <div key={tn.id} className="tree-building-card">
-                          <div className="tree-building-header">
-                            <i className="bi bi-building" />
-                            <span>{tn.tenToaNha}</span>
-                          </div>
-                          <div className="tree-building-body">
-                            <div className="tree-role-row">
-                              <div className="tree-role-icon" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
-                                <i className="bi bi-person-fill-gear" />
-                              </div>
-                              <div className="tree-role-info">
-                                <div className="tree-role-name">Chủ trọ</div>
-                                <div className="tree-role-desc">1 chủ trọ — toàn quyền tòa nhà</div>
-                              </div>
-                              <Link href={`/dashboard/phan-quyen?toaNhaId=${tn.id}`} className="tree-role-action">
-                                <i className="bi bi-gear-fill" />
-                              </Link>
+              {/* Email */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold text-indigo-900">
+                  Email
+                </Label>
+                <Input
+                  type="email"
+                  placeholder="admin@example.com"
+                  value={addAdminForm.email}
+                  onChange={(e) => setAddAdminForm(p => ({ ...p, email: e.target.value }))}
+                />
+              </div>
+
+              {/* Mật khẩu */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold text-indigo-900">
+                  Mật khẩu
+                </Label>
+                <Input
+                  type="password"
+                  placeholder="Để trống để tạo mật khẩu tự động"
+                  value={addAdminForm.matKhau}
+                  onChange={(e) => setAddAdminForm(p => ({ ...p, matKhau: e.target.value }))}
+                />
+              </div>
+
+              {/* Chọn tòa nhà */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-indigo-900">
+                  Gán tòa nhà quản lý <span className="text-red-500">*</span>
+                </Label>
+                {buildings.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">Đang tải danh sách tòa nhà...</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto border border-indigo-100 rounded-xl p-2">
+                    {buildings.map((b) => (
+                      <div key={b.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-indigo-50/50">
+                        <Checkbox
+                          checked={!!selectedBuildings[b.id]}
+                          onCheckedChange={(checked) => {
+                            setSelectedBuildings(prev => ({ ...prev, [b.id]: !!checked }));
+                            if (checked && !buildingPerms[b.id]) {
+                              // Default all permissions to fullAccess
+                              const defaults: Record<string, string> = {};
+                              BUSINESS_PERMISSIONS.forEach(p => { defaults[p.key] = 'fullAccess'; });
+                              setBuildingPerms(prev => ({ ...prev, [b.id]: defaults }));
+                            }
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <Label className="text-sm font-medium cursor-pointer">{b.tenToaNha}</Label>
+                          {selectedBuildings[b.id] && (
+                            <div className="mt-2 grid grid-cols-2 gap-1">
+                              {BUSINESS_PERMISSIONS.map(p => (
+                                <div key={p.key} className="flex items-center gap-1.5">
+                                  <select
+                                    value={buildingPerms[b.id]?.[p.key] || 'fullAccess'}
+                                    onChange={(e) => {
+                                      setBuildingPerms(prev => ({
+                                        ...prev,
+                                        [b.id]: { ...(prev[b.id] ?? {}), [p.key]: e.target.value },
+                                      }));
+                                    }}
+                                    className="text-xs border border-indigo-200 rounded-md px-1.5 py-0.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                    style={{ fontSize: 10 }}
+                                  >
+                                    <option value="fullAccess">Toàn quyền</option>
+                                    <option value="viewOnly">Xem</option>
+                                    <option value="hidden">Ẩn</option>
+                                  </select>
+                                  <span className="text-xs text-gray-500 truncate">{p.label}</span>
+                                </div>
+                              ))}
                             </div>
-                            <div className="tree-role-row">
-                              <div className="tree-role-icon" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
-                                <i className="bi bi-people" />
-                              </div>
-                              <div className="tree-role-info">
-                                <div className="tree-role-name">Nhân sự</div>
-                                <div className="tree-role-desc">Đồng chủ trọ, Quản lý, Nhân viên</div>
-                              </div>
-                              <Link href={`/dashboard/phan-quyen?toaNhaId=${tn.id}`} className="tree-role-action">
-                                <i className="bi bi-gear-fill" />
-                              </Link>
-                            </div>
-                          </div>
+                          )}
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-4" style={{ color: '#9ca3af', fontSize: 13 }}>
-                        Chưa có tòa nhà nào. <Link href="/dashboard/toa-nha/them-moi" style={{ color: '#6366f1' }}>Thêm tòa nhà đầu tiên</Link>
                       </div>
-                    )}
+                    ))}
                   </div>
-                </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-2 border-t border-indigo-100">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowAddAdmin(false);
+                    setAddAdminForm({ ten: '', soDienThoai: '', email: '', matKhau: '' });
+                    setSelectedBuildings({});
+                    setBuildingPerms({});
+                  }}
+                  className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleAddAdmin}
+                  disabled={addingAdmin}
+                  className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-md shadow-indigo-200"
+                >
+                  {addingAdmin ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-1" role="status" />
+                      Đang thêm...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-shield-plus me-1" />
+                      Thêm admin
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       </>
     );
   }
