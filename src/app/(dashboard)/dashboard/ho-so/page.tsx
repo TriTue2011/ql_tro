@@ -11,6 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import PillTabs from '@/components/dashboard/pill-tabs';
 import {
   User,
@@ -40,6 +47,8 @@ import {
   Bot,
   Monitor,
   Type,
+  TextSelect,
+  ArrowUpDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -130,9 +139,22 @@ export default function ProfilePage() {
   // ── Appearance state ──────────────────────────────────────────
   type SidebarStyle = 'default' | 'compact';
   type FontSize = 'small' | 'medium' | 'large';
+  type FontFamily = string;
+  type LineHeight = 'tight' | 'normal' | 'relaxed' | 'loose';
   const APPEARANCE_KEY = 'ql-tro-appearance';
-  const defaultAppearance = { sidebarStyle: 'default' as SidebarStyle, fontSize: 'medium' as FontSize };
-  const [appearance, setAppearance] = useState<{ sidebarStyle: SidebarStyle; fontSize: FontSize }>(defaultAppearance);
+  const FONT_SETTINGS_KEY = 'fontSettings';
+  const defaultAppearance = {
+    sidebarStyle: 'default' as SidebarStyle,
+    fontSize: 'medium' as FontSize,
+    fontFamily: 'Inter' as FontFamily,
+    lineHeight: 'normal' as LineHeight,
+  };
+  const [appearance, setAppearance] = useState<{
+    sidebarStyle: SidebarStyle;
+    fontSize: FontSize;
+    fontFamily: FontFamily;
+    lineHeight: LineHeight;
+  }>(defaultAppearance);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -143,10 +165,16 @@ export default function ProfilePage() {
     }
   }, []);
 
-  const updateAppearance = (patch: { sidebarStyle?: SidebarStyle; fontSize?: FontSize }) => {
+  const updateAppearance = (patch: { sidebarStyle?: SidebarStyle; fontSize?: FontSize; fontFamily?: FontFamily; lineHeight?: LineHeight }) => {
     const next = { ...appearance, ...patch };
     setAppearance(next);
     localStorage.setItem(APPEARANCE_KEY, JSON.stringify(next));
+    // Also save to fontSettings for layout.tsx to pick up
+    localStorage.setItem(FONT_SETTINGS_KEY, JSON.stringify({
+      fontSize: next.fontSize,
+      fontFamily: next.fontFamily,
+      lineHeight: next.lineHeight,
+    }));
     toast.success('Đã lưu cài đặt giao diện');
   };
 
@@ -770,6 +798,46 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {/* Font family */}
+          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+            <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <TextSelect className="h-4 w-4 text-white" />
+              </div>
+              <h3 className="text-base font-bold text-indigo-900">Phông chữ</h3>
+            </div>
+            <div className="p-4">
+              <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                <Label className="text-xs md:text-sm font-semibold text-indigo-900">Chọn phông chữ</Label>
+                <Select
+                  value={appearance.fontFamily}
+                  onValueChange={(val) => updateAppearance({ fontFamily: val })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Chọn phông chữ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[
+                      { value: 'Inter', label: 'Inter (Mặc định)' },
+                      { value: 'Arial', label: 'Arial' },
+                      { value: 'Times New Roman', label: 'Times New Roman' },
+                      { value: 'Roboto', label: 'Roboto' },
+                      { value: 'Segoe UI', label: 'Segoe UI' },
+                      { value: 'Tahoma', label: 'Tahoma' },
+                      { value: 'Verdana', label: 'Verdana' },
+                      { value: 'Georgia', label: 'Georgia' },
+                      { value: 'Courier New', label: 'Courier New' },
+                    ].map((font) => (
+                      <SelectItem key={font.value} value={font.value}>
+                        <span style={{ fontFamily: font.value }}>{font.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
           {/* Font size */}
           <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
             <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
@@ -793,6 +861,39 @@ export default function ProfilePage() {
                       value={opt.value}
                       checked={appearance.fontSize === opt.value}
                       onChange={() => updateAppearance({ fontSize: opt.value })}
+                      className="accent-indigo-600"
+                    />
+                    <span className="text-xs text-indigo-500/70">{opt.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Line height */}
+          <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+            <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                <ArrowUpDown className="h-4 w-4 text-white" />
+              </div>
+              <h3 className="text-base font-bold text-indigo-900">Khoảng cách dòng</h3>
+            </div>
+            <div className="p-4 space-y-4">
+              {([
+                { value: 'tight' as const, label: 'Sít', desc: '1.2 — Phù hợp hiển thị nhiều nội dung' },
+                { value: 'normal' as const, label: 'Bình thường', desc: '1.5 — Khoảng cách mặc định' },
+                { value: 'relaxed' as const, label: 'Rộng', desc: '1.75 — Dễ đọc hơn' },
+                { value: 'loose' as const, label: 'Rất rộng', desc: '2.0 — Thoải mái nhất' },
+              ]).map((opt) => (
+                <div key={opt.value} className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                  <Label className="text-xs md:text-sm font-semibold text-indigo-900">{opt.label}</Label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="lineHeight"
+                      value={opt.value}
+                      checked={appearance.lineHeight === opt.value}
+                      onChange={() => updateAppearance({ lineHeight: opt.value })}
                       className="accent-indigo-600"
                     />
                     <span className="text-xs text-indigo-500/70">{opt.desc}</span>
