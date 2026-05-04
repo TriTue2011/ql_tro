@@ -47,6 +47,7 @@ import {
   ChevronUp,
   Plus,
   Upload,
+  FolderPlus,
   User,
   Users,
   Clock,
@@ -59,6 +60,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, PillTabs } from "@/components/dashboard";
+import MinioManager from "@/components/dashboard/minio-manager";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -3152,6 +3154,9 @@ export default function CaiDatPage() {
           ...(isQuanLy ? [
             { value: "bankQL", label: "Tài khoản ngân hàng", icon: CreditCard },
           ] as const : []),
+          ...(isChuNha || isAdmin ? [
+            { value: "minio", label: "Quản lý MinIO", icon: HardDrive },
+          ] as const : []),
         ]}
         value={activeTab}
         onChange={setActiveTab}
@@ -3398,6 +3403,13 @@ export default function CaiDatPage() {
         {activeTab === "bankQL" && isQuanLy && (
           <div className="space-y-4 mt-4">
             <QuanLyBankTab />
+          </div>
+        )}
+
+        {/* ── Tab Quản lý MinIO ─────────────────────────────────────────────── */}
+        {(activeTab === "minio" && (isChuNha || isAdmin)) && (
+          <div className="mt-4">
+            <MinioManager />
           </div>
         )}
 
