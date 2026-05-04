@@ -662,11 +662,14 @@ export default function DashboardPage() {
         {/* ── Admin list section ── */}
         {s.danhSachAdmin.length > 0 && (
           <div className="mb-4">
-            <div className="bs-card">
-              <div className="bs-card-header">
+            <div className="rounded-xl border-0 bg-gradient-to-br from-indigo-50/80 to-blue-50/80 shadow-lg shadow-indigo-100/50">
+              <div className="flex items-center gap-3 p-4 border-b border-indigo-100">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
+                  <i className="bi bi-shield-check" style={{ color: '#fff', fontSize: 16 }} />
+                </div>
                 <div>
-                  <h5 className="bs-card-title"><i className="bi bi-shield-check" /> Danh sách quản trị viên</h5>
-                  <p className="bs-card-desc">Quản lý tài khoản admin, đặt lại mật khẩu khi cần</p>
+                  <h3 className="text-base font-bold text-indigo-900">Danh sách quản trị viên</h3>
+                  <p className="text-xs text-indigo-500/70">Quản lý tài khoản admin, đặt lại mật khẩu khi cần</p>
                 </div>
               </div>
               <div className="p-3">
@@ -695,10 +698,10 @@ export default function DashboardPage() {
                           gap: 12,
                           padding: '10px 12px',
                           cursor: 'pointer',
-                          borderRadius: editingAdminId === admin.id ? '8px 8px 0 0' : 8,
+                          borderRadius: editingAdminId === admin.id ? '12px 12px 0 0' : 12,
                           background: editingAdminId === admin.id ? '#f8f7ff' : '#fff',
-                          border: editingAdminId === admin.id ? '1px solid #c7d2fe' : '1px solid #e5e7eb',
-                          borderBottom: editingAdminId === admin.id ? 'none' : '1px solid #e5e7eb',
+                          border: editingAdminId === admin.id ? '2px solid #c7d2fe' : '2px solid #e5e7eb',
+                          borderBottom: editingAdminId === admin.id ? 'none' : '2px solid #e5e7eb',
                           transition: 'all 0.15s ease',
                         }}
                         onMouseEnter={(e) => { if (editingAdminId !== admin.id) (e.currentTarget as HTMLElement).style.borderColor = '#c7d2fe'; }}
@@ -747,47 +750,47 @@ export default function DashboardPage() {
                             padding: '16px',
                             border: '1px solid #c7d2fe',
                             borderTop: 'none',
-                            borderRadius: '0 0 8px 8px',
+                            borderRadius: '0 0 12px 12px',
                             background: '#fafaff',
                           }}
                         >
-                          <div className="row g-3">
-                            <div className="col-12 col-md-6">
-                              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Họ tên</label>
+                          <div className="space-y-3">
+                            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                              <label style={{ fontSize: 11, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' }}>Họ tên</label>
                               <Input
                                 value={editAdminForm.ten}
                                 onChange={(e) => setEditAdminForm(prev => ({ ...prev, ten: e.target.value }))}
-                                className="h-9 text-sm"
+                                className="h-8 text-xs"
                                 placeholder="Họ tên"
                               />
                             </div>
-                            <div className="col-12 col-md-6">
-                              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Số điện thoại</label>
+                            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                              <label style={{ fontSize: 11, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' }}>Số điện thoại</label>
                               <Input
                                 value={editAdminForm.soDienThoai}
                                 onChange={(e) => setEditAdminForm(prev => ({ ...prev, soDienThoai: e.target.value }))}
-                                className="h-9 text-sm"
+                                className="h-8 text-xs"
                                 placeholder="Số điện thoại"
                               />
                             </div>
-                            <div className="col-12 col-md-6">
-                              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Email</label>
+                            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                              <label style={{ fontSize: 11, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' }}>Email</label>
                               <Input
                                 value={editAdminForm.email}
                                 onChange={(e) => setEditAdminForm(prev => ({ ...prev, email: e.target.value }))}
-                                className="h-9 text-sm"
+                                className="h-8 text-xs"
                                 placeholder="Email"
                               />
                             </div>
-                            <div className="col-12 col-md-6">
-                              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                            <div className="rounded-xl border-2 border-indigo-100 bg-white/60 backdrop-blur-sm p-3 shadow-sm space-y-1.5">
+                              <label style={{ fontSize: 11, fontWeight: 500, color: '#374151', marginBottom: 4, display: 'block' }}>
                                 Mật khẩu mới <span style={{ fontWeight: 400, color: '#9ca3af' }}>(để trống nếu không đổi)</span>
                               </label>
                               <Input
                                 type="password"
                                 value={editAdminForm.matKhau}
                                 onChange={(e) => setEditAdminForm(prev => ({ ...prev, matKhau: e.target.value }))}
-                                className="h-9 text-sm"
+                                className="h-8 text-xs"
                                 placeholder="Nhập mật khẩu mới"
                               />
                             </div>
