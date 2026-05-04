@@ -447,7 +447,7 @@ export default function DashboardPage() {
           </span>
         </div>
 
-        <div className="mb-4" style={{ position: 'relative', zIndex: 100 }}>
+        <div className="mb-4">
           <div className="row g-2">
             {[
               { href: '/dashboard/toa-nha', icon: 'bi-buildings-fill', label: 'Tòa nhà', color: '#6366f1', count: s.tongToaNha },
@@ -980,7 +980,7 @@ export default function DashboardPage() {
 
       <ZaloHotlineWarning />
 
-      <div className="mb-4" style={{ position: 'relative', zIndex: 100 }}>
+      <div className="mb-4">
         <div className="row g-2">
           {[
             { href: '/dashboard/hoa-don/them-moi', icon: 'bi-receipt-cutoff', label: 'Tạo hóa đơn', color: '#6366f1', count: stats?.hoaDonSapDenHan },
