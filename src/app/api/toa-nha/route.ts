@@ -117,14 +117,27 @@ export async function POST(request: NextRequest) {
     const validatedData = toaNhaSchema.parse(body);
     const role = session.user.role;
 
+    // Admin bắt buộc phải chỉ định chủ trọ khi tạo tòa nhà
+    if (role === 'admin' && !body.chuSoHuuId) {
+      return NextResponse.json(
+        { message: 'Admin phải chỉ định chủ trọ cho tòa nhà' },
+        { status: 400 }
+      );
+    }
+
     let chuSoHuuId = session.user.id;
-    if (role === 'admin' && body.chuSoHuuId) {
+    if (body.chuSoHuuId) {
       const owner = await prisma.nguoiDung.findUnique({
         where: { id: body.chuSoHuuId },
         select: { id: true, vaiTro: true },
       });
       if (owner && owner.vaiTro === 'chuNha') {
         chuSoHuuId = owner.id;
+      } else if (role === 'admin') {
+        return NextResponse.json(
+          { message: 'Chủ trọ không hợp lệ' },
+          { status: 400 }
+        );
       }
     }
 

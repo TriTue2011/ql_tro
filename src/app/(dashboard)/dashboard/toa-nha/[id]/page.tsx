@@ -145,6 +145,8 @@ export default function ChiTietToaNhaPage() {
           phone: chuTroData.soDienThoai || undefined,
           role: 'chuNha',
           isActive: true,
+          // Gửi kèm toaNhaIds để tránh API xóa hết quyền quản lý tòa nhà của chủ trọ
+          toaNhaIds: [toaNhaId],
         };
         if (chuTroData.matKhau) {
           body.password = chuTroData.matKhau;

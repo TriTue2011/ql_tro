@@ -157,7 +157,9 @@ export async function PUT(
     if (zaloViTri !== undefined) updateData.zaloViTri = zaloViTri;
     await prisma.nguoiDung.update({ where: { id }, data: updateData, select: { id: true } });
 
-    if (role !== 'admin') {
+    // Chỉ xử lý gán tòa nhà nếu có toaNhaIds hoặc toaNhaId được gửi lên
+    const hasBuildingIds = Array.isArray(toaNhaIds) || toaNhaId !== undefined;
+    if (role !== 'admin' && hasBuildingIds) {
       const idsToAssign: string[] = Array.isArray(toaNhaIds) && toaNhaIds.length > 0
         ? toaNhaIds
         : (toaNhaId ? [toaNhaId] : []);
