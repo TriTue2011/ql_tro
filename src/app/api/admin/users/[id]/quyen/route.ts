@@ -5,12 +5,17 @@
  * Body: {
  *   toaNhaId: string,
  *   mucDoHopDong?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoKichHoatTaiKhoan?: 'hidden' | 'viewOnly' | 'fullAccess',
  *   mucDoHoaDon?: 'hidden' | 'viewOnly' | 'fullAccess',
  *   mucDoThanhToan?: 'hidden' | 'viewOnly' | 'fullAccess',
  *   mucDoSuCo?: 'hidden' | 'viewOnly' | 'fullAccess',
- *   mucDoKichHoatTaiKhoan?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoCongViec?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoBaoDuong?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoKho?: 'hidden' | 'viewOnly' | 'fullAccess',
  *   mucDoZalo?: 'hidden' | 'viewOnly' | 'fullAccess',
  *   mucDoZaloMonitor?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoCaiDatHotline?: 'hidden' | 'viewOnly' | 'fullAccess',
+ *   mucDoCaiDatEmail?: 'hidden' | 'viewOnly' | 'fullAccess',
  * }
  *
  * Quyền truy cập:
@@ -28,12 +33,17 @@ const permissionLevelSchema = z.enum(['hidden', 'viewOnly', 'fullAccess']).optio
 const bodySchema = z.object({
   toaNhaId: z.string().min(1),
   mucDoHopDong: permissionLevelSchema,
+  mucDoKichHoatTaiKhoan: permissionLevelSchema,
   mucDoHoaDon: permissionLevelSchema,
   mucDoThanhToan: permissionLevelSchema,
   mucDoSuCo: permissionLevelSchema,
-  mucDoKichHoatTaiKhoan: permissionLevelSchema,
+  mucDoCongViec: permissionLevelSchema,
+  mucDoBaoDuong: permissionLevelSchema,
+  mucDoKho: permissionLevelSchema,
   mucDoZalo: permissionLevelSchema,
   mucDoZaloMonitor: permissionLevelSchema,
+  mucDoCaiDatHotline: permissionLevelSchema,
+  mucDoCaiDatEmail: permissionLevelSchema,
 });
 
 export async function PUT(

@@ -186,7 +186,7 @@ export default function ChiTietToaNhaPage() {
         const result = await response.json();
         if (result.success) {
           toast.success('Cập nhật tòa nhà thành công!');
-          router.push(isAdmin ? '/dashboard' : '/dashboard/toa-nha');
+          router.push('/dashboard');
         } else {
           toast.error(result.message || 'Có lỗi xảy ra');
         }

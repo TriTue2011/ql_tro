@@ -133,8 +133,10 @@ export default function DashboardPage() {
     try {
       const res = await fetch('/api/admin/users');
       const data = await res.json();
-      if (data?.success) {
-        const users: BuildingUser[] = data.data.map((u: any) => ({
+      // API /api/admin/users returns a raw array, not { success, data }
+      const usersList: any[] = data?.success ? data.data : (Array.isArray(data) ? data : []);
+      if (usersList.length > 0 || !Array.isArray(data)) {
+        const users: BuildingUser[] = usersList.map((u: any) => ({
           id: u.id,
           ten: u.ten,
           email: u.email,
@@ -687,79 +689,92 @@ export default function DashboardPage() {
                               </div>
                             ) : (
                               <div>
-                                {/* ── Permission Tree: grouped by category, showing users under each ── */}
+                                {/* ── Permission Tree: user-centric, showing each user with their permissions ── */}
                                 {(() => {
-                                  // Build a map of permission key → list of users with their level
-                                  const permUserMap = new Map<string, { user: BuildingUser; level: PermissionLevel }[]>();
-                                  for (const user of buildingUsers) {
-                                    const isChuTro = user.vaiTro === 'chuNha';
-                                    const perms = isChuTro && !user.quyenTheoToaNha?.[tn.id]
-                                      ? Object.fromEntries(BUSINESS_PERMISSIONS.map(p => [p.key, 'fullAccess' as PermissionLevel]))
-                                      : (user.quyenTheoToaNha?.[tn.id] ?? {});
-                                    for (const p of BUSINESS_PERMISSIONS) {
-                                      const level = (perms[p.key] as PermissionLevel) || 'hidden';
-                                      if (!permUserMap.has(p.key)) permUserMap.set(p.key, []);
-                                      permUserMap.get(p.key)!.push({ user, level });
-                                    }
-                                  }
-                                  // Group permissions by their group
+                                  // Group permissions by category for display
                                   const grouped = BUSINESS_PERMISSIONS.reduce<Record<string, typeof BUSINESS_PERMISSIONS>>((acc, p) => {
                                     if (!acc[p.group]) acc[p.group] = [];
                                     acc[p.group].push(p);
                                     return acc;
                                   }, {});
-                                  return Object.entries(grouped).map(([groupName, perms]) => (
-                                    <div key={groupName} style={{ marginBottom: 16 }}>
-                                      <div style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8, padding: '0 4px' }}>
-                                        {groupName}
-                                      </div>
-                                      {perms.map(p => {
-                                        const entries = permUserMap.get(p.key) ?? [];
-                                        const fullAccessUsers = entries.filter(e => e.level === 'fullAccess');
-                                        const viewUsers = entries.filter(e => e.level === 'viewOnly');
-                                        const hiddenUsers = entries.filter(e => e.level === 'hidden');
-                                        return (
-                                          <div key={p.key} style={{ background: '#fff', borderRadius: 8, padding: '8px 12px', marginBottom: 6, border: '1px solid #ede9fe' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                                              <span style={{ fontSize: 12, fontWeight: 600, color: '#1f2937' }}>{p.label}</span>
-                                              <span style={{ fontSize: 10, color: '#9ca3af' }}>
-                                                {fullAccessUsers.length} đầy đủ · {viewUsers.length} xem · {hiddenUsers.length} ẩn
-                                              </span>
+                                  const groupEntries = Object.entries(grouped);
+                                  // Render each user as a card with their permission badges
+                                  return buildingUsers.map(user => {
+                                    const isChuTro = user.vaiTro === 'chuNha';
+                                    const perms = isChuTro && !user.quyenTheoToaNha?.[tn.id]
+                                      ? Object.fromEntries(BUSINESS_PERMISSIONS.map(p => [p.key, 'fullAccess' as PermissionLevel]))
+                                      : (user.quyenTheoToaNha?.[tn.id] ?? {});
+                                    const roleColor = user.vaiTro === 'chuNha' ? '#10b981' : user.vaiTro === 'dongChuTro' ? '#f59e0b' : user.vaiTro === 'quanLy' ? '#6366f1' : '#6b7280';
+                                    const roleLabel = user.vaiTro === 'chuNha' ? 'Chủ trọ' : user.vaiTro === 'dongChuTro' ? 'Đồng chủ trọ' : user.vaiTro === 'quanLy' ? 'Quản lý' : 'Nhân viên';
+                                    return (
+                                      <div key={user.id} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', marginBottom: 10, border: '1px solid #ede9fe' }}>
+                                        {/* User header */}
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <div style={{
+                                              width: 28, height: 28, borderRadius: '50%',
+                                              background: roleColor, color: '#fff',
+                                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                              fontSize: 12, fontWeight: 700,
+                                            }}>
+                                              {(user.ten || '?').charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                              <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{user.ten || 'Không có tên'}</div>
+                                              <div style={{ fontSize: 10, color: roleColor, fontWeight: 500 }}>{roleLabel}</div>
+                                            </div>
+                                          </div>
+                                          {user.soDienThoai && (
+                                            <span style={{ fontSize: 11, color: '#9ca3af' }}>{user.soDienThoai}</span>
+                                          )}
+                                        </div>
+                                        {/* Permission badges grouped by category */}
+                                        {groupEntries.map(([groupName, groupPerms]) => (
+                                          <div key={groupName} style={{ marginBottom: 6 }}>
+                                            <div style={{ fontSize: 10, fontWeight: 600, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 4 }}>
+                                              {groupName}
                                             </div>
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                              {entries.map(e => {
-                                                const roleColor = e.user.vaiTro === 'chuNha' ? '#10b981' : e.user.vaiTro === 'dongChuTro' ? '#f59e0b' : e.user.vaiTro === 'quanLy' ? '#6366f1' : '#6b7280';
-                                                const levelLabel = e.level === 'fullAccess' ? 'Đầy đủ' : e.level === 'viewOnly' ? 'Xem' : 'Ẩn';
-                                                const levelColor = e.level === 'fullAccess' ? '#10b981' : e.level === 'viewOnly' ? '#f59e0b' : '#d1d5db';
+                                              {groupPerms.map(p => {
+                                                const level = (perms[p.key] as PermissionLevel) || 'hidden';
+                                                const levelLabel = level === 'fullAccess' ? 'Đầy đủ' : level === 'viewOnly' ? 'Xem' : 'Ẩn';
+                                                const levelBg = level === 'fullAccess' ? '#ecfdf5' : level === 'viewOnly' ? '#fffbeb' : '#f9fafb';
+                                                const levelBorder = level === 'fullAccess' ? '#a7f3d0' : level === 'viewOnly' ? '#fde68a' : '#e5e7eb';
+                                                const levelColor = level === 'fullAccess' ? '#10b981' : level === 'viewOnly' ? '#d97706' : '#9ca3af';
+                                                const isSaving = savingPerm === `${user.id}-${p.key}`;
                                                 return (
                                                   <div
-                                                    key={e.user.id}
+                                                    key={p.key}
                                                     style={{
-                                                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                      padding: '2px 8px', borderRadius: 12,
-                                                      background: e.level === 'fullAccess' ? '#ecfdf5' : e.level === 'viewOnly' ? '#fffbeb' : '#f9fafb',
-                                                      border: `1px solid ${e.level === 'fullAccess' ? '#a7f3d0' : e.level === 'viewOnly' ? '#fde68a' : '#e5e7eb'}`,
-                                                      fontSize: 11, cursor: 'pointer',
+                                                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                                                      padding: '2px 8px', borderRadius: 10,
+                                                      background: levelBg,
+                                                      border: `1px solid ${levelBorder}`,
+                                                      fontSize: 10, cursor: isChuTro ? 'default' : 'pointer',
+                                                      opacity: isSaving ? 0.6 : 1,
+                                                      transition: 'all 0.15s',
                                                     }}
                                                     onClick={(ev) => {
                                                       ev.stopPropagation();
-                                                      // Toggle: hidden → view → fullAccess → hidden
-                                                      const nextLevel = e.level === 'hidden' ? 'viewOnly' as PermissionLevel : e.level === 'viewOnly' ? 'fullAccess' as PermissionLevel : 'hidden' as PermissionLevel;
-                                                      handlePermissionChange(e.user.id, tn.id, p.key, nextLevel);
+                                                      if (isChuTro) return; // Chủ trọ không thể thay đổi quyền của chính mình
+                                                      // Toggle: hidden → viewOnly → fullAccess → hidden
+                                                      const nextLevel = level === 'hidden' ? 'viewOnly' as PermissionLevel : level === 'viewOnly' ? 'fullAccess' as PermissionLevel : 'hidden' as PermissionLevel;
+                                                      handlePermissionChange(user.id, tn.id, p.key, nextLevel);
                                                     }}
-                                                    title={`${e.user.ten}: ${levelLabel} — nhấn để đổi`}
+                                                    title={isChuTro ? 'Chủ trọ có toàn quyền' : `${p.label}: ${levelLabel} — nhấn để đổi`}
                                                   >
-                                                    <span style={{ color: roleColor, fontWeight: 700 }}>{(e.user.ten || '?').charAt(0).toUpperCase()}</span>
-                                                    <span style={{ color: levelColor, fontSize: 10 }}>{levelLabel}</span>
+                                                    <span style={{ color: levelColor, fontWeight: 500 }}>{p.label}</span>
+                                                    <span style={{ color: levelColor, fontSize: 9, opacity: 0.7 }}>·</span>
+                                                    <span style={{ color: levelColor, fontSize: 9 }}>{levelLabel}</span>
                                                   </div>
                                                 );
                                               })}
                                             </div>
                                           </div>
-                                        );
-                                      })}
-                                    </div>
-                                  ));
+                                        ))}
+                                      </div>
+                                    );
+                                  });
                                 })()}
                               </div>
                             )}
