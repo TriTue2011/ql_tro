@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { DashboardStats } from '@/types';
 import ZaloHotlineWarning from '@/components/zalo-hotline-warning';
-import { PermissionLevelSelector } from '@/components/dashboard';
+import { Eye, EyeOff, Pencil } from 'lucide-react';
 import type { PermissionLevel } from '@/components/dashboard';
 import { toast } from 'sonner';
 import {
@@ -822,16 +822,77 @@ export default function DashboardPage() {
                                       );
                                     }
                                     return (
-                                      <PermissionLevelSelector
-                                        items={filteredItems}
-                                        values={perms}
-                                        onChange={(key, value) => {
-                                          void saveBuildingPermission(tn.id, key, value);
-                                        }}
-                                        disabled={false}
-                                        columns={2}
-                                        showGroup={false}
-                                      />
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        {filteredItems.map((item) => {
+                                          const currentValue = perms[item.key] ?? 'fullAccess';
+                                          return (
+                                            <div
+                                              key={item.key}
+                                              style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '8px 12px',
+                                                borderRadius: 8,
+                                                border: '1px solid',
+                                                borderColor: currentValue === 'hidden'
+                                                  ? '#fecaca'
+                                                  : currentValue === 'viewOnly'
+                                                    ? '#fde68a'
+                                                    : '#bbf7d0',
+                                                background: currentValue === 'hidden'
+                                                  ? '#fef2f2'
+                                                  : currentValue === 'viewOnly'
+                                                    ? '#fffbeb'
+                                                    : '#f0fdf4',
+                                                transition: 'all 0.15s',
+                                              }}
+                                            >
+                                              <div style={{ minWidth: 0, flex: 1 }}>
+                                                <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>{item.label}</span>
+                                                {item.description && (
+                                                  <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0 0' }}>{item.description}</p>
+                                                )}
+                                              </div>
+                                              <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 12 }}>
+                                                {([
+                                                  { value: 'hidden' as PermissionLevel, icon: EyeOff, color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
+                                                  { value: 'viewOnly' as PermissionLevel, icon: Eye, color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+                                                  { value: 'fullAccess' as PermissionLevel, icon: Pencil, color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+                                                ]).map((opt) => {
+                                                  const Icon = opt.icon;
+                                                  const isSelected = currentValue === opt.value;
+                                                  return (
+                                                    <button
+                                                      key={opt.value}
+                                                      type="button"
+                                                      onClick={() => saveBuildingPermission(tn.id, item.key, opt.value)}
+                                                      style={{
+                                                        width: 28,
+                                                        height: 28,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        borderRadius: 6,
+                                                        border: '1px solid',
+                                                        borderColor: isSelected ? opt.border : '#e5e7eb',
+                                                        background: isSelected ? opt.bg : '#fff',
+                                                        color: isSelected ? opt.color : '#d1d5db',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.15s',
+                                                        fontSize: 14,
+                                                      }}
+                                                      title={opt.value === 'hidden' ? 'Ẩn' : opt.value === 'viewOnly' ? 'Xem' : 'Sửa'}
+                                                    >
+                                                      <Icon className="h-3.5 w-3.5" />
+                                                    </button>
+                                                  );
+                                                })}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
                                     );
                                   })()}
                                 </div>
