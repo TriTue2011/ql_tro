@@ -167,7 +167,7 @@ export default function DashboardPage() {
 
         <ZaloHotlineWarning />
 
-        {/* ── KPI Cards ──────────────────────────────────────────────── */}
+        {/* ── Permission Quick-Access (like chuNha style) ──────────────── */}
         <div className="bs-section-header">
           <h2 className="bs-section-title">Tổng quan hệ thống</h2>
           <span style={{ fontSize: 12, color: '#9ca3af' }}>
@@ -175,95 +175,64 @@ export default function DashboardPage() {
           </span>
         </div>
 
-        <div className="row g-3 mb-4">
-          <div className="col-6 col-sm-6 col-lg-3">
-            <Link href="/dashboard/toa-nha" className="text-decoration-none">
-              <div className="bs-stat-card card-indigo">
-                <div className="d-flex align-items-start justify-content-between">
-                  <div>
-                    <div className="bs-stat-label">Tổng tòa nhà</div>
-                    <div className="bs-stat-value">{s.tongToaNha}</div>
-                    <div className="bs-stat-sub">
-                      <span className="bs-pulse-dot dot-blue" style={{ marginRight: 5 }} />
-                      {s.tongToaNha} tòa nhà đang quản lý
-                    </div>
-                  </div>
-                  <div className="bs-stat-icon icon-indigo">
-                    <i className="bi bi-buildings-fill" />
-                  </div>
-                </div>
+        <div className="mb-4" style={{ position: 'relative', zIndex: 100 }}>
+          <div className="row g-2">
+            {[
+              { href: '/dashboard/toa-nha', icon: 'bi-buildings-fill', label: 'Tòa nhà', color: '#6366f1', count: s.tongToaNha },
+              { href: '/dashboard/quan-ly-tai-khoan', icon: 'bi-people-fill', label: 'Tài khoản', color: '#10b981', count: null },
+              { href: '/dashboard/phan-quyen', icon: 'bi-diagram-3-fill', label: 'Phân quyền', color: '#8b5cf6', count: null },
+              { href: '/dashboard/toa-nha/them-moi', icon: 'bi-plus-circle', label: 'Thêm tòa nhà', color: '#f59e0b', count: null },
+              { href: '/dashboard/quan-ly-tai-khoan/them-moi', icon: 'bi-person-plus', label: 'Thêm chủ trọ', color: '#3b82f6', count: null },
+              { href: '/dashboard/ho-so', icon: 'bi-person-circle', label: 'Hồ sơ', color: '#06b6d4', count: null },
+            ].map((item) => (
+              <div key={item.href} className="col-4 col-sm-2">
+                <Link
+                  href={item.href}
+                  className="d-flex flex-column align-items-center justify-content-center h-100 position-relative text-decoration-none"
+                  style={{
+                    padding: '16px 8px',
+                    background: '#fff',
+                    borderRadius: 12,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                    border: '1px solid #e5e7eb',
+                    display: 'flex',
+                    cursor: 'pointer',
+                    overflow: 'visible'
+                  }}
+                >
+                  <i className={`bi ${item.icon}`} style={{ color: item.color, fontSize: 24, marginBottom: 6 }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{item.label}</span>
+                  {item.count !== null && item.count !== undefined ? (
+                    <span
+                      className="position-absolute badge rounded-pill"
+                      style={{
+                        top: -5,
+                        right: -5,
+                        fontSize: 10,
+                        minWidth: 20,
+                        height: 20,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 4px rgba(99,102,241,0.3)',
+                        zIndex: 10,
+                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                        color: '#fff'
+                      }}
+                    >
+                      {item.count}
+                    </span>
+                  ) : null}
+                </Link>
               </div>
-            </Link>
-          </div>
-
-          <div className="col-6 col-sm-6 col-lg-3">
-            <Link href="/dashboard/quan-ly-tai-khoan" className="text-decoration-none">
-              <div className="bs-stat-card card-emerald">
-                <div className="d-flex align-items-start justify-content-between">
-                  <div>
-                    <div className="bs-stat-label">Chủ trọ</div>
-                    <div className="bs-stat-value">{s.tongToaNha}</div>
-                    <div className="bs-stat-sub">
-                      <span className="bs-pulse-dot dot-green" style={{ marginRight: 5 }} />
-                      1 chủ trọ / tòa nhà
-                    </div>
-                  </div>
-                  <div className="bs-stat-icon icon-emerald">
-                    <i className="bi bi-person-fill-gear" />
-                  </div>
-                </div>
-              </div>
-            </Link>
-          </div>
-
-          <div className="col-6 col-sm-6 col-lg-3">
-            <Link href="/dashboard/phan-quyen" className="text-decoration-none">
-              <div className="bs-stat-card card-amber">
-                <div className="d-flex align-items-start justify-content-between">
-                  <div>
-                    <div className="bs-stat-label">Phân quyền</div>
-                    <div className="bs-stat-value" style={{ fontSize: 22 }}>
-                      <i className="bi bi-shield-check" style={{ marginRight: 6 }} />
-                      Cây quyền
-                    </div>
-                    <div className="bs-stat-sub">
-                      Quản lý quyền theo tòa nhà
-                    </div>
-                  </div>
-                  <div className="bs-stat-icon icon-amber">
-                    <i className="bi bi-diagram-3-fill" />
-                  </div>
-                </div>
-              </div>
-            </Link>
-          </div>
-
-          <div className="col-6 col-sm-6 col-lg-3">
-            <Link href="/dashboard/quan-ly-tai-khoan" className="text-decoration-none">
-              <div className="bs-stat-card card-blue">
-                <div className="d-flex align-items-start justify-content-between">
-                  <div>
-                    <div className="bs-stat-label">Quản lý tài khoản</div>
-                    <div className="bs-stat-value" style={{ fontSize: 22 }}>
-                      <i className="bi bi-people-fill" style={{ marginRight: 6 }} />
-                      Người dùng
-                    </div>
-                    <div className="bs-stat-sub">
-                      Quản lý tài khoản hệ thống
-                    </div>
-                  </div>
-                  <div className="bs-stat-icon icon-blue">
-                    <i className="bi bi-person-badge" />
-                  </div>
-                </div>
-              </div>
-            </Link>
+            ))}
           </div>
         </div>
 
-        {/* ── Row 2: Building list + Quick actions ─────────────────────── */}
+        {/* ── Row 2: Building list (full width now) ────────────────────── */}
         <div className="row g-3 mb-4">
-          <div className="col-12 col-lg-8">
+          <div className="col-12">
             <div className="bs-card h-100">
               <div className="bs-card-header">
                 <div>
@@ -295,36 +264,6 @@ export default function DashboardPage() {
                     ))}
                   </ul>
                 )}
-              </div>
-            </div>
-          </div>
-
-          <div className="col-12 col-lg-4">
-            <div className="bs-card h-100">
-              <div className="bs-card-header">
-                <div>
-                  <h5 className="bs-card-title"><i className="bi bi-lightning-charge-fill" /> Thao tác nhanh</h5>
-                  <div className="bs-card-subtitle">Quản trị hệ thống</div>
-                </div>
-              </div>
-              <div className="bs-card-body">
-                <div className="row g-2">
-                  {[
-                    { href: '/dashboard/toa-nha', icon: 'bi-buildings', label: 'Quản lý tòa nhà', color: '#6366f1' },
-                    { href: '/dashboard/toa-nha/them-moi', icon: 'bi-plus-circle', label: 'Thêm tòa nhà', color: '#10b981' },
-                    { href: '/dashboard/quan-ly-tai-khoan', icon: 'bi-people-fill', label: 'Tài khoản', color: '#f59e0b' },
-                    { href: '/dashboard/phan-quyen', icon: 'bi-diagram-3', label: 'Phân quyền', color: '#8b5cf6' },
-                    { href: '/dashboard/quan-ly-tai-khoan/them-moi', icon: 'bi-person-plus', label: 'Thêm người dùng', color: '#3b82f6' },
-                    { href: '/dashboard/ho-so', icon: 'bi-person-circle', label: 'Hồ sơ', color: '#06b6d4' },
-                  ].map((item) => (
-                    <div key={item.href} className="col-6">
-                      <Link href={item.href} className="bs-quick-btn">
-                        <i className={`bi ${item.icon}`} style={{ color: item.color, fontSize: 22 }} />
-                        <span style={{ fontSize: 11, lineHeight: 1.3 }}>{item.label}</span>
-                      </Link>
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
           </div>
